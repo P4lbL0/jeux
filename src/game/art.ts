@@ -22,6 +22,7 @@ export function creerTexturesPlaceholder(scene: Phaser.Scene): void {
   creerMur(scene);
   creerEnnemi(scene);
   creerMortVivant(scene);
+  creerFamiliers(scene);
   creerProjectile(scene);
   creerImpact(scene);
   creerIconesUltimes(scene);
@@ -324,6 +325,100 @@ function creerIconesCapacites(scene: Phaser.Scene): void {
     g.fillTriangle(22, 6, 26, 6, 24, 1);
   });
 
+  // Jugement : une epee plantee dans un rai de lumiere.
+  dessiner("cap-jugement", (g) => {
+    g.fillRect(14, 2, 4, 20);
+    g.fillRect(9, 8, 14, 3);
+    g.fillTriangle(13, 22, 19, 22, 16, 30);
+    g.fillRect(4, 26, 24, 2);
+  });
+
+  // Bouclier des ames : un bouclier avec un coeur.
+  dessiner("cap-bouclier-ames", (g) => {
+    g.fillPoints(
+      [
+        new Phaser.Geom.Point(16, 2),
+        new Phaser.Geom.Point(28, 8),
+        new Phaser.Geom.Point(16, 30),
+        new Phaser.Geom.Point(4, 8),
+      ],
+      true,
+    );
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(13, 13, 4);
+    g.fillCircle(19, 13, 4);
+    g.fillTriangle(8, 15, 24, 15, 16, 25);
+  });
+
+  // Charge : un chevron lance vers l'avant.
+  dessiner("cap-charge", (g) => {
+    for (let i = 0; i < 3; i++) {
+      g.fillTriangle(4 + i * 8, 6, 12 + i * 8, 16, 4 + i * 8, 26);
+    }
+  });
+
+  // Cri de guerre : une bouche ouverte et des ondes.
+  dessiner("cap-cri", (g) => {
+    g.fillTriangle(2, 8, 2, 24, 14, 16);
+    for (let r = 8; r <= 18; r += 5) {
+      g.lineStyle(3, 0xffffff, 1);
+      g.beginPath();
+      g.arc(14, 16, r, -1, 1, false);
+      g.strokePath();
+    }
+  });
+
+  // Clignement : deux silhouettes, l'une qui s'efface.
+  dessiner("cap-clignement", (g) => {
+    g.fillRect(4, 8, 6, 16);
+    g.fillStyle(0xffffff, 0.35);
+    g.fillRect(22, 8, 6, 16);
+    g.fillStyle(0xffffff, 1);
+    for (let i = 0; i < 4; i++) g.fillRect(12 + i * 3, 15, 2, 2);
+  });
+
+  // Sablier : le meme que l'Heure sombre, mais couche.
+  dessiner("cap-sablier", (g) => {
+    g.fillRect(4, 6, 3, 20);
+    g.fillRect(25, 6, 3, 20);
+    g.fillTriangle(7, 7, 7, 25, 16, 16);
+    g.fillTriangle(25, 7, 25, 25, 16, 16);
+  });
+
+  // Croc-en-jambe : des lames plantees au sol.
+  dessiner("cap-croc", (g) => {
+    g.fillRect(2, 24, 28, 3);
+    for (const [x, h] of [
+      [6, 12],
+      [13, 18],
+      [20, 14],
+      [26, 10],
+    ] as [number, number][]) {
+      g.fillTriangle(x - 2, 24, x + 2, 24, x, 24 - h);
+    }
+  });
+
+  // Doppelganger : deux silhouettes jumelles.
+  dessiner("cap-doppelganger", (g) => {
+    g.fillRect(5, 10, 8, 18);
+    g.fillCircle(9, 8, 5);
+    g.fillStyle(0xffffff, 0.4);
+    g.fillRect(19, 10, 8, 18);
+    g.fillCircle(23, 8, 5);
+  });
+
+  // Contrat : un parchemin marque d'une croix.
+  dessiner("cap-contrat", (g) => {
+    g.fillRect(6, 3, 20, 26);
+    g.fillStyle(0x000000, 1);
+    g.fillRect(9, 8, 14, 2);
+    g.fillRect(9, 13, 14, 2);
+    for (let i = 0; i < 12; i++) {
+      g.fillRect(10 + i, 17 + i, 2, 2);
+      g.fillRect(21 - i, 17 + i, 2, 2);
+    }
+  });
+
   // Generique : une etoile, pour toute capacite sans icone dediee.
   dessiner("cap-generique", (g) => {
     for (let i = 0; i < 4; i++) {
@@ -415,6 +510,35 @@ function creerMortVivant(scene: Phaser.Scene): void {
 
   g.generateTexture("mort-vivant", TAILLE_ENNEMI.largeur, TAILLE_ENNEMI.hauteur);
   g.destroy();
+}
+
+/** Les trois visages du familier du mage : de base, golem, spectre. */
+function creerFamiliers(scene: Phaser.Scene): void {
+  const modele = (cle: string, corps: number, oeil: number, trapu: boolean) => {
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(0x000000, 0.25);
+    g.fillEllipse(6, 14, 11, 4);
+
+    g.fillStyle(corps, 1);
+    if (trapu) {
+      g.fillRect(1, 4, 10, 9); // large et carre : le golem
+      g.fillRect(2, 13, 3, 2);
+      g.fillRect(7, 13, 3, 2);
+    } else {
+      g.fillRect(3, 4, 6, 9);
+      g.fillTriangle(3, 13, 9, 13, 6, 16); // pointe flottante
+    }
+    g.fillStyle(oeil, 1);
+    g.fillRect(trapu ? 3 : 4, 7, 2, 2);
+    g.fillRect(trapu ? 7 : 6, 7, 2, 2);
+
+    g.generateTexture(cle, TAILLE_ENNEMI.largeur, TAILLE_ENNEMI.hauteur);
+    g.destroy();
+  };
+
+  modele("familier", 0x8e6bb8, 0x5ec8f0, false);
+  modele("familier-golem", 0x8a7154, 0xffd166, true);
+  modele("familier-spectre", 0x7fa8c8, 0xffffff, false);
 }
 
 /**

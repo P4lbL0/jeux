@@ -10,7 +10,16 @@ import {
   type EvolutionDef,
 } from "../core/competences";
 import { creerTexturesPlaceholder } from "../game/art";
-import { Ennemi, Hero, MortVivant, type Capacite, type Dome } from "../game/entities";
+import {
+  Double,
+  Ennemi,
+  Familier,
+  Hero,
+  Invocation,
+  MortVivant,
+  type Capacite,
+  type Dome,
+} from "../game/entities";
 import { piloter, type ContexteIA } from "../core/ia";
 import type { EtatEquipe } from "../game/hud";
 
@@ -41,7 +50,12 @@ export class ArenaScene extends Phaser.Scene {
   private equipe!: Phaser.Physics.Arcade.Group;
   private ennemis!: Phaser.Physics.Arcade.Group;
   private projectiles!: Phaser.Physics.Arcade.Group;
-  private mortsVivants!: Phaser.Physics.Arcade.Group;
+  /** Tout ce qui se bat pour l'equipe sans etre un heros */
+  private invocations!: Phaser.Physics.Arcade.Group;
+  /** Instant a partir duquel un familier detruit peut revenir */
+  private retourFamilier = new Map<Hero, number>();
+  /** Contrat en cours de l'assassin : cette cible mourra */
+  private contrats = new Map<Hero, Ennemi>();
   private domes: Dome[] = [];
   private orbiteurs = new Map<Hero, Phaser.GameObjects.Image[]>();
   private prochainTickOrbiteurs = 0;
@@ -87,6 +101,8 @@ export class ArenaScene extends Phaser.Scene {
     this.marqueur = null;
     this.domes = [];
     this.orbiteurs = new Map();
+    this.retourFamilier = new Map();
+    this.contrats = new Map();
     this.martyr = null;
     this.resurrectionUtilisee = false;
     this.figeJusqua = 0;
@@ -125,7 +141,7 @@ export class ArenaScene extends Phaser.Scene {
     this.equipe = this.physics.add.group();
     this.ennemis = this.physics.add.group();
     this.projectiles = this.physics.add.group();
-    this.mortsVivants = this.physics.add.group();
+    this.invocations = this.physics.add.group();
     this.composerEquipe();
 
     this.physics.world.setBounds(MUR, MUR, MONDE.largeur - MUR * 2, MONDE.hauteur - MUR * 2);
@@ -142,8 +158,8 @@ export class ArenaScene extends Phaser.Scene {
     this.physics.add.overlap(this.projectiles, this.ennemis, (p, e) =>
       this.impactProjectile(p as Phaser.Physics.Arcade.Image, e as Ennemi),
     );
-    this.physics.add.overlap(this.mortsVivants, this.ennemis, (m, e) =>
-      this.melee(m as MortVivant, e as Ennemi),
+    this.physics.add.overlap(this.invocations, this.ennemis, (m, e) =>
+      this.melee(m as Invocation, e as Ennemi),
     );
 
     this.scene.launch("ui", { arene: this });
@@ -347,7 +363,8 @@ export class ArenaScene extends Phaser.Scene {
     this.majProvocation();
     this.majOrbiteurs();
     this.majAuras();
-    this.majMortsVivants();
+    this.majInvocations();
+    this.majProvocationInvocations();
     this.deplacerHeroIncarne();
     this.deplacerHerosIA();
 
@@ -413,15 +430,43 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
-  /** Les mort-vivants du Necromancien se battent tout seuls. */
-  private majMortsVivants(): void {
-    for (const objet of [...this.mortsVivants.getChildren()] as MortVivant[]) {
+  /**
+   * Les invocations se battent toutes seules : mort-vivants, familier, double.
+   * Elles cherchent l'ennemi le plus proche et lui foncent dessus.
+   */
+  private majInvocations(): void {
+    // Le familier du mage est permanent : s'il tombe, il revient.
+    for (const hero of this.heros) {
+      if (hero.bonus.familier <= 0 || hero.etat === "mort") continue;
+      const vivant = (this.invocations.getChildren() as Invocation[]).some(
+        (i) => i.active && i instanceof Familier && i.maitre === hero,
+      );
+      if (vivant) continue;
+      const retour = this.retourFamilier.get(hero) ?? 0;
+      if (this.time.now < retour) continue;
+      this.invocations.add(new Familier(this, hero.x + 24, hero.y, hero));
+    }
+
+    for (const objet of [...this.invocations.getChildren()] as Invocation[]) {
       if (!objet.active) continue;
       if (this.time.now > objet.finDeVie) {
-        this.tuerMortVivant(objet);
+        this.detruireInvocation(objet);
         continue;
       }
-      const cible = this.ennemiLePlusProche(objet.x, objet.y, 900);
+      objet.setDepth(objet.y);
+      if (objet.vitesse <= 0) {
+        objet.setVelocity(0, 0);
+        continue;
+      }
+
+      // Le spectre acheve en priorite ce qui agonise.
+      const cible =
+        (objet.seuilExecution > 0
+          ? this.ennemisDansRayon(objet.x, objet.y, 460).find(
+              (e) => e.pv / e.pvMax <= objet.seuilExecution,
+            )
+          : null) ?? this.ennemiLePlusProche(objet.x, objet.y, 900);
+
       if (!cible) {
         objet.setVelocity(0, 0);
         continue;
@@ -429,30 +474,60 @@ export class ArenaScene extends Phaser.Scene {
       const angle = Phaser.Math.Angle.Between(objet.x, objet.y, cible.x, cible.y);
       objet.setVelocity(Math.cos(angle) * objet.vitesse, Math.sin(angle) * objet.vitesse);
       objet.setFlipX(cible.x < objet.x);
-      objet.setDepth(objet.y);
     }
   }
 
-  private melee(mort: MortVivant, e: Ennemi): void {
-    if (!mort.active || !e.active || this.enPause) return;
-    if (!mort.peutFrapper(this.time.now)) return;
-    mort.marquerCoup(this.time.now);
+  private melee(invoque: Invocation, e: Ennemi): void {
+    if (!invoque.active || !e.active || this.enPause) return;
+    if (!invoque.peutFrapper(this.time.now)) return;
+    invoque.marquerCoup(this.time.now);
 
-    this.blesserEnnemi(e, mort.degats, mort.maitre);
-    mort.pv -= e.degats;
-    mort.setTintFill(0xffffff);
-    this.time.delayedCall(60, () => mort.active && mort.clearTint());
-    if (mort.pv <= 0) this.tuerMortVivant(mort);
+    if (invoque.degats > 0) {
+      // Le spectre execute ce qui est deja a l'agonie.
+      const acheve = invoque.seuilExecution > 0 && e.pv / e.pvMax <= invoque.seuilExecution;
+      this.blesserEnnemi(e, acheve ? e.pv : invoque.degats, invoque.maitre);
+      if (acheve) this.flotter(e.x, e.y - 16, "ACHEVE", "#9fd8ff");
+    }
+
+    invoque.pv -= e.degats;
+    invoque.setTintFill(0xffffff);
+    this.time.delayedCall(60, () => invoque.active && invoque.clearTint());
+    if (invoque.pv <= 0) this.detruireInvocation(invoque);
   }
 
-  private tuerMortVivant(mort: MortVivant): void {
-    if (mort.maitre.bonus.mortsVivantsExplosifs) {
-      this.effetCercle(mort.x, mort.y, 70, 0x9ee8a0);
-      for (const e of this.ennemisDansRayon(mort.x, mort.y, 70)) {
-        this.blesserEnnemi(e, mort.degats * 2, mort.maitre);
+  private detruireInvocation(invoque: Invocation): void {
+    if (invoque.explosif) {
+      this.effetCercle(invoque.x, invoque.y, 80, 0x9ee8a0);
+      for (const e of this.ennemisDansRayon(invoque.x, invoque.y, 80)) {
+        this.blesserEnnemi(e, Math.max(invoque.degats * 2, invoque.maitre.degats * 2), invoque.maitre);
       }
     }
-    mort.destroy();
+    // Le familier revient au bout d'un moment : il est permanent.
+    if (invoque instanceof Familier) {
+      this.retourFamilier.set(invoque.maitre, this.time.now + 12000);
+    }
+    for (const objet of this.ennemis.getChildren()) {
+      const e = objet as Ennemi;
+      if (e.attirePar === invoque) e.attirePar = null;
+    }
+    invoque.destroy();
+  }
+
+  /** Le golem et le double de l'assassin attirent les ennemis sur eux. */
+  private majProvocationInvocations(): void {
+    const provocateurs = (this.invocations.getChildren() as Invocation[]).filter(
+      (i) => i.active && i.provoque,
+    );
+
+    for (const objet of this.ennemis.getChildren()) {
+      const e = objet as Ennemi;
+      if (e.attirePar && !e.attirePar.active) e.attirePar = null;
+      if (e.attirePar) continue;
+      const proche = provocateurs.find(
+        (i) => Phaser.Math.Distance.Between(e.x, e.y, i.x, i.y) <= 200,
+      );
+      if (proche) e.attirePar = proche;
+    }
   }
 
   /** Un cadavre a une chance de se relever pour le Necromancien. */
@@ -470,7 +545,7 @@ export class ArenaScene extends Phaser.Scene {
 
   private relever(maitre: Hero, x: number, y: number): void {
     const mort = new MortVivant(this, x, y, maitre);
-    this.mortsVivants.add(mort);
+    this.invocations.add(mort);
     this.effetCercle(x, y, 34, 0x9ee8a0);
   }
 
@@ -651,7 +726,9 @@ export class ArenaScene extends Phaser.Scene {
       const angle = Phaser.Math.Angle.Between(e.x, e.y, cible.x, cible.y);
       e.setVelocity(Math.cos(angle) * e.vitesseEffective, Math.sin(angle) * e.vitesseEffective);
       e.setFlipX(cible.x < e.x);
-      e.setTint(this.time.now < e.ralentiJusqua ? 0x8ed6ff : 0xffffff);
+      // Un ennemi sous contrat reste marque en rouge jusqu'a la fin.
+      if (e.souscontrat) e.setTint(0xff3b30);
+      else e.setTint(this.time.now < e.ralentiJusqua ? 0x8ed6ff : 0xffffff);
 
       this.bloquerParLesDomes(e);
     }
@@ -662,7 +739,9 @@ export class ArenaScene extends Phaser.Scene {
    * la Provocation force sa cible, l'invisibilite retire une cible, et la
    * discretion de l'assassin le fait passer apres les autres.
    */
-  private cibleDe(e: Ennemi): Hero | null {
+  private cibleDe(e: Ennemi): { x: number; y: number } | null {
+    // Une invocation provocatrice passe avant tout le reste.
+    if (e.attirePar?.active && !e.attirePar.furtif) return e.attirePar;
     if (e.provoquePar?.estAuCombat && !e.provoquePar.estInvisible) return e.provoquePar;
 
     const candidats = this.heros.filter((h) => h.estAuCombat && !h.estInvisible);
@@ -717,7 +796,15 @@ export class ArenaScene extends Phaser.Scene {
 
   private attaquerAvec(hero: Hero): void {
     if (hero.etat !== "combat" || hero.estImmobilise || !hero.peutAttaquer()) return;
-    const cible = this.ennemiLePlusProche(hero.x, hero.y, hero.portee);
+
+    // Contrat : tant qu'il court, l'assassin ne peut viser personne d'autre.
+    const contrat = this.contrats.get(hero);
+    const cible = contrat
+      ? contrat.active &&
+        Phaser.Math.Distance.Between(hero.x, hero.y, contrat.x, contrat.y) <= hero.portee
+        ? contrat
+        : null
+      : this.ennemiLePlusProche(hero.x, hero.y, hero.portee);
     if (!cible) return;
 
     hero.marquerAttaque();
@@ -880,7 +967,11 @@ export class ArenaScene extends Phaser.Scene {
     const inflige = Math.min(degats, e.pv);
     e.pv -= degats;
     e.setTintFill(0xffffff);
-    this.time.delayedCall(60, () => e.active && e.clearTint());
+    this.time.delayedCall(60, () => {
+      if (!e.active) return;
+      if (e.souscontrat) e.setTint(0xff3b30);
+      else e.clearTint();
+    });
 
     const vol = auteur.volDeVie + volDeVieSup;
     if (vol > 0) auteur.soigner(inflige * vol);
@@ -1112,7 +1203,290 @@ export class ArenaScene extends Phaser.Scene {
       case "heure-sombre":
         this.effetHeureSombre(hero);
         break;
+      case "jugement":
+      case "jugement-croisade":
+      case "jugement-absolution":
+        this.effetJugement(hero, capacite.effet);
+        break;
+      case "bouclier-des-ames":
+        this.effetBouclierDesAmes(hero);
+        break;
+      case "charge":
+      case "charge-sismique":
+      case "charge-sanglante":
+        this.effetCharge(hero, capacite.effet);
+        break;
+      case "cri-de-guerre":
+        this.effetCriDeGuerre(hero);
+        break;
+      case "clignement":
+        this.effetClignement(hero);
+        break;
+      case "sablier":
+        this.effetSablier(hero);
+        break;
+      case "croc-en-jambe":
+        this.effetCrocEnJambe(hero);
+        break;
+      case "doppelganger":
+        this.effetDoppelganger(hero);
+        break;
+      case "contrat":
+        this.effetContrat(hero);
+        break;
     }
+  }
+
+  // --- Chevalier Sacre : Jugement et Bouclier des ames ---
+
+  private effetJugement(hero: Hero, variante: string): void {
+    const palier = Math.max(1, hero.palierDe("jugement"));
+    const rayon = 80 + palier * 15;
+
+    if (variante === "jugement-croisade") {
+      // La colonne ne reste plus au sol : elle le suit.
+      this.time.addEvent({
+        delay: 400,
+        repeat: 14,
+        callback: () => {
+          if (hero.etat === "mort") return;
+          this.effetCercle(hero.x, hero.y, rayon, 0xfff0a0);
+          for (const e of this.ennemisDansRayon(hero.x, hero.y, rayon)) {
+            this.blesserEnnemi(e, Math.round(hero.degats * 0.9), hero);
+          }
+        },
+      });
+      return;
+    }
+
+    const point = hero.estIncarne
+      ? this.cameras.main.getWorldPoint(this.input.activePointer.x, this.input.activePointer.y)
+      : this.pointDevant(hero, 100);
+
+    if (variante === "jugement-absolution") {
+      // La lumiere cesse de blesser : elle recoud.
+      this.effetCercle(point.x, point.y, rayon, 0xa8ffc8);
+      for (const allie of this.heros) {
+        if (allie.etat === "mort") continue;
+        if (Phaser.Math.Distance.Between(allie.x, allie.y, point.x, point.y) > rayon) continue;
+        const soin = allie.pvMax * (0.15 + palier * 0.1);
+        allie.soigner(soin);
+        this.flotter(allie.x, allie.y - 22, `+${Math.round(soin)}`, "#7ee0a0");
+      }
+      return;
+    }
+
+    this.effetCercle(point.x, point.y, rayon, 0xfff0a0);
+    this.trainee(point.x, point.y - 260, point.x, point.y, 0xfff0a0);
+    if (hero.estIncarne) this.cameras.main.shake(160, 0.006);
+    for (const e of this.ennemisDansRayon(point.x, point.y, rayon)) {
+      this.blesserEnnemi(e, Math.round(hero.degats * (2.5 + palier)), hero);
+    }
+  }
+
+  /**
+   * Bouclier des ames : il donne de sa propre vie a ceux qui sont au plus mal.
+   * Il ne cree rien — il deplace, et c'est ce qui rend la competence tendue.
+   */
+  private effetBouclierDesAmes(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("bouclier-des-ames"));
+    const blesses = this.heros.filter(
+      (h) => h !== hero && h.etat !== "mort" && h.ratioPv < 0.3,
+    );
+    if (blesses.length === 0) return;
+
+    const don = Math.round(hero.pv * (0.1 + palier * 0.05));
+    if (don < 1) return;
+    hero.pv = Math.max(1, hero.pv - don);
+
+    const part = Math.round(don / blesses.length);
+    for (const allie of blesses) {
+      allie.soigner(part);
+      this.trainee(hero.x, hero.y, allie.x, allie.y, 0xffd166);
+      this.flotter(allie.x, allie.y - 22, `+${part}`, "#ffd166");
+    }
+  }
+
+  // --- Guerrier : Charge et Cri de guerre ---
+
+  private effetCharge(hero: Hero, variante: string): void {
+    const palier = Math.max(1, hero.palierDe("charge"));
+    const distance = 220 + palier * 40;
+    const depart = new Phaser.Math.Vector2(hero.x, hero.y);
+    const arrivee = this.pointDevant(hero, distance);
+
+    hero.rendreInvulnerable(400);
+    this.trainee(depart.x, depart.y, arrivee.x, arrivee.y, 0xffc27a);
+    this.faucherLeLong(hero, depart, arrivee, hero.degats * 2);
+    hero.setPosition(arrivee.x, arrivee.y);
+
+    if (variante === "charge-sismique") {
+      this.effetCercle(arrivee.x, arrivee.y, 120, 0xc9a06b);
+      this.cameras.main.shake(220, 0.008);
+      for (const e of this.ennemisDansRayon(arrivee.x, arrivee.y, 120)) {
+        this.repousser(e, arrivee.x, arrivee.y, 340);
+        this.blesserEnnemi(e, hero.degats * 3, hero);
+      }
+    }
+
+    if (variante === "charge-sanglante") {
+      // Il traverse, puis revient aussitot sur ses pas.
+      this.time.delayedCall(220, () => {
+        if (hero.etat === "mort") return;
+        this.trainee(arrivee.x, arrivee.y, depart.x, depart.y, 0xff8080);
+        this.faucherLeLong(hero, arrivee, depart, hero.degats * 2);
+        hero.setPosition(depart.x, depart.y);
+      });
+    }
+  }
+
+  private faucherLeLong(
+    hero: Hero,
+    depart: Phaser.Math.Vector2,
+    arrivee: Phaser.Math.Vector2,
+    degats: number,
+  ): void {
+    const segment = new Phaser.Geom.Line(depart.x, depart.y, arrivee.x, arrivee.y);
+    for (const e of [...this.ennemis.getChildren()] as Ennemi[]) {
+      if (!e.active) continue;
+      const proche = Phaser.Geom.Line.GetNearestPoint(segment, e, new Phaser.Geom.Point());
+      if (Phaser.Math.Distance.Between(proche.x, proche.y, e.x, e.y) > 48) continue;
+      this.repousser(e, depart.x, depart.y, 260);
+      this.blesserEnnemi(e, degats, hero);
+    }
+  }
+
+  private effetCriDeGuerre(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("cri-de-guerre"));
+    const duree = 4000 + palier * 2000;
+    const gain = 1 + 0.1 + palier * 0.1;
+
+    this.effetCercle(hero.x, hero.y, 220, 0xffd166);
+    if (hero.estIncarne) this.cameras.main.shake(180, 0.005);
+    for (const e of this.ennemisDansRayon(hero.x, hero.y, 220)) {
+      this.repousser(e, hero.x, hero.y, 420);
+      e.ralentir(1500, 0.6);
+    }
+
+    // L'equipe entiere frappe plus fort le temps du cri.
+    for (const allie of this.heros) {
+      if (allie.etat === "mort") continue;
+      allie.bonus.multiplicateurDegats *= gain;
+    }
+    this.time.delayedCall(duree, () => {
+      for (const allie of this.heros) allie.bonus.multiplicateurDegats /= gain;
+    });
+  }
+
+  // --- Mage : Clignement et Sablier ---
+
+  private effetClignement(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("clignement"));
+    const depart = new Phaser.Math.Vector2(hero.x, hero.y);
+    const vise = hero.estIncarne
+      ? this.cameras.main.getWorldPoint(this.input.activePointer.x, this.input.activePointer.y)
+      : this.pointDevant(hero, 200);
+
+    const portee = 180 + palier * 60;
+    const direction = new Phaser.Math.Vector2(vise.x - hero.x, vise.y - hero.y);
+    if (direction.length() > portee) direction.setLength(portee);
+
+    hero.setPosition(
+      Phaser.Math.Clamp(depart.x + direction.x, MUR + 8, MONDE.largeur - MUR - 8),
+      Phaser.Math.Clamp(depart.y + direction.y, MUR + 8, MONDE.hauteur - MUR - 8),
+    );
+    hero.rendreInvulnerable(300);
+
+    // La deflagration reste a l'endroit qu'il quitte.
+    this.effetCercle(depart.x, depart.y, 70 + palier * 15, 0xd06bff);
+    for (const e of this.ennemisDansRayon(depart.x, depart.y, 70 + palier * 15)) {
+      this.repousser(e, depart.x, depart.y, 240);
+      this.blesserEnnemi(e, hero.degats * (1 + palier), hero);
+    }
+  }
+
+  private effetSablier(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("sablier"));
+    const duree = 3000 + palier * 2000;
+    const facteur = palier >= 2 ? 0.25 : 0.4;
+    const rayon = 240;
+
+    this.aura(hero.x, hero.y, rayon / 8, 0x8ed6ff, duree);
+    const x = hero.x;
+    const y = hero.y;
+    this.time.addEvent({
+      delay: 300,
+      repeat: Math.floor(duree / 300) - 1,
+      callback: () => {
+        for (const e of this.ennemisDansRayon(x, y, rayon)) e.ralentir(500, facteur);
+      },
+    });
+  }
+
+  // --- Assassin : Croc-en-jambe, Doppelganger, Contrat ---
+
+  private effetCrocEnJambe(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("croc-en-jambe"));
+    const rayon = 80 + palier * 20;
+    const point = hero.estIncarne
+      ? this.cameras.main.getWorldPoint(this.input.activePointer.x, this.input.activePointer.y)
+      : this.pointDevant(hero, 80);
+
+    const tapis = this.add
+      .image(point.x, point.y, "impact")
+      .setTint(0xb0a08a)
+      .setAlpha(0.3)
+      .setScale((rayon * 2) / 16)
+      .setDepth(point.y - 4);
+
+    this.time.addEvent({
+      delay: 500,
+      repeat: 11,
+      callback: () => {
+        for (const e of this.ennemisDansRayon(point.x, point.y, rayon)) {
+          e.ralentir(600, 0.6);
+          this.blesserEnnemi(e, Math.round(hero.degats * (0.4 + palier * 0.2)), hero);
+        }
+      },
+    });
+    this.time.delayedCall(6000, () => tapis.active && tapis.destroy());
+  }
+
+  private effetDoppelganger(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("doppelganger"));
+    const double = new Double(this, hero.x, hero.y, hero, palier);
+    this.invocations.add(double);
+    this.effetCercle(hero.x, hero.y, 50, 0x9fd8ff);
+  }
+
+  /**
+   * Contrat : la cible mourra, quoi qu'il arrive. En echange, l'assassin ne
+   * peut plus toucher personne d'autre tant que le contrat court — c'est ce
+   * renoncement qui en fait autre chose qu'un bouton "je gagne".
+   */
+  private effetContrat(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("contrat"));
+    const delai = palier >= 2 ? 7000 : 10000;
+
+    const candidats = this.ennemisDansRayon(hero.x, hero.y, 600);
+    if (candidats.length === 0) {
+      this.flotter(hero.x, hero.y - 20, "Personne a contracter", "#8a8397");
+      return;
+    }
+    const cible = candidats.reduce((a, b) => (b.pv > a.pv ? b : a));
+
+    cible.souscontrat = true;
+    cible.setTint(0xff3b30);
+    this.contrats.set(hero, cible);
+    this.flotter(cible.x, cible.y - 22, "CONTRAT", "#ff3b30");
+
+    this.time.delayedCall(delai, () => {
+      this.contrats.delete(hero);
+      if (!cible.active) return;
+      this.flotter(cible.x, cible.y - 20, "HONORE", "#ff3b30");
+      this.effetCercle(cible.x, cible.y, 70, 0xff3b30);
+      this.blesserEnnemi(cible, cible.pv, hero);
+    });
   }
 
   // --- Rodeur ---
@@ -1264,7 +1638,9 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private effetAppelDesMorts(hero: Hero): void {
-    const armee = [...this.mortsVivants.getChildren()] as MortVivant[];
+    const armee = (this.invocations.getChildren() as Invocation[]).filter(
+      (i) => i.active && i instanceof MortVivant && i.maitre === hero,
+    );
     if (armee.length === 0) {
       this.flotter(hero.x, hero.y - 20, "Aucun mort a appeler", "#8a8397");
       return;
@@ -1285,7 +1661,7 @@ export class ArenaScene extends Phaser.Scene {
     colosse.vitesse *= 0.7;
     colosse.setScale(2.4);
     colosse.finDeVie = Infinity;
-    this.mortsVivants.add(colosse);
+    this.invocations.add(colosse);
 
     this.effetCercle(colosse.x, colosse.y, 200, 0x9ee8a0);
     this.cameras.main.shake(400, 0.01);

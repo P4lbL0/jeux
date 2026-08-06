@@ -458,7 +458,12 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
   xpDonnee: number;
   /** Cible provoquee : le Chevalier Sacre force les ennemis a le viser */
   provoquePar: Hero | null = null;
+  /** Invocation qui l'attire (golem, double de l'assassin) */
+  attirePar: Invocation | null = null;
+  /** Marque du Contrat : cet ennemi mourra a coup sur */
+  souscontrat = false;
   ralentiJusqua = 0;
+  private facteurRalenti = 0.5;
   private prochainCoup = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, puissance: number) {
@@ -476,11 +481,15 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
   }
 
   get vitesseEffective(): number {
-    return this.scene.time.now < this.ralentiJusqua ? this.vitesse * 0.5 : this.vitesse;
+    return this.scene.time.now < this.ralentiJusqua
+      ? this.vitesse * this.facteurRalenti
+      : this.vitesse;
   }
 
-  ralentir(duree: number): void {
+  /** @param facteur part de vitesse conservee : 0,25 = ralenti de 75% */
+  ralentir(duree: number, facteur = 0.5): void {
     this.ralentiJusqua = Math.max(this.ralentiJusqua, this.scene.time.now + duree);
+    this.facteurRalenti = Math.min(this.facteurRalenti, facteur);
   }
 
   peutFrapper(maintenant: number): boolean {
@@ -493,32 +502,33 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
 }
 
 /**
- * Un mort-vivant releve par le Necromancien (DESIGN.md §4.14).
+ * Tout ce qui se bat pour l'equipe sans etre un heros : les mort-vivants du
+ * Necromancien, le familier du Mage, le double de l'Assassin.
  *
- * Il se bat pour l'equipe. Ses statistiques dependent du niveau de son maitre :
- * un Necromancien qui monte fait une armee qui monte avec lui.
+ * Leurs statistiques dependent toujours du **niveau de leur maitre** : une
+ * invocation monte avec celui qui l'a faite, elle ne devient jamais obsolete.
  */
-export class MortVivant extends Phaser.Physics.Arcade.Sprite {
-  pv: number;
-  pvMax: number;
-  degats: number;
-  vitesse: number;
+export class Invocation extends Phaser.Physics.Arcade.Sprite {
+  pv = 1;
+  pvMax = 1;
+  degats = 1;
+  vitesse = 70;
   readonly maitre: Hero;
-  /** Instant de decomposition ; Infinity avec "Seigneur des tombes" */
-  finDeVie: number;
+  /** Instant de disparition ; Infinity pour une invocation permanente */
+  finDeVie = Infinity;
+  /** Attire les ennemis sur lui */
+  provoque = false;
+  /** Les ennemis ne le voient pas */
+  furtif = false;
+  /** Acheve les ennemis sous ce ratio de vie ; 0 = jamais */
+  seuilExecution = 0;
+  /** Souffle tout autour en disparaissant */
+  explosif = false;
   private prochainCoup = 0;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, maitre: Hero) {
-    super(scene, x, y, "mort-vivant");
+  constructor(scene: Phaser.Scene, x: number, y: number, texture: string, maitre: Hero) {
+    super(scene, x, y, texture);
     this.maitre = maitre;
-
-    const puissance = maitre.bonus.puissanceMortsVivants;
-    this.pvMax = Math.round((18 + maitre.niveau * 4) * puissance);
-    this.pv = this.pvMax;
-    this.degats = Math.round((4 + maitre.niveau * 1.2) * puissance);
-    this.vitesse = 70;
-    this.finDeVie = maitre.bonus.mortsVivantsEternels ? Infinity : scene.time.now + 45000;
-
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.body?.setSize(8, 9);
@@ -531,6 +541,59 @@ export class MortVivant extends Phaser.Physics.Arcade.Sprite {
 
   marquerCoup(maintenant: number): void {
     this.prochainCoup = maintenant + 800;
+  }
+}
+
+/** Un cadavre releve par le Necromancien (DESIGN.md §4.14). */
+export class MortVivant extends Invocation {
+  constructor(scene: Phaser.Scene, x: number, y: number, maitre: Hero) {
+    super(scene, x, y, "mort-vivant", maitre);
+
+    const puissance = maitre.bonus.puissanceMortsVivants;
+    this.pvMax = Math.round((18 + maitre.niveau * 4) * puissance);
+    this.pv = this.pvMax;
+    this.degats = Math.round((4 + maitre.niveau * 1.2) * puissance);
+    this.vitesse = 70;
+    this.explosif = maitre.bonus.mortsVivantsExplosifs;
+    this.finDeVie = maitre.bonus.mortsVivantsEternels ? Infinity : scene.time.now + 45000;
+  }
+}
+
+/**
+ * Le familier du Mage : permanent, il grandit a chacun de ses niveaux.
+ * Son evolution decide de ce qu'il est — un mur, ou un couteau.
+ */
+export class Familier extends Invocation {
+  constructor(scene: Phaser.Scene, x: number, y: number, maitre: Hero) {
+    const golem = maitre.bonus.familierGolem;
+    const spectre = maitre.bonus.familierSpectre;
+    super(scene, x, y, golem ? "familier-golem" : spectre ? "familier-spectre" : "familier", maitre);
+
+    const puissance = maitre.bonus.familier;
+    this.pvMax = Math.round((30 + maitre.niveau * 6) * puissance * (golem ? 2.2 : spectre ? 0.6 : 1));
+    this.pv = this.pvMax;
+    this.degats = Math.round((6 + maitre.niveau * 1.5) * puissance * (golem ? 0.6 : spectre ? 1.5 : 1));
+    this.vitesse = golem ? 60 : spectre ? 130 : 90;
+    this.provoque = golem;
+    this.furtif = spectre;
+    this.seuilExecution = spectre ? 0.15 : 0;
+    if (golem) this.setScale(1.5);
+  }
+}
+
+/** Le double de l'Assassin : immobile, il attire tout, puis il explose. */
+export class Double extends Invocation {
+  constructor(scene: Phaser.Scene, x: number, y: number, maitre: Hero, palier: number) {
+    super(scene, x, y, `hero-${maitre.classe.id}`, maitre);
+    this.pvMax = Math.round(maitre.pvMax * 0.3 * palier);
+    this.pv = this.pvMax;
+    this.degats = 0;
+    this.vitesse = 0;
+    this.provoque = true;
+    this.explosif = true;
+    this.finDeVie = scene.time.now + 5000;
+    this.setAlpha(0.6);
+    this.setTint(0x9fd8ff);
   }
 }
 

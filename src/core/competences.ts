@@ -35,16 +35,29 @@ export type EffetCapacite =
   | "sursaut-sacre"
   | "benediction"
   | "martyre"
+  | "jugement"
+  | "jugement-croisade"
+  | "jugement-absolution"
+  | "bouclier-des-ames"
   // Guerrier
   | "moulinet"
   | "moulinet-aspirant"
   | "moulinet-sanglant"
+  | "charge"
+  | "charge-sismique"
+  | "charge-sanglante"
+  | "cri-de-guerre"
   // Mage
   | "dome"
   | "exil"
+  | "clignement"
+  | "sablier"
   // Assassin
   | "invisibilite"
   | "hecatombe"
+  | "croc-en-jambe"
+  | "doppelganger"
+  | "contrat"
   // Rodeur
   | "piege"
   | "fleche-du-jugement"
@@ -151,6 +164,12 @@ export interface Bonus {
   mortsVivantsExplosifs: boolean;
   /** Les mort-vivants ne se decomposent plus */
   mortsVivantsEternels: boolean;
+
+  // --- Familier du mage ---
+  /** Puissance du familier ; 0 = aucun familier */
+  familier: number;
+  familierGolem: boolean;
+  familierSpectre: boolean;
 }
 
 export function bonusVierge(): Bonus {
@@ -202,6 +221,9 @@ export function bonusVierge(): Bonus {
     puissanceMortsVivants: 1,
     mortsVivantsExplosifs: false,
     mortsVivantsEternels: false,
+    familier: 0,
+    familierGolem: false,
+    familierSpectre: false,
   };
 }
 
@@ -1198,6 +1220,219 @@ export const COMPETENCES: CompetenceDef[] = [
     icone: "cap-appel",
     effet: "appel-des-morts",
     paliers: [{ texte: "Fusionne toute l'armee en un colosse", rechargement: 70000 }],
+  },
+
+  // ================= Chevalier Sacre : le reste du serment =================
+  {
+    id: "jugement",
+    nom: "Jugement",
+    rang: "B",
+    type: "active",
+    classes: ["chevalier"],
+    description: "Il plante son epee, et une colonne de lumiere ecrase la zone.",
+    icone: "cap-jugement",
+    effet: "jugement",
+    paliers: [
+      { texte: "Colonne de lumiere", rechargement: 11000 },
+      { texte: "Colonne plus large et plus lourde", rechargement: 10000 },
+      { texte: "Colonne devastatrice", rechargement: 9000 },
+    ],
+    evolutions: {
+      auPalier: 2,
+      options: [
+        {
+          id: "jugement-croisade",
+          nom: "Croisade",
+          description: "La colonne ne reste plus au sol : elle te suit partout pendant 6 secondes.",
+          effet: "jugement-croisade",
+          teinte: 0xfff0a0,
+        },
+        {
+          id: "jugement-absolution",
+          nom: "Absolution",
+          description: "La lumiere cesse de blesser : elle soigne d'un coup tous les allies dedans.",
+          effet: "jugement-absolution",
+          teinte: 0xa8ffc8,
+        },
+      ],
+    },
+  },
+  {
+    id: "bouclier-des-ames",
+    nom: "Bouclier des ames",
+    rang: "SR",
+    type: "auto",
+    classes: ["chevalier"],
+    description:
+      "Des qu'un allie est au plus mal, il lui donne de sa propre vie. Personne ne le lui demande.",
+    icone: "cap-bouclier-ames",
+    effet: "bouclier-des-ames",
+    paliers: [
+      { texte: "Partage sa vie avec les allies sous 30%", rechargement: 12000 },
+      { texte: "Partage davantage, plus souvent", rechargement: 10000 },
+    ],
+  },
+
+  // ==================== Guerrier : le reste de la rage ====================
+  {
+    id: "charge",
+    nom: "Charge",
+    rang: "D",
+    type: "active",
+    classes: ["guerrier"],
+    description: "Il fonce en ligne droite et renverse tout ce qui se trouve sur son chemin.",
+    icone: "cap-charge",
+    effet: "charge",
+    paliers: [
+      { texte: "Charge de 260 pixels", rechargement: 9000 },
+      { texte: "Charge plus longue et plus lourde", rechargement: 8000 },
+      { texte: "Charge devastatrice", rechargement: 7000 },
+    ],
+    evolutions: {
+      auPalier: 2,
+      options: [
+        {
+          id: "charge-sismique",
+          nom: "Charge sismique",
+          description: "Le sol se fissure a l'arrivee : tout ce qui est autour est souffle.",
+          effet: "charge-sismique",
+          teinte: 0xc9a06b,
+        },
+        {
+          id: "charge-sanglante",
+          nom: "Charge sanglante",
+          description: "Il traverse, puis revient aussitot sur ses pas en fauchant a nouveau.",
+          effet: "charge-sanglante",
+          teinte: 0xff8080,
+        },
+      ],
+    },
+  },
+  {
+    id: "cri-de-guerre",
+    nom: "Cri de guerre",
+    rang: "C",
+    type: "active",
+    classes: ["guerrier"],
+    description: "Il hurle. Les monstres reculent, et l'equipe entiere se met a frapper plus fort.",
+    icone: "cap-cri",
+    effet: "cri-de-guerre",
+    paliers: [
+      { texte: "Repousse tout, +20% de degats a l'equipe pendant 6 s", rechargement: 16000 },
+      { texte: "+30% de degats a l'equipe pendant 8 s", rechargement: 14000 },
+    ],
+  },
+
+  // ===================== Mage : le reste du savoir =====================
+  {
+    id: "clignement",
+    nom: "Clignement",
+    rang: "E",
+    type: "active",
+    classes: ["mage"],
+    description:
+      "Il disparait et reapparait plus loin, en laissant une deflagration a l'endroit qu'il quitte.",
+    icone: "cap-clignement",
+    effet: "clignement",
+    paliers: [
+      { texte: "Teleportation courte", rechargement: 7000 },
+      { texte: "Portee accrue, explosion plus forte", rechargement: 6000 },
+      { texte: "Portee maximale, explosion devastatrice", rechargement: 5000 },
+    ],
+  },
+  {
+    id: "sablier",
+    nom: "Sablier",
+    rang: "A",
+    type: "active",
+    classes: ["mage"],
+    description: "Le temps ralentit dans une large zone — pour les monstres seulement.",
+    icone: "cap-sablier",
+    effet: "sablier",
+    paliers: [
+      { texte: "Ralentit de 60% pendant 5 s", rechargement: 24000 },
+      { texte: "Ralentit de 75% pendant 7 s", rechargement: 21000 },
+    ],
+  },
+  {
+    id: "familier",
+    nom: "Familier",
+    rang: "S",
+    type: "passive",
+    classes: ["mage"],
+    description:
+      "Une creature liee a lui se bat a ses cotes en permanence, et grandit a chacun de ses niveaux.",
+    paliers: [
+      { texte: "Un familier permanent", appliquer: (b) => void (b.familier += 1) },
+      { texte: "Familier nettement plus puissant", appliquer: (b) => void (b.familier += 1) },
+      { texte: "Familier redoutable", appliquer: (b) => void (b.familier += 1) },
+    ],
+    evolutions: {
+      auPalier: 2,
+      options: [
+        {
+          id: "familier-golem",
+          nom: "Golem",
+          description: "Lourd, tres resistant, et il attire sur lui tout ce qui passe a portee.",
+          teinte: 0xc9a06b,
+          appliquer: (b) => void (b.familierGolem = true),
+        },
+        {
+          id: "familier-spectre",
+          nom: "Spectre",
+          description: "Rapide, invisible aux monstres, et il acheve tout ce qui agonise.",
+          teinte: 0x9fd8ff,
+          appliquer: (b) => void (b.familierSpectre = true),
+        },
+      ],
+    },
+  },
+
+  // =================== Assassin : le reste du contrat ===================
+  {
+    id: "croc-en-jambe",
+    nom: "Croc-en-jambe",
+    rang: "C",
+    type: "active",
+    classes: ["assassin"],
+    description: "Il seme des lames au sol. Tout ce qui passe dessus saigne longtemps.",
+    icone: "cap-croc",
+    effet: "croc-en-jambe",
+    paliers: [
+      { texte: "Zone de lames pendant 6 s", rechargement: 12000 },
+      { texte: "Zone plus large, saignement plus fort", rechargement: 11000 },
+      { texte: "Zone devastatrice", rechargement: 10000 },
+    ],
+  },
+  {
+    id: "doppelganger",
+    nom: "Doppelganger",
+    rang: "B",
+    type: "active",
+    classes: ["assassin"],
+    description:
+      "Il laisse un double immobile qui attire toute l'attention, puis explose quand on le detruit.",
+    icone: "cap-doppelganger",
+    effet: "doppelganger",
+    paliers: [
+      { texte: "Double provocateur, explose au bout de 5 s", rechargement: 18000 },
+      { texte: "Double plus resistant, explosion plus forte", rechargement: 16000 },
+    ],
+  },
+  {
+    id: "contrat",
+    nom: "Contrat",
+    rang: "SSR",
+    type: "active",
+    classes: ["assassin"],
+    description:
+      "Il designe une cible : elle mourra dans dix secondes, quoi qu'il arrive. Mais tant que le contrat court, il ne peut attaquer personne d'autre.",
+    icone: "cap-contrat",
+    effet: "contrat",
+    paliers: [
+      { texte: "Mort certaine en 10 s", rechargement: 50000 },
+      { texte: "Mort certaine en 7 s", rechargement: 45000 },
+    ],
   },
 ];
 

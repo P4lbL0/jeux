@@ -464,45 +464,116 @@ Les compétences portent les mêmes lettres que les héros : **F · E · D · C 
 SR · SSR**. Plus le rang d'un héros est élevé, plus il a de chances de se voir proposer
 une compétence de rang élevé — c'est le troisième effet d'une montée de rang (§4.1).
 
+#### Les armes autonomes
+
+Une famille à part, ouverte à toutes les classes. **Elles se battent sans qu'on s'en
+occupe** — et c'est exactement ce qu'il faut dans un jeu où le joueur ne contrôle que son
+déplacement : elles font monter la puissance sans ajouter une touche de plus.
+
+| Rang | Nom | Effet |
+|---|---|---|
+| F | Épée tournoyante | Jusqu'à 5 lames en orbite. → *Lames ardentes* (dégâts doublés) ou *Nuée de lames* (+2 épées) |
+| E | Aura de flammes | Tout ce qui s'approche brûle en continu |
+| E | Éclats | Des projectiles partent au hasard, régulièrement |
+| D | Ricochet | Les projectiles transpercent au lieu de s'arrêter |
+| C | Chaîne d'éclairs | Les attaques sautent d'un ennemi à l'autre. → *Foudre diffuse* (rebonds illimités, dégâts divisés) ou *Fulguration* (2 rebonds, chacun +60%) |
+
 #### Les compétences de classe
 
 **Chevalier Sacré**
 
 | Rang | Nom | Effet |
 |---|---|---|
-| F | Sursaut sacré | *Automatique.* Régulièrement il prie une seconde : invincible, il rend 25% de ses PV max et repousse tout. |
+| F | Sursaut sacré | *Auto.* Régulièrement : invincible 1 s, rend 25% des PV max, repousse tout. |
+| C | Serment de fer | À chaque passage sous 50% de vie, +8 résistance **définitivement**. |
+| B | Jugement | *Active.* Une colonne de lumière écrase la zone visée. → *Croisade* (la colonne le suit 6 s) ou *Absolution* (elle soigne au lieu de blesser). |
 | A | Endurance sacrée | +1 PV max tous les 25 kills. |
-| S | Bénédiction | *Active.* Un dôme de lumière qui régénère tous les alliés à l'intérieur, 1 PV/s pendant 5 s. |
-| SR | Provocation | En permanence, tout ennemi dans un rayon donné ne cible plus que lui. Il gagne 1 résistance par ennemi qui le vise, et 1 PV max par ennemi qui meurt dans le rayon. Le rayon grandit à chaque palier. |
+| S | Bénédiction | *Active.* Un dôme de lumière régénère les alliés à l'intérieur. |
+| SR | Provocation | Tout ennemi dans le rayon ne cible plus que lui. +1 résistance par ennemi qui le vise, **+1 PV rendu** par mort à ses pieds. |
+| SR | Bouclier des âmes | *Auto.* Il **donne de sa propre vie** aux alliés sous 30%. Il ne crée rien : il déplace. |
+| SSR | Martyre | *Active.* Tous les dégâts de l'équipe lui sont transférés et il ne peut pas mourir. |
 
 **Guerrier**
 
 | Rang | Nom | Effet |
 |---|---|---|
-| E | Moulinet | *Active.* Il tourne sur lui-même 2 à 3 secondes en fauchant tout autour. Évolue en *Tourbillon d'acier* ou *Lames rouges*. |
+| D | Charge | *Active.* Il fonce en ligne droite et renverse tout. → *Charge sismique* (le sol se fissure) ou *Charge sanglante* (il traverse et revient). |
+| E | Moulinet | *Active.* Il tourne 2 à 3 s en fauchant. → *Tourbillon d'acier* ou *Lames rouges*. |
+| C | Cri de guerre | *Active.* Repousse tout, et l'équipe entière frappe plus fort. |
+| B | Sang pour sang | **Il ne peut plus jamais être soigné**, mais chaque kill lui rend 4% de sa vie max. |
 | A | Entaille | +1% de dégâts tous les 25 kills. |
 | S | Rage | +1% de vitesse d'attaque par point de pourcentage de vie manquante. |
-| SSR | Apothéose | Toutes ses statistiques sont doublées, maintenant et pour tout ce qui viendra après. |
+| SR | Le dernier debout | +25% de dégâts par allié mort ou replié. |
+| SSR | Apothéose | Toutes ses statistiques sont doublées, maintenant et après. |
 
 **Mage**
 
 | Rang | Nom | Effet |
 |---|---|---|
-| D | Dôme | *Active.* Pose un dôme là où le joueur le décide. Il a ses propres points de vie et arrête ce qui passe. |
-| B | Satellite | Un éclat d'énergie tourne autour de lui et blesse ce qu'il traverse. Évolue en *satellites de feu* ou *de givre*. |
+| E | Clignement | *Active.* Il se téléporte, et laisse une déflagration là où il était. |
+| D | Dôme | *Active.* Un dôme avec ses propres points de vie, posé où le joueur veut. |
+| B | Satellite | Des éclats en orbite. → *satellites de feu* ou *de givre*. |
 | A | Savoir arcanique | +1% de dégâts tous les 25 kills. |
-| SSR | Exil | *Active.* Il sacrifie 99% de sa vie pour bannir toutes les créatures hostiles vers un autre monde. **Personne ne gagne d'expérience.** Il reste 30 secondes immobilisé à 1 PV, insoignable, et le moindre contact le tue définitivement. |
+| A | Sablier | *Active.* Le temps ralentit dans une large zone — pour les monstres seulement. |
+| S | Familier | Une créature permanente se bat à ses côtés et **grandit à chacun de ses niveaux**. → *Golem* (mur qui provoque) ou *Spectre* (rapide, invisible, il achève). |
+| SSR | Exil | *Active.* Il sacrifie 99% de sa vie pour bannir toutes les créatures hostiles. **Personne ne gagne d'expérience.** Il reste 30 s immobilisé à 1 PV, insoignable, tué au moindre contact. |
 
 **Assassin**
 
 | Rang | Nom | Effet |
 |---|---|---|
-| D | Invisibilité | *Active.* Il disparaît 5 s : plus rien ne le vise, et il gagne 10% de vitesse. |
+| D | Invisibilité | *Active.* Il disparaît : plus rien ne le vise, et il court plus vite. |
+| D | Marque de sang | Sa première attaque sur une cible neuve inflige ×2,5. |
+| C | Croc-en-jambe | *Active.* Des lames au sol : tout ce qui passe saigne. |
+| B | Doppelgänger | *Active.* Un double immobile attire tout, puis explose. |
 | A | Saignée | +1% de vol de vie tous les 25 kills. |
-| SSR | Hécatombe | *Active.* Tout ennemi sous 10% de vie qu'il touche est exécuté, et chaque exécution le projette sur sa cible suivante. |
+| SR | Danse des ombres | Chaque kill retire 0,4 s à **tous** ses rechargements. |
+| SSR | Hécatombe | *Active.* Tout ennemi sous 10% de vie est exécuté, et chaque exécution le projette sur la cible suivante. |
+| SSR | Contrat | *Active.* La cible mourra dans 10 s quoi qu'il arrive — mais il ne peut attaquer **personne d'autre** entre-temps. |
 
 **Trait inné de l'assassin** : il n'est pas ciblé en priorité tant qu'un autre héros se
 trouve à proximité de l'ennemi.
+
+**Rôdeur**
+
+| Rang | Nom | Effet |
+|---|---|---|
+| E | Flèche perforante | Ses flèches traversent les corps. |
+| D | Piège à mâchoires | *Active.* Le premier qui marche dessus reste sur place. |
+| C | Œil de lynx | +45 de portée, +8% de critique. |
+| SR | Carquois sans fin | Sa volée passe de 3 à 7 flèches. |
+| SSR | Flèche du jugement | *Active.* Une flèche traverse tout l'écran et achève net tout ce qui est déjà blessé. |
+
+**Oracle**
+
+| Rang | Nom | Effet |
+|---|---|---|
+| E | Prière | *Active.* Soigne l'allié le plus mal en point, où qu'il soit sur la carte. |
+| C | Présage | +5% d'esquive pour **toute l'équipe**. |
+| B | Chant de guerre | *Active.* L'équipe entière frappe nettement plus vite. |
+| SSR | Résurrection | Une fois dans la partie — **une seule** — un héros qui tombe se relève. |
+
+**Nécromancien**
+
+| Rang | Nom | Effet |
+|---|---|---|
+| E | Charnier | +10% de chance de relever un cadavre. |
+| D | Armée des ombres | Ses morts-vivants sont +40% plus puissants. |
+| C | Lien nécrotique | Ses morts-vivants explosent en tombant. |
+| SR | Seigneur des tombes | Ses morts-vivants ne se décomposent plus. |
+| SSR | L'Appel | *Active.* Il sacrifie toute son armée pour dresser un colosse fait de leurs restes. |
+
+#### Les grandes communes
+
+| Rang | Nom | Effet |
+|---|---|---|
+| D | Vétéran | Un niveau immédiat. |
+| E | Charognard | Les cadavres laissent parfois de quoi tenir debout. |
+| B | Écho | 20% de chance qu'une capacité ne parte pas en rechargement. |
+| A | Serment du protecteur | **+25% à tout tant qu'on se bat près de la cité.** Elle attache mécaniquement le combat au village. |
+| S | Fardeau | −30% de vie max, +60% de dégâts. |
+| SR | Orage final | *Active.* Un orage te suit et foudroie sans répit pendant 10 s. |
+| SSR | Heure sombre | *Active.* **Le temps s'arrête 3 s pour tout le monde sauf toi.** |
 
 > **L'*Exil* mérite d'être protégé.** C'est la compétence la plus intéressante de la
 > liste, parce que c'est la seule qui te fait **perdre** quelque chose : tu effaces la
