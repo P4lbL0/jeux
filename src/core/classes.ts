@@ -286,7 +286,7 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     distanceIdeale: "Dans la cite, a l'abri, pendant que ses morts travaillent",
     trait: "necromancie",
     traitNom: "Relevement",
-    traitTexte: "Chaque cadavre a une chance de se relever pour se battre a ses cotes",
+    traitTexte: "8% des cadavres se relevent pour se battre a ses cotes",
     resteEnCite: true,
     ultimes: [
       {

@@ -1163,9 +1163,9 @@ export const COMPETENCES: CompetenceDef[] = [
     classes: ["necromancien"],
     description: "Il apprend a parler plus fort aux morts. Plus de cadavres se relevent.",
     paliers: [
-      { texte: "+10% de chance de relever", appliquer: (b) => void (b.chanceRelevement += 0.1) },
-      { texte: "+10% de chance de relever", appliquer: (b) => void (b.chanceRelevement += 0.1) },
-      { texte: "+15% de chance de relever", appliquer: (b) => void (b.chanceRelevement += 0.15) },
+      { texte: "+3% de chance de relever", appliquer: (b) => void (b.chanceRelevement += 0.03) },
+      { texte: "+3% de chance de relever", appliquer: (b) => void (b.chanceRelevement += 0.03) },
+      { texte: "+4% de chance de relever", appliquer: (b) => void (b.chanceRelevement += 0.04) },
     ],
   },
   {

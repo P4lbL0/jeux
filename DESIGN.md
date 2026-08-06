@@ -592,10 +592,27 @@ Ce n'est pas une classe de plus : c'est un **autre jeu greffé sur le premier**.
 **Il n'attaque pas.** Jamais. Sa portée est nulle, et l'IA le garde **dans la cité**.
 Ce sont ses morts qui travaillent à sa place.
 
-**Le relèvement** : chaque cadavre — ennemi ou allié — a **25% de chance** de se relever
-à son service. Cette probabilité s'améliore avec ses compétences. Un mort-vivant a des
-statistiques calculées **d'après le niveau du nécromancien** : plus il monte, plus son
-armée monte avec lui.
+**Le relèvement** : chaque cadavre — ennemi ou allié — a **8% de chance** de se relever à
+son service, et **douze morts-vivants au maximum** peuvent le suivre en même temps. Cette
+probabilité s'améliore avec ses compétences. Un mort-vivant a des statistiques calculées
+**d'après le niveau du nécromancien** : plus il monte, plus son armée monte avec lui.
+
+> Le taux était à 25% au départ : l'armée devenait un mur qui jouait la partie à la place
+> du joueur, et l'écran devenait illisible. C'est aux compétences de faire monter ce
+> chiffre, pas au taux de base.
+
+**Le commandement des sbires** — c'est ce qui rend le Nécromancien intéressant à
+incarner. Quand le joueur le contrôle, il ne se bat pas : **il donne des ordres à ses
+morts.**
+
+- les **positionner** où il veut sur la carte ;
+- leur faire **tenir une position** coûte que coûte ;
+- les lancer à la **charge** ;
+- leur faire **protéger** un héros ou un bâtiment.
+
+C'est une classe de commandement, pas de combat. Sans ces ordres, ce n'est qu'un bonus
+passif qu'on laisserait à l'IA toute la partie — avec eux, c'est le seul héros qui se
+joue comme un stratège.
 
 **Ce qui reste à construire** (dépend de systèmes qui n'existent pas encore) :
 
@@ -611,9 +628,9 @@ pas de ce qu'elle fait, mais de ce qui est *déjà mort*. Elle transforme les pe
 tiennes comprises — en ressource. Et elle donne au village une population qui n'a pas
 besoin d'être nourrie.
 
-> ⚠️ À surveiller : un héros qui ne se joue pas est un héros qu'on n'incarne jamais.
-> Il faudra que **le contrôler soit intéressant** — placer ses morts, choisir qui relever
-> — sinon il restera un bonus passif qu'on laisse à l'IA toute la partie.
+> ⚠️ À surveiller : les ordres aux sbires doivent partager la même interface que les
+> ordres aux héros IA (§4.4). Deux systèmes de commandement séparés, ce serait deux fois
+> le travail et deux fois les bugs.
 
 ### 4.15 L'effectif : dix dehors, le reste en garnison
 
@@ -646,6 +663,24 @@ système du jeu ne la produisait.
 > touchera plus jamais aux autres — exactement l'inverse de ce que la règle des 20% et
 > les choix en attente cherchent à provoquer. Il faudra qu'il reste **confortable, pas
 > décisif**.
+
+### 4.17 Tenir la fluidité
+
+Le jeu s'est mis à ramer lourdement au bout de quelques minutes. **Ce n'était pas un
+problème de données** — c'était le nombre d'objets vivants à l'écran. Les règles tirées
+de cet épisode, à ne plus jamais enfreindre :
+
+1. **Tout ce qui apparaît doit avoir un plafond.** Les ennemis (240), les morts-vivants
+   par nécromancien (12), les nombres flottants (24 à l'écran). Sans plafond, la cadence
+   d'apparition finit toujours par dépasser la vitesse à laquelle on tue.
+2. **La montée en difficulté passe par la force, pas par le nombre.** Une fois le plafond
+   atteint, ce sont les statistiques des ennemis qui montent. C'est aussi plus lisible.
+3. **Aucun objet Texte créé en plein combat.** Un texte Phaser fabrique sa propre texture ;
+   en créer des dizaines par seconde suffit à faire tomber le jeu. On les recycle.
+4. **Aucune minuterie par coup encaissé.** Avec les dégâts de zone et les chaînes, on en
+   créait des centaines par seconde. Un simple horodatage vérifié dans la boucle suffit.
+5. **Rien qui trie une liste par ennemi et par image.** Ce qui est commun à toute l'image
+   se calcule une fois, pas une fois par entité.
 
 ---
 

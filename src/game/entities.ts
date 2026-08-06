@@ -463,6 +463,8 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
   /** Marque du Contrat : cet ennemi mourra a coup sur */
   souscontrat = false;
   ralentiJusqua = 0;
+  /** Eclair blanc au moment d'encaisser, gere sans minuterie */
+  flashJusqua = 0;
   private facteurRalenti = 0.5;
   private prochainCoup = 0;
 

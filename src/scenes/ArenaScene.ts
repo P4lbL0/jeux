@@ -43,6 +43,22 @@ const CITE = { x: MONDE.largeur / 2, y: MONDE.hauteur / 2, rayon: 105 };
 const REGENERATION = 9;
 const PORTEE_CORPS_A_CORPS = 90;
 
+/**
+ * Plafond d'ennemis vivants.
+ *
+ * Sans lui, la cadence d'apparition finit par depasser la vitesse a laquelle on
+ * tue : les sprites s'accumulent, et le jeu s'effondre au bout de quelques
+ * minutes. Le plafond ne rend pas le jeu plus facile — les ennemis restants
+ * deviennent simplement plus forts.
+ */
+const MAX_ENNEMIS = 240;
+
+/** Au-dela, on cesse d'afficher les nombres flottants : ils coutent cher. */
+const MAX_TEXTES_FLOTTANTS = 24;
+
+/** Mort-vivants simultanes par Necromancien */
+const MAX_MORTS_VIVANTS = 12;
+
 export class ArenaScene extends Phaser.Scene {
   private rng!: Rng;
   private heros: Hero[] = [];
@@ -67,6 +83,11 @@ export class ArenaScene extends Phaser.Scene {
   private resurrectionUtilisee = false;
   /** Instant de fin de l'Heure sombre : tout est fige jusque-la */
   private figeJusqua = 0;
+  /** Reserve de textes flottants, recycles au lieu d'etre recrees */
+  private textesLibres: Phaser.GameObjects.Text[] = [];
+  private textesActifs = 0;
+  /** Heros ciblables, recalcules une fois par image et non par ennemi */
+  private ciblesPossibles: Hero[] = [];
 
   private zqsd!: Record<string, Phaser.Input.Keyboard.Key>;
   private fleches!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -103,6 +124,9 @@ export class ArenaScene extends Phaser.Scene {
     this.orbiteurs = new Map();
     this.retourFamilier = new Map();
     this.contrats = new Map();
+    this.textesLibres = [];
+    this.textesActifs = 0;
+    this.ciblesPossibles = [];
     this.martyr = null;
     this.resurrectionUtilisee = false;
     this.figeJusqua = 0;
@@ -530,13 +554,25 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
-  /** Un cadavre a une chance de se relever pour le Necromancien. */
+  /**
+   * Un cadavre a une chance de se relever pour le Necromancien.
+   *
+   * Le taux de base est volontairement bas : a 25%, l'armee devenait un mur
+   * qui jouait la partie a la place du joueur. C'est aux competences de le
+   * faire monter, et ca reste plafonne pour que l'ecran reste lisible.
+   */
   private tenterRelevement(x: number, y: number): void {
     for (const hero of this.heros) {
       if (hero.etat === "mort") continue;
       const chance =
-        (hero.classe.trait === "necromancie" ? 0.25 : 0) + hero.bonus.chanceRelevement;
+        (hero.classe.trait === "necromancie" ? 0.08 : 0) + hero.bonus.chanceRelevement;
       if (chance <= 0) continue;
+
+      const siens = (this.invocations.getChildren() as Invocation[]).filter(
+        (i) => i.active && i instanceof MortVivant && i.maitre === hero,
+      ).length;
+      if (siens >= MAX_MORTS_VIVANTS) continue;
+
       if (this.rng.next() >= chance) continue;
       this.relever(hero, x, y);
       return;
@@ -718,6 +754,9 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private deplacerEnnemis(): void {
+    // Calcule une seule fois par image : c'etait refait pour chaque ennemi.
+    this.ciblesPossibles = this.heros.filter((h) => h.estAuCombat && !h.estInvisible);
+
     for (const objet of this.ennemis.getChildren()) {
       const e = objet as Ennemi;
       if (!e.active) continue;
@@ -726,9 +765,14 @@ export class ArenaScene extends Phaser.Scene {
       const angle = Phaser.Math.Angle.Between(e.x, e.y, cible.x, cible.y);
       e.setVelocity(Math.cos(angle) * e.vitesseEffective, Math.sin(angle) * e.vitesseEffective);
       e.setFlipX(cible.x < e.x);
-      // Un ennemi sous contrat reste marque en rouge jusqu'a la fin.
-      if (e.souscontrat) e.setTint(0xff3b30);
-      else e.setTint(this.time.now < e.ralentiJusqua ? 0x8ed6ff : 0xffffff);
+      if (this.time.now < e.flashJusqua) {
+        e.setTintFill(0xffffff);
+      } else if (e.souscontrat) {
+        // Un ennemi sous contrat reste marque en rouge jusqu'a la fin.
+        e.setTint(0xff3b30);
+      } else {
+        e.setTint(this.time.now < e.ralentiJusqua ? 0x8ed6ff : 0xffffff);
+      }
 
       this.bloquerParLesDomes(e);
     }
@@ -744,22 +788,31 @@ export class ArenaScene extends Phaser.Scene {
     if (e.attirePar?.active && !e.attirePar.furtif) return e.attirePar;
     if (e.provoquePar?.estAuCombat && !e.provoquePar.estInvisible) return e.provoquePar;
 
-    const candidats = this.heros.filter((h) => h.estAuCombat && !h.estInvisible);
+    const candidats = this.ciblesPossibles;
     if (candidats.length === 0) return null;
 
-    const parDistance = candidats.sort(
-      (a, b) =>
-        Phaser.Math.Distance.Between(e.x, e.y, a.x, a.y) -
-        Phaser.Math.Distance.Between(e.x, e.y, b.x, b.y),
-    );
-    const premier = parDistance[0]!;
-    if (!premier.bonus.discretion) return premier;
+    // Un simple parcours : trier a chaque image pour chaque ennemi coutait
+    // beaucoup plus cher que le probleme ne le meritait.
+    let premier: Hero | null = null;
+    let meilleure = Infinity;
+    let expose: Hero | null = null;
+    let meilleureExpose = Infinity;
 
-    // L'assassin n'est vise qu'a defaut d'une autre cible a portee raisonnable.
-    const autre = parDistance.find(
-      (h) => !h.bonus.discretion && Phaser.Math.Distance.Between(e.x, e.y, h.x, h.y) < 220,
-    );
-    return autre ?? premier;
+    for (const h of candidats) {
+      const d = Phaser.Math.Distance.Between(e.x, e.y, h.x, h.y);
+      if (d < meilleure) {
+        meilleure = d;
+        premier = h;
+      }
+      // L'assassin n'est vise qu'a defaut d'une autre cible a portee raisonnable.
+      if (!h.bonus.discretion && d < 220 && d < meilleureExpose) {
+        meilleureExpose = d;
+        expose = h;
+      }
+    }
+
+    if (premier?.bonus.discretion && expose) return expose;
+    return premier;
   }
 
   private bloquerParLesDomes(e: Ennemi): void {
@@ -824,8 +877,9 @@ export class ArenaScene extends Phaser.Scene {
       if (!cible || allie.ratioPv < cible.ratioPv) cible = allie;
     }
     if (!cible) return;
+    // Volontairement sans nombre flottant : ce soin part a chaque attaque de
+    // l'Oracle, et l'afficher noyait l'ecran.
     cible.soigner(montant);
-    this.flotter(cible.x, cible.y - 20, `+${montant}`, "#7ee0a0");
   }
 
   private frapperAuContact(hero: Hero, cible: Ennemi): void {
@@ -966,12 +1020,10 @@ export class ArenaScene extends Phaser.Scene {
     if (!e.active) return;
     const inflige = Math.min(degats, e.pv);
     e.pv -= degats;
+    // Pas de minuterie ici : avec les degats de zone et les chaines, on en
+    // creait des centaines par seconde. Un simple horodatage suffit.
     e.setTintFill(0xffffff);
-    this.time.delayedCall(60, () => {
-      if (!e.active) return;
-      if (e.souscontrat) e.setTint(0xff3b30);
-      else e.clearTint();
-    });
+    e.flashJusqua = this.time.now + 70;
 
     const vol = auteur.volDeVie + volDeVieSup;
     if (vol > 0) auteur.soigner(inflige * vol);
@@ -1956,8 +2008,13 @@ export class ArenaScene extends Phaser.Scene {
     const ecoule = (this.time.now - this.debut) / 1000;
     const puissance = ecoule / 45;
     const vivants = this.heros.filter((h) => h.etat !== "mort").length;
-    const nombre = Math.max(1, Math.floor((1 + ecoule / 18) * (vivants / 2)));
+    const voulu = Math.max(1, Math.floor((1 + ecoule / 18) * (vivants / 2)));
     const intervalle = Math.max(300, 1400 - ecoule * 13);
+
+    // Le plafond protege la fluidite : au-dela, la montee en puissance passe
+    // par la force des ennemis, pas par leur nombre.
+    const place = MAX_ENNEMIS - this.ennemis.getLength();
+    const nombre = Math.min(voulu, Math.max(0, place));
 
     for (let i = 0; i < nombre; i++) this.faireApparaitreEnnemi(puissance);
     this.prochaineApparition = this.time.now + intervalle;
@@ -2057,17 +2114,36 @@ export class ArenaScene extends Phaser.Scene {
 
   // --------------------------------------------------------------- effets
 
+  /**
+   * Nombres flottants, recycles.
+   *
+   * Un objet Texte de Phaser fabrique sa propre texture : en creer plusieurs
+   * dizaines par seconde suffit a faire tomber le jeu. On les reutilise, et on
+   * cesse d'en afficher au-dela d'un certain nombre a l'ecran.
+   */
   private flotter(x: number, y: number, texte: string, couleur: string): void {
-    const t = this.add
-      .text(x, y, texte, { fontFamily: "monospace", fontSize: "11px", color: couleur })
-      .setOrigin(0.5)
-      .setDepth(5000);
+    if (this.textesActifs >= MAX_TEXTES_FLOTTANTS) return;
+
+    const t =
+      this.textesLibres.pop() ??
+      this.add
+        .text(0, 0, "", { fontFamily: "monospace", fontSize: "11px", color: "#ffffff" })
+        .setOrigin(0.5)
+        .setDepth(5000);
+
+    this.textesActifs += 1;
+    t.setText(texte).setColor(couleur).setPosition(x, y).setAlpha(1).setVisible(true);
+
     this.tweens.add({
       targets: t,
       y: y - 22,
       alpha: 0,
       duration: 650,
-      onComplete: () => t.destroy(),
+      onComplete: () => {
+        this.textesActifs -= 1;
+        t.setVisible(false);
+        this.textesLibres.push(t);
+      },
     });
   }
 
