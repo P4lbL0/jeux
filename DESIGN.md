@@ -370,12 +370,65 @@ fiches. Gauche, c'est *moi* ; droite, c'est *les autres*.
 - **Montée en puissance sans fin** : les monstres deviennent de plus en plus forts,
   indéfiniment. Les améliorations du joueur sont **cumulables** sans plafond.
 
-### 4.6 Village et dégâts
+### 4.6 Le village : la carte, les fronts, les dégâts
 
 Le village est à la fois le hub, l'objectif et l'enjeu. Il commence **en ruine** et se
 restaure progressivement. On y parle aux PNJ, on y dépense ses ressources.
 
 **S'il tombe, la partie est terminée.**
+
+#### La carte : deux flancs fermés, deux fronts
+
+Le village est adossé à la **mer** et à la **montagne**. Ce n'est pas un décor : c'est la
+règle qui structure tout le combat.
+
+```
+                    ↓ ennemis — front nord
+   ~~~~~~~~~~ ┌────────────────────────────────┐
+   ~ mer    ~ │                                │
+   ~~~~~~~~~~ │           VILLAGE              │  ← ennemis — front est
+   ~ plage  ~ │                                │
+   ~~~~~~~~~~ └────────────────────────────────┘
+                MONTAGNE   ·   FORÊT
+```
+
+| Bord | Ce qu'il y a | Franchissable ? | Ce qu'on y récolte |
+|---|---|---|---|
+| **Ouest** | La mer, une plage, des vagues | Non | **Poisson** |
+| **Sud** | Une montagne et ses forêts | Non | **Bois** et **minerai** |
+| **Nord** | Les terres ouvertes | **Oui — front** | — |
+| **Est** | Les terres ouvertes | **Oui — front** | — |
+
+**Pourquoi c'est une très bonne décision de design**, et pas seulement du décor :
+
+- **Elle donne un sens aux défenses.** Un village attaqué sur 360° transforme la
+  tower-defense du jalon 6 en pelote d'épingles : on entoure, et c'est tout. Avec deux
+  fronts, **placer une baliste devient un choix** — nord ou est, et on ne peut pas les
+  couvrir tous les deux.
+- **Elle donne enfin un travail aux ordres du jalon 4.** Deux fronts, un seul héros
+  incarné : le joueur *doit* déléguer. « Toi, tu tiens l'est » cesse d'être une
+  fonctionnalité et devient la seule façon de survivre. Aucun système du jeu ne rendait
+  les ordres nécessaires jusqu'ici.
+- **Elle rend la carte lisible.** Le joueur sait toujours d'où ça vient, donc où regarder
+  quand il dézoome.
+- **Elle ancre les ressources dans le terrain.** La mer nourrit, la forêt construit, la
+  montagne arme. On ne récolte pas dans un menu : on récolte à un endroit, et cet endroit
+  est protégé — ou pas.
+
+> ⚠️ **Le vrai risque, c'est le camping.** Deux flancs fermés rendent le village très
+> défendable, et le §4.3 rappelle qu'on peut déjà camper indéfiniment dans la cité. Si
+> les monstres se contentent de chercher les héros, un joueur prudent n'a plus qu'à se
+> planquer dans le coin sud-ouest, dos à la mer, et attendre.
+>
+> La contrepartie est donc **obligatoire** : les monstres visent **le village**, pas les
+> héros. Ils cassent des bâtiments, ils tuent des habitants, ils arrêtent la récolte. Se
+> planquer devient le moyen le plus rapide de tout perdre. Sans cette règle, la carte
+> fermée est une régression, pas un progrès.
+
+> ⚠️ **Deux fronts, ce n'est pas moitié moins de travail — c'est deux endroits où être à
+> la fois.** C'est plus dur qu'un front unique, pas plus facile. Il faudra sans doute que
+> les deux fronts ne se déclenchent pas toujours ensemble, sinon les premières vagues
+> seront ingérables.
 
 **Dégâts et délai de la vague suivante** : plus le village a pris cher, plus la vague
 suivante **met de temps à arriver**. C'est un mécanisme d'auto-régulation malin : le
@@ -814,6 +867,58 @@ de cet épisode, à ne plus jamais enfreindre :
 5. **Rien qui trie une liste par ennemi et par image.** Ce qui est commun à toute l'image
    se calcule une fois, pas une fois par entité.
 
+### 4.18 Les habitants
+
+Le village n'est pas un décor avec des boutiques : c'est une **population**. Chaque
+habitant a un **métier**, un **rang** et un **niveau** — la même échelle que les héros
+(§4.1).
+
+| Métier | Où il travaille | Ce qu'il produit |
+|---|---|---|
+| **Pêcheur** | La plage, à l'ouest | Poisson |
+| **Bûcheron** | La forêt, au sud | Bois |
+| **Mineur** | La montagne, au sud | Minerai |
+| **Forgeron** | Le village | Transforme le minerai en équipement et en défenses |
+| **Charpentier** | Le village | Répare et construit avec le bois |
+
+**Le rang et le niveau font une seule chose : la cadence.** Un mineur de rang A produit
+plus vite qu'un mineur de rang F, point. Pas de statistiques de combat, pas d'arbre de
+compétences, pas de second écran de personnage.
+
+> **Pourquoi je le limite volontairement.** Un habitant qui aurait des compétences, des
+> évolutions et un panneau de capacités, ce serait **un deuxième jeu de collection** à
+> côté de celui des héros — deux fois l'équilibrage, deux fois l'interface, et le joueur
+> qui ne sait plus où mettre son attention. Le rang des habitants doit rester **un seul
+> chiffre qu'on lit en une seconde**. C'est ce qui permet d'en avoir vingt sans noyer le
+> jeu. Si un habitant mérite un vrai build, c'est qu'il aurait dû être un héros.
+
+**Le lien avec le Nécromancien** : le §4.14 promet déjà que les morts-vivants conservés
+peuvent être affectés au travail du village. Ils occupent donc des postes de métier —
+lentement, mais **ils ne mangent pas**. C'est le paiement de la classe la plus étrange du
+jeu, et il tombe pile ici.
+
+#### Les ressources récoltées
+
+Le §4.8 verrouille trois ressources qui ne se convertissent jamais : XP, argent,
+matériaux. La récolte en ajoute, et **chaque ressource de plus est une ligne d'interface,
+une courbe d'équilibrage et une décision de plus à comprendre**. Il en faut donc le moins
+possible, et chacune doit couvrir un axe que les autres ne couvrent pas.
+
+| Ressource | Vient de | Sert à | Axe |
+|---|---|---|---|
+| **Bois** | La forêt | Réparer et construire | Le village tient debout |
+| **Minerai** | La montagne | Défenses et équipement | Le village frappe |
+| **Nourriture** | La mer | Nourrir les habitants | Le village vit |
+
+La **nourriture** est la seule qui soit une *contrainte* et non un *achat* : si elle
+manque, les habitants ne travaillent plus. C'est elle qui empêche d'empiler les habitants
+sans réfléchir — et c'est exactement ce que le lore du Nécromancien annonçait déjà
+(« personne ne mange à sa table », « une population qui n'a pas besoin d'être nourrie »).
+
+> ⚠️ Point de vigilance : ces trois-là ne doivent **jamais** être convertibles entre
+> elles, ni en argent. Sinon on retombe sur le problème du §4.8 — le joueur n'optimise
+> plus qu'une ressource et la moitié des décisions disparaît.
+
 ---
 
 ## 5. Ordre de construction
@@ -828,7 +933,7 @@ incertain d'abord. À chaque jalon, le jeu doit être **jouable** — moche, mai
 | **2** | ✅ XP, montée de niveau, pause et choix d'amélioration | La boucle de combat tourne |
 | **3** | ✅ Équipe, IA, règle des 20%, cité, switch, barre d'équipe, mort définitive | Le cœur du jeu est là |
 | **4** | ✅ Ordres, postures et formations, expérience de groupe (§4.16) | La couche tactique existe |
-| **5** | Village hub, PNJ, phase de préparation, argent, équipement | Les deux moitiés du jeu sont reliées |
+| **5** | Village hub adossé à la mer et à la montagne, habitants et métiers, récolte, phase de préparation (§4.6, §4.18) | Les deux moitiés du jeu sont reliées |
 | **6** | Défenses à placer, de la baliste au canon laser | La tower-defense existe |
 | **7** | Restauration du village, améliorations cumulables, montée en puissance infinie | La partie longue existe |
 | **8** | Recrutement, rangs F→SRR++, classes rares, effectif de 10 et garnison (§4.15) | La collection existe |
@@ -911,6 +1016,10 @@ vaut le découvrir en semaine 1 qu'en mois 6.
   moyenne des liens et non leur somme (§4.16)
 - ✅ Une affinité **s'efface** quand la paire cesse de sortir ensemble — six fois plus
   lentement qu'elle ne se gagne, et jamais sous 25% de son record (§4.16)
+- ✅ La carte → le village **adossé à la mer (ouest) et à la montagne (sud)**, deux flancs
+  fermés, deux fronts seulement : **nord et est** (§4.6)
+- ✅ Les habitants → un **métier**, un **rang** et un **niveau**, et le rang ne change
+  qu'une chose : la **cadence de production** (§4.18)
 
 ---
 
