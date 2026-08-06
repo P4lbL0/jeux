@@ -15,6 +15,9 @@ export class ChoixClasseScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Le menu contextuel du navigateur n'a rien a faire dans un jeu.
+    this.input.mouse?.disableContextMenu();
+
     creerTexturesPlaceholder(this);
     this.construire();
 

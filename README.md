@@ -58,6 +58,7 @@ src/
     art.ts             textures placeholder generees par code
     entities.ts        heros et ennemis
     hud.ts             barre de heros (le futur ecran de triage)
+    panneauUltimes.ts  panneau des ultimes, en bas a gauche
     choixCompetence.ts ecran de montee de niveau
   scenes/    les ecrans du jeu
     ChoixClasseScene.ts  choix de la classe de depart

@@ -23,10 +23,85 @@ export function creerTexturesPlaceholder(scene: Phaser.Scene): void {
   creerEnnemi(scene);
   creerProjectile(scene);
   creerImpact(scene);
+  creerIconesUltimes(scene);
   for (const id of ORDRE_CLASSES) {
     const classe = CLASSES[id];
     creerHero(scene, `hero-${id}`, classe.couleur, classe.accent);
   }
+}
+
+/**
+ * Une icone par effet d'ultime. Dessinees en blanc : le panneau les teinte
+ * ensuite a la couleur de la classe, et les grise pendant le rechargement.
+ */
+function creerIconesUltimes(scene: Phaser.Scene): void {
+  const T = 32;
+  const centre = T / 2;
+
+  // Tourbillon : quatre lames tournant autour d'un moyeu.
+  let g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.fillStyle(0xffffff, 1);
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2 + Math.PI / 8;
+    g.fillTriangle(
+      centre + Math.cos(a) * 4,
+      centre + Math.sin(a) * 4,
+      centre + Math.cos(a + 0.9) * 14,
+      centre + Math.sin(a + 0.9) * 14,
+      centre + Math.cos(a + 0.2) * 15,
+      centre + Math.sin(a + 0.2) * 15,
+    );
+  }
+  g.fillCircle(centre, centre, 3);
+  g.generateTexture("ultime-tourbillon", T, T);
+  g.destroy();
+
+  // Rempart : un bouclier.
+  g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.fillStyle(0xffffff, 1);
+  g.fillPoints(
+    [
+      new Phaser.Geom.Point(16, 3),
+      new Phaser.Geom.Point(28, 8),
+      new Phaser.Geom.Point(27, 19),
+      new Phaser.Geom.Point(16, 29),
+      new Phaser.Geom.Point(5, 19),
+      new Phaser.Geom.Point(4, 8),
+    ],
+    true,
+  );
+  g.fillStyle(0x000000, 1);
+  g.fillRect(15, 9, 2, 13);
+  g.fillRect(10, 14, 12, 2);
+  g.generateTexture("ultime-rempart", T, T);
+  g.destroy();
+
+  // Meteore : une boule et sa trainee.
+  g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(20, 12, 8);
+  g.fillTriangle(4, 28, 13, 19, 16, 24);
+  g.fillTriangle(9, 29, 16, 22, 20, 26);
+  g.generateTexture("ultime-meteore", T, T);
+  g.destroy();
+
+  // Ombre : une dague.
+  g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.fillStyle(0xffffff, 1);
+  g.fillPoints(
+    [
+      new Phaser.Geom.Point(16, 2),
+      new Phaser.Geom.Point(20, 8),
+      new Phaser.Geom.Point(19, 20),
+      new Phaser.Geom.Point(13, 20),
+      new Phaser.Geom.Point(12, 8),
+    ],
+    true,
+  );
+  g.fillRect(8, 20, 16, 3);
+  g.fillRect(14, 23, 4, 7);
+  g.generateTexture("ultime-ombre", T, T);
+  g.destroy();
 }
 
 /** Herbe facon WorldBox : plusieurs verts en damier irregulier, pas un fond uni. */

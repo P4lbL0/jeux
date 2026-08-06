@@ -136,6 +136,9 @@ export class ArenaScene extends Phaser.Scene {
    * clavier. Le clavier reprend la main des qu'on l'utilise.
    */
   private configurerSouris(): void {
+    // Sans ca, le clic droit ouvre le menu du navigateur en plein combat.
+    this.input.mouse?.disableContextMenu();
+
     const viser = (pointeur: Phaser.Input.Pointer) => {
       if (this.termine || this.enPause) return;
       const point = this.cameras.main.getWorldPoint(pointeur.x, pointeur.y);

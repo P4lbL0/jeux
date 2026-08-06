@@ -23,7 +23,6 @@ export class Hud {
   private barres: Phaser.GameObjects.Graphics;
   private titre: Phaser.GameObjects.Text;
   private pvTexte: Phaser.GameObjects.Text;
-  private ultimesTextes: Phaser.GameObjects.Text[] = [];
   private info: Phaser.GameObjects.Text;
 
   constructor(private scene: Phaser.Scene, private hero: Hero) {
@@ -40,11 +39,8 @@ export class Hud {
     this.titre = this.texte(58, 16, 12, "#f2e9d8");
     this.pvTexte = this.texte(58, 31, 10, "#ffffff");
 
-    hero.classe.ultimes.forEach((ultime, i) => {
-      this.ultimesTextes.push(this.texte(20 + i * 74, HAUTEUR_CARTE + 22, 10, "#f2e9d8").setText(ultime.nom));
-    });
-
-    this.info = this.texte(16, 0, 11, "#d8d2c4");
+    // Les ultimes ont leur propre panneau, en bas a gauche (PanneauUltimes).
+    this.info = this.texte(16, 0, 11, "#d8d2c4").setOrigin(0.5, 0);
     this.info.setText(
       "ZQSD, fleches ou clic : se deplacer   ·   ESPACE : ultime   ·   molette : zoom",
     );
@@ -62,7 +58,7 @@ export class Hud {
   }
 
   private placerInfo(): void {
-    this.info.setPosition(16, this.scene.scale.height - 26);
+    this.info.setPosition(this.scene.scale.width / 2, this.scene.scale.height - 26);
   }
 
   private dessinerFond(): void {
@@ -116,24 +112,5 @@ export class Hud {
     g.fillRect(x, yXp, largeur, 4);
     g.fillStyle(0x5ec8f0, 1);
     g.fillRect(x, yXp, largeur * Phaser.Math.Clamp(h.xp / h.xpRequise, 0, 1), 4);
-
-    // --- Rechargement des ultimes ---
-    h.classe.ultimes.forEach((_, i) => {
-      const bx = 16 + i * 74;
-      const by = HAUTEUR_CARTE + 18;
-      const charge = h.chargeUltime(i);
-      const pret = charge === 0;
-
-      g.fillStyle(0x1b1720, 0.82);
-      g.fillRoundedRect(bx, by, 70, 20, 4);
-      if (!pret) {
-        g.fillStyle(0x000000, 0.55);
-        g.fillRoundedRect(bx, by, 70 * charge, 20, 4);
-      }
-      g.lineStyle(2, pret ? 0xf0c419 : 0x4a4152, 1);
-      g.strokeRoundedRect(bx, by, 70, 20, 4);
-
-      this.ultimesTextes[i]?.setColor(pret ? "#f0c419" : "#8a8397");
-    });
   }
 }

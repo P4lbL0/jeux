@@ -21,6 +21,8 @@ export type TraitClasse = "arc-large" | "riposte" | "explosion" | "critique";
 
 export interface UltimeDef {
   nom: string;
+  /** Une phrase, affichee en jeu sous l'icone */
+  description: string;
   /** Rechargement en millisecondes */
   rechargement: number;
   effet: EffetUltime;
@@ -70,7 +72,14 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     trait: "arc-large",
     traitNom: "Fauchage",
     traitTexte: "Frappe tout un demi-cercle devant lui",
-    ultimes: [{ nom: "Tourbillon", rechargement: 7000, effet: "tourbillon" }],
+    ultimes: [
+      {
+        nom: "Tourbillon",
+        description: "Fauche tout ce qui l'entoure et le repousse au loin",
+        rechargement: 7000,
+        effet: "tourbillon",
+      },
+    ],
   },
   chevalier: {
     id: "chevalier",
@@ -87,7 +96,14 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     trait: "riposte",
     traitNom: "Riposte",
     traitTexte: "Blesse quiconque le touche : plus on l'attaque, plus il tue",
-    ultimes: [{ nom: "Rempart", rechargement: 9000, effet: "rempart" }],
+    ultimes: [
+      {
+        nom: "Rempart",
+        description: "Invulnerable 3,5 s et degage toute la place autour de lui",
+        rechargement: 9000,
+        effet: "rempart",
+      },
+    ],
   },
   mage: {
     id: "mage",
@@ -104,7 +120,14 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     trait: "explosion",
     traitNom: "Deflagration",
     traitTexte: "Chaque tir explose et touche tout le groupe",
-    ultimes: [{ nom: "Meteore", rechargement: 8000, effet: "meteore" }],
+    ultimes: [
+      {
+        nom: "Meteore",
+        description: "Ecrase a distance le groupe d'ennemis le plus dense",
+        rechargement: 8000,
+        effet: "meteore",
+      },
+    ],
   },
   assassin: {
     id: "assassin",
@@ -121,7 +144,14 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     trait: "critique",
     traitNom: "Mise a mort",
     traitTexte: "25% de coups critiques, et la cadence la plus rapide du jeu",
-    ultimes: [{ nom: "Ombre", rechargement: 6500, effet: "ombre" }],
+    ultimes: [
+      {
+        nom: "Ombre",
+        description: "Traverse la melee en tuant tout sur son passage",
+        rechargement: 6500,
+        effet: "ombre",
+      },
+    ],
   },
 };
 

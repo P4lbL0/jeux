@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import type { CompetenceDef } from "../core/competences";
 import { Hud } from "../game/hud";
+import { PanneauUltimes } from "../game/panneauUltimes";
 import { ChoixCompetence } from "../game/choixCompetence";
 import type { Hero } from "../game/entities";
 import type { ArenaScene } from "./ArenaScene";
@@ -20,6 +21,7 @@ export class UiScene extends Phaser.Scene {
   private arene!: ArenaScene;
   private hero!: Hero;
   private hud!: Hud;
+  private ultimes!: PanneauUltimes;
   private choix!: ChoixCompetence;
   private stats!: Phaser.GameObjects.Text;
 
@@ -34,6 +36,7 @@ export class UiScene extends Phaser.Scene {
 
   create(): void {
     this.hud = new Hud(this, this.hero);
+    this.ultimes = new PanneauUltimes(this, this.hero);
     this.choix = new ChoixCompetence(this);
 
     this.stats = this.add
@@ -83,6 +86,7 @@ export class UiScene extends Phaser.Scene {
 
   update(): void {
     this.hud.rafraichir();
+    this.ultimes.rafraichir();
     const resume = this.arene.resume;
     this.stats.setPosition(this.scale.width - 16, 16);
     this.stats.setText(`Survie : ${resume.secondes}s\nElimines : ${resume.kills}`);
