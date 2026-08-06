@@ -70,6 +70,24 @@ describe("IA — le repli", () => {
   });
 });
 
+describe("IA — le Necromancien", () => {
+  it("rentre a la cite meme si un ennemi passe a portee", () => {
+    const hero = heros({ x: 400, y: 0, resteEnCite: true });
+    const { direction } = piloter(hero, contexte({ x: 420, y: 0 }, 5));
+    expect(direction.x).toBeLessThan(0);
+  });
+
+  it("ne bouge plus une fois au coeur de la cite", () => {
+    const hero = heros({ x: 10, y: 0, etat: "cite", resteEnCite: true });
+    expect(piloter(hero, contexte({ x: 300, y: 0 })).direction).toEqual({ x: 0, y: 0 });
+  });
+
+  it("appelle quand meme ses morts face a un groupe", () => {
+    const hero = heros({ x: 10, y: 0, etat: "cite", resteEnCite: true });
+    expect(piloter(hero, contexte({ x: 300, y: 0 }, 6)).lancerUltime).toBe(true);
+  });
+});
+
 describe("IA — la laisse", () => {
   it("revient vers la cite quand il s'en eloigne trop", () => {
     const hero = heros({ x: LAISSE + 50, y: 0 });

@@ -14,9 +14,9 @@ import type { Hero } from "./entities";
  * lui qui verrouille le changement de heros et declenche le repli de l'IA.
  */
 
-const LARGEUR = 134;
+const LARGEUR = 120;
 const HAUTEUR = 62;
-const ESPACE = 6;
+const ESPACE = 5;
 const MARGE = 12;
 
 const COULEURS_ETAT: Record<string, string> = {

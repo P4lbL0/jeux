@@ -57,6 +57,18 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   resistanceTemporaire = 0;
   /** Multiplicateur de vitesse temporaire (invisibilite, etc.) */
   multiplicateurVitesse = 1;
+  /** Esquive offerte par le Presage de l'Oracle, recalculee chaque image */
+  esquiveTemporaire = 0;
+  /** Multiplicateur de cadence temporaire (Chant de guerre) */
+  cadenceTemporaire = 1;
+  /** Allies morts ou replies, pour "Le dernier debout" */
+  alliesAbsents = 0;
+  /** Vrai quand il se bat a portee de la cite, pour le Serment du protecteur */
+  presCite = false;
+  /** Le Serment de fer se declenche a chaque nouveau passage sous 50% de vie */
+  private sermentArme = true;
+  /** Cibles deja touchees, pour la Marque de sang */
+  private dejaTouchees = new WeakSet<object>();
 
   private prochaineAttaque = 0;
   private prochaines: Record<string, number> = {};
@@ -86,6 +98,15 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     return Math.floor(this.kills / TRANCHE_KILLS);
   }
 
+  /**
+   * Serment du protecteur : tout reussit tant qu'on se bat pres de la cite.
+   * Il ne touche pas la vie maximum — sinon sortir du village ferait chuter la
+   * jauge de vie du heros, ce qui serait illisible.
+   */
+  get bonusCite(): number {
+    return 1 + (this.presCite ? this.bonus.sermentProtecteur : 0);
+  }
+
   get pvMax(): number {
     const base =
       this.classe.pvMax +
@@ -93,21 +114,39 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       (this.niveau - 1) * 6 +
       this.tranches * this.bonus.pvParTranche +
       this.pvGagnesProvocation;
-    return Math.round(base * this.bonus.multiplicateurGlobal);
+    return Math.max(
+      1,
+      Math.round(base * this.bonus.multiplicateurGlobal * this.bonus.multiplicateurPv),
+    );
   }
 
   get degats(): number {
     const base =
       (this.classe.degats + this.bonus.degats) * (1 + this.tranches * this.bonus.degatsParTranche);
-    return Math.max(1, Math.round(base * this.bonus.multiplicateurGlobal));
+    const contexte = this.bonusCite * (1 + this.alliesAbsents * this.bonus.dernierDebout);
+    return Math.max(
+      1,
+      Math.round(
+        base * this.bonus.multiplicateurGlobal * this.bonus.multiplicateurDegats * contexte,
+      ),
+    );
   }
 
   get vitesse(): number {
     return (
       (this.classe.vitesse + this.bonus.vitesse) *
       this.bonus.multiplicateurGlobal *
-      this.multiplicateurVitesse
+      this.multiplicateurVitesse *
+      this.bonusCite
     );
+  }
+
+  /** Premiere attaque sur une cible jamais touchee : la Marque de sang. */
+  multiplicateurContre(cible: object): number {
+    if (this.bonus.marqueDeSang <= 0) return 1;
+    if (this.dejaTouchees.has(cible)) return 1;
+    this.dejaTouchees.add(cible);
+    return this.bonus.marqueDeSang;
   }
 
   /**
@@ -116,7 +155,10 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
    */
   get cadence(): number {
     const manquant = (1 - Phaser.Math.Clamp(this.ratioPv, 0, 1)) * 100;
-    return (this.classe.cadence * this.bonus.cadence) / (1 + this.bonus.rageParPvManquant * manquant);
+    return (
+      (this.classe.cadence * this.bonus.cadence * this.cadenceTemporaire) /
+      (1 + this.bonus.rageParPvManquant * manquant)
+    );
   }
 
   get portee(): number {
@@ -125,7 +167,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   /** Plafonnee : une esquive de 100% rendrait le heros invincible. */
   get esquive(): number {
-    return Math.min(0.6, this.classe.esquive + this.bonus.esquive);
+    return Math.min(0.6, this.classe.esquive + this.bonus.esquive + this.esquiveTemporaire);
   }
 
   get critChance(): number {
@@ -198,9 +240,35 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.condamneJusqua = Math.max(this.condamneJusqua, this.scene.time.now + duree);
   }
 
+  /**
+   * Soin ordinaire. Refuse par "Sang pour sang" : ce heros ne recupere plus
+   * qu'en tuant, et c'est tout l'interet de la competence.
+   */
   soigner(montant: number): void {
+    if (this.bonus.sangPourSang > 0) return;
+    this.soignerForce(montant);
+  }
+
+  /** Soin que rien ne peut refuser (recompense de kill, regeneration propre). */
+  soignerForce(montant: number): void {
     if (this.estCondamne) return;
     this.pv = Math.min(this.pvMax, this.pv + montant);
+  }
+
+  /**
+   * Serment de fer : chaque nouveau passage sous la moitie de sa vie le rend
+   * definitivement plus dur. Se rearme des qu'il repasse au-dessus.
+   */
+  verifierSermentDeFer(): number {
+    if (this.bonus.sermentDeFer <= 0) return 0;
+    if (this.ratioPv > 0.5) {
+      this.sermentArme = true;
+      return 0;
+    }
+    if (!this.sermentArme) return 0;
+    this.sermentArme = false;
+    this.bonus.resistance += this.bonus.sermentDeFer;
+    return this.bonus.sermentDeFer;
   }
 
   mourir(): void {
@@ -275,8 +343,28 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     return this.chargeCapacite(capacite) === 0;
   }
 
-  marquerCapacite(capacite: Capacite): void {
+  /**
+   * @param tirageEcho un aleatoire dans [0,1) : sous le seuil d'Echo, la
+   *        capacite ne part pas en rechargement du tout.
+   */
+  marquerCapacite(capacite: Capacite, tirageEcho = 1): void {
+    if (tirageEcho < this.bonus.echo) return;
     this.prochaines[capacite.id] = this.scene.time.now + capacite.rechargement;
+  }
+
+  /** Danse des ombres : chaque mort raccourcit tous les rechargements. */
+  reduireRechargements(millisecondes: number): void {
+    for (const cle of Object.keys(this.prochaines)) {
+      this.prochaines[cle] = Math.max(
+        this.scene.time.now,
+        (this.prochaines[cle] ?? 0) - millisecondes,
+      );
+    }
+  }
+
+  /** Le Necromancien ne quitte jamais la cite (DESIGN.md §4.14). */
+  get resteEnCite(): boolean {
+    return this.classe.resteEnCite ?? false;
   }
 
   peutAttaquer(): boolean {
@@ -320,8 +408,11 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     return xpPourNiveauSuivant(this.niveau);
   }
 
-  get palierMaxAtteint(): boolean {
-    return false;
+  /** Veteran : un niveau offert, sans passer par l'experience. */
+  gagnerNiveauImmediat(): void {
+    this.niveau += 1;
+    if (donneUnChoix(this.niveau)) this.choixEnAttente += 1;
+    this.soignerForce(10);
   }
 
   palierDe(id: string): number {
@@ -398,6 +489,48 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
 
   marquerCoup(maintenant: number): void {
     this.prochainCoup = maintenant + 700;
+  }
+}
+
+/**
+ * Un mort-vivant releve par le Necromancien (DESIGN.md §4.14).
+ *
+ * Il se bat pour l'equipe. Ses statistiques dependent du niveau de son maitre :
+ * un Necromancien qui monte fait une armee qui monte avec lui.
+ */
+export class MortVivant extends Phaser.Physics.Arcade.Sprite {
+  pv: number;
+  pvMax: number;
+  degats: number;
+  vitesse: number;
+  readonly maitre: Hero;
+  /** Instant de decomposition ; Infinity avec "Seigneur des tombes" */
+  finDeVie: number;
+  private prochainCoup = 0;
+
+  constructor(scene: Phaser.Scene, x: number, y: number, maitre: Hero) {
+    super(scene, x, y, "mort-vivant");
+    this.maitre = maitre;
+
+    const puissance = maitre.bonus.puissanceMortsVivants;
+    this.pvMax = Math.round((18 + maitre.niveau * 4) * puissance);
+    this.pv = this.pvMax;
+    this.degats = Math.round((4 + maitre.niveau * 1.2) * puissance);
+    this.vitesse = 70;
+    this.finDeVie = maitre.bonus.mortsVivantsEternels ? Infinity : scene.time.now + 45000;
+
+    scene.add.existing(this);
+    scene.physics.add.existing(this);
+    this.body?.setSize(8, 9);
+    (this.body as Phaser.Physics.Arcade.Body).setOffset(2, 4);
+  }
+
+  peutFrapper(maintenant: number): boolean {
+    return maintenant >= this.prochainCoup;
+  }
+
+  marquerCoup(maintenant: number): void {
+    this.prochainCoup = maintenant + 800;
   }
 }
 

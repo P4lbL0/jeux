@@ -21,6 +21,7 @@ export function creerTexturesPlaceholder(scene: Phaser.Scene): void {
   creerHerbe(scene);
   creerMur(scene);
   creerEnnemi(scene);
+  creerMortVivant(scene);
   creerProjectile(scene);
   creerImpact(scene);
   creerIconesUltimes(scene);
@@ -102,6 +103,37 @@ function creerIconesUltimes(scene: Phaser.Scene): void {
   g.fillRect(8, 20, 16, 3);
   g.fillRect(14, 23, 4, 7);
   g.generateTexture("ultime-ombre", T, T);
+  g.destroy();
+
+  // Pluie de fleches : trois traits qui tombent.
+  g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.fillStyle(0xffffff, 1);
+  for (const x of [6, 15, 24]) {
+    g.fillRect(x, 4, 2, 18);
+    g.fillTriangle(x - 3, 20, x + 5, 20, x + 1, 29);
+  }
+  g.generateTexture("ultime-pluie-de-fleches", T, T);
+  g.destroy();
+
+  // Aube : un soleil levant.
+  g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(16, 20, 9);
+  g.fillRect(2, 22, 28, 3);
+  for (let i = 0; i < 5; i++) {
+    const a = Math.PI + (i / 4) * Math.PI;
+    g.fillCircle(16 + Math.cos(a) * 14, 20 + Math.sin(a) * 14, 2);
+  }
+  g.generateTexture("ultime-aube", T, T);
+  g.destroy();
+
+  // Levee des morts : une main qui sort de terre.
+  g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.fillStyle(0xffffff, 1);
+  g.fillRect(2, 24, 28, 3);
+  g.fillRect(13, 12, 6, 13);
+  for (const x of [9, 13, 17, 21]) g.fillRect(x, 6, 2, 9);
+  g.generateTexture("ultime-levee-des-morts", T, T);
   g.destroy();
 }
 
@@ -217,6 +249,81 @@ function creerIconesCapacites(scene: Phaser.Scene): void {
     g.fillRect(18, 22, 6, 3);
   });
 
+  // Orage final : un nuage et sa foudre.
+  dessiner("cap-orage", (g) => {
+    g.fillEllipse(16, 10, 26, 12);
+    g.fillTriangle(18, 15, 12, 24, 17, 24);
+    g.fillTriangle(15, 22, 20, 22, 12, 30);
+  });
+
+  // Heure sombre : un sablier arrete.
+  dessiner("cap-heure-sombre", (g) => {
+    g.fillRect(7, 3, 18, 3);
+    g.fillRect(7, 26, 18, 3);
+    g.fillTriangle(8, 6, 24, 6, 16, 16);
+    g.fillTriangle(8, 26, 24, 26, 16, 16);
+  });
+
+  // Martyre : un coeur transperce.
+  dessiner("cap-martyre", (g) => {
+    g.fillCircle(11, 12, 6);
+    g.fillCircle(21, 12, 6);
+    g.fillTriangle(5, 14, 27, 14, 16, 28);
+    g.fillStyle(0x000000, 1);
+    for (let i = 0; i < 26; i++) g.fillRect(3 + i, 27 - i, 2, 2);
+  });
+
+  // Piege : des machoires dentees.
+  dessiner("cap-piege", (g) => {
+    g.fillRect(4, 14, 24, 4);
+    for (let i = 0; i < 6; i++) {
+      g.fillTriangle(5 + i * 4, 14, 9 + i * 4, 14, 7 + i * 4, 7);
+      g.fillTriangle(5 + i * 4, 18, 9 + i * 4, 18, 7 + i * 4, 25);
+    }
+  });
+
+  // Fleche du jugement : une fleche verticale rayonnante.
+  dessiner("cap-fleche-jugement", (g) => {
+    g.fillRect(14, 6, 4, 22);
+    g.fillTriangle(8, 10, 24, 10, 16, 1);
+    g.fillRect(6, 26, 20, 2);
+  });
+
+  // Priere : deux mains jointes, stylisees.
+  dessiner("cap-priere", (g) => {
+    g.fillTriangle(16, 2, 9, 20, 16, 20);
+    g.fillTriangle(16, 2, 23, 20, 16, 20);
+    g.fillRect(8, 21, 16, 3);
+    g.fillStyle(0x000000, 1);
+    g.fillRect(15, 4, 2, 16);
+  });
+
+  // Chant de guerre : des ondes qui partent d'un point.
+  dessiner("cap-chant", (g) => {
+    g.fillCircle(8, 16, 4);
+    for (let r = 9; r <= 21; r += 6) {
+      g.lineStyle(3, 0xffffff, 1);
+      g.beginPath();
+      g.arc(8, 16, r, -0.9, 0.9, false);
+      g.strokePath();
+    }
+  });
+
+  // L'Appel : un crane couronne.
+  dessiner("cap-appel", (g) => {
+    g.fillCircle(16, 16, 10);
+    g.fillRect(11, 22, 10, 5);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(12, 15, 3);
+    g.fillCircle(20, 15, 3);
+    g.fillRect(14, 22, 2, 5);
+    g.fillRect(18, 22, 2, 5);
+    g.fillStyle(0xffffff, 1);
+    g.fillTriangle(6, 6, 10, 6, 8, 1);
+    g.fillTriangle(14, 5, 18, 5, 16, 0);
+    g.fillTriangle(22, 6, 26, 6, 24, 1);
+  });
+
   // Generique : une etoile, pour toute capacite sans icone dediee.
   dessiner("cap-generique", (g) => {
     for (let i = 0; i < 4; i++) {
@@ -285,6 +392,28 @@ function creerEnnemi(scene: Phaser.Scene): void {
   g.fillRect(7, 7, 2, 2);
 
   g.generateTexture("ennemi", TAILLE_ENNEMI.largeur, TAILLE_ENNEMI.hauteur);
+  g.destroy();
+}
+
+/** Mort-vivant releve par le Necromancien : la meme carrure, la couleur de la tombe. */
+function creerMortVivant(scene: Phaser.Scene): void {
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+
+  g.fillStyle(0x000000, 0.25);
+  g.fillEllipse(6, 14, 11, 4);
+
+  g.fillStyle(0x5f7a4e, 1); // chair verdatre
+  g.fillRect(2, 5, 8, 8);
+  g.fillStyle(0x44583a, 1);
+  g.fillRect(2, 11, 8, 2);
+  g.fillStyle(0xd8d2c4, 1); // os saillants
+  g.fillRect(1, 6, 1, 5);
+  g.fillRect(10, 6, 1, 5);
+  g.fillStyle(0x9ee8a0, 1); // yeux
+  g.fillRect(3, 7, 2, 2);
+  g.fillRect(7, 7, 2, 2);
+
+  g.generateTexture("mort-vivant", TAILLE_ENNEMI.largeur, TAILLE_ENNEMI.hauteur);
   g.destroy();
 }
 

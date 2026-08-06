@@ -100,8 +100,16 @@ parce que l'architecture du code repose dessus.
 
 ### 4.1 Classes et rangs
 
-Quatre classes de départ : **guerrier**, **chevalier**, **mage**, **assassin**.
-Le joueur en choisit une au tout début de la partie.
+Sept classes : **guerrier**, **chevalier sacré**, **mage**, **assassin**, **rôdeur**,
+**oracle** et **nécromancien**. Le joueur en choisit une au tout début de la partie.
+
+Chacune a son **lore**, ses statistiques, son **trait** (§4.2), son ultime et ses
+compétences propres (§4.13).
+
+**On peut recruter plusieurs héros de la même classe.** Deux guerriers ne sont pas
+redondants : ils n'auront ni le même rang, ni les mêmes compétences, ni les mêmes
+évolutions. C'est la conséquence naturelle d'un système où le build compte plus que
+l'étiquette.
 
 Chaque classe se définit par ses statistiques de base, son attaque automatique
 (portée, cadence, zone d'effet), ses **ultimes** et son comportement d'IA.
@@ -193,9 +201,12 @@ qu'à elle** :
 | Classe | Trait | Effet |
 |---|---|---|
 | Guerrier | Fauchage | Frappe un demi-cercle entier, là où les autres touchent un cône étroit |
-| Chevalier | Riposte | Blesse quiconque le touche : plus on l'attaque, plus il tue |
+| Chevalier Sacré | Serment | Blesse quiconque le touche : plus on l'attaque, plus il tue |
 | Mage | Déflagration | Chaque tir explose et touche tout le groupe |
 | Assassin | Mise à mort | Coups critiques fréquents, et la cadence la plus rapide du jeu |
+| Rôdeur | Volée | Tire trois flèches en éventail à chaque attaque |
+| Oracle | Verbe | Chaque attaque soigne aussi l'allié le plus blessé autour d'elle |
+| Nécromancien | Relèvement | Il n'attaque jamais : chaque cadavre peut se relever pour lui |
 
 C'est le trait, pas la fiche de statistiques, qui doit faire dire au joueur « je ne
 joue pas du tout pareil avec celui-là ».
@@ -499,6 +510,72 @@ trouve à proximité de l'ennemi.
 > à découvert avec un point de vie. Ce n'est pas un bouton « je gagne », c'est un pari.
 > Il ne faudra jamais l'adoucir.
 
+### 4.14 Le Nécromancien
+
+Ce n'est pas une classe de plus : c'est un **autre jeu greffé sur le premier**.
+
+> *Il ne lève jamais la main sur personne. Il attend que les autres tombent, il
+> s'accroupit, et il leur parle. Le village le tolère parce qu'il rend des bras — mais
+> personne ne mange à sa table.*
+
+**Il n'attaque pas.** Jamais. Sa portée est nulle, et l'IA le garde **dans la cité**.
+Ce sont ses morts qui travaillent à sa place.
+
+**Le relèvement** : chaque cadavre — ennemi ou allié — a **25% de chance** de se relever
+à son service. Cette probabilité s'améliore avec ses compétences. Un mort-vivant a des
+statistiques calculées **d'après le niveau du nécromancien** : plus il monte, plus son
+armée monte avec lui.
+
+**Ce qui reste à construire** (dépend de systèmes qui n'existent pas encore) :
+
+- [ ] **Le tri de fin de vague.** À chaque fin de vague, le joueur choisit **un seul**
+      mort-vivant à conserver définitivement. Les autres retombent. Ça demande des vagues
+      avec un début et une fin nette — aujourd'hui les ennemis arrivent en continu.
+- [ ] **La main-d'œuvre.** Les morts-vivants conservés peuvent être affectés au **travail
+      du village**, à la **défense**, ou au **combat**. Ça demande le village du jalon 5
+      et son économie.
+
+**Pourquoi cette classe est intéressante** : c'est la seule dont la puissance ne vient
+pas de ce qu'elle fait, mais de ce qui est *déjà mort*. Elle transforme les pertes — les
+tiennes comprises — en ressource. Et elle donne au village une population qui n'a pas
+besoin d'être nourrie.
+
+> ⚠️ À surveiller : un héros qui ne se joue pas est un héros qu'on n'incarne jamais.
+> Il faudra que **le contrôler soit intéressant** — placer ses morts, choisir qui relever
+> — sinon il restera un bonus passif qu'on laisse à l'IA toute la partie.
+
+### 4.15 L'effectif : dix dehors, le reste en garnison
+
+**Dix héros au maximum peuvent sortir** de la ville en même temps. Au-delà, les autres
+**restent en garnison** — et ils ne sont pas inactifs : ils **défendent la ville** si des
+monstres franchissent les défenses.
+
+C'est une bonne règle pour trois raisons :
+
+1. Elle **plafonne le chaos à l'écran** sans plafonner la collection. On peut recruter
+   trente héros, on n'en verra jamais plus de dix au combat.
+2. Elle crée une **vraie décision avant chaque vague** : qui sort, qui garde la maison.
+3. Elle donne un **rôle aux héros faibles** au lieu d'en faire du rebut : un rang F
+   suffit à tenir un mur.
+
+### 4.16 Formations et expérience de groupe
+
+**Plus un groupe de héros combat ensemble, plus il devient fort.** Chaque paire de héros
+accumule de l'expérience commune, et cette expérience :
+
+- donne des **bonus de statistiques** au groupe qui a l'habitude de travailler ensemble ;
+- **débloque des formations** — des dispositions apprises, pas achetées.
+
+C'est le meilleur système de la liste, parce qu'il **punit doucement la rotation** que
+tout le reste du jeu encourage. Tu veux tourner entre tes héros pour ramasser leurs choix
+en attente, mais tu veux aussi garder une équipe soudée. Cette tension-là, aucun autre
+système du jeu ne la produisait.
+
+> ⚠️ À trancher : si le bonus de groupe est trop fort, le joueur figera une équipe et ne
+> touchera plus jamais aux autres — exactement l'inverse de ce que la règle des 20% et
+> les choix en attente cherchent à provoquer. Il faudra qu'il reste **confortable, pas
+> décisif**.
+
 ---
 
 ## 5. Ordre de construction
@@ -512,11 +589,11 @@ incertain d'abord. À chaque jalon, le jeu doit être **jouable** — moche, mai
 | **1** | ✅ Arène, héros, auto-attaque, ultimes, traits de classe, ennemis, mort | **Oui, bouger est amusant** — valide au test du 6 août |
 | **2** | ✅ XP, montée de niveau, pause et choix d'amélioration | La boucle de combat tourne |
 | **3** | ✅ Équipe, IA, règle des 20%, cité, switch, barre d'équipe, mort définitive | Le cœur du jeu est là |
-| **4** | Ordres, postures et formations | La couche tactique existe |
+| **4** | Ordres, postures et formations, expérience de groupe (§4.16) | La couche tactique existe |
 | **5** | Village hub, PNJ, phase de préparation, argent, équipement | Les deux moitiés du jeu sont reliées |
 | **6** | Défenses à placer, de la baliste au canon laser | La tower-defense existe |
 | **7** | Restauration du village, améliorations cumulables, montée en puissance infinie | La partie longue existe |
-| **8** | Recrutement, rangs F→SRR++, classes rares | La collection existe |
+| **8** | Recrutement, rangs F→SRR++, classes rares, effectif de 10 et garnison (§4.15) | La collection existe |
 | **9** | Prologue, choix de classe, dialogues, narration | Le jeu a un début |
 | **10** | Défaite, corruption, retour du héros en antagoniste | Le jeu a une **suite** |
 | **11** | Leaderboard en ligne | Le score compte pour de vrai |
@@ -583,6 +660,11 @@ vaut le découvrir en semaine 1 qu'en mois 6.
 - ✅ Compétences → **actives, automatiques ou passives**, à paliers, avec évolutions (§4.13)
 - ✅ Le Chevalier devient le **Chevalier Sacré**
 - ✅ Fiche de héros consultable en cliquant un portrait (§4.10)
+- ✅ Provocation → chaque mort à ses pieds **le soigne de 1**, sans toucher à sa vie max
+- ✅ Trois nouvelles classes : **Rôdeur**, **Oracle**, **Nécromancien** (§4.1, §4.14)
+- ✅ On peut recruter **plusieurs héros de la même classe** (§4.1)
+- ✅ **Dix héros dehors** au maximum, le reste en garnison défend la ville (§4.15)
+- ✅ **Expérience de groupe** : combattre ensemble donne des bonus et débloque des formations (§4.16)
 
 ---
 

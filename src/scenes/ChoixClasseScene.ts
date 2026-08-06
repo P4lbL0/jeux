@@ -56,18 +56,31 @@ export class ChoixClasseScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    // Sept classes : on les repartit sur deux rangees pour qu'elles tiennent a
+    // l'ecran quelle que soit la fenetre.
+    const parRangee = 4;
     const largeurCarte = 186;
-    const espace = 16;
-    const total = ORDRE_CLASSES.length * largeurCarte + (ORDRE_CLASSES.length - 1) * espace;
-    const debut = l / 2 - total / 2;
-    const y = h * 0.3;
+    const espace = 14;
+    const hauteurCarte = 278;
+    const y = h * 0.24;
 
     ORDRE_CLASSES.forEach((id, i) => {
-      this.carte(id, debut + i * (largeurCarte + espace), y, largeurCarte, i + 1);
+      const rangee = Math.floor(i / parRangee);
+      const dansRangee = ORDRE_CLASSES.slice(rangee * parRangee, (rangee + 1) * parRangee).length;
+      const total = dansRangee * largeurCarte + (dansRangee - 1) * espace;
+      const debut = l / 2 - total / 2;
+      const colonne = i % parRangee;
+      this.carte(
+        id,
+        debut + colonne * (largeurCarte + espace),
+        y + rangee * (hauteurCarte + 16),
+        largeurCarte,
+        i + 1,
+      );
     });
 
     this.add
-      .text(l / 2, h - 40, "Touches 1 a 4, ou clique sur une carte", {
+      .text(l / 2, h - 26, "Touches 1 a 7, ou clique sur une carte", {
         fontFamily: "monospace",
         fontSize: "12px",
         color: "#8a8397",
@@ -81,6 +94,9 @@ export class ChoixClasseScene extends Phaser.Scene {
         Phaser.Input.Keyboard.KeyCodes.TWO,
         Phaser.Input.Keyboard.KeyCodes.THREE,
         Phaser.Input.Keyboard.KeyCodes.FOUR,
+        Phaser.Input.Keyboard.KeyCodes.FIVE,
+        Phaser.Input.Keyboard.KeyCodes.SIX,
+        Phaser.Input.Keyboard.KeyCodes.SEVEN,
       ];
       codes.forEach((code, i) => {
         const id = ORDRE_CLASSES[i];

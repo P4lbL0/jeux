@@ -55,4 +55,29 @@ describe("Classes", () => {
     const portees = ORDRE_CLASSES.map((id) => CLASSES[id].portee).sort((a, b) => a - b);
     expect(new Set(portees).size).toBe(portees.length);
   });
+
+  it("ont toutes un lore, un trait et un ultime", () => {
+    for (const id of ORDRE_CLASSES) {
+      const classe = CLASSES[id];
+      expect(classe.lore.length).toBeGreaterThan(40);
+      expect(classe.traitNom.length).toBeGreaterThan(0);
+      expect(classe.traitTexte.length).toBeGreaterThan(0);
+      expect(classe.ultimes[0]?.description.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("ont toutes un trait different", () => {
+    const traits = ORDRE_CLASSES.map((id) => CLASSES[id].trait);
+    expect(new Set(traits).size).toBe(traits.length);
+  });
+
+  /**
+   * Le Necromancien ne se bat jamais lui-meme : ce sont ses morts qui
+   * travaillent (DESIGN.md §4.14). Une portee nulle garantit qu'il n'attaquera
+   * aucune cible.
+   */
+  it("laisse le Necromancien sans attaque et confine a la cite", () => {
+    expect(CLASSES.necromancien.portee).toBe(0);
+    expect(CLASSES.necromancien.resteEnCite).toBe(true);
+  });
 });

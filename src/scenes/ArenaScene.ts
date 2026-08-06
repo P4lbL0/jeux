@@ -10,7 +10,7 @@ import {
   type EvolutionDef,
 } from "../core/competences";
 import { creerTexturesPlaceholder } from "../game/art";
-import { Ennemi, Hero, type Capacite, type Dome } from "../game/entities";
+import { Ennemi, Hero, MortVivant, type Capacite, type Dome } from "../game/entities";
 import { piloter, type ContexteIA } from "../core/ia";
 import type { EtatEquipe } from "../game/hud";
 
@@ -41,9 +41,18 @@ export class ArenaScene extends Phaser.Scene {
   private equipe!: Phaser.Physics.Arcade.Group;
   private ennemis!: Phaser.Physics.Arcade.Group;
   private projectiles!: Phaser.Physics.Arcade.Group;
+  private mortsVivants!: Phaser.Physics.Arcade.Group;
   private domes: Dome[] = [];
-  private satellites = new Map<Hero, Phaser.GameObjects.Image[]>();
-  private prochainTickSatellites = 0;
+  private orbiteurs = new Map<Hero, Phaser.GameObjects.Image[]>();
+  private prochainTickOrbiteurs = 0;
+  private prochainTickAuras = 0;
+  private prochainTickEclats = 0;
+  /** Heros qui encaisse actuellement pour toute l'equipe (Martyre) */
+  private martyr: Hero | null = null;
+  /** La Resurrection de l'Oracle ne joue qu'une fois par partie */
+  private resurrectionUtilisee = false;
+  /** Instant de fin de l'Heure sombre : tout est fige jusque-la */
+  private figeJusqua = 0;
 
   private zqsd!: Record<string, Phaser.Input.Keyboard.Key>;
   private fleches!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -77,7 +86,10 @@ export class ArenaScene extends Phaser.Scene {
     this.destination = null;
     this.marqueur = null;
     this.domes = [];
-    this.satellites = new Map();
+    this.orbiteurs = new Map();
+    this.martyr = null;
+    this.resurrectionUtilisee = false;
+    this.figeJusqua = 0;
   }
 
   get hero(): Hero {
@@ -113,6 +125,7 @@ export class ArenaScene extends Phaser.Scene {
     this.equipe = this.physics.add.group();
     this.ennemis = this.physics.add.group();
     this.projectiles = this.physics.add.group();
+    this.mortsVivants = this.physics.add.group();
     this.composerEquipe();
 
     this.physics.world.setBounds(MUR, MUR, MONDE.largeur - MUR * 2, MONDE.hauteur - MUR * 2);
@@ -128,6 +141,9 @@ export class ArenaScene extends Phaser.Scene {
     );
     this.physics.add.overlap(this.projectiles, this.ennemis, (p, e) =>
       this.impactProjectile(p as Phaser.Physics.Arcade.Image, e as Ennemi),
+    );
+    this.physics.add.overlap(this.mortsVivants, this.ennemis, (m, e) =>
+      this.melee(m as MortVivant, e as Ennemi),
     );
 
     this.scene.launch("ui", { arene: this });
@@ -327,16 +343,135 @@ export class ArenaScene extends Phaser.Scene {
     if (this.termine || this.enPause) return;
 
     this.majEtats(delta);
+    this.majContexteEquipe();
     this.majProvocation();
-    this.majSatellites();
+    this.majOrbiteurs();
+    this.majAuras();
+    this.majMortsVivants();
     this.deplacerHeroIncarne();
     this.deplacerHerosIA();
-    this.deplacerEnnemis();
+
+    // Heure sombre : tout est fige sauf le heros du joueur.
+    if (this.time.now >= this.figeJusqua) {
+      this.deplacerEnnemis();
+    } else {
+      for (const objet of this.ennemis.getChildren()) (objet as Ennemi).setVelocity(0, 0);
+    }
+
     for (const hero of this.heros) this.attaquerAvec(hero);
     this.gererCapacitesAuto();
     this.gererCapacites();
     this.fairePartirLesVagues();
     this.trierProfondeurs();
+  }
+
+  /**
+   * Les competences qui dependent de l'etat de l'equipe entiere : Presage,
+   * Serment du protecteur, Le dernier debout, Serment de fer.
+   */
+  private majContexteEquipe(): void {
+    const vivants = this.heros.filter((h) => h.etat !== "mort");
+    const presage = Math.max(0, ...this.heros.map((h) => h.bonus.presage));
+    const absents = vivants.filter((h) => h.etat !== "combat").length + (this.heros.length - vivants.length);
+
+    for (const hero of this.heros) {
+      hero.esquiveTemporaire = presage;
+      hero.alliesAbsents = Math.max(0, absents - (hero.estAuCombat ? 0 : 1));
+      hero.presCite =
+        Phaser.Math.Distance.Between(hero.x, hero.y, CITE.x, CITE.y) <= CITE.rayon + 260;
+
+      const gagne = hero.verifierSermentDeFer();
+      if (gagne > 0) this.flotter(hero.x, hero.y - 26, `Serment +${gagne}`, "#8ec9ff");
+    }
+  }
+
+  /** Aura de flammes et Eclats : les armes qui se battent toutes seules. */
+  private majAuras(): void {
+    if (this.time.now >= this.prochainTickAuras) {
+      this.prochainTickAuras = this.time.now + 500;
+      for (const hero of this.heros) {
+        if (hero.bonus.auraFeu <= 0 || !hero.estAuCombat) continue;
+        this.aura(hero.x, hero.y, 9, 0xff8a3d, 400);
+        for (const e of this.ennemisDansRayon(hero.x, hero.y, 72)) {
+          this.blesserEnnemi(e, Math.max(1, Math.round(hero.bonus.auraFeu / 2)), hero);
+        }
+      }
+    }
+
+    if (this.time.now < this.prochainTickEclats) return;
+    this.prochainTickEclats = this.time.now + 1800;
+    for (const hero of this.heros) {
+      if (hero.bonus.eclats <= 0 || !hero.estAuCombat) continue;
+      for (let i = 0; i < hero.bonus.eclats; i++) {
+        const angle = this.rng.range(0, Math.PI * 2);
+        const p = this.projectiles.create(hero.x, hero.y, "projectile") as Phaser.Physics.Arcade.Image;
+        p.setTint(0xfff0a0).setScale(0.8).setDepth(hero.y + 1);
+        p.setData("auteur", hero);
+        p.setVelocity(Math.cos(angle) * 260, Math.sin(angle) * 260);
+        this.time.delayedCall(1100, () => p.destroy());
+      }
+    }
+  }
+
+  /** Les mort-vivants du Necromancien se battent tout seuls. */
+  private majMortsVivants(): void {
+    for (const objet of [...this.mortsVivants.getChildren()] as MortVivant[]) {
+      if (!objet.active) continue;
+      if (this.time.now > objet.finDeVie) {
+        this.tuerMortVivant(objet);
+        continue;
+      }
+      const cible = this.ennemiLePlusProche(objet.x, objet.y, 900);
+      if (!cible) {
+        objet.setVelocity(0, 0);
+        continue;
+      }
+      const angle = Phaser.Math.Angle.Between(objet.x, objet.y, cible.x, cible.y);
+      objet.setVelocity(Math.cos(angle) * objet.vitesse, Math.sin(angle) * objet.vitesse);
+      objet.setFlipX(cible.x < objet.x);
+      objet.setDepth(objet.y);
+    }
+  }
+
+  private melee(mort: MortVivant, e: Ennemi): void {
+    if (!mort.active || !e.active || this.enPause) return;
+    if (!mort.peutFrapper(this.time.now)) return;
+    mort.marquerCoup(this.time.now);
+
+    this.blesserEnnemi(e, mort.degats, mort.maitre);
+    mort.pv -= e.degats;
+    mort.setTintFill(0xffffff);
+    this.time.delayedCall(60, () => mort.active && mort.clearTint());
+    if (mort.pv <= 0) this.tuerMortVivant(mort);
+  }
+
+  private tuerMortVivant(mort: MortVivant): void {
+    if (mort.maitre.bonus.mortsVivantsExplosifs) {
+      this.effetCercle(mort.x, mort.y, 70, 0x9ee8a0);
+      for (const e of this.ennemisDansRayon(mort.x, mort.y, 70)) {
+        this.blesserEnnemi(e, mort.degats * 2, mort.maitre);
+      }
+    }
+    mort.destroy();
+  }
+
+  /** Un cadavre a une chance de se relever pour le Necromancien. */
+  private tenterRelevement(x: number, y: number): void {
+    for (const hero of this.heros) {
+      if (hero.etat === "mort") continue;
+      const chance =
+        (hero.classe.trait === "necromancie" ? 0.25 : 0) + hero.bonus.chanceRelevement;
+      if (chance <= 0) continue;
+      if (this.rng.next() >= chance) continue;
+      this.relever(hero, x, y);
+      return;
+    }
+  }
+
+  private relever(maitre: Hero, x: number, y: number): void {
+    const mort = new MortVivant(this, x, y, maitre);
+    this.mortsVivants.add(mort);
+    this.effetCercle(x, y, 34, 0x9ee8a0);
   }
 
   private majEtats(delta: number): void {
@@ -380,42 +515,61 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
-  /** Satellites du mage : ils tournent et blessent ce qu'ils traversent. */
-  private majSatellites(): void {
+  /**
+   * Armes en orbite : les satellites du mage et les epees tournoyantes.
+   * Elles se battent toutes seules — c'est ce qui donne le sentiment de monter
+   * en puissance sans ajouter une touche de plus (DESIGN.md §4.13).
+   */
+  private majOrbiteurs(): void {
     for (const hero of this.heros) {
-      const voulu = hero.etat === "mort" ? 0 : hero.bonus.satellites;
-      const liste = this.satellites.get(hero) ?? [];
-      while (liste.length < voulu) {
-        liste.push(this.add.image(hero.x, hero.y, "projectile").setScale(1.2));
-      }
-      while (liste.length > voulu) liste.pop()?.destroy();
-      this.satellites.set(hero, liste);
+      const satellites = hero.etat === "mort" ? 0 : hero.bonus.satellites;
+      const epees = hero.etat === "mort" ? 0 : hero.bonus.epees;
+      const voulu = satellites + epees;
 
-      const teinte = hero.bonus.satelliteFeu
-        ? 0xff8a3d
-        : hero.bonus.satelliteGlace
-          ? 0x8ed6ff
-          : 0xd06bff;
-      liste.forEach((s, i) => {
-        const angle = this.time.now / 520 + (i / Math.max(1, voulu)) * Math.PI * 2;
-        s.setPosition(hero.x + Math.cos(angle) * 48, hero.y + Math.sin(angle) * 48)
+      const liste = this.orbiteurs.get(hero) ?? [];
+      while (liste.length < voulu) liste.push(this.add.image(hero.x, hero.y, "projectile"));
+      while (liste.length > voulu) liste.pop()?.destroy();
+      this.orbiteurs.set(hero, liste);
+
+      liste.forEach((objet, i) => {
+        const estEpee = i >= satellites;
+        const rayon = estEpee ? 62 : 48;
+        const vitesse = estEpee ? 380 : 520;
+        const angle = this.time.now / vitesse + (i / Math.max(1, voulu)) * Math.PI * 2;
+        const teinte = estEpee
+          ? hero.bonus.epeeArdente
+            ? 0xff8a3d
+            : 0xd5dbe3
+          : hero.bonus.satelliteFeu
+            ? 0xff8a3d
+            : hero.bonus.satelliteGlace
+              ? 0x8ed6ff
+              : 0xd06bff;
+
+        objet
+          .setPosition(hero.x + Math.cos(angle) * rayon, hero.y + Math.sin(angle) * rayon)
+          .setScale(estEpee ? 1.6 : 1.2)
           .setTint(teinte)
           .setDepth(hero.y + 2);
       });
     }
 
-    if (this.time.now < this.prochainTickSatellites) return;
-    this.prochainTickSatellites = this.time.now + 260;
+    if (this.time.now < this.prochainTickOrbiteurs) return;
+    this.prochainTickOrbiteurs = this.time.now + 260;
 
-    for (const [hero, liste] of this.satellites) {
+    for (const [hero, liste] of this.orbiteurs) {
       if (hero.etat === "mort" || liste.length === 0) continue;
-      const degats = Math.round(hero.degats * (hero.bonus.satelliteFeu ? 0.8 : 0.4));
-      for (const s of liste) {
-        for (const e of this.ennemisDansRayon(s.x, s.y, 18)) {
-          if (hero.bonus.satelliteGlace) e.ralentir(1200);
+      const satellites = hero.bonus.satellites;
+      liste.forEach((objet, i) => {
+        const estEpee = i >= satellites;
+        const degats = estEpee
+          ? Math.round(hero.degats * (hero.bonus.epeeArdente ? 1.2 : 0.6))
+          : Math.round(hero.degats * (hero.bonus.satelliteFeu ? 0.8 : 0.4));
+        for (const e of this.ennemisDansRayon(objet.x, objet.y, estEpee ? 24 : 18)) {
+          if (!estEpee && hero.bonus.satelliteGlace) e.ralentir(1200);
           this.blesserEnnemi(e, degats, hero);
         }
-      }
+      });
     }
   }
 
@@ -569,6 +723,22 @@ export class ArenaScene extends Phaser.Scene {
     hero.marquerAttaque();
     if (hero.portee <= PORTEE_CORPS_A_CORPS) this.frapperAuContact(hero, cible);
     else this.lancerProjectile(hero, cible);
+
+    // Trait de l'Oracle : chacune de ses attaques recoud l'allie le plus
+    // mal en point autour d'elle. Elle soigne en se battant.
+    if (hero.classe.trait === "soin-de-zone") this.soignerLePlusBlesse(hero, 240, 4);
+  }
+
+  private soignerLePlusBlesse(source: Hero, rayon: number, montant: number): void {
+    let cible: Hero | null = null;
+    for (const allie of this.heros) {
+      if (allie.etat === "mort" || allie.ratioPv >= 1) continue;
+      if (Phaser.Math.Distance.Between(source.x, source.y, allie.x, allie.y) > rayon) continue;
+      if (!cible || allie.ratioPv < cible.ratioPv) cible = allie;
+    }
+    if (!cible) return;
+    cible.soigner(montant);
+    this.flotter(cible.x, cible.y - 20, `+${montant}`, "#7ee0a0");
   }
 
   private frapperAuContact(hero: Hero, cible: Ennemi): void {
@@ -600,11 +770,22 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private lancerProjectile(hero: Hero, cible: Ennemi): void {
+    const angle = Phaser.Math.Angle.Between(hero.x, hero.y, cible.x, cible.y);
+    // Trait du Rodeur : une volee en eventail plutot qu'un seul trait.
+    const nombre =
+      hero.classe.trait === "volee" ? 3 + hero.bonus.flechesSupplementaires : 1;
+
+    for (let i = 0; i < nombre; i++) {
+      const ecart = (i - (nombre - 1) / 2) * 0.15;
+      this.tirer(hero, angle + ecart);
+    }
+  }
+
+  private tirer(hero: Hero, angle: number): void {
     const p = this.projectiles.create(hero.x, hero.y, "projectile") as Phaser.Physics.Arcade.Image;
     p.setDepth(hero.y + 1);
     p.setTint(hero.classe.accent);
     p.setData("auteur", hero);
-    const angle = Phaser.Math.Angle.Between(hero.x, hero.y, cible.x, cible.y);
     p.setVelocity(Math.cos(angle) * 340, Math.sin(angle) * 340);
     this.time.delayedCall(1400, () => p.destroy());
   }
@@ -612,25 +793,71 @@ export class ArenaScene extends Phaser.Scene {
   private impactProjectile(p: Phaser.Physics.Arcade.Image, e: Ennemi): void {
     if (!p.active || !e.active) return;
     const auteur = p.getData("auteur") as Hero | undefined;
-    const x = p.x;
-    const y = p.y;
-    p.destroy();
-    if (!auteur || auteur.etat === "mort") return;
+    if (!auteur || auteur.etat === "mort") {
+      p.destroy();
+      return;
+    }
+
+    // Un projectile perforant traverse : il faut se souvenir de qui il a deja
+    // touche, sinon il blesse la meme cible a chaque image.
+    const touches = (p.getData("touches") as Set<Ennemi> | undefined) ?? new Set<Ennemi>();
+    if (touches.has(e)) return;
+    touches.add(e);
+    p.setData("touches", touches);
 
     if (auteur.classe.trait === "explosion") {
       // Trait du mage : chaque tir souffle un groupe entier.
-      this.effetCercle(x, y, 48, 0xd06bff);
-      for (const voisin of this.ennemisDansRayon(x, y, 48)) this.frapper(auteur, voisin);
+      this.effetCercle(p.x, p.y, 48, 0xd06bff);
+      for (const voisin of this.ennemisDansRayon(p.x, p.y, 48)) this.frapper(auteur, voisin);
     } else {
       this.frapper(auteur, e);
     }
+
+    if (!auteur.bonus.perforant) p.destroy();
   }
 
   private frapper(auteur: Hero, e: Ennemi): void {
+    const marque = auteur.multiplicateurContre(e);
     const critique = this.rng.next() < auteur.critChance;
-    const degats = critique ? Math.round(auteur.degats * auteur.critMultiplicateur) : auteur.degats;
-    if (critique && auteur.estIncarne) this.flotter(e.x, e.y - 14, `${degats} !`, "#ffd166");
+    let degats = critique ? auteur.degats * auteur.critMultiplicateur : auteur.degats;
+    degats = Math.round(degats * marque);
+
+    if (marque > 1) this.flotter(e.x, e.y - 18, "MARQUE", "#ff6b5a");
+    else if (critique && auteur.estIncarne) this.flotter(e.x, e.y - 14, `${degats} !`, "#ffd166");
+
     this.blesserEnnemi(e, degats, auteur);
+    this.propagerEclairs(auteur, e.x, e.y, e, degats);
+  }
+
+  /** Chaine d'eclairs : l'attaque saute d'un ennemi a l'autre. */
+  private propagerEclairs(
+    auteur: Hero,
+    x: number,
+    y: number,
+    origine: Ennemi,
+    degats: number,
+  ): void {
+    if (auteur.bonus.chaineEclairs <= 0) return;
+
+    const sauts = auteur.bonus.chaineDiffuse
+      ? 8
+      : auteur.bonus.chaineFulgurante
+        ? 2
+        : auteur.bonus.chaineEclairs;
+    const touches = new Set<Ennemi>([origine]);
+    let depuis = { x, y };
+    let force = degats;
+
+    for (let i = 0; i < sauts; i++) {
+      force *= auteur.bonus.chaineDiffuse ? 0.55 : auteur.bonus.chaineFulgurante ? 1.6 : 0.8;
+      const suivant = this.ennemisDansRayon(depuis.x, depuis.y, 130).find((e) => !touches.has(e));
+      if (!suivant) return;
+
+      touches.add(suivant);
+      this.trainee(depuis.x, depuis.y, suivant.x, suivant.y, 0x8ed6ff);
+      depuis = { x: suivant.x, y: suivant.y };
+      this.blesserEnnemi(suivant, Math.max(1, Math.round(force)), auteur);
+    }
   }
 
   private ennemiLePlusProche(x: number, y: number, portee: number): Ennemi | null {
@@ -667,18 +894,34 @@ export class ArenaScene extends Phaser.Scene {
     auteur.kills += 1;
     if (auteur.bonus.soinParKill > 0) auteur.soigner(auteur.bonus.soinParKill);
 
-    // Provocation : chaque mort a ses pieds rend le Chevalier Sacre plus solide.
+    // Sang pour sang : il refuse tout soin, mais chaque mort le remet debout.
+    if (auteur.bonus.sangPourSang > 0) {
+      auteur.soignerForce(auteur.pvMax * auteur.bonus.sangPourSang);
+    }
+    // Charognard : le cadavre laisse parfois de quoi tenir.
+    if (auteur.bonus.charognard > 0 && this.rng.next() < auteur.bonus.charognard) {
+      auteur.soigner(Math.round(auteur.pvMax * 0.06));
+      this.flotter(e.x, e.y - 14, "Butin", "#7ee0a0");
+    }
+    // Danse des ombres : chaque mort raccourcit tous ses rechargements.
+    if (auteur.bonus.danseDesOmbres > 0) auteur.reduireRechargements(auteur.bonus.danseDesOmbres);
+
+    // Provocation : chaque mort a ses pieds remet le Chevalier Sacre debout.
     for (const hero of this.heros) {
       if (hero.bonus.provocation <= 0) continue;
       if (Phaser.Math.Distance.Between(hero.x, hero.y, e.x, e.y) <= hero.bonus.provocation) {
-        hero.pvGagnesProvocation += 1;
-        hero.pv += 1;
+        hero.soigner(1);
       }
     }
+
+    const x = e.x;
+    const y = e.y;
 
     // L'XP va au heros qui a tue, pas a l'equipe (DESIGN.md §4.5).
     const monte = auteur.gagnerXp(e.xpDonnee);
     e.destroy();
+    // Le cadavre peut se relever pour le Necromancien (DESIGN.md §4.14).
+    this.tenterRelevement(x, y);
     if (monte) this.monterDeNiveau(auteur);
   }
 
@@ -738,6 +981,11 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     const evolutions = hero.apprendre(def);
+    // Veteran : un niveau offert immediatement.
+    if (def.id === "veteran") {
+      hero.gagnerNiveauImmediat();
+      this.flotter(hero.x, hero.y - 30, `NIVEAU ${hero.niveau}`, "#5ec8f0");
+    }
     if (evolutions) {
       // La competence change de nature : un second choix s'ouvre, toujours en
       // pause (DESIGN.md §4.13).
@@ -791,7 +1039,8 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private lancerCapacite(hero: Hero, capacite: Capacite): void {
-    hero.marquerCapacite(capacite);
+    // Echo : la capacite peut ne pas partir en rechargement du tout.
+    hero.marquerCapacite(capacite, this.rng.next());
     this.flotter(hero.x, hero.y - 28, capacite.nom.toUpperCase(), "#f0c419");
 
     switch (capacite.effet) {
@@ -830,7 +1079,267 @@ export class ArenaScene extends Phaser.Scene {
       case "hecatombe":
         this.effetHecatombe(hero);
         break;
+      case "pluie-de-fleches":
+        this.effetPluieDeFleches(hero);
+        break;
+      case "aube":
+        this.effetAube(hero);
+        break;
+      case "levee-des-morts":
+        this.effetLeveeDesMorts(hero);
+        break;
+      case "martyre":
+        this.effetMartyre(hero);
+        break;
+      case "piege":
+        this.effetPiege(hero);
+        break;
+      case "fleche-du-jugement":
+        this.effetFlecheDuJugement(hero);
+        break;
+      case "priere":
+        this.effetPriere(hero);
+        break;
+      case "chant-de-guerre":
+        this.effetChantDeGuerre(hero);
+        break;
+      case "appel-des-morts":
+        this.effetAppelDesMorts(hero);
+        break;
+      case "orage-final":
+        this.effetOrageFinal(hero);
+        break;
+      case "heure-sombre":
+        this.effetHeureSombre(hero);
+        break;
     }
+  }
+
+  // --- Rodeur ---
+
+  private effetPluieDeFleches(hero: Hero): void {
+    const groupe = this.groupeLePlusDense(hero, 420, 120);
+    if (!groupe) return;
+    const x = groupe.x;
+    const y = groupe.y;
+
+    this.time.addEvent({
+      delay: 180,
+      repeat: 9,
+      callback: () => {
+        const px = x + this.rng.range(-110, 110);
+        const py = y + this.rng.range(-110, 110);
+        this.effetCercle(px, py, 34, 0xd8c48a);
+        for (const e of this.ennemisDansRayon(px, py, 40)) {
+          this.blesserEnnemi(e, Math.round(hero.degats * 1.1), hero);
+        }
+      },
+    });
+  }
+
+  private effetPiege(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("piege"));
+    const point = hero.estIncarne
+      ? this.cameras.main.getWorldPoint(this.input.activePointer.x, this.input.activePointer.y)
+      : this.pointDevant(hero, 90);
+
+    const image = this.add
+      .image(point.x, point.y, "impact")
+      .setTint(0xb0a08a)
+      .setAlpha(0.6)
+      .setScale(2.4)
+      .setDepth(point.y - 4);
+
+    const surveiller = this.time.addEvent({
+      delay: 120,
+      repeat: 150,
+      callback: () => {
+        const pris = this.ennemisDansRayon(point.x, point.y, 34);
+        if (pris.length === 0) return;
+        for (const e of pris) {
+          e.ralentir(1000 + palier * 1000);
+          if (palier >= 2) this.blesserEnnemi(e, hero.degats * palier, hero);
+        }
+        this.effetCercle(point.x, point.y, 40, 0xb0a08a);
+        image.destroy();
+        surveiller.remove();
+      },
+    });
+    this.time.delayedCall(18000, () => image.active && image.destroy());
+  }
+
+  private effetFlecheDuJugement(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("fleche-du-jugement"));
+    const seuil = 0.25 + palier * 0.15;
+    const arrivee = this.pointDevant(hero, 2000);
+    this.trainee(hero.x, hero.y, arrivee.x, arrivee.y, 0xfff0a0);
+    this.cameras.main.shake(220, 0.008);
+
+    const segment = new Phaser.Geom.Line(hero.x, hero.y, arrivee.x, arrivee.y);
+    for (const e of [...this.ennemis.getChildren()] as Ennemi[]) {
+      if (!e.active) continue;
+      const proche = Phaser.Geom.Line.GetNearestPoint(segment, e, new Phaser.Geom.Point());
+      if (Phaser.Math.Distance.Between(proche.x, proche.y, e.x, e.y) > 56) continue;
+      if (e.pv / e.pvMax <= seuil) {
+        this.flotter(e.x, e.y - 16, "JUGE", "#fff0a0");
+        this.blesserEnnemi(e, e.pv, hero);
+      } else {
+        this.blesserEnnemi(e, hero.degats * 3, hero);
+      }
+    }
+  }
+
+  // --- Oracle ---
+
+  private effetAube(hero: Hero): void {
+    this.cameras.main.flash(300, 255, 240, 200);
+    for (const allie of this.heros) {
+      if (allie.etat === "mort") continue;
+      allie.soigner(allie.pvMax * 0.45);
+      allie.rendreInvulnerable(1600);
+      this.effetCercle(allie.x, allie.y, 70, 0xfff0c0);
+    }
+    void hero;
+  }
+
+  private effetPriere(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("priere"));
+    let cible: Hero | null = null;
+    for (const allie of this.heros) {
+      if (allie.etat === "mort") continue;
+      if (!cible || allie.ratioPv < cible.ratioPv) cible = allie;
+    }
+    if (!cible) return;
+    const soin = cible.pvMax * (0.15 + palier * 0.1);
+    cible.soigner(soin);
+    this.effetCercle(cible.x, cible.y, 60, 0xfff0c0);
+    this.flotter(cible.x, cible.y - 22, `+${Math.round(soin)}`, "#7ee0a0");
+  }
+
+  private effetChantDeGuerre(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("chant-de-guerre"));
+    const duree = 7000 + palier * 1000;
+    const facteur = palier >= 2 ? 0.55 : 0.7;
+
+    for (const allie of this.heros) {
+      if (allie.etat === "mort") continue;
+      allie.cadenceTemporaire = facteur;
+      this.effetCercle(allie.x, allie.y, 50, 0xffd166);
+    }
+    this.time.delayedCall(duree, () => {
+      for (const allie of this.heros) allie.cadenceTemporaire = 1;
+    });
+  }
+
+  // --- Chevalier Sacre ---
+
+  /**
+   * Martyre : pendant quelques secondes, il encaisse a la place de tout le
+   * monde et ne peut pas mourir. C'est le sommet de sa classe : il transforme
+   * un effondrement d'equipe en sursis.
+   */
+  private effetMartyre(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("martyre"));
+    const duree = 5000 + palier * 3000;
+    this.martyr = hero;
+    hero.rendreInvulnerable(duree);
+    this.aura(hero.x, hero.y, 5, 0xffd166, duree);
+    this.time.delayedCall(duree, () => {
+      if (this.martyr === hero) this.martyr = null;
+    });
+  }
+
+  // --- Necromancien ---
+
+  private effetLeveeDesMorts(hero: Hero): void {
+    // Tous les ennemis proches tombent et se relevent de son cote.
+    const proies = this.ennemisDansRayon(hero.x, hero.y, 600).slice(0, 8);
+    for (const e of proies) {
+      const x = e.x;
+      const y = e.y;
+      this.blesserEnnemi(e, e.pv, hero);
+      this.relever(hero, x, y);
+    }
+    this.effetCercle(hero.x, hero.y, 180, 0x9ee8a0);
+  }
+
+  private effetAppelDesMorts(hero: Hero): void {
+    const armee = [...this.mortsVivants.getChildren()] as MortVivant[];
+    if (armee.length === 0) {
+      this.flotter(hero.x, hero.y - 20, "Aucun mort a appeler", "#8a8397");
+      return;
+    }
+
+    let x = 0;
+    let y = 0;
+    for (const mort of armee) {
+      x += mort.x;
+      y += mort.y;
+      mort.destroy();
+    }
+
+    const colosse = new MortVivant(this, x / armee.length, y / armee.length, hero);
+    colosse.pvMax *= armee.length;
+    colosse.pv = colosse.pvMax;
+    colosse.degats *= Math.max(2, Math.round(armee.length / 2));
+    colosse.vitesse *= 0.7;
+    colosse.setScale(2.4);
+    colosse.finDeVie = Infinity;
+    this.mortsVivants.add(colosse);
+
+    this.effetCercle(colosse.x, colosse.y, 200, 0x9ee8a0);
+    this.cameras.main.shake(400, 0.01);
+  }
+
+  // --- Communes de haut rang ---
+
+  private effetOrageFinal(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("orage-final"));
+    const duree = 6000 + palier * 4000;
+
+    this.time.addEvent({
+      delay: 400,
+      repeat: Math.floor(duree / 400) - 1,
+      callback: () => {
+        if (hero.etat === "mort") return;
+        const cible = this.ennemiLePlusProche(hero.x, hero.y, 280);
+        const x = cible?.x ?? hero.x + this.rng.range(-160, 160);
+        const y = cible?.y ?? hero.y + this.rng.range(-160, 160);
+        this.trainee(x, y - 200, x, y, 0x8ed6ff);
+        this.effetCercle(x, y, 60, 0x8ed6ff);
+        for (const e of this.ennemisDansRayon(x, y, 60)) {
+          this.blesserEnnemi(e, Math.round(hero.degats * 1.6), hero);
+        }
+      },
+    });
+  }
+
+  /** Heure sombre : le temps s'arrete pour tout le monde sauf le joueur. */
+  private effetHeureSombre(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("heure-sombre"));
+    const duree = 1500 + palier * 1500;
+    this.figeJusqua = this.time.now + duree;
+    this.cameras.main.flash(200, 40, 20, 60);
+    for (const objet of this.ennemis.getChildren()) (objet as Ennemi).setTint(0x6b6478);
+    this.time.delayedCall(duree, () => {
+      for (const objet of this.ennemis.getChildren()) (objet as Ennemi).clearTint();
+    });
+    void hero;
+  }
+
+  private groupeLePlusDense(hero: Hero, portee: number, rayon: number): Ennemi | null {
+    const candidats = this.ennemisDansRayon(hero.x, hero.y, portee);
+    if (candidats.length === 0) return null;
+    let cible = candidats[0]!;
+    let meilleur = -1;
+    for (const e of candidats) {
+      const compte = this.ennemisDansRayon(e.x, e.y, rayon).length;
+      if (compte > meilleur) {
+        meilleur = compte;
+        cible = e;
+      }
+    }
+    return cible;
   }
 
   // --- Ultimes de classe ---
@@ -1111,6 +1620,13 @@ export class ArenaScene extends Phaser.Scene {
       this.blesserEnnemi(e, Math.round(hero.degats * 0.9), hero);
     }
 
+    // Martyre : le Chevalier Sacre encaisse a la place de toute l'equipe.
+    if (this.martyr && this.martyr !== hero && this.martyr.etat !== "mort") {
+      this.martyr.subirDegats(e.degats, this.rng.next());
+      this.flotter(this.martyr.x, this.martyr.y - 22, "Martyre", "#ffd166");
+      return;
+    }
+
     const esquive = hero.subirDegats(e.degats, this.rng.next());
     if (esquive) {
       if (hero.estIncarne) this.flotter(hero.x, hero.y - 18, "Esquive", "#7ee0a0");
@@ -1126,6 +1642,18 @@ export class ArenaScene extends Phaser.Scene {
 
   /** La mort est definitive. Elle ne peut arriver qu'au heros incarne. */
   private tomber(hero: Hero): void {
+    // Resurrection de l'Oracle : une fois, une seule, dans toute la partie.
+    const oracle = this.heros.find((h) => h.bonus.resurrection && h.etat !== "mort");
+    if (oracle && !this.resurrectionUtilisee) {
+      this.resurrectionUtilisee = true;
+      hero.soignerForce(hero.pvMax * 0.35);
+      hero.rendreInvulnerable(2000);
+      this.effetCercle(hero.x, hero.y, 120, 0xfff0c0);
+      this.cameras.main.flash(400, 255, 240, 200);
+      this.flotter(hero.x, hero.y - 34, "RESURRECTION", "#fff0c0");
+      return;
+    }
+
     hero.mourir();
     this.effetCercle(hero.x, hero.y, 90, 0xff3b30);
     this.cameras.main.shake(320, 0.012);

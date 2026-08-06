@@ -28,9 +28,13 @@ export type EffetCapacite =
   | "rempart"
   | "meteore"
   | "ombre"
+  | "pluie-de-fleches"
+  | "aube"
+  | "levee-des-morts"
   // Chevalier Sacre
   | "sursaut-sacre"
   | "benediction"
+  | "martyre"
   // Guerrier
   | "moulinet"
   | "moulinet-aspirant"
@@ -40,7 +44,18 @@ export type EffetCapacite =
   | "exil"
   // Assassin
   | "invisibilite"
-  | "hecatombe";
+  | "hecatombe"
+  // Rodeur
+  | "piege"
+  | "fleche-du-jugement"
+  // Oracle
+  | "priere"
+  | "chant-de-guerre"
+  // Necromancien
+  | "appel-des-morts"
+  // Communes de haut rang
+  | "orage-final"
+  | "heure-sombre";
 
 export type TypeCompetence = "passive" | "active" | "auto";
 
@@ -65,6 +80,9 @@ export interface Bonus {
   resistance: number;
   /** Multiplicateur applique a tout : c'est l'Apotheose du guerrier */
   multiplicateurGlobal: number;
+  /** Multiplicateurs separes, pour les competences a double tranchant */
+  multiplicateurPv: number;
+  multiplicateurDegats: number;
 
   // --- Croissances par tranche de kills ---
   pvParTranche: number;
@@ -84,6 +102,55 @@ export interface Bonus {
   rageParPvManquant: number;
   /** L'assassin n'est pas vise en priorite quand un defenseur est proche */
   discretion: boolean;
+
+  // --- Armes autonomes : elles se battent sans qu'on s'en occupe ---
+  /** Epees qui tournent autour du heros */
+  epees: number;
+  epeeArdente: boolean;
+  /** Degats par seconde infliges a tout ce qui s'approche */
+  auraFeu: number;
+  /** Eclats tires au hasard, par salve */
+  eclats: number;
+  /** Nombre de rebonds electriques d'une attaque */
+  chaineEclairs: number;
+  chaineDiffuse: boolean;
+  chaineFulgurante: boolean;
+  /** Les projectiles traversent les ennemis */
+  perforant: boolean;
+  /** Fleches supplementaires dans la volee du Rodeur */
+  flechesSupplementaires: number;
+
+  // --- Regles de partie ---
+  /** Chance qu'un ennemi tue laisse un soin */
+  charognard: number;
+  /** Chance qu'une capacite ne parte pas en rechargement */
+  echo: number;
+  /** Bonus multiplicatif tant qu'on se bat pres de la cite */
+  sermentProtecteur: number;
+  /** Premiere attaque sur une cible jamais touchee : multiplicateur */
+  marqueDeSang: number;
+  /** Degats en plus par allie mort ou replie */
+  dernierDebout: number;
+  /** Ne peut plus etre soigne, mais chaque kill rend une part de la vie max */
+  sangPourSang: number;
+  /** Secondes retirees aux rechargements a chaque kill */
+  danseDesOmbres: number;
+  /** Un heros de l'equipe se relevera une fois dans la partie */
+  resurrection: boolean;
+  /** Resistance gagnee definitivement a chaque passage sous 50% de vie */
+  sermentDeFer: number;
+  /** Esquive offerte a toute l'equipe */
+  presage: number;
+
+  // --- Necromancien ---
+  /** Chance qu'un cadavre se releve */
+  chanceRelevement: number;
+  /** Multiplicateur de puissance des mort-vivants */
+  puissanceMortsVivants: number;
+  /** Les mort-vivants explosent en mourant */
+  mortsVivantsExplosifs: boolean;
+  /** Les mort-vivants ne se decomposent plus */
+  mortsVivantsEternels: boolean;
 }
 
 export function bonusVierge(): Bonus {
@@ -101,6 +168,8 @@ export function bonusVierge(): Bonus {
     volDeVie: 0,
     resistance: 0,
     multiplicateurGlobal: 1,
+    multiplicateurPv: 1,
+    multiplicateurDegats: 1,
     pvParTranche: 0,
     degatsParTranche: 0,
     volDeVieParTranche: 0,
@@ -110,6 +179,29 @@ export function bonusVierge(): Bonus {
     provocation: 0,
     rageParPvManquant: 0,
     discretion: false,
+    epees: 0,
+    epeeArdente: false,
+    auraFeu: 0,
+    eclats: 0,
+    chaineEclairs: 0,
+    chaineDiffuse: false,
+    chaineFulgurante: false,
+    perforant: false,
+    flechesSupplementaires: 0,
+    charognard: 0,
+    echo: 0,
+    sermentProtecteur: 0,
+    marqueDeSang: 0,
+    dernierDebout: 0,
+    sangPourSang: 0,
+    danseDesOmbres: 0,
+    resurrection: false,
+    sermentDeFer: 0,
+    presage: 0,
+    chanceRelevement: 0,
+    puissanceMortsVivants: 1,
+    mortsVivantsExplosifs: false,
+    mortsVivantsEternels: false,
   };
 }
 
@@ -343,10 +435,10 @@ export const COMPETENCES: CompetenceDef[] = [
     type: "passive",
     classes: ["chevalier"],
     description:
-      "Tout ce qui l'approche ne voit plus que lui. Chaque ennemi qui le cible le rend plus dur, chaque mort a ses pieds le rend plus solide.",
+      "Tout ce qui l'approche ne voit plus que lui. Chaque ennemi qui le cible le rend plus dur, et chaque mort a ses pieds le remet un peu debout.",
     paliers: [
       {
-        texte: "Rayon 90 : +1 resistance par ennemi, +1 PV max par mort a ses pieds",
+        texte: "Rayon 90 : +1 resistance par ennemi, +1 PV rendu par mort a ses pieds",
         appliquer: (b) => void (b.provocation = 90),
       },
       { texte: "Rayon 130", appliquer: (b) => void (b.provocation = 130) },
@@ -603,6 +695,509 @@ export const COMPETENCES: CompetenceDef[] = [
       { texte: "Execute sous 10% de vie", rechargement: 45000 },
       { texte: "Execute sous 15% de vie", rechargement: 40000 },
     ],
+  },
+
+  // ================== Armes autonomes (toutes classes) ==================
+  // Elles se battent sans qu'on s'en occupe. Comme le joueur ne controle que
+  // son deplacement, ce sont elles qui donnent le sentiment de monter en
+  // puissance sans ajouter une touche de plus.
+  {
+    id: "epee-tournoyante",
+    nom: "Epee tournoyante",
+    rang: "F",
+    type: "passive",
+    description: "Une epee flotte autour de toi et fauche ce qu'elle croise. Elle ne s'arrete jamais.",
+    paliers: [
+      { texte: "1 epee", appliquer: (b) => void (b.epees += 1) },
+      { texte: "2 epees", appliquer: (b) => void (b.epees += 1) },
+      { texte: "3 epees", appliquer: (b) => void (b.epees += 1) },
+      { texte: "4 epees", appliquer: (b) => void (b.epees += 1) },
+      { texte: "5 epees", appliquer: (b) => void (b.epees += 1) },
+    ],
+    evolutions: {
+      auPalier: 2,
+      options: [
+        {
+          id: "epee-ardente",
+          nom: "Lames ardentes",
+          description: "Elles chauffent au rouge : degats doubles.",
+          teinte: 0xff8a3d,
+          appliquer: (b) => void (b.epeeArdente = true),
+        },
+        {
+          id: "epee-nuee",
+          nom: "Nuee de lames",
+          description: "Deux epees de plus, immediatement.",
+          teinte: 0xd5dbe3,
+          appliquer: (b) => void (b.epees += 2),
+        },
+      ],
+    },
+  },
+  {
+    id: "aura-de-flammes",
+    nom: "Aura de flammes",
+    rang: "E",
+    type: "passive",
+    description: "Tout ce qui s'approche de toi brule, en continu, sans que tu aies rien a faire.",
+    paliers: [
+      { texte: "6 degats par seconde autour de toi", appliquer: (b) => void (b.auraFeu += 6) },
+      { texte: "+6 degats par seconde", appliquer: (b) => void (b.auraFeu += 6) },
+      { texte: "+8 degats par seconde", appliquer: (b) => void (b.auraFeu += 8) },
+    ],
+  },
+  {
+    id: "eclats",
+    nom: "Eclats",
+    rang: "E",
+    type: "passive",
+    description: "Regulierement, des eclats partent au hasard autour de toi. Ils finissent par trouver.",
+    paliers: [
+      { texte: "3 eclats par salve", appliquer: (b) => void (b.eclats += 3) },
+      { texte: "+2 eclats", appliquer: (b) => void (b.eclats += 2) },
+      { texte: "+3 eclats", appliquer: (b) => void (b.eclats += 3) },
+    ],
+  },
+  {
+    id: "chaine-eclairs",
+    nom: "Chaine d'eclairs",
+    rang: "C",
+    type: "passive",
+    description: "Tes attaques sautent d'un ennemi a l'autre en arc electrique.",
+    paliers: [
+      { texte: "Rebondit sur 1 ennemi", appliquer: (b) => void (b.chaineEclairs += 1) },
+      { texte: "Rebondit sur 2 ennemis", appliquer: (b) => void (b.chaineEclairs += 1) },
+      { texte: "Rebondit sur 3 ennemis", appliquer: (b) => void (b.chaineEclairs += 1) },
+    ],
+    evolutions: {
+      auPalier: 2,
+      options: [
+        {
+          id: "chaine-diffuse",
+          nom: "Foudre diffuse",
+          description: "Les rebonds deviennent illimites, mais chaque saut divise les degats.",
+          teinte: 0x8ed6ff,
+          appliquer: (b) => void (b.chaineDiffuse = true),
+        },
+        {
+          id: "chaine-fulgurante",
+          nom: "Fulguration",
+          description: "Deux rebonds seulement, mais chacun frappe 60% plus fort que le precedent.",
+          teinte: 0xfff06a,
+          appliquer: (b) => void (b.chaineFulgurante = true),
+        },
+      ],
+    },
+  },
+  {
+    id: "ricochet",
+    nom: "Ricochet",
+    rang: "D",
+    type: "passive",
+    description: "Tes projectiles traversent les ennemis au lieu de s'arreter au premier.",
+    paliers: [{ texte: "Les projectiles transpercent", appliquer: (b) => void (b.perforant = true) }],
+  },
+  {
+    id: "pas-leger",
+    nom: "Pas leger",
+    rang: "F",
+    type: "passive",
+    description: "Un peu plus vif, un peu plus difficile a toucher.",
+    paliers: [
+      {
+        texte: "+8 vitesse, +3% d'esquive",
+        appliquer: (b) => {
+          b.vitesse += 8;
+          b.esquive += 0.03;
+        },
+      },
+      {
+        texte: "+8 vitesse, +3% d'esquive",
+        appliquer: (b) => {
+          b.vitesse += 8;
+          b.esquive += 0.03;
+        },
+      },
+      {
+        texte: "+10 vitesse, +4% d'esquive",
+        appliquer: (b) => {
+          b.vitesse += 10;
+          b.esquive += 0.04;
+        },
+      },
+    ],
+  },
+  {
+    id: "charognard",
+    nom: "Charognard",
+    rang: "E",
+    type: "passive",
+    description: "Les cadavres laissent parfois de quoi tenir debout.",
+    paliers: [
+      { texte: "12% de chance de recuperer un soin", appliquer: (b) => void (b.charognard += 0.12) },
+      { texte: "+10% de chance", appliquer: (b) => void (b.charognard += 0.1) },
+    ],
+  },
+  {
+    id: "veteran",
+    nom: "Veteran",
+    rang: "D",
+    type: "passive",
+    description: "L'experience de toute une vie, d'un coup. Un niveau immediat.",
+    paliers: [
+      { texte: "Gagne un niveau tout de suite" },
+      { texte: "Gagne un niveau tout de suite" },
+    ],
+  },
+  {
+    id: "echo",
+    nom: "Echo",
+    rang: "B",
+    type: "passive",
+    description: "Il arrive qu'une capacite ne parte pas en rechargement. On ne sait pas pourquoi.",
+    paliers: [
+      { texte: "20% de chance de ne pas consommer le rechargement", appliquer: (b) => void (b.echo += 0.2) },
+      { texte: "+15% de chance", appliquer: (b) => void (b.echo += 0.15) },
+    ],
+  },
+  {
+    id: "serment-du-protecteur",
+    nom: "Serment du protecteur",
+    rang: "A",
+    type: "passive",
+    description:
+      "Tant que tu te bats a portee de la cite, tout te reussit. Loin d'elle, tu n'es qu'un mercenaire de plus.",
+    paliers: [
+      { texte: "+25% a tout pres de la cite", appliquer: (b) => void (b.sermentProtecteur += 0.25) },
+      { texte: "+20% supplementaires", appliquer: (b) => void (b.sermentProtecteur += 0.2) },
+    ],
+  },
+  {
+    id: "fardeau",
+    nom: "Fardeau",
+    rang: "S",
+    type: "passive",
+    description: "Tu portes une arme trop lourde pour ton armure. Tu frappes beaucoup plus fort, et tu tiens beaucoup moins.",
+    paliers: [
+      {
+        texte: "-30% de vie maximum, +60% de degats",
+        appliquer: (b) => {
+          b.multiplicateurPv *= 0.7;
+          b.multiplicateurDegats *= 1.6;
+        },
+      },
+    ],
+  },
+  {
+    id: "orage-final",
+    nom: "Orage final",
+    rang: "SR",
+    type: "active",
+    description:
+      "Un orage se leve au-dessus de toi et te suit. Pendant dix secondes, la foudre s'abat sans repit sur tout ce qui t'entoure.",
+    icone: "cap-orage",
+    effet: "orage-final",
+    paliers: [
+      { texte: "10 s de foudre continue", rechargement: 40000 },
+      { texte: "14 s de foudre continue", rechargement: 36000 },
+    ],
+  },
+  {
+    id: "heure-sombre",
+    nom: "Heure sombre",
+    rang: "SSR",
+    type: "active",
+    description:
+      "Le monde s'arrete. Pendant trois secondes, plus rien ne bouge — sauf toi. Ce que tu en fais te regarde.",
+    icone: "cap-heure-sombre",
+    effet: "heure-sombre",
+    paliers: [
+      { texte: "Fige tout pendant 3 s", rechargement: 60000 },
+      { texte: "Fige tout pendant 4,5 s", rechargement: 55000 },
+    ],
+  },
+
+  // ==================== Chevalier Sacre (suite) ====================
+  {
+    id: "serment-de-fer",
+    nom: "Serment de fer",
+    rang: "C",
+    type: "passive",
+    classes: ["chevalier"],
+    description:
+      "Chaque fois qu'il tombe sous la moitie de sa vie, il jure a nouveau — et il en ressort plus dur. Definitivement.",
+    paliers: [
+      { texte: "+8 resistance a chaque passage sous 50% de vie", appliquer: (b) => void (b.sermentDeFer += 8) },
+      { texte: "+4 resistance supplementaire par passage", appliquer: (b) => void (b.sermentDeFer += 4) },
+    ],
+  },
+  {
+    id: "martyre",
+    nom: "Martyre",
+    rang: "SSR",
+    type: "active",
+    classes: ["chevalier"],
+    description:
+      "Pendant 8 secondes, tous les degats subis par l'equipe entiere lui sont transferes, et il ne peut pas mourir. Apres, on verra.",
+    icone: "cap-martyre",
+    effet: "martyre",
+    paliers: [
+      { texte: "8 s de transfert total", rechargement: 60000 },
+      { texte: "11 s de transfert total", rechargement: 55000 },
+    ],
+  },
+
+  // ======================== Guerrier (suite) ========================
+  {
+    id: "sang-pour-sang",
+    nom: "Sang pour sang",
+    rang: "B",
+    type: "passive",
+    classes: ["guerrier"],
+    description:
+      "Il refuse d'etre soigne par qui que ce soit. Il ne recupere plus qu'en tuant — mais alors, beaucoup.",
+    paliers: [
+      { texte: "Plus aucun soin, mais +4% de vie max par ennemi tue", appliquer: (b) => void (b.sangPourSang += 0.04) },
+      { texte: "+2% supplementaires par ennemi tue", appliquer: (b) => void (b.sangPourSang += 0.02) },
+    ],
+  },
+  {
+    id: "dernier-debout",
+    nom: "Le dernier debout",
+    rang: "SR",
+    type: "passive",
+    classes: ["guerrier"],
+    description:
+      "Plus l'equipe s'effondre, plus il devient terrifiant. Il n'a jamais aussi bien combattu que seul.",
+    paliers: [
+      { texte: "+25% de degats par allie mort ou replie", appliquer: (b) => void (b.dernierDebout += 0.25) },
+      { texte: "+15% supplementaires par allie absent", appliquer: (b) => void (b.dernierDebout += 0.15) },
+    ],
+  },
+
+  // ========================== Assassin (suite) ==========================
+  {
+    id: "marque-de-sang",
+    nom: "Marque de sang",
+    rang: "D",
+    type: "passive",
+    classes: ["assassin"],
+    description: "Sa premiere attaque sur une cible qu'il n'a jamais touchee frappe bien plus fort.",
+    paliers: [
+      { texte: "Premiere attaque x2,5", appliquer: (b) => void (b.marqueDeSang = 2.5) },
+      { texte: "Premiere attaque x3,5", appliquer: (b) => void (b.marqueDeSang = 3.5) },
+    ],
+  },
+  {
+    id: "danse-des-ombres",
+    nom: "Danse des ombres",
+    rang: "SR",
+    type: "passive",
+    classes: ["assassin"],
+    description:
+      "Chaque mort raccourcit ses rechargements. Enchaine assez vite, et il ne s'arrete plus jamais.",
+    paliers: [
+      { texte: "-0,4 s de rechargement par ennemi tue", appliquer: (b) => void (b.danseDesOmbres += 400) },
+      { texte: "-0,3 s supplementaires par ennemi tue", appliquer: (b) => void (b.danseDesOmbres += 300) },
+    ],
+  },
+
+  // ============================== Rodeur ==============================
+  {
+    id: "fleche-perforante",
+    nom: "Fleche perforante",
+    rang: "E",
+    type: "passive",
+    classes: ["rodeur"],
+    description: "Ses fleches traversent les corps et continuent leur route.",
+    paliers: [{ texte: "Les fleches transpercent", appliquer: (b) => void (b.perforant = true) }],
+  },
+  {
+    id: "piege",
+    nom: "Piege a machoires",
+    rang: "D",
+    type: "active",
+    classes: ["rodeur"],
+    description: "Pose un piege au sol : le premier qui marche dessus reste sur place.",
+    icone: "cap-piege",
+    effet: "piege",
+    paliers: [
+      { texte: "Immobilise 2 s", rechargement: 11000 },
+      { texte: "Immobilise 3 s et blesse", rechargement: 10000 },
+      { texte: "Immobilise 4 s et blesse fort", rechargement: 9000 },
+    ],
+  },
+  {
+    id: "oeil-de-lynx",
+    nom: "Oeil de lynx",
+    rang: "C",
+    type: "passive",
+    classes: ["rodeur"],
+    description: "Il voit plus loin, et il vise mieux.",
+    paliers: [
+      {
+        texte: "+45 de portee, +8% de critique",
+        appliquer: (b) => {
+          b.portee += 45;
+          b.critChance += 0.08;
+        },
+      },
+      {
+        texte: "+45 de portee, +8% de critique",
+        appliquer: (b) => {
+          b.portee += 45;
+          b.critChance += 0.08;
+        },
+      },
+    ],
+  },
+  {
+    id: "carquois-sans-fin",
+    nom: "Carquois sans fin",
+    rang: "SR",
+    type: "passive",
+    classes: ["rodeur"],
+    description: "Sa volee passe de trois fleches a un mur de fleches.",
+    paliers: [
+      { texte: "+2 fleches par volee", appliquer: (b) => void (b.flechesSupplementaires += 2) },
+      { texte: "+2 fleches par volee", appliquer: (b) => void (b.flechesSupplementaires += 2) },
+    ],
+  },
+  {
+    id: "fleche-du-jugement",
+    nom: "Fleche du jugement",
+    rang: "SSR",
+    type: "active",
+    classes: ["rodeur"],
+    description:
+      "Une seule fleche, qui traverse tout l'ecran d'un bout a l'autre et acheve net tout ce qui est deja blesse.",
+    icone: "cap-fleche-jugement",
+    effet: "fleche-du-jugement",
+    paliers: [
+      { texte: "Acheve tout ce qui est sous 40% de vie", rechargement: 50000 },
+      { texte: "Acheve tout ce qui est sous 55% de vie", rechargement: 45000 },
+    ],
+  },
+
+  // ============================== Oracle ==============================
+  {
+    id: "priere",
+    nom: "Priere",
+    rang: "E",
+    type: "active",
+    classes: ["oracle"],
+    description: "Elle soigne l'allie le plus mal en point, ou qu'il soit sur le champ de bataille.",
+    icone: "cap-priere",
+    effet: "priere",
+    paliers: [
+      { texte: "Rend 25% de la vie maximum", rechargement: 12000 },
+      { texte: "Rend 35% de la vie maximum", rechargement: 11000 },
+      { texte: "Rend 50% de la vie maximum", rechargement: 10000 },
+    ],
+  },
+  {
+    id: "presage",
+    nom: "Presage",
+    rang: "C",
+    type: "passive",
+    classes: ["oracle"],
+    description: "Elle voit les coups arriver, et le dit assez fort pour que les autres esquivent.",
+    paliers: [
+      { texte: "+5% d'esquive pour toute l'equipe", appliquer: (b) => void (b.presage += 0.05) },
+      { texte: "+5% d'esquive pour toute l'equipe", appliquer: (b) => void (b.presage += 0.05) },
+    ],
+  },
+  {
+    id: "chant-de-guerre",
+    nom: "Chant de guerre",
+    rang: "B",
+    type: "active",
+    classes: ["oracle"],
+    description: "Toute l'equipe frappe nettement plus vite pendant huit secondes.",
+    icone: "cap-chant",
+    effet: "chant-de-guerre",
+    paliers: [
+      { texte: "+30% de vitesse d'attaque, 8 s", rechargement: 20000 },
+      { texte: "+45% de vitesse d'attaque, 10 s", rechargement: 18000 },
+    ],
+  },
+  {
+    id: "resurrection",
+    nom: "Resurrection",
+    rang: "SSR",
+    type: "passive",
+    classes: ["oracle"],
+    description:
+      "Une fois dans la partie — une seule — un heros qui tombe se releve. Elle ne peut pas expliquer comment.",
+    paliers: [{ texte: "Un heros se relevera une fois", appliquer: (b) => void (b.resurrection = true) }],
+  },
+
+  // =========================== Necromancien ===========================
+  {
+    id: "charnier",
+    nom: "Charnier",
+    rang: "E",
+    type: "passive",
+    classes: ["necromancien"],
+    description: "Il apprend a parler plus fort aux morts. Plus de cadavres se relevent.",
+    paliers: [
+      { texte: "+10% de chance de relever", appliquer: (b) => void (b.chanceRelevement += 0.1) },
+      { texte: "+10% de chance de relever", appliquer: (b) => void (b.chanceRelevement += 0.1) },
+      { texte: "+15% de chance de relever", appliquer: (b) => void (b.chanceRelevement += 0.15) },
+    ],
+  },
+  {
+    id: "armee-des-ombres",
+    nom: "Armee des ombres",
+    rang: "D",
+    type: "passive",
+    classes: ["necromancien"],
+    description: "Ses mort-vivants tiennent mieux debout et frappent plus fort.",
+    paliers: [
+      { texte: "Mort-vivants +40% plus puissants", appliquer: (b) => void (b.puissanceMortsVivants += 0.4) },
+      { texte: "Mort-vivants +40% plus puissants", appliquer: (b) => void (b.puissanceMortsVivants += 0.4) },
+      { texte: "Mort-vivants +50% plus puissants", appliquer: (b) => void (b.puissanceMortsVivants += 0.5) },
+    ],
+  },
+  {
+    id: "lien-necrotique",
+    nom: "Lien necrotique",
+    rang: "C",
+    type: "passive",
+    classes: ["necromancien"],
+    description: "Quand un de ses morts retombe, il explose. Rien ne se perd.",
+    paliers: [
+      {
+        texte: "Les mort-vivants explosent en mourant",
+        appliquer: (b) => void (b.mortsVivantsExplosifs = true),
+      },
+    ],
+  },
+  {
+    id: "seigneur-des-tombes",
+    nom: "Seigneur des tombes",
+    rang: "SR",
+    type: "passive",
+    classes: ["necromancien"],
+    description: "Ses mort-vivants ne se decomposent plus. Ils restent tant qu'on ne les detruit pas.",
+    paliers: [
+      {
+        texte: "Les mort-vivants ne disparaissent plus",
+        appliquer: (b) => void (b.mortsVivantsEternels = true),
+      },
+    ],
+  },
+  {
+    id: "appel-des-morts",
+    nom: "L'Appel",
+    rang: "SSR",
+    type: "active",
+    classes: ["necromancien"],
+    description:
+      "Il sacrifie tous ses mort-vivants d'un coup pour dresser un colosse fait de leurs restes.",
+    icone: "cap-appel",
+    effet: "appel-des-morts",
+    paliers: [{ texte: "Fusionne toute l'armee en un colosse", rechargement: 70000 }],
   },
 ];
 

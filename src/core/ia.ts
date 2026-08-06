@@ -43,6 +43,8 @@ export interface HeroPilote {
   etat: EtatHero;
   ratioPv: number;
   portee: number;
+  /** Ne sort jamais de la cite : le Necromancien laisse ses morts se battre */
+  resteEnCite?: boolean;
 }
 
 export interface ContexteIA {
@@ -69,12 +71,21 @@ export function piloter(hero: HeroPilote, ctx: ContexteIA): DecisionIA {
     return { direction: normaliser(versCite), lancerUltime: false };
   }
 
-  // 2. A l'abri dans la cite : il se soigne tant qu'il n'est pas remis.
+  // 2. Le Necromancien ne sort jamais. Il rentre s'il est dehors, sinon il
+  //    attend au milieu des siens.
+  if (hero.resteEnCite) {
+    return {
+      direction: distanceCite > ctx.cite.rayon * 0.6 ? normaliser(versCite) : { x: 0, y: 0 },
+      lancerUltime: ctx.nombreEnnemisAutour(hero.x, hero.y, 400) >= ENNEMIS_POUR_ULTIME,
+    };
+  }
+
+  // 3. A l'abri dans la cite : il se soigne tant qu'il n'est pas remis.
   if (hero.etat === "cite" && hero.ratioPv < SEUIL_RETOUR) return immobile;
 
   const cible = ctx.ennemiLePlusProche(hero.x, hero.y, 1000);
 
-  // 3. Rien a combattre : il retourne monter la garde autour de la cite.
+  // 4. Rien a combattre : il retourne monter la garde autour de la cite.
   if (!cible) {
     return {
       direction: distanceCite > ctx.cite.rayon ? normaliser(versCite) : { x: 0, y: 0 },
@@ -82,12 +93,12 @@ export function piloter(hero: HeroPilote, ctx: ContexteIA): DecisionIA {
     };
   }
 
-  // 4. Trop loin de la cite : il la defend, il ne part pas a l'aventure.
+  // 5. Trop loin de la cite : il la defend, il ne part pas a l'aventure.
   if (distanceCite > LAISSE) {
     return { direction: normaliser(versCite), lancerUltime: false };
   }
 
-  // 5. Combat : tenir la distance ideale de sa classe.
+  // 6. Combat : tenir la distance ideale de sa classe.
   const versCible = { x: cible.x - hero.x, y: cible.y - hero.y };
   const distance = longueur(versCible);
   const ideale = distanceIdeale(hero);
