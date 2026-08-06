@@ -1,0 +1,140 @@
+import Phaser from "phaser";
+import { Rng } from "../core/rng";
+import { CLASSES, ORDRE_CLASSES } from "../core/classes";
+
+/**
+ * Textures placeholder generees par code.
+ *
+ * TOUTES sont faites pour etre remplacees par tes propres dessins : le jour ou
+ * tu as un PNG, il suffit de le charger sous la meme cle dans preload() et de
+ * supprimer l'appel correspondant ici. Aucun autre fichier ne bouge.
+ *
+ * Contrainte a respecter en dessinant (DESIGN.md §4.11, zoom libre) : le sprite
+ * doit rester reconnaissable tout petit. C'est la silhouette et la couleur
+ * dominante qui portent la lisibilite, pas le detail.
+ */
+
+export const TAILLE_HERO = { largeur: 12, hauteur: 18 };
+export const TAILLE_ENNEMI = { largeur: 12, hauteur: 16 };
+
+export function creerTexturesPlaceholder(scene: Phaser.Scene): void {
+  creerHerbe(scene);
+  creerMur(scene);
+  creerEnnemi(scene);
+  creerProjectile(scene);
+  creerImpact(scene);
+  for (const id of ORDRE_CLASSES) {
+    const classe = CLASSES[id];
+    creerHero(scene, `hero-${id}`, classe.couleur, classe.accent);
+  }
+}
+
+/** Herbe facon WorldBox : plusieurs verts en damier irregulier, pas un fond uni. */
+function creerHerbe(scene: Phaser.Scene): void {
+  const verts = [0x4a7a2c, 0x53862f, 0x5c9134, 0x639a38];
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  // Graine fixe : la texture est identique a chaque lancement.
+  const rng = new Rng(20260806);
+
+  for (let y = 0; y < 128; y += 8) {
+    for (let x = 0; x < 128; x += 8) {
+      g.fillStyle(rng.pick(verts), 1);
+      g.fillRect(x, y, 8, 8);
+    }
+  }
+  // Quelques touffes et cailloux pour casser la regularite.
+  for (let i = 0; i < 26; i++) {
+    g.fillStyle(0x7ab648, 1);
+    g.fillRect(rng.int(0, 124), rng.int(0, 124), 4, 3);
+  }
+  for (let i = 0; i < 8; i++) {
+    g.fillStyle(0x6b6f63, 1);
+    g.fillRect(rng.int(0, 124), rng.int(0, 124), 3, 3);
+  }
+
+  g.generateTexture("herbe", 128, 128);
+  g.destroy();
+}
+
+/** Mur en ruine qui delimite l'arene. */
+function creerMur(scene: Phaser.Scene): void {
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.fillStyle(0x6d6357, 1);
+  g.fillRect(0, 0, 16, 16);
+  g.fillStyle(0x574e44, 1);
+  g.fillRect(0, 10, 16, 6);
+  g.fillStyle(0x837868, 1);
+  g.fillRect(2, 2, 5, 5);
+  g.fillRect(9, 4, 4, 4);
+  g.generateTexture("mur", 16, 16);
+  g.destroy();
+}
+
+function creerHero(scene: Phaser.Scene, cle: string, couleur: number, accent: number): void {
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+
+  // Ombre portee, cuite dans la texture : elle ancre le perso au sol.
+  g.fillStyle(0x000000, 0.25);
+  g.fillEllipse(6, 16, 11, 4);
+
+  g.fillStyle(couleur, 1); // corps
+  g.fillRect(3, 8, 6, 6);
+  g.fillStyle(0x33313a, 1); // jambes
+  g.fillRect(3, 14, 2, 2);
+  g.fillRect(7, 14, 2, 2);
+  g.fillStyle(0xe8c39a, 1); // tete
+  g.fillRect(4, 4, 4, 4);
+  g.fillStyle(accent, 1); // casque / capuche : le marqueur de classe
+  g.fillRect(3, 2, 6, 3);
+  g.fillStyle(0x1a1a1a, 1); // yeux
+  g.fillRect(4, 6, 1, 1);
+  g.fillRect(7, 6, 1, 1);
+  g.fillStyle(0xbfc6cf, 1); // arme
+  g.fillRect(9, 7, 3, 1);
+
+  g.generateTexture(cle, TAILLE_HERO.largeur, TAILLE_HERO.hauteur);
+  g.destroy();
+}
+
+function creerEnnemi(scene: Phaser.Scene): void {
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+
+  g.fillStyle(0x000000, 0.25);
+  g.fillEllipse(6, 14, 11, 4);
+
+  g.fillStyle(0x4a2b3d, 1); // corps
+  g.fillRect(2, 5, 8, 8);
+  g.fillStyle(0x35202c, 1);
+  g.fillRect(2, 11, 8, 2);
+  g.fillStyle(0x6b3d55, 1); // cornes
+  g.fillRect(1, 3, 2, 3);
+  g.fillRect(9, 3, 2, 3);
+  g.fillStyle(0xff5a4a, 1); // yeux
+  g.fillRect(3, 7, 2, 2);
+  g.fillRect(7, 7, 2, 2);
+
+  g.generateTexture("ennemi", TAILLE_ENNEMI.largeur, TAILLE_ENNEMI.hauteur);
+  g.destroy();
+}
+
+/**
+ * Projectile et impact volontairement gros et clairs : au zoom arriere il faut
+ * encore voir ce qui se passe (DESIGN.md §4.11).
+ */
+function creerProjectile(scene: Phaser.Scene): void {
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.fillStyle(0xfff0a0, 1);
+  g.fillCircle(4, 4, 4);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(4, 4, 2);
+  g.generateTexture("projectile", 8, 8);
+  g.destroy();
+}
+
+function creerImpact(scene: Phaser.Scene): void {
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(8, 8, 8);
+  g.generateTexture("impact", 16, 16);
+  g.destroy();
+}
