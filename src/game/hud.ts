@@ -46,7 +46,7 @@ export class Hud {
 
     this.info = this.texte(16, 0, 11, "#d8d2c4");
     this.info.setText(
-      "ZQSD ou fleches : se deplacer   ·   ESPACE (ou 1) : ultime   ·   molette : zoom",
+      "ZQSD, fleches ou clic : se deplacer   ·   ESPACE : ultime   ·   molette : zoom",
     );
 
     this.dessinerFond();

@@ -1,11 +1,9 @@
 import Phaser from "phaser";
 import { Rng } from "../core/rng";
 import { CLASSES, type ClassId } from "../core/classes";
-import { tirerCompetences } from "../core/competences";
+import { tirerCompetences, type CompetenceDef } from "../core/competences";
 import { creerTexturesPlaceholder } from "../game/art";
 import { Ennemi, Hero } from "../game/entities";
-import { Hud } from "../game/hud";
-import { ChoixCompetence } from "../game/choixCompetence";
 
 /**
  * JALON 1 + 2 — l'arene.
@@ -26,32 +24,45 @@ export class ArenaScene extends Phaser.Scene {
   private hero!: Hero;
   private ennemis!: Phaser.Physics.Arcade.Group;
   private projectiles!: Phaser.Physics.Arcade.Group;
-  private hud!: Hud;
-  private choixCompetence!: ChoixCompetence;
 
   private zqsd!: Record<string, Phaser.Input.Keyboard.Key>;
   private fleches!: Phaser.Types.Input.Keyboard.CursorKeys;
   private touchesUltimes: Phaser.Input.Keyboard.Key[][] = [];
+
+  /** Destination fixee a la souris, effacee des qu'on touche au clavier */
+  private destination: Phaser.Math.Vector2 | null = null;
+  private marqueur: Phaser.GameObjects.Image | null = null;
 
   private debut = 0;
   private prochaineApparition = 0;
   private kills = 0;
   private termine = false;
 
+  private enPause = false;
   private niveauxEnAttente = 0;
   private debutPause = 0;
 
-  private stats!: Phaser.GameObjects.Text;
-
   constructor() {
     super("arena");
+  }
+
+  /** Lu par l'interface, qui vit dans une autre scene. */
+  get resume(): { secondes: number; kills: number; niveau: number } {
+    return {
+      secondes: Math.floor((this.time.now - this.debut) / 1000),
+      kills: this.kills,
+      niveau: this.hero?.niveau ?? 1,
+    };
   }
 
   init(data: { classe?: ClassId }): void {
     this.registry.set("classe", data.classe ?? "guerrier");
     this.kills = 0;
     this.termine = false;
+    this.enPause = false;
     this.niveauxEnAttente = 0;
+    this.destination = null;
+    this.marqueur = null;
   }
 
   create(): void {
@@ -75,24 +86,19 @@ export class ArenaScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.hero, true, 0.12, 0.12);
     this.configurerZoom();
     this.configurerTouches();
+    this.configurerSouris();
 
     this.physics.add.overlap(this.hero, this.ennemis, (_h, e) => this.contactEnnemi(e as Ennemi));
     this.physics.add.overlap(this.projectiles, this.ennemis, (p, e) =>
       this.impactProjectile(p as Phaser.Physics.Arcade.Image, e as Ennemi),
     );
 
-    this.hud = new Hud(this, this.hero);
-    this.choixCompetence = new ChoixCompetence(this);
-    this.stats = this.add
-      .text(0, 0, "", {
-        fontFamily: "monospace",
-        fontSize: "12px",
-        color: "#f2e9d8",
-        align: "right",
-      })
-      .setOrigin(1, 0)
-      .setScrollFactor(0)
-      .setDepth(1003);
+    // L'interface vit dans sa propre scene pour echapper au zoom (voir UiScene).
+    this.scene.launch("ui", { hero: this.hero });
+    this.events.on("competence-choisie", this.appliquerCompetence, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
+      this.events.off("competence-choisie", this.appliquerCompetence, this),
+    );
 
     this.debut = this.time.now;
     this.prochaineApparition = this.time.now + 800;
@@ -124,6 +130,38 @@ export class ArenaScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * Deplacement a la souris : on clique, le heros y va. Maintenir le bouton
+   * deplace la destination en continu, ce qui permet de le guider comme au
+   * clavier. Le clavier reprend la main des qu'on l'utilise.
+   */
+  private configurerSouris(): void {
+    const viser = (pointeur: Phaser.Input.Pointer) => {
+      if (this.termine || this.enPause) return;
+      const point = this.cameras.main.getWorldPoint(pointeur.x, pointeur.y);
+      this.destination = new Phaser.Math.Vector2(point.x, point.y);
+      this.montrerMarqueur();
+    };
+    this.input.on("pointerdown", viser);
+    this.input.on("pointermove", (p: Phaser.Input.Pointer) => p.isDown && viser(p));
+  }
+
+  private montrerMarqueur(): void {
+    if (!this.destination) return;
+    this.marqueur ??= this.add
+      .image(0, 0, "impact")
+      .setTint(0xfff0a0)
+      .setAlpha(0.5)
+      .setScale(0.9)
+      .setDepth(-500);
+    this.marqueur.setPosition(this.destination.x, this.destination.y).setVisible(true);
+  }
+
+  private effacerDestination(): void {
+    this.destination = null;
+    this.marqueur?.setVisible(false);
+  }
+
   private configurerTouches(): void {
     const clavier = this.input.keyboard;
     if (!clavier) return;
@@ -142,14 +180,16 @@ export class ArenaScene extends Phaser.Scene {
     this.touchesUltimes = codesParUltime.map((codes) => codes.map((c) => clavier.addKey(c)));
 
     clavier.addKey(Phaser.Input.Keyboard.KeyCodes.R).on("down", () => {
-      if (this.termine) this.scene.start("choix-classe");
+      if (!this.termine) return;
+      this.scene.stop("ui");
+      this.scene.start("choix-classe");
     });
   }
 
   // ---------------------------------------------------------------- boucle
 
   update(): void {
-    if (this.termine || this.choixCompetence.estOuvert) return;
+    if (this.termine || this.enPause) return;
 
     this.deplacerHero();
     this.deplacerEnnemis();
@@ -157,11 +197,6 @@ export class ArenaScene extends Phaser.Scene {
     this.gererUltimes();
     this.fairePartirLesVagues();
     this.trierProfondeurs();
-
-    this.hud.rafraichir();
-    const secondes = Math.floor((this.time.now - this.debut) / 1000);
-    this.stats.setPosition(this.scale.width - 16, 16);
-    this.stats.setText(`Survie : ${secondes}s\nElimines : ${this.kills}`);
   }
 
   private deplacerHero(): void {
@@ -170,6 +205,23 @@ export class ArenaScene extends Phaser.Scene {
     if (this.zqsd["D"]?.isDown || this.fleches.right.isDown) dir.x += 1;
     if (this.zqsd["Z"]?.isDown || this.fleches.up.isDown) dir.y -= 1;
     if (this.zqsd["S"]?.isDown || this.fleches.down.isDown) dir.y += 1;
+
+    if (dir.lengthSq() > 0) {
+      // Le clavier reprend toujours la main sur la souris.
+      this.effacerDestination();
+    } else if (this.destination) {
+      const distance = Phaser.Math.Distance.Between(
+        this.hero.x,
+        this.hero.y,
+        this.destination.x,
+        this.destination.y,
+      );
+      if (distance < 6) {
+        this.effacerDestination();
+      } else {
+        dir.set(this.destination.x - this.hero.x, this.destination.y - this.hero.y);
+      }
+    }
 
     // Normaliser : sans ca, la diagonale est 40% plus rapide.
     dir.normalize();
@@ -323,7 +375,7 @@ export class ArenaScene extends Phaser.Scene {
     this.niveauxEnAttente += 1;
     this.flotter(this.hero.x, this.hero.y - 24, `NIVEAU ${this.hero.niveau}`, "#5ec8f0");
     this.effetCercle(this.hero.x, this.hero.y, 70, 0x5ec8f0);
-    if (!this.choixCompetence.estOuvert) this.ouvrirChoix();
+    if (!this.enPause) this.ouvrirChoix();
   }
 
   /**
@@ -332,8 +384,10 @@ export class ArenaScene extends Phaser.Scene {
    * joues par l'IA s'accumuleront en attente.
    */
   private ouvrirChoix(): void {
+    this.enPause = true;
     this.debutPause = this.time.now;
     this.physics.pause();
+    this.effacerDestination();
 
     const choix = tirerCompetences(
       this.rng,
@@ -344,17 +398,18 @@ export class ArenaScene extends Phaser.Scene {
       0,
     );
 
-    this.choixCompetence.afficher(this.hero.niveau, choix, (competence) => {
-      this.hero.apprendre(competence);
-      this.fermerChoix();
-    });
+    // C'est l'interface qui affiche le choix, et elle repondra par
+    // "competence-choisie". La scene de jeu ne sait rien de son apparence.
+    this.events.emit("montee-niveau", this.hero.niveau, choix);
   }
 
-  private fermerChoix(): void {
+  private appliquerCompetence(competence: CompetenceDef): void {
+    this.hero.apprendre(competence);
     // Sans ce decalage, le temps passe dans le menu rechargerait les ultimes
     // gratuitement.
     this.hero.decalerRechargements(this.time.now - this.debutPause);
     this.physics.resume();
+    this.enPause = false;
     this.niveauxEnAttente = Math.max(0, this.niveauxEnAttente - 1);
     if (this.niveauxEnAttente > 0) this.ouvrirChoix();
   }
@@ -521,7 +576,7 @@ export class ArenaScene extends Phaser.Scene {
   // --------------------------------------------------------------- degats
 
   private contactEnnemi(e: Ennemi): void {
-    if (!e.active || this.termine || this.choixCompetence.estOuvert) return;
+    if (!e.active || this.termine || this.enPause) return;
     if (!e.peutFrapper(this.time.now)) return;
     e.marquerCoup(this.time.now);
 
@@ -545,27 +600,11 @@ export class ArenaScene extends Phaser.Scene {
   private finDePartie(): void {
     this.termine = true;
     this.physics.pause();
+    this.effacerDestination();
     this.hero.setTint(0x6b6b6b);
 
-    const secondes = Math.floor((this.time.now - this.debut) / 1000);
-    const cam = this.cameras.main;
-    this.add
-      .text(
-        cam.width / 2,
-        cam.height / 2,
-        `Le heros est tombe.\n\n${secondes} secondes  ·  ${this.kills} elimines  ·  niveau ${this.hero.niveau}\n\nR pour recommencer`,
-        {
-          fontFamily: "monospace",
-          fontSize: "20px",
-          color: "#f2e9d8",
-          align: "center",
-          backgroundColor: "#1b1720dd",
-          padding: { x: 24, y: 20 },
-        },
-      )
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(2000);
+    const resume = this.resume;
+    this.events.emit("fin-de-partie", resume.secondes, resume.kills, resume.niveau);
   }
 
   // --------------------------------------------------------------- effets

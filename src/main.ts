@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { ChoixClasseScene } from "./scenes/ChoixClasseScene";
 import { ArenaScene } from "./scenes/ArenaScene";
+import { UiScene } from "./scenes/UiScene";
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -17,7 +18,8 @@ const config: Phaser.Types.Core.GameConfig = {
     default: "arcade",
     arcade: { debug: false },
   },
-  scene: [ChoixClasseScene, ArenaScene],
+  // UiScene tourne en parallele de l'arene, avec sa propre camera non zoomee.
+  scene: [ChoixClasseScene, ArenaScene, UiScene],
 };
 
 new Phaser.Game(config);

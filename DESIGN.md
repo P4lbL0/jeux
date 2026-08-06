@@ -168,6 +168,11 @@ de subir, et ils sont le principal marqueur d'identité entre les classes. Ils d
 **Une touche par ultime**, chacun avec son propre rechargement. Le nombre d'ultimes
 disponibles dépend du **rang** du héros (§4.1).
 
+**Le déplacement se fait au clavier ou à la souris**, au choix du joueur : on peut
+cliquer un point pour s'y rendre, ou maintenir le bouton pour guider le héros en
+continu. Le clavier reprend toujours la main dès qu'on l'utilise. Ce double contrôle
+ouvre aussi la porte à une version tactile plus tard, sans rien changer au design.
+
 > Conséquence : le clavier du joueur s'enrichit à mesure qu'il progresse. Un héros de
 > rang F se joue presque uniquement au déplacement ; un héros de haut rang devient un
 > vrai instrument à plusieurs touches. La montée en rang se **ressent dans les doigts**,
@@ -365,7 +370,8 @@ reste** :
 - Les **effets de combat** (projectiles, dégâts, soins) doivent rester visibles de loin
   — quitte à ne pas rétrécir proportionnellement au zoom.
 - L'**interface** ne zoome jamais : la barre de héros et les panneaux gardent toujours
-  la même taille à l'écran.
+  la même taille à l'écran. Techniquement, elle vit dans une **couche séparée** avec sa
+  propre caméra — sans quoi elle grossit avec le monde et devient inutilisable.
 - Il faut des **bornes** de zoom min et max, sinon le joueur trouvera la distance qui
   casse le jeu.
 

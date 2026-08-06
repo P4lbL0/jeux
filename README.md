@@ -23,7 +23,7 @@ npm run build   # verifie les types et construit la version finale
 
 | Touche | Action |
 |---|---|
-| `ZQSD` ou les fleches | Se deplacer |
+| `ZQSD`, les fleches, ou **clic** | Se deplacer (maintenir le clic pour guider) |
 | `Espace` (ou `1`) | Ultime |
 | `1` `2` `3` | Choisir une amelioration a la montee de niveau |
 | Molette | Zoomer / dezoomer |
@@ -60,7 +60,15 @@ src/
     hud.ts             barre de heros (le futur ecran de triage)
     choixCompetence.ts ecran de montee de niveau
   scenes/    les ecrans du jeu
+    ChoixClasseScene.ts  choix de la classe de depart
+    ArenaScene.ts        le combat
+    UiScene.ts           l'interface, dans sa propre couche
 ```
+
+**L'interface est une scene a part.** Le zoom appartient a la camera et agrandit
+tout ce qu'elle affiche, y compris les elements fixes a l'ecran. Une interface
+posee dans la scene de jeu grossit donc avec le monde. UiScene a sa propre
+camera, qui reste a zoom 1 quoi qu'il arrive.
 
 La regle : **`core/` ne connait pas Phaser.** C'est ce qui permet de tester la
 logique du jeu sans lancer le moteur, et de changer d'affichage un jour sans
