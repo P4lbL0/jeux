@@ -3,114 +3,182 @@ import { SEUIL_CRITIQUE } from "../core/classes";
 import type { Hero } from "./entities";
 
 /**
- * Barre de heros, en haut a gauche, a l'horizontale (DESIGN.md §4.10).
+ * Barre d'equipe, en haut a gauche, a l'horizontale (DESIGN.md §4.10).
  *
- * Pour l'instant elle n'affiche qu'un heros, mais elle est construite comme une
- * liste : au jalon 3 il suffira de la boucler sur toute l'equipe.
+ * Ce n'est pas de la decoration : avec la mort definitive, c'est l'**ecran de
+ * triage** du joueur. C'est ici qu'il voit un heros en train de tomber a
+ * l'autre bout de la carte et qu'il decide de lacher sa position pour aller le
+ * sauver.
  *
- * Le seuil des 20% est marque en dur sur la barre de vie. C'est l'information
- * la plus importante de l'ecran : c'est lui qui verrouillera le changement de
- * heros et declenchera le repli de l'IA.
- *
- * L'interface ne zoome jamais avec la camera : setScrollFactor(0) partout.
+ * Le trait blanc a 20% est l'information la plus importante de l'ecran : c'est
+ * lui qui verrouille le changement de heros et declenche le repli de l'IA.
  */
 
-const LARGEUR_CARTE = 208;
-const HAUTEUR_CARTE = 58;
+const LARGEUR = 134;
+const HAUTEUR = 62;
+const ESPACE = 6;
+const MARGE = 12;
+
+const COULEURS_ETAT: Record<string, string> = {
+  combat: "#c8bfae",
+  repli: "#e6a23c",
+  cite: "#5fc26a",
+  mort: "#ff6b5a",
+};
+
+const LIBELLES_ETAT: Record<string, string> = {
+  combat: "au combat",
+  repli: "SE REPLIE",
+  cite: "a la cite",
+  mort: "TOMBE",
+};
+
+export interface EtatEquipe {
+  heros: Hero[];
+  indexIncarne: number;
+  /** Le heros courant permet-il d'en changer maintenant ? (DESIGN.md §4.3) */
+  changementAutorise: boolean;
+}
+
+interface Carte {
+  portrait: Phaser.GameObjects.Image;
+  titre: Phaser.GameObjects.Text;
+  etat: Phaser.GameObjects.Text;
+  badge: Phaser.GameObjects.Text;
+}
 
 export class Hud {
-  private fond: Phaser.GameObjects.Graphics;
-  private barres: Phaser.GameObjects.Graphics;
-  private titre: Phaser.GameObjects.Text;
-  private pvTexte: Phaser.GameObjects.Text;
+  private graphiques: Phaser.GameObjects.Graphics;
+  private cartes: Carte[] = [];
   private info: Phaser.GameObjects.Text;
+  private alerte: Phaser.GameObjects.Text;
 
-  constructor(private scene: Phaser.Scene, private hero: Hero) {
-    this.fond = scene.add.graphics().setScrollFactor(0).setDepth(1000);
-    this.barres = scene.add.graphics().setScrollFactor(0).setDepth(1002);
+  constructor(
+    private scene: Phaser.Scene,
+    heros: Hero[],
+    surSelection: (index: number) => void,
+  ) {
+    this.graphiques = scene.add.graphics().setDepth(1000);
 
-    // Portrait : place une fois, il ne bouge plus.
-    scene.add
-      .image(34, 34, `hero-${hero.classe.id}`)
-      .setScrollFactor(0)
-      .setDepth(1001)
-      .setScale(2);
+    heros.forEach((hero, i) => {
+      const x = MARGE + i * (LARGEUR + ESPACE);
+      this.cartes.push({
+        portrait: scene.add
+          .image(x + 22, MARGE + 30, `hero-${hero.classe.id}`)
+          .setScale(2)
+          .setDepth(1001),
+        titre: this.texte(x + 40, MARGE + 8, 11, "#f2e9d8"),
+        etat: this.texte(x + 40, MARGE + 46, 9, "#c8bfae"),
+        badge: this.texte(x + LARGEUR - 10, MARGE + 7, 11, "#f0c419").setOrigin(1, 0),
+      });
 
-    this.titre = this.texte(58, 16, 12, "#f2e9d8");
-    this.pvTexte = this.texte(58, 31, 10, "#ffffff");
+      scene.add
+        .zone(x, MARGE, LARGEUR, HAUTEUR)
+        .setOrigin(0)
+        .setInteractive({ useHandCursor: true })
+        .on("pointerdown", () => surSelection(i));
+    });
 
-    // Les ultimes ont leur propre panneau, en bas a gauche (PanneauUltimes).
-    this.info = this.texte(16, 0, 11, "#d8d2c4").setOrigin(0.5, 0);
+    this.info = this.texte(0, 0, 11, "#d8d2c4").setOrigin(0.5, 0);
     this.info.setText(
-      "ZQSD, fleches ou clic : se deplacer   ·   ESPACE : ultime   ·   molette : zoom",
+      "ZQSD, fleches ou clic : se deplacer   ·   ESPACE : ultime   ·   A / E : changer de heros   ·   molette : zoom",
     );
 
-    this.dessinerFond();
-    scene.scale.on("resize", () => this.placerInfo());
-    this.placerInfo();
+    this.alerte = this.texte(0, 0, 13, "#ff8a7a").setOrigin(0.5, 0);
+
+    const replacer = () => this.placerBas();
+    scene.scale.on("resize", replacer);
+    // Le gestionnaire de taille est global : sans ce retrait, l'ecouteur
+    // survivrait a la scene et pointerait vers des objets detruits.
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.scale.off("resize", replacer));
+    this.placerBas();
   }
 
   private texte(x: number, y: number, taille: number, couleur: string): Phaser.GameObjects.Text {
     return this.scene.add
       .text(x, y, "", { fontFamily: "monospace", fontSize: `${taille}px`, color: couleur })
-      .setScrollFactor(0)
       .setDepth(1003);
   }
 
-  private placerInfo(): void {
+  private placerBas(): void {
     this.info.setPosition(this.scene.scale.width / 2, this.scene.scale.height - 26);
+    this.alerte.setPosition(this.scene.scale.width / 2, MARGE + HAUTEUR + 10);
   }
 
-  private dessinerFond(): void {
-    const g = this.fond;
-    g.clear();
-    g.fillStyle(0x1b1720, 0.82);
-    g.fillRoundedRect(12, 12, LARGEUR_CARTE, HAUTEUR_CARTE, 6);
-    g.lineStyle(2, 0x4a4152, 1);
-    g.strokeRoundedRect(12, 12, LARGEUR_CARTE, HAUTEUR_CARTE, 6);
-    // Emplacement du portrait
-    g.fillStyle(0x2a2433, 1);
-    g.fillRect(20, 20, 28, 28);
-  }
-
-  rafraichir(): void {
-    const h = this.hero;
-    const g = this.barres;
+  rafraichir(etat: EtatEquipe): void {
+    const g = this.graphiques;
     g.clear();
 
-    this.titre.setText(`${h.classe.nom}  Niv.${h.niveau}`);
+    etat.heros.forEach((hero, i) => {
+      const carte = this.cartes[i];
+      if (!carte) return;
 
-    const x = 58;
-    const largeur = 142;
+      const x = MARGE + i * (LARGEUR + ESPACE);
+      const y = MARGE;
+      const incarne = i === etat.indexIncarne;
+      const mort = hero.etat === "mort";
 
-    // --- Barre de vie ---
-    const yPv = 46;
-    g.fillStyle(0x000000, 0.55);
-    g.fillRect(x, yPv, largeur, 9);
+      // --- Cadre ---
+      g.fillStyle(0x1b1720, mort ? 0.6 : 0.85);
+      g.fillRoundedRect(x, y, LARGEUR, HAUTEUR, 6);
+      g.lineStyle(incarne ? 3 : 2, incarne ? 0xf0c419 : 0x4a4152, 1);
+      g.strokeRoundedRect(x, y, LARGEUR, HAUTEUR, 6);
 
-    const ratio = Phaser.Math.Clamp(h.ratioPv, 0, 1);
-    // Vert -> orange -> rouge des que le seuil critique est franchi.
-    const couleur = h.estCritique ? 0xe74c3c : ratio < 0.5 ? 0xe6a23c : 0x5fc26a;
-    g.fillStyle(couleur, 1);
-    g.fillRect(x, yPv, largeur * ratio, 9);
+      g.fillStyle(0x2a2433, 1);
+      g.fillRect(x + 10, y + 12, 24, 38);
+      carte.portrait.setAlpha(mort ? 0.4 : 1);
 
-    // Marqueur des 20% : le trait le plus important de l'interface.
-    const xSeuil = x + largeur * SEUIL_CRITIQUE;
-    g.fillStyle(0xffffff, 0.9);
-    g.fillRect(xSeuil - 1, yPv - 2, 2, 13);
+      carte.titre.setText(`${hero.classe.nom.slice(0, 9)} ${hero.niveau}`);
+      carte.titre.setColor(incarne ? "#f0c419" : mort ? "#6b6478" : "#f2e9d8");
 
-    g.lineStyle(1, 0x000000, 0.6);
-    g.strokeRect(x, yPv, largeur, 9);
+      // --- Vie ---
+      const bx = x + 40;
+      const largeur = LARGEUR - 50;
+      const by = y + 24;
+      g.fillStyle(0x000000, 0.55);
+      g.fillRect(bx, by, largeur, 8);
 
-    this.pvTexte.setText(`${Math.ceil(h.pv)} / ${h.pvMax}`);
-    this.pvTexte.setPosition(x, yPv - 14);
-    this.pvTexte.setColor(h.estCritique ? "#ff8a7a" : "#ffffff");
+      if (!mort) {
+        const ratio = Phaser.Math.Clamp(hero.ratioPv, 0, 1);
+        const couleur = hero.estCritique ? 0xe74c3c : ratio < 0.5 ? 0xe6a23c : 0x5fc26a;
+        g.fillStyle(couleur, 1);
+        g.fillRect(bx, by, largeur * ratio, 8);
+      }
 
-    // --- Barre d'XP ---
-    const yXp = yPv + 12;
-    g.fillStyle(0x000000, 0.55);
-    g.fillRect(x, yXp, largeur, 4);
-    g.fillStyle(0x5ec8f0, 1);
-    g.fillRect(x, yXp, largeur * Phaser.Math.Clamp(h.xp / h.xpRequise, 0, 1), 4);
+      // Le trait des 20% : le seuil qui verrouille tout.
+      g.fillStyle(0xffffff, 0.9);
+      g.fillRect(bx + largeur * SEUIL_CRITIQUE - 1, by - 2, 2, 12);
+
+      // --- XP ---
+      const yx = by + 11;
+      g.fillStyle(0x000000, 0.55);
+      g.fillRect(bx, yx, largeur, 3);
+      if (!mort) {
+        g.fillStyle(0x5ec8f0, 1);
+        g.fillRect(bx, yx, largeur * Phaser.Math.Clamp(hero.xp / hero.xpRequise, 0, 1), 3);
+      }
+
+      carte.etat.setText(LIBELLES_ETAT[hero.etat] ?? "");
+      carte.etat.setColor(COULEURS_ETAT[hero.etat] ?? "#c8bfae");
+
+      // --- Ameliorations en attente ---
+      // L'IA ne choisit jamais : elle accumule, et ce badge dit au joueur
+      // qu'un heros l'attend avec des choix en reserve (DESIGN.md §4.3).
+      const attente = hero.niveauxEnAttente;
+      carte.badge.setText(attente > 0 && !mort ? `+${attente}` : "");
+      if (attente > 0 && !mort) {
+        g.fillStyle(0xf0c419, 0.18);
+        g.fillRoundedRect(x, y, LARGEUR, HAUTEUR, 6);
+      }
+    });
+
+    // Message de verrouillage : sans lui, le joueur croit a un bug quand le
+    // changement de heros ne repond plus.
+    const courant = etat.heros[etat.indexIncarne];
+    this.alerte.setText(
+      courant && !etat.changementAutorise
+        ? "Sous 20% de vie : rentre a la cite pour changer de heros"
+        : "",
+    );
   }
 }

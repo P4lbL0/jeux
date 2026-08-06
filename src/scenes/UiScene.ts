@@ -16,10 +16,12 @@ import type { ArenaScene } from "./ArenaScene";
  *
  * Une scene a sa propre camera. Celle-ci reste a zoom 1 quoi qu'il arrive :
  * l'interface garde toujours la meme taille, comme l'exige DESIGN.md §4.11.
+ *
+ * Elle ne connait l'arene que par des evenements. C'est ce qui permet de
+ * refondre l'une sans toucher a l'autre.
  */
 export class UiScene extends Phaser.Scene {
   private arene!: ArenaScene;
-  private hero!: Hero;
   private hud!: Hud;
   private ultimes!: PanneauUltimes;
   private choix!: ChoixCompetence;
@@ -29,14 +31,17 @@ export class UiScene extends Phaser.Scene {
     super("ui");
   }
 
-  init(data: { hero: Hero }): void {
-    this.hero = data.hero;
-    this.arene = this.scene.get("arena") as ArenaScene;
+  init(data: { arene: ArenaScene }): void {
+    this.arene = data.arene;
   }
 
   create(): void {
-    this.hud = new Hud(this, this.hero);
-    this.ultimes = new PanneauUltimes(this, this.hero);
+    const equipe = this.arene.etatEquipe;
+
+    this.hud = new Hud(this, equipe.heros, (index) =>
+      this.arene.events.emit("changer-hero", index),
+    );
+    this.ultimes = new PanneauUltimes(this, equipe.heros[equipe.indexIncarne]!);
     this.choix = new ChoixCompetence(this);
 
     this.stats = this.add
@@ -51,26 +56,34 @@ export class UiScene extends Phaser.Scene {
 
     const evenements = this.arene.events;
     evenements.on("montee-niveau", this.ouvrirChoix, this);
+    evenements.on("hero-incarne", this.changerPanneau, this);
     evenements.on("fin-de-partie", this.afficherFin, this);
     // Sans ce nettoyage, les ecouteurs s'empileraient a chaque nouvelle partie.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       evenements.off("montee-niveau", this.ouvrirChoix, this);
+      evenements.off("hero-incarne", this.changerPanneau, this);
       evenements.off("fin-de-partie", this.afficherFin, this);
     });
   }
 
-  private ouvrirChoix(niveau: number, propositions: CompetenceDef[]): void {
-    this.choix.afficher(niveau, propositions, (competence) => {
+  /** Le panneau des ultimes suit toujours le heros incarne. */
+  private changerPanneau(hero: Hero): void {
+    this.ultimes.detruire();
+    this.ultimes = new PanneauUltimes(this, hero);
+  }
+
+  private ouvrirChoix(hero: Hero, propositions: CompetenceDef[]): void {
+    this.choix.afficher(hero.niveau, propositions, (competence) => {
       this.arene.events.emit("competence-choisie", competence);
     });
   }
 
-  private afficherFin(secondes: number, kills: number, niveau: number): void {
+  private afficherFin(secondes: number, kills: number): void {
     this.add
       .text(
         this.scale.width / 2,
         this.scale.height / 2,
-        `Le heros est tombe.\n\n${secondes} secondes  ·  ${kills} elimines  ·  niveau ${niveau}\n\nR pour recommencer`,
+        `Toute l'equipe est tombee.\n\nLa cite n'a plus de Protecteur.\n\n${secondes} secondes  ·  ${kills} elimines\n\nR pour recommencer`,
         {
           fontFamily: "monospace",
           fontSize: "20px",
@@ -85,7 +98,7 @@ export class UiScene extends Phaser.Scene {
   }
 
   update(): void {
-    this.hud.rafraichir();
+    this.hud.rafraichir(this.arene.etatEquipe);
     this.ultimes.rafraichir();
     const resume = this.arene.resume;
     this.stats.setPosition(this.scale.width - 16, 16);

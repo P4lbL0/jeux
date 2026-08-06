@@ -226,6 +226,12 @@ sortir de là, blessé, à travers la vague. C'est le meilleur moment du jeu.
 protège de la mort définitive. C'est la soupape de sécurité, et son prix est ce qui
 l'empêche de casser la tension — on ne peut pas en équiper tout le monde.
 
+**La cité** est le refuge et le pivot de tout le système. Un héros qui y entre est à
+l'abri : plus personne ne le vise, et il se soigne. C'est là que les héros repliés se
+remettent avant de repartir, et c'est le seul endroit où le joueur peut abandonner un
+héros sous les 20%. Elle n'est pour l'instant qu'un cercle de pierre au milieu de
+l'arène — le vrai village arrive au jalon 5.
+
 **Le reste du système de héros IA** :
 
 - Tous les héros non incarnés sont joués par l'**IA** et combattent réellement.
@@ -420,7 +426,7 @@ incertain d'abord. À chaque jalon, le jeu doit être **jouable** — moche, mai
 | **0** | ✅ Squelette technique | La plomberie fonctionne |
 | **1** | ✅ Arène, héros, auto-attaque, ultimes, traits de classe, ennemis, mort | **Oui, bouger est amusant** — valide au test du 6 août |
 | **2** | ✅ XP, montée de niveau, pause et choix d'amélioration | La boucle de combat tourne |
-| **3** | Plusieurs héros, IA, règle des 20%, switch, barre de HUD | Le cœur du jeu est là |
+| **3** | ✅ Équipe, IA, règle des 20%, cité, switch, barre d'équipe, mort définitive | Le cœur du jeu est là |
 | **4** | Ordres, postures et formations | La couche tactique existe |
 | **5** | Village hub, PNJ, phase de préparation, argent, équipement | Les deux moitiés du jeu sont reliées |
 | **6** | Défenses à placer, de la baliste au canon laser | La tower-defense existe |

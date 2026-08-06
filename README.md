@@ -25,6 +25,7 @@ npm run build   # verifie les types et construit la version finale
 |---|---|
 | `ZQSD`, les fleches, ou **clic** | Se deplacer (maintenir le clic pour guider) |
 | `Espace` (ou `1`) | Ultime |
+| `A` / `E`, ou clic sur un portrait | Changer de heros |
 | `1` `2` `3` | Choisir une amelioration a la montee de niveau |
 | Molette | Zoomer / dezoomer |
 | `R` | Recommencer apres la mort |
@@ -35,16 +36,28 @@ que le deplacement et ses ultimes.
 Chaque montee de niveau met le jeu **en pause** et propose trois ameliorations.
 C'est toujours le joueur qui choisit — jamais l'IA (DESIGN.md §4.3).
 
+## La regle des 20%
+
+Le coeur du jeu tient en trois regles :
+
+1. Un heros joue par l'**IA se replie** des qu'il tombe a 20% de vie. **L'IA ne
+   perd donc jamais un heros.**
+2. Le joueur peut changer de heros a tout moment, **sauf sous 20% de vie** : il
+   est alors verrouille et doit ramener son heros vivant **jusqu'a la cite**.
+3. La mort est **definitive**.
+
+Consequence : un heros ne peut mourir **que par une decision du joueur**.
+
 ## Ou en est le projet
 
 Voir la feuille de route dans [DESIGN.md](DESIGN.md#5-ordre-de-construction).
 
-**Jalons 1 et 2** — une arene, un heros, l'attaque automatique, un ultime et un
-trait par classe, des ennemis qui arrivent sans fin, et la boucle XP → niveau →
-choix d'amelioration.
+**Jalons 1 a 3** — une arene, une equipe de quatre heros, l'attaque automatique,
+un ultime et un trait par classe, l'IA qui joue les heros non incarnes, la regle
+des 20%, la cite ou l'on se soigne, la mort definitive, et la boucle
+XP → niveau → choix d'amelioration.
 
-Prochain jalon : plusieurs heros, l'IA, la regle des 20% et le changement de
-heros en plein combat.
+Prochain jalon : les ordres donnes a l'IA — position, posture, formations.
 
 ## Structure du code
 
@@ -54,6 +67,7 @@ src/
     rng.ts           aleatoire seede (une graine = une partie rejouable)
     classes.ts       donnees des 4 classes — c'est ici qu'on equilibre
     competences.ts   ameliorations et leurs raretes
+    ia.ts            decisions des heros joues par l'IA (fonction pure, testee)
   game/      ce qui vit a l'ecran
     art.ts             textures placeholder generees par code
     entities.ts        heros et ennemis

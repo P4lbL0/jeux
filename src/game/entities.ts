@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import type { ClasseDef } from "../core/classes";
+import type { ClasseDef, EtatHero } from "../core/classes";
 import { SEUIL_CRITIQUE, xpPourNiveauSuivant } from "../core/classes";
 import { bonusVierge, type Bonus, type CompetenceDef } from "../core/competences";
 
@@ -24,6 +24,15 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   pv: number;
   niveau = 1;
   xp = 0;
+  etat: EtatHero = "combat";
+  /** Vrai pour le seul heros que le joueur controle */
+  estIncarne = false;
+  /**
+   * Montees de niveau gagnees mais dont l'amelioration n'a pas encore ete
+   * choisie. L'IA ne choisit jamais : elle accumule, et le joueur tranchera
+   * quand il reprendra ce heros (DESIGN.md §4.3).
+   */
+  niveauxEnAttente = 0;
   /** Direction du dernier deplacement, utilisee par les ultimes directionnels */
   regard = new Phaser.Math.Vector2(1, 0);
 
@@ -94,7 +103,21 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   get estVivant(): boolean {
-    return this.pv > 0;
+    return this.etat !== "mort";
+  }
+
+  /** Il se bat vraiment : lui seul peut etre cible et blesse. */
+  get estAuCombat(): boolean {
+    return this.etat === "combat";
+  }
+
+  mourir(): void {
+    this.etat = "mort";
+    this.pv = 0;
+    this.estIncarne = false;
+    this.setVelocity(0, 0);
+    this.setTint(0x4a4152);
+    this.setAlpha(0.55);
   }
 
   get estInvulnerable(): boolean {
@@ -113,7 +136,12 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   subirDegats(degats: number, tirageEsquive: number): boolean {
     if (this.estInvulnerable) return true;
     if (tirageEsquive < this.esquive) return true;
-    this.pv = Math.max(0, this.pv - degats);
+
+    // Garantie du design : un heros joue par l'IA ne meurt jamais
+    // (DESIGN.md §4.3). Il lui reste toujours un souffle pour decrocher, et
+    // c'est ce qui fait que toute perte vient d'une decision du joueur.
+    const plancher = this.estIncarne ? 0 : 1;
+    this.pv = Math.max(plancher, this.pv - degats);
     return false;
   }
 
@@ -166,6 +194,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     if (this.xp < this.xpRequise) return false;
     this.xp -= this.xpRequise;
     this.niveau += 1;
+    this.niveauxEnAttente += 1;
     // Le gain de vie maximum du niveau est aussi rendu en vie.
     this.pv = Math.min(this.pvMax, this.pv + 6);
     return true;
@@ -183,6 +212,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.pv += Math.max(0, this.pvMax - avant);
     if (competence.soinComplet) this.pv = this.pvMax;
     this.competencesPrises[competence.id] = (this.competencesPrises[competence.id] ?? 0) + 1;
+    this.niveauxEnAttente = Math.max(0, this.niveauxEnAttente - 1);
   }
 }
 

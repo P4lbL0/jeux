@@ -63,6 +63,19 @@ export class PanneauUltimes {
       .setDepth(1003);
   }
 
+  /** Appele quand le joueur change de heros : le panneau se reconstruit. */
+  detruire(): void {
+    this.cadres.destroy();
+    this.voiles.destroy();
+    for (const e of this.entrees) {
+      e.icone.destroy();
+      e.nom.destroy();
+      e.description.destroy();
+      e.touche.destroy();
+    }
+    this.entrees = [];
+  }
+
   rafraichir(): void {
     this.cadres.clear();
     this.voiles.clear();

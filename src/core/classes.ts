@@ -160,6 +160,16 @@ export const ORDRE_CLASSES: ClassId[] = ["guerrier", "chevalier", "mage", "assas
 /** Seuil critique : verrouille le changement de heros et declenche le repli de l'IA (DESIGN.md §4.3) */
 export const SEUIL_CRITIQUE = 0.2;
 
+/**
+ * Etat d'un heros pendant une vague.
+ *
+ * - `combat` : il se bat, il peut etre cible et blesse
+ * - `repli`  : il a decroche et rentre a la cite, plus personne ne le vise
+ * - `cite`   : il est a l'abri dans la cite, il se soigne
+ * - `mort`   : definitivement perdu (DESIGN.md §4.3)
+ */
+export type EtatHero = "combat" | "repli" | "cite" | "mort";
+
 /** XP necessaire pour passer du niveau donne au suivant */
 export function xpPourNiveauSuivant(niveau: number): number {
   return 5 + niveau * 3;
