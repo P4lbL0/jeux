@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Projet Jeu</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #0d0b12;
+        overflow: hidden;
+      }
+      /* Rendu net : indispensable pour du pixel-art zoome */
+      canvas {
+        image-rendering: pixelated;
+        display: block;
+      }
+      #game {
+        width: 100%;
+        height: 100%;
+        display: grid;
+        place-items: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
