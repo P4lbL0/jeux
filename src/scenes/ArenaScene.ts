@@ -30,6 +30,18 @@ import {
   type Posture,
 } from "../core/ordres";
 import { Affinites } from "../core/affinites";
+import {
+  frontsDeLaVague,
+  MONDE,
+  NOMS_FRONT,
+  POSTES,
+  PRATICABLE,
+  pointDApparition,
+  repartition,
+  TERRAIN,
+  VILLAGE,
+  type Front,
+} from "../core/carte";
 import { Commandement } from "../game/commandement";
 import type { EtatEquipe } from "../game/hud";
 import type { EtatOrdres } from "../game/panneauOrdres";
@@ -49,9 +61,12 @@ import type { GroupeAffiche } from "../game/ficheHero";
  * Consequence : un heros ne peut mourir que par une decision du joueur.
  */
 
-const MONDE = { largeur: 1600, hauteur: 1200 };
-const MUR = 16;
-const CITE = { x: MONDE.largeur / 2, y: MONDE.hauteur / 2, rayon: 105 };
+/**
+ * Le village remplace la cite au centre de l'arene : il est desormais adosse a
+ * la mer et a la montagne (DESIGN.md §4.6). Le reste du code continue de
+ * l'appeler CITE — c'est le meme refuge, il a juste demenage.
+ */
+const CITE = VILLAGE;
 const REGENERATION = 9;
 const PORTEE_CORPS_A_CORPS = 90;
 
@@ -116,6 +131,11 @@ export class ArenaScene extends Phaser.Scene {
 
   private debut = 0;
   private prochaineApparition = 0;
+  /** Les fronts ouverts en ce moment (DESIGN.md §4.6) */
+  private fronts: Front[] = ["nord"];
+  private partPremierFront = 1;
+  private vague = 0;
+  private ecume!: Phaser.GameObjects.TileSprite;
   private kills = 0;
   private termine = false;
 
@@ -152,6 +172,9 @@ export class ArenaScene extends Phaser.Scene {
     // pas. Ils le feront le jour ou les heros survivront a une partie (§4.12).
     this.affinites = new Affinites();
     this.prochainTickAffinites = 0;
+    this.fronts = ["nord"];
+    this.partPremierFront = 1;
+    this.vague = 0;
   }
 
   get hero(): Hero {
@@ -229,7 +252,14 @@ export class ArenaScene extends Phaser.Scene {
     // combat.
     this.graphiquesOrdres = this.add.graphics().setDepth(-400);
 
-    this.physics.world.setBounds(MUR, MUR, MONDE.largeur - MUR * 2, MONDE.hauteur - MUR * 2);
+    // La mer et la montagne ne sont pas du decor : le monde physique s'arrete
+    // a la plage et a la lisiere (DESIGN.md §4.6).
+    this.physics.world.setBounds(
+      PRATICABLE.x,
+      PRATICABLE.y,
+      PRATICABLE.largeur,
+      PRATICABLE.hauteur,
+    );
     this.cameras.main.setBounds(0, 0, MONDE.largeur, MONDE.hauteur);
     this.cameras.main.setZoom(3);
     this.cameras.main.startFollow(this.hero, true, 0.12, 0.12);
@@ -284,44 +314,127 @@ export class ArenaScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * La carte du village (DESIGN.md §4.6) : la mer a l'ouest, la montagne au
+   * sud, et le village blotti dans l'angle. Les deux fronts restent ouverts au
+   * nord et a l'est.
+   *
+   * Tout est pose une fois pour toutes ici. Rien de ce decor n'est recree en
+   * cours de partie (§4.17).
+   */
   private construireDecor(): void {
     this.add.tileSprite(0, 0, MONDE.largeur, MONDE.hauteur, "herbe").setOrigin(0).setDepth(-1000);
 
-    const bords: [number, number, number, number][] = [
-      [0, 0, MONDE.largeur, MUR],
-      [0, MONDE.hauteur - MUR, MONDE.largeur, MUR],
-      [0, 0, MUR, MONDE.hauteur],
-      [MONDE.largeur - MUR, 0, MUR, MONDE.hauteur],
-    ];
-    for (const [x, y, l, h] of bords) {
-      this.add.tileSprite(x, y, l, h, "mur").setOrigin(0).setDepth(-900);
-    }
+    // --- La mer et la plage, a l'ouest ---
+    this.add
+      .tileSprite(0, 0, TERRAIN.mer, MONDE.hauteur, "mer")
+      .setOrigin(0)
+      .setDepth(-995);
+    this.add
+      .tileSprite(TERRAIN.mer, 0, TERRAIN.plage - TERRAIN.mer, MONDE.hauteur, "sable")
+      .setOrigin(0)
+      .setDepth(-994);
 
-    // La cite. Elle n'est encore qu'un cercle de pierre : le vrai village, avec
-    // ses PNJ et ses batiments, arrive au jalon 5.
+    // L'ecume vit sur la ligne de rivage. On la deplace, on ne la refabrique
+    // jamais : c'est un seul objet pour toute la partie.
+    this.ecume = this.add
+      .tileSprite(TERRAIN.mer - 26, 0, 52, MONDE.hauteur, "ecume")
+      .setOrigin(0)
+      .setDepth(-993)
+      .setAlpha(0.75);
+
+    // --- La montagne et sa foret, au sud ---
+    this.add
+      .tileSprite(0, TERRAIN.montagne, MONDE.largeur, MONDE.hauteur - TERRAIN.montagne, "montagne")
+      .setOrigin(0)
+      .setDepth(-995);
+    this.add
+      .tileSprite(0, TERRAIN.foret, MONDE.largeur, TERRAIN.montagne - TERRAIN.foret, "sous-bois")
+      .setOrigin(0)
+      .setDepth(-994);
+
+    this.semerLeDecor();
+    this.construireVillage();
+    this.marquerLesPostes();
+  }
+
+  /**
+   * Arbres et rochers, semes avec une graine fixe pour que la carte soit la
+   * meme d'une partie a l'autre : on doit pouvoir apprendre son terrain.
+   */
+  private semerLeDecor(): void {
+    const rng = new Rng(20260807);
+
+    // La foret, dense a la lisiere de la montagne.
+    for (let i = 0; i < 120; i++) {
+      const x = rng.range(0, MONDE.largeur);
+      const y = rng.range(TERRAIN.foret - 30, TERRAIN.montagne + 10);
+      this.add.image(x, y, "arbre").setDepth(y).setScale(rng.range(0.8, 1.2));
+    }
+    // Quelques bosquets qui remontent vers les terres, pour casser la ligne.
+    for (let i = 0; i < 26; i++) {
+      const x = rng.range(TERRAIN.plage + 40, MONDE.largeur - 40);
+      const y = rng.range(TERRAIN.foret - 180, TERRAIN.foret - 40);
+      this.add.image(x, y, "arbre").setDepth(y).setScale(rng.range(0.7, 1));
+    }
+    // Les rochers du pied de la montagne.
+    for (let i = 0; i < 46; i++) {
+      const x = rng.range(0, MONDE.largeur);
+      const y = rng.range(TERRAIN.montagne - 20, MONDE.hauteur - 30);
+      this.add.image(x, y, "rocher").setDepth(y).setScale(rng.range(0.8, 1.6));
+    }
+  }
+
+  /**
+   * Le village. Encore un cercle de pierre : ses batiments et ses habitants
+   * arrivent au bloc suivant du jalon 5. Ce qui change deja, c'est qu'il n'est
+   * plus au centre — il est adosse a la mer et a la montagne.
+   */
+  private construireVillage(): void {
     const sol = this.add.graphics().setDepth(-950);
     sol.fillStyle(0x8a7f6d, 1);
     sol.fillCircle(CITE.x, CITE.y, CITE.rayon);
     sol.fillStyle(0x9c917d, 1);
-    sol.fillCircle(CITE.x, CITE.y, CITE.rayon - 14);
+    sol.fillCircle(CITE.x, CITE.y, CITE.rayon - 18);
     sol.lineStyle(3, 0x5d5546, 1);
     sol.strokeCircle(CITE.x, CITE.y, CITE.rayon);
 
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
+    for (let i = 0; i < 22; i++) {
+      const a = (i / 22) * Math.PI * 2;
       this.add
         .image(CITE.x + Math.cos(a) * CITE.rayon, CITE.y + Math.sin(a) * CITE.rayon, "mur")
         .setDepth(-940);
     }
 
     this.add
-      .text(CITE.x, CITE.y - CITE.rayon - 18, "LA CITE", {
+      .text(CITE.x, CITE.y - CITE.rayon - 18, "LE VILLAGE", {
         fontFamily: "monospace",
         fontSize: "12px",
         color: "#f2e9d8",
       })
       .setOrigin(0.5)
       .setDepth(-930);
+  }
+
+  /**
+   * Les postes de travail (DESIGN.md §4.18). Ils ne produisent encore rien :
+   * ce sont pour l'instant des reperes, mais ce sont deja les endroits que la
+   * defense devra couvrir.
+   */
+  private marquerLesPostes(): void {
+    for (const poste of POSTES) {
+      const g = this.add.graphics().setDepth(-945);
+      g.lineStyle(2, 0xd8c48a, 0.5);
+      g.strokeCircle(poste.position.x, poste.position.y, 34);
+      this.add
+        .text(poste.position.x, poste.position.y - 48, poste.nom.toUpperCase(), {
+          fontFamily: "monospace",
+          fontSize: "10px",
+          color: "#d8c48a",
+        })
+        .setOrigin(0.5)
+        .setDepth(-930);
+    }
   }
 
   // -------------------------------------------------------------- controles
@@ -571,6 +684,11 @@ export class ArenaScene extends Phaser.Scene {
     this.gererCapacites();
     this.fairePartirLesVagues();
     this.trierProfondeurs();
+
+    // Le ressac : on fait respirer un seul objet deja pose, on n'en cree
+    // aucun (§4.17). C'est ce qui rend le bord ouest vivant a l'oeil.
+    this.ecume.x = TERRAIN.mer - 26 + Math.sin(this.time.now / 900) * 9;
+    this.ecume.tilePositionY = this.time.now / 220;
   }
 
   /** Toutes les x millisecondes : chaque paire de heros coute un calcul. */
@@ -1701,10 +1819,8 @@ export class ArenaScene extends Phaser.Scene {
     const direction = new Phaser.Math.Vector2(vise.x - hero.x, vise.y - hero.y);
     if (direction.length() > portee) direction.setLength(portee);
 
-    hero.setPosition(
-      Phaser.Math.Clamp(depart.x + direction.x, MUR + 8, MONDE.largeur - MUR - 8),
-      Phaser.Math.Clamp(depart.y + direction.y, MUR + 8, MONDE.hauteur - MUR - 8),
-    );
+    const arrivee = this.ramenerSurTerre(depart.x + direction.x, depart.y + direction.y);
+    hero.setPosition(arrivee.x, arrivee.y);
     hero.rendreInvulnerable(300);
 
     // La deflagration reste a l'endroit qu'il quitte.
@@ -2238,9 +2354,24 @@ export class ArenaScene extends Phaser.Scene {
   // ------------------------------------------------------------- outillage
 
   private pointDevant(hero: Hero, distance: number): Phaser.Math.Vector2 {
+    return this.ramenerSurTerre(
+      hero.x + hero.regard.x * distance,
+      hero.y + hero.regard.y * distance,
+    );
+  }
+
+  /**
+   * Ramene un point dans la zone praticable.
+   *
+   * Sans ca, un Clignement ou une Charge deposerait le heros au milieu de la
+   * mer ou dans la roche — et un flanc ferme qu'on peut franchir par une
+   * capacite n'est pas un flanc ferme (DESIGN.md §4.6).
+   */
+  private ramenerSurTerre(x: number, y: number): Phaser.Math.Vector2 {
+    const marge = 8;
     return new Phaser.Math.Vector2(
-      Phaser.Math.Clamp(hero.x + hero.regard.x * distance, MUR + 8, MONDE.largeur - MUR - 8),
-      Phaser.Math.Clamp(hero.y + hero.regard.y * distance, MUR + 8, MONDE.hauteur - MUR - 8),
+      Phaser.Math.Clamp(x, PRATICABLE.x + marge, PRATICABLE.x + PRATICABLE.largeur - marge),
+      Phaser.Math.Clamp(y, PRATICABLE.y + marge, PRATICABLE.y + PRATICABLE.hauteur - marge),
     );
   }
 
@@ -2269,6 +2400,8 @@ export class ArenaScene extends Phaser.Scene {
     const voulu = Math.max(1, Math.floor((1 + ecoule / 18) * (vivants / 2)));
     const intervalle = Math.max(300, 1400 - ecoule * 13);
 
+    this.majFronts(ecoule);
+
     // Le plafond protege la fluidite : au-dela, la montee en puissance passe
     // par la force des ennemis, pas par leur nombre.
     const place = MAX_ENNEMIS - this.ennemis.getLength();
@@ -2278,23 +2411,36 @@ export class ArenaScene extends Phaser.Scene {
     this.prochaineApparition = this.time.now + intervalle;
   }
 
-  private faireApparaitreEnnemi(puissance: number): void {
-    const cam = this.cameras.main;
-    const rayon = Math.max(cam.width, cam.height) / cam.zoom / 2 + 70;
-    const angle = this.rng.range(0, Math.PI * 2);
-    const centre = this.hero;
-    const x = Phaser.Math.Clamp(
-      centre.x + Math.cos(angle) * rayon,
-      MUR + 10,
-      MONDE.largeur - MUR - 10,
-    );
-    const y = Phaser.Math.Clamp(
-      centre.y + Math.sin(angle) * rayon,
-      MUR + 10,
-      MONDE.hauteur - MUR - 10,
-    );
+  /**
+   * Les vagues n'existent pas encore comme evenements a debut et fin nets : en
+   * attendant, la "vague" est le temps ecoule par tranches d'une minute. C'est
+   * suffisant pour eprouver l'ouverture progressive des fronts (§4.6), et ca
+   * sera remplace par la vraie phase de village au bloc suivant.
+   */
+  private majFronts(ecoule: number): void {
+    const vague = 1 + Math.floor(ecoule / 60);
+    if (vague === this.vague) return;
 
-    this.ennemis.add(new Ennemi(this, x, y, puissance));
+    this.vague = vague;
+    this.fronts = frontsDeLaVague(vague, this.rng.next());
+    this.partPremierFront = repartition(this.fronts, this.rng.next());
+
+    // L'annonce est obligatoire : un front qui s'ouvre sans prevenir, dans un
+    // jeu ou deplacer son equipe prend du temps, se subit au lieu de se jouer.
+    const ou = this.fronts.map((f) => NOMS_FRONT[f]).join(" et ");
+    this.events.emit("annonce", `Vague ${vague} — ils arrivent ${ou}`);
+  }
+
+  private faireApparaitreEnnemi(puissance: number): void {
+    // Les ennemis surgissent au bord d'un front ouvert, jamais autour du
+    // joueur : la mer et la montagne ne laissent passer personne (§4.6).
+    const front: Front =
+      this.fronts.length > 1 && this.rng.next() > this.partPremierFront
+        ? this.fronts[1]!
+        : this.fronts[0]!;
+
+    const point = pointDApparition(front, this.rng.next());
+    this.ennemis.add(new Ennemi(this, point.x, point.y, puissance));
   }
 
   // --------------------------------------------------------------- degats

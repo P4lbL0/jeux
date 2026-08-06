@@ -30,6 +30,8 @@ export class UiScene extends Phaser.Scene {
   private fiche!: FicheHero;
   private ordres!: PanneauOrdres;
   private stats!: Phaser.GameObjects.Text;
+  private annonce!: Phaser.GameObjects.Text;
+  private finAnnonce = 0;
 
   constructor() {
     super("ui");
@@ -65,16 +67,41 @@ export class UiScene extends Phaser.Scene {
       .setOrigin(1, 0)
       .setDepth(1003);
 
+    this.annonce = this.add
+      .text(0, 0, "", {
+        fontFamily: "monospace",
+        fontSize: "20px",
+        color: "#ffd98a",
+        backgroundColor: "#1b1720cc",
+        padding: { x: 16, y: 8 },
+      })
+      .setOrigin(0.5, 0)
+      .setAlpha(0)
+      .setDepth(1400);
+
     const evenements = this.arene.events;
     evenements.on("choix", this.ouvrirChoix, this);
     evenements.on("hero-incarne", this.changerPanneau, this);
     evenements.on("fin-de-partie", this.afficherFin, this);
+    evenements.on("annonce", this.annoncer, this);
     // Sans ce nettoyage, les ecouteurs s'empileraient a chaque nouvelle partie.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       evenements.off("choix", this.ouvrirChoix, this);
       evenements.off("hero-incarne", this.changerPanneau, this);
       evenements.off("fin-de-partie", this.afficherFin, this);
+      evenements.off("annonce", this.annoncer, this);
     });
+  }
+
+  /**
+   * L'annonce d'ouverture de front (DESIGN.md §4.6). Un seul objet Texte,
+   * fabrique au demarrage et recycle : on ne cree jamais de texte en plein
+   * combat (§4.17).
+   */
+  private annoncer(message: string): void {
+    this.annonce.setText(message);
+    this.annonce.setAlpha(1);
+    this.finAnnonce = this.time.now + 4000;
   }
 
   private ouvrirFiche(index: number): void {
@@ -125,5 +152,11 @@ export class UiScene extends Phaser.Scene {
     const resume = this.arene.resume;
     this.stats.setPosition(this.scale.width - 16, 16);
     this.stats.setText(`Survie : ${resume.secondes}s\nElimines : ${resume.kills}`);
+
+    // L'annonce s'efface d'elle-meme sur la derniere seconde.
+    this.annonce.setPosition(this.scale.width / 2, 90);
+    const restant = this.finAnnonce - this.time.now;
+    if (restant <= 0) this.annonce.setAlpha(0);
+    else if (restant < 1000) this.annonce.setAlpha(restant / 1000);
   }
 }

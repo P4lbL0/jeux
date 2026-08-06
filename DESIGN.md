@@ -425,10 +425,25 @@ règle qui structure tout le combat.
 > planquer devient le moyen le plus rapide de tout perdre. Sans cette règle, la carte
 > fermée est une régression, pas un progrès.
 
-> ⚠️ **Deux fronts, ce n'est pas moitié moins de travail — c'est deux endroits où être à
-> la fois.** C'est plus dur qu'un front unique, pas plus facile. Il faudra sans doute que
-> les deux fronts ne se déclenchent pas toujours ensemble, sinon les premières vagues
-> seront ingérables.
+#### Ouvrir un flanc est une montée en difficulté
+
+**Deux fronts, ce n'est pas moitié moins de travail — c'est deux endroits où être à la
+fois.** C'est plus dur qu'un front unique, pas plus facile. Les fronts s'ouvrent donc
+progressivement :
+
+| Vagues | Fronts | Annoncé ? |
+|---|---|---|
+| 1 à 4 | Le **nord** seul | Oui |
+| 5 à 9 | Le nord **ou** l'est, tiré au sort | Oui |
+| 10 et au-delà | Les **deux**, souvent déséquilibrés | Oui, avec la répartition |
+
+C'est un troisième levier de difficulté, à côté de la force des monstres et de leur
+nombre — et c'est le plus intéressant des trois, parce qu'il ne change aucun chiffre : il
+change **où il faut être**. Le §4.17 interdit de faire monter la difficulté par le
+nombre ; ouvrir un flanc est exactement l'inverse d'un ajout d'ennemis.
+
+L'annonce est obligatoire. Un front qui s'ouvre sans prévenir, dans un jeu où déplacer
+son équipe prend du temps, ne se joue pas — il se subit.
 
 **Dégâts et délai de la vague suivante** : plus le village a pris cher, plus la vague
 suivante **met de temps à arriver**. C'est un mécanisme d'auto-régulation malin : le
@@ -892,6 +907,42 @@ compétences, pas de second écran de personnage.
 > chiffre qu'on lit en une seconde**. C'est ce qui permet d'en avoir vingt sans noyer le
 > jeu. Si un habitant mérite un vrai build, c'est qu'il aurait dû être un héros.
 
+#### La récolte se fait à deux vitesses
+
+**Les habitants produisent tout seuls**, en continu, tant qu'ils sont à leur poste. Le
+joueur décide **qui fait quoi**, jamais *quand*.
+
+**Et le joueur peut récolter lui-même**, à la main, bien plus vite qu'un habitant — mais
+**seulement pendant la phase de village**, jamais pendant une vague.
+
+> **Pourquoi cette restriction.** Sans elle, on obtient le pire compromis possible : un
+> joueur qui abandonne le combat pour aller couper du bois parce que c'est plus rentable.
+> Un survivors-like ne survit pas à une boucle de corvée qui concurrence le combat.
+> Cantonnée au temps calme, la récolte manuelle devient ce qu'elle doit être : une façon
+> d'occuper utilement l'accalmie, et un choix contre les autres choses à y faire —
+> réparer, placer les défenses, distribuer les montées de niveau en attente.
+
+#### Un habitant ne meurt que si personne ne le défend
+
+C'est la **règle des 20% appliquée aux civils** (§4.3), et elle fonctionne pour la même
+raison :
+
+1. Un habitant qui voit un ennemi approcher **lâche son poste et court vers le village**.
+   Sa production s'arrête.
+2. **Pendant sa fuite, il est vulnérable.** Un ennemi qui le rattrape le tue —
+   définitivement.
+3. **Arrivé au village, il est à l'abri**, et il repart travailler quand la voie est
+   libre.
+
+Conséquence : un habitant ne peut mourir **que parce que le joueur a laissé ce flanc sans
+personne**. Ce n'est jamais un coup du sort, c'est toujours un arbitrage assumé — « je
+tiens le nord, tant pis pour le pêcheur ». Exactement comme pour les héros, la perte
+définitive n'est acceptable que si elle vient d'une décision.
+
+Et ça donne aux **postes de travail** leur vrai rôle : ce ne sont pas des décors, ce sont
+les points que la défense doit couvrir. La plage, la forêt et la mine sont les endroits
+où l'on a quelque chose à perdre.
+
 **Le lien avec le Nécromancien** : le §4.14 promet déjà que les morts-vivants conservés
 peuvent être affectés au travail du village. Ils occupent donc des postes de métier —
 lentement, mais **ils ne mangent pas**. C'est le paiement de la classe la plus étrange du
@@ -1020,6 +1071,12 @@ vaut le découvrir en semaine 1 qu'en mois 6.
   fermés, deux fronts seulement : **nord et est** (§4.6)
 - ✅ Les habitants → un **métier**, un **rang** et un **niveau**, et le rang ne change
   qu'une chose : la **cadence de production** (§4.18)
+- ✅ Les fronts s'ouvrent **progressivement** : le nord seul, puis l'un des deux, puis les
+  deux — et toujours **annoncés** (§4.6)
+- ✅ Récolte à **deux vitesses** : les habitants en continu, le joueur à la main mais
+  **seulement pendant la phase de village** (§4.18)
+- ✅ Un habitant **fuit** dès qu'un ennemi approche, et ne meurt **que s'il est rattrapé** —
+  donc que si le joueur a laissé ce flanc sans personne (§4.18)
 
 ---
 

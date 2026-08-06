@@ -19,6 +19,7 @@ export const TAILLE_ENNEMI = { largeur: 12, hauteur: 16 };
 
 export function creerTexturesPlaceholder(scene: Phaser.Scene): void {
   creerHerbe(scene);
+  creerTerrains(scene);
   creerMur(scene);
   creerEnnemi(scene);
   creerMortVivant(scene);
@@ -427,6 +428,89 @@ function creerIconesCapacites(scene: Phaser.Scene): void {
     }
     g.fillCircle(16, 16, 4);
   });
+}
+
+/**
+ * Les terrains de la carte du village (DESIGN.md §4.6).
+ *
+ * Chacun doit se reconnaitre **a la couleur seule**, meme dezoome au maximum :
+ * c'est ce qui permet au joueur de savoir d'un coup d'oeil ou sont ses flancs
+ * fermes. Bleu = mer, sable = plage, gris = montagne, vert sombre = foret.
+ */
+function creerTerrains(scene: Phaser.Scene): void {
+  const rng = new Rng(20260807);
+  const T = 64;
+
+  const pave = (cle: string, teintes: number[], grain: [number, number, number][]) => {
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    for (let y = 0; y < T; y += 8) {
+      for (let x = 0; x < T; x += 8) {
+        g.fillStyle(rng.pick(teintes), 1);
+        g.fillRect(x, y, 8, 8);
+      }
+    }
+    for (const [couleur, nombre, taille] of grain) {
+      for (let i = 0; i < nombre; i++) {
+        g.fillStyle(couleur, 1);
+        g.fillRect(rng.int(0, T - taille), rng.int(0, T - taille), taille, taille);
+      }
+    }
+    g.generateTexture(cle, T, T);
+    g.destroy();
+  };
+
+  pave("mer", [0x1d4f78, 0x21587f, 0x1a4870, 0x255f88], [[0x3d7fae, 10, 3]]);
+  pave("sable", [0xd9c79a, 0xe2d2a8, 0xcfbc8f], [[0xbfa877, 14, 3]]);
+  pave("montagne", [0x5c5a56, 0x67655f, 0x514f4c], [[0x7b7972, 12, 4], [0x3f3d3b, 8, 5]]);
+  pave("sous-bois", [0x2f5222, 0x365c27, 0x28471d], [[0x1f3a17, 10, 5]]);
+
+  // L'ecume : une bande claire qui vient mourir sur le sable. Elle est animee
+  // en decalant sa position, jamais en creant de nouveaux objets (§4.17).
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.fillStyle(0xdff0f5, 0.85);
+  for (let x = 0; x < T; x += 4) {
+    const hauteur = 3 + Math.round(Math.sin((x / T) * Math.PI * 2) * 2);
+    g.fillRect(x, 6 - hauteur / 2, 4, hauteur);
+  }
+  g.fillStyle(0xffffff, 0.5);
+  for (let x = 0; x < T; x += 8) g.fillRect(x, 5, 3, 2);
+  g.generateTexture("ecume", T, 12);
+  g.destroy();
+
+  creerArbre(scene);
+  creerRocher(scene);
+}
+
+/** Un arbre de la foret du sud. Silhouette avant tout : une boule sur un tronc. */
+function creerArbre(scene: Phaser.Scene): void {
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.fillStyle(0x000000, 0.22);
+  g.fillEllipse(12, 27, 16, 5);
+  g.fillStyle(0x50381f, 1);
+  g.fillRect(10, 18, 4, 9);
+  g.fillStyle(0x2c5320, 1);
+  g.fillCircle(12, 13, 10);
+  g.fillStyle(0x3a6b28, 1);
+  g.fillCircle(10, 11, 7);
+  g.fillStyle(0x4d8434, 1);
+  g.fillCircle(9, 9, 3);
+  g.generateTexture("arbre", 24, 30);
+  g.destroy();
+}
+
+/** Un bloc de roche, pour marquer le pied de la montagne. */
+function creerRocher(scene: Phaser.Scene): void {
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.fillStyle(0x000000, 0.22);
+  g.fillEllipse(11, 19, 18, 5);
+  g.fillStyle(0x726f68, 1);
+  g.fillTriangle(2, 18, 11, 3, 20, 18);
+  g.fillStyle(0x8d8a82, 1);
+  g.fillTriangle(6, 18, 11, 6, 14, 18);
+  g.fillStyle(0x565450, 1);
+  g.fillRect(2, 17, 18, 3);
+  g.generateTexture("rocher", 22, 22);
+  g.destroy();
 }
 
 /** Mur en ruine qui delimite l'arene. */

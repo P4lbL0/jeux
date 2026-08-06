@@ -503,6 +503,9 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
+    // La mer et la montagne ne laissent passer personne (DESIGN.md §4.6) :
+    // un flanc qu'un monstre peut contourner n'est pas un flanc ferme.
+    this.setCollideWorldBounds(true);
     this.body?.setSize(8, 9);
     (this.body as Phaser.Physics.Arcade.Body).setOffset(2, 4);
   }
@@ -572,6 +575,7 @@ export class Invocation extends Phaser.Physics.Arcade.Sprite {
     this.protege = maitre.protege;
     scene.add.existing(this);
     scene.physics.add.existing(this);
+    this.setCollideWorldBounds(true);
     this.body?.setSize(8, 9);
     (this.body as Phaser.Physics.Arcade.Body).setOffset(2, 4);
   }

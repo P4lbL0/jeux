@@ -87,7 +87,33 @@ les mort-vivants du Necromancien, et l'**experience de groupe** : deux heros qui
 se battent cote a cote apprennent a travailler ensemble (+10% de degats au
 plafond, visible dans la fiche de heros).
 
-Prochain jalon : le village.
+**Jalon 5, en cours** — la carte du village. Reste a faire : les habitants et
+leurs metiers, la recolte, et la phase de village entre les vagues.
+
+## La carte
+
+Le village est adosse a la **mer** a l'ouest et a la **montagne** au sud
+(DESIGN.md §4.6). Ces deux bords sont **infranchissables** : les monstres ne
+peuvent arriver que du **nord** ou de l'**est**.
+
+```
+                    ↓ front nord
+   ~~~~~~~~~~ +--------------------------------+
+   ~  mer   ~ |                                |
+   ~~~~~~~~~~ |           VILLAGE              |  <- front est
+   ~ plage  ~ |                                |
+   ~~~~~~~~~~ +--------------------------------+
+                MONTAGNE   ·   FORET
+```
+
+Les fronts s'ouvrent **progressivement**, et toujours **annonces** : le nord
+seul jusqu'a la vague 4, l'un des deux jusqu'a la 9, les deux ensuite. Ouvrir un
+flanc est un levier de difficulte qui ne change aucun chiffre — il change **ou
+il faut etre**.
+
+Trois **postes de travail** sont deja traces sur la carte : la plage, la mine et
+la foret. Ils ne produisent rien encore, mais ce sont deja les endroits que la
+defense devra couvrir.
 
 ## Structure du code
 
@@ -100,6 +126,7 @@ src/
     ia.ts            decisions des heros joues par l'IA (fonction pure, testee)
     ordres.ts        postures, formations et postes (fonction pure, testee)
     affinites.ts     experience de groupe par paire de heros (testee)
+    carte.ts         terrain, flancs fermes et fronts (fonction pure, testee)
   game/      ce qui vit a l'ecran
     art.ts             textures placeholder generees par code
     entities.ts        heros, ennemis et invocations
