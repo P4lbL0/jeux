@@ -305,8 +305,14 @@ décisions du jeu disparaît.
 Chacune couvre un axe distinct, et c'est ce qui les rend lisibles : l'**XP** fait
 progresser, l'**argent** équipe, les **matériaux** débloquent les plafonds.
 
-**Montée de niveau** : quand le héros incarné passe un niveau, **le jeu se met en pause**
-et le joueur choisit son amélioration immédiatement.
+**Montée de niveau** : la courbe d'XP est **volontairement raide** — plus le niveau est
+haut, plus il coûte cher. Sans ça, un jeu sans fin voit ses niveaux défiler et perdre
+tout sens.
+
+**Un choix de compétence tous les 5 niveaux seulement.** Les niveaux intermédiaires
+donnent une progression discrète de statistiques ; les paliers de 5 sont des moments de
+décision. Quand le héros incarné y arrive, **le jeu se met en pause** et le joueur
+choisit. Rare, donc important — et ça laisse respirer le combat.
 
 > Interprétation à confirmer : la pause ne se déclenche que pour le héros **incarné**.
 > Les héros IA accumulent leurs améliorations en attente sans interrompre la partie —
@@ -414,6 +420,85 @@ repart alors avec un nouveau héros de départ — et l'ancien revient comme **a
 > Les détails — combien de défaites avant la bascule, ce qu'on perd exactement, ce que
 > devient le boss ensuite — sont en §6.
 
+### 4.13 Compétences
+
+Les compétences sont **le contenu principal du jeu**. C'est par elles que deux parties
+avec la même classe ne se ressemblent pas.
+
+#### Les trois natures
+
+| Nature | Ce que c'est |
+|---|---|
+| **Passive** | Un effet permanent, aucune touche |
+| **Active** | Une capacité déclenchée par le joueur, avec son rechargement et sa touche |
+| **Automatique** | Une capacité qui part toute seule dès qu'elle est rechargée |
+
+**Les actives et les automatiques rejoignent le panneau des capacités**, aux côtés de
+l'ultime de classe. C'est le même système : une touche chacune, un rechargement chacune.
+Le clavier du joueur s'enrichit donc à mesure qu'il progresse.
+
+#### Paliers et évolutions
+
+Une compétence se **reprend** pour monter d'un palier : elle devient plus forte à chaque
+fois. À certains paliers, elle propose une **évolution** — un choix qui change sa nature,
+et parfois **l'allure du héros à l'écran**. Le build se voit.
+
+Exemple : le *Moulinet* du guerrier peut devenir *Tourbillon d'acier* (il aspire les
+ennemis au lieu de les repousser, le héros vire au bleu) ou *Lames rouges* (tout ce qu'il
+inflige pendant le moulinet lui revient en vie, le héros vire au rouge).
+
+#### Rangs
+
+Les compétences portent les mêmes lettres que les héros : **F · E · D · C · B · A · S ·
+SR · SSR**. Plus le rang d'un héros est élevé, plus il a de chances de se voir proposer
+une compétence de rang élevé — c'est le troisième effet d'une montée de rang (§4.1).
+
+#### Les compétences de classe
+
+**Chevalier Sacré**
+
+| Rang | Nom | Effet |
+|---|---|---|
+| F | Sursaut sacré | *Automatique.* Régulièrement il prie une seconde : invincible, il rend 25% de ses PV max et repousse tout. |
+| A | Endurance sacrée | +1 PV max tous les 25 kills. |
+| S | Bénédiction | *Active.* Un dôme de lumière qui régénère tous les alliés à l'intérieur, 1 PV/s pendant 5 s. |
+| SR | Provocation | En permanence, tout ennemi dans un rayon donné ne cible plus que lui. Il gagne 1 résistance par ennemi qui le vise, et 1 PV max par ennemi qui meurt dans le rayon. Le rayon grandit à chaque palier. |
+
+**Guerrier**
+
+| Rang | Nom | Effet |
+|---|---|---|
+| E | Moulinet | *Active.* Il tourne sur lui-même 2 à 3 secondes en fauchant tout autour. Évolue en *Tourbillon d'acier* ou *Lames rouges*. |
+| A | Entaille | +1% de dégâts tous les 25 kills. |
+| S | Rage | +1% de vitesse d'attaque par point de pourcentage de vie manquante. |
+| SSR | Apothéose | Toutes ses statistiques sont doublées, maintenant et pour tout ce qui viendra après. |
+
+**Mage**
+
+| Rang | Nom | Effet |
+|---|---|---|
+| D | Dôme | *Active.* Pose un dôme là où le joueur le décide. Il a ses propres points de vie et arrête ce qui passe. |
+| B | Satellite | Un éclat d'énergie tourne autour de lui et blesse ce qu'il traverse. Évolue en *satellites de feu* ou *de givre*. |
+| A | Savoir arcanique | +1% de dégâts tous les 25 kills. |
+| SSR | Exil | *Active.* Il sacrifie 99% de sa vie pour bannir toutes les créatures hostiles vers un autre monde. **Personne ne gagne d'expérience.** Il reste 30 secondes immobilisé à 1 PV, insoignable, et le moindre contact le tue définitivement. |
+
+**Assassin**
+
+| Rang | Nom | Effet |
+|---|---|---|
+| D | Invisibilité | *Active.* Il disparaît 5 s : plus rien ne le vise, et il gagne 10% de vitesse. |
+| A | Saignée | +1% de vol de vie tous les 25 kills. |
+| SSR | Hécatombe | *Active.* Tout ennemi sous 10% de vie qu'il touche est exécuté, et chaque exécution le projette sur sa cible suivante. |
+
+**Trait inné de l'assassin** : il n'est pas ciblé en priorité tant qu'un autre héros se
+trouve à proximité de l'ennemi.
+
+> **L'*Exil* mérite d'être protégé.** C'est la compétence la plus intéressante de la
+> liste, parce que c'est la seule qui te fait **perdre** quelque chose : tu effaces la
+> vague, mais tu renonces à toute son expérience, et tu laisses ton mage trente secondes
+> à découvert avec un point de vie. Ce n'est pas un bouton « je gagne », c'est un pari.
+> Il ne faudra jamais l'adoucir.
+
 ---
 
 ## 5. Ordre de construction
@@ -457,6 +542,15 @@ vaut le découvrir en semaine 1 qu'en mois 6.
 - [ ] La corruption se voit-elle sur le sprite du héros au fil des défaites ?
 - [ ] Quels **matériaux** existe-t-il, et sont-ils spécifiques au rang visé ?
 - [ ] Bornes de zoom minimum et maximum
+- [ ] **Y a-t-il des dégâts physiques et des dégâts magiques ?** Les compétences parlent
+      d'« attaque physique » et d'« attaque magique ». Tant que les monstres n'ont pas de
+      résistances séparées, la distinction ne change rien — pour l'instant c'est une
+      seule statistique de dégâts. À trancher avant d'écrire les monstres.
+- [ ] **Rage du guerrier** : +1% de vitesse d'attaque par *point de vie* manquant, ou par
+      *pourcentage* de vie manquante ? C'est actuellement le pourcentage (donc +100% au
+      maximum) ; le premier deviendrait démesuré à mesure que la vie max monte.
+- [ ] **Trait de l'assassin** : « il ne se fait pas cibler en priorité si un tank est
+      autour mais a moins de PV que la moyenne » — la seconde partie reste à préciser.
 - [ ] Statistiques chiffrées et attaque automatique de chacune des 4 classes
 - [ ] Niveau maximum de chaque rang au-delà du F (F = 10)
 - [ ] Liste des compétences et de leurs raretés
@@ -484,6 +578,11 @@ vaut le découvrir en semaine 1 qu'en mois 6.
 - ✅ Caméra → **zoom libre à la molette**, avec les contraintes que ça impose (§4.11)
 - ✅ Rank up → **matériaux rares lâchés par les monstres** (§4.1)
 - ✅ Ultimes multiples → **une touche par ultime**, chacun son rechargement (§4.2)
+- ✅ Courbe d'XP → **de plus en plus raide** (§4.8)
+- ✅ Choix de compétence → **tous les 5 niveaux**, rareté liée au rang (§4.8, §4.13)
+- ✅ Compétences → **actives, automatiques ou passives**, à paliers, avec évolutions (§4.13)
+- ✅ Le Chevalier devient le **Chevalier Sacré**
+- ✅ Fiche de héros consultable en cliquant un portrait (§4.10)
 
 ---
 

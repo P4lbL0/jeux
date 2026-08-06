@@ -24,6 +24,7 @@ export function creerTexturesPlaceholder(scene: Phaser.Scene): void {
   creerProjectile(scene);
   creerImpact(scene);
   creerIconesUltimes(scene);
+  creerIconesCapacites(scene);
   for (const id of ORDRE_CLASSES) {
     const classe = CLASSES[id];
     creerHero(scene, `hero-${id}`, classe.couleur, classe.accent);
@@ -129,6 +130,101 @@ function creerHerbe(scene: Phaser.Scene): void {
 
   g.generateTexture("herbe", 128, 128);
   g.destroy();
+}
+
+/** Icones des competences actives, meme convention que les ultimes. */
+function creerIconesCapacites(scene: Phaser.Scene): void {
+  const T = 32;
+  const dessiner = (cle: string, trace: (g: Phaser.GameObjects.Graphics) => void) => {
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(0xffffff, 1);
+    trace(g);
+    g.generateTexture(cle, T, T);
+    g.destroy();
+  };
+
+  // Sursaut sacre : une croix rayonnante.
+  dessiner("cap-sursaut", (g) => {
+    g.fillRect(14, 4, 4, 24);
+    g.fillRect(6, 12, 20, 4);
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2 + Math.PI / 4;
+      g.fillCircle(16 + Math.cos(a) * 12, 16 + Math.sin(a) * 12, 2);
+    }
+  });
+
+  // Benediction : un dome et ses gouttes.
+  dessiner("cap-benediction", (g) => {
+    g.fillCircle(16, 20, 11);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(16, 20, 7);
+    g.fillStyle(0xffffff, 1);
+    g.fillRect(4, 21, 24, 3);
+    g.fillCircle(9, 8, 2);
+    g.fillCircle(16, 5, 2);
+    g.fillCircle(23, 8, 2);
+  });
+
+  // Moulinet : une fleche circulaire.
+  dessiner("cap-moulinet", (g) => {
+    g.fillCircle(16, 16, 12);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(16, 16, 7);
+    g.fillRect(16, 2, 14, 14);
+    g.fillStyle(0xffffff, 1);
+    g.fillTriangle(18, 2, 28, 6, 18, 11);
+  });
+
+  // Dome : une demi-sphere posee au sol.
+  dessiner("cap-dome", (g) => {
+    g.fillCircle(16, 20, 12);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(16, 20, 8);
+    g.fillRect(0, 21, 32, 11);
+    g.fillStyle(0xffffff, 1);
+    g.fillRect(3, 21, 26, 3);
+  });
+
+  // Exil : un portail concentrique.
+  dessiner("cap-exil", (g) => {
+    g.fillCircle(16, 16, 13);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(16, 16, 10);
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(16, 16, 6);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(16, 16, 3);
+  });
+
+  // Invisibilite : un oeil barre.
+  dessiner("cap-invisibilite", (g) => {
+    g.fillEllipse(16, 16, 26, 14);
+    g.fillStyle(0x000000, 1);
+    g.fillEllipse(16, 16, 18, 8);
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(16, 16, 3);
+    g.fillStyle(0x000000, 1);
+    for (let i = 0; i < 26; i++) g.fillRect(3 + i, 27 - i, 3, 3);
+  });
+
+  // Hecatombe : deux dagues croisees.
+  dessiner("cap-hecatombe", (g) => {
+    for (let i = 0; i < 24; i++) {
+      g.fillRect(4 + i, 4 + i, 3, 3);
+      g.fillRect(27 - i, 4 + i, 3, 3);
+    }
+    g.fillRect(8, 22, 6, 3);
+    g.fillRect(18, 22, 6, 3);
+  });
+
+  // Generique : une etoile, pour toute capacite sans icone dediee.
+  dessiner("cap-generique", (g) => {
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2;
+      g.fillTriangle(16, 16, 16 + Math.cos(a) * 14, 16 + Math.sin(a) * 14, 16 + Math.cos(a + 0.5) * 8, 16 + Math.sin(a + 0.5) * 8);
+    }
+    g.fillCircle(16, 16, 4);
+  });
 }
 
 /** Mur en ruine qui delimite l'arene. */

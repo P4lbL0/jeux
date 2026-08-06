@@ -10,6 +10,30 @@
 
 export type ClassId = "guerrier" | "chevalier" | "mage" | "assassin";
 
+/**
+ * Echelle de rang des competences.
+ *
+ * Elle reprend les lettres du systeme de rang des heros (DESIGN.md §4.1) : plus
+ * le rang d'un heros est eleve, plus il a de chances de se voir proposer une
+ * competence de rang eleve. L'echelle des heros est plus longue (A+, S++,
+ * SRR...) ; celle des competences s'arrete a SSR.
+ */
+export type Rang = "F" | "E" | "D" | "C" | "B" | "A" | "S" | "SR" | "SSR";
+
+export const ORDRE_RANGS: Rang[] = ["F", "E", "D", "C", "B", "A", "S", "SR", "SSR"];
+
+export const COULEURS_RANG: Record<Rang, number> = {
+  F: 0x9a948a,
+  E: 0xa8b0a0,
+  D: 0x8fc0a9,
+  C: 0x6fb8d6,
+  B: 0x5ec8f0,
+  A: 0xa87ce8,
+  S: 0xd06bff,
+  SR: 0xff9d4a,
+  SSR: 0xf0c419,
+};
+
 export type EffetUltime = "tourbillon" | "rempart" | "meteore" | "ombre";
 
 /**
@@ -83,7 +107,7 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
   },
   chevalier: {
     id: "chevalier",
-    nom: "Chevalier",
+    nom: "Chevalier Sacre",
     couleur: 0x4a86c8,
     accent: 0xd5dbe3,
     pvMax: 210,
@@ -92,9 +116,9 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     cadence: 760,
     degats: 9,
     esquive: 0.02,
-    distanceIdeale: "En premiere ligne, il encaisse",
+    distanceIdeale: "En premiere ligne, il encaisse pour les autres",
     trait: "riposte",
-    traitNom: "Riposte",
+    traitNom: "Serment",
     traitTexte: "Blesse quiconque le touche : plus on l'attaque, plus il tue",
     ultimes: [
       {
@@ -170,7 +194,25 @@ export const SEUIL_CRITIQUE = 0.2;
  */
 export type EtatHero = "combat" | "repli" | "cite" | "mort";
 
-/** XP necessaire pour passer du niveau donne au suivant */
+/**
+ * XP necessaire pour passer du niveau donne au suivant.
+ *
+ * Courbe volontairement raide : plus le niveau est haut, plus il coute cher.
+ * Sans ca, un jeu sans fin voit ses niveaux defiler et perdre tout sens.
+ */
 export function xpPourNiveauSuivant(niveau: number): number {
-  return 5 + niveau * 3;
+  return Math.round(6 * Math.pow(niveau, 1.45)) + 4;
+}
+
+/**
+ * Un choix de competence tous les 5 niveaux (et non a chaque niveau).
+ *
+ * Les niveaux intermediaires donnent une progression discrete de statistiques ;
+ * les paliers de 5 sont des moments de decision. Ca rend chaque choix rare, donc
+ * important, et ca laisse respirer le combat.
+ */
+export const NIVEAUX_PAR_CHOIX = 5;
+
+export function donneUnChoix(niveau: number): boolean {
+  return niveau % NIVEAUX_PAR_CHOIX === 0;
 }

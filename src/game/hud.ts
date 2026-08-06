@@ -81,7 +81,7 @@ export class Hud {
 
     this.info = this.texte(0, 0, 11, "#d8d2c4").setOrigin(0.5, 0);
     this.info.setText(
-      "ZQSD, fleches ou clic : se deplacer   ·   ESPACE : ultime   ·   A / E : changer de heros   ·   molette : zoom",
+      "ZQSD, fleches ou clic : se deplacer   ·   ESPACE, 2, 3 : capacites   ·   A / E : changer de heros   ·   clic sur un portrait : sa fiche",
     );
 
     this.alerte = this.texte(0, 0, 13, "#ff8a7a").setOrigin(0.5, 0);
@@ -161,10 +161,10 @@ export class Hud {
       carte.etat.setText(LIBELLES_ETAT[hero.etat] ?? "");
       carte.etat.setColor(COULEURS_ETAT[hero.etat] ?? "#c8bfae");
 
-      // --- Ameliorations en attente ---
+      // --- Choix en attente ---
       // L'IA ne choisit jamais : elle accumule, et ce badge dit au joueur
       // qu'un heros l'attend avec des choix en reserve (DESIGN.md §4.3).
-      const attente = hero.niveauxEnAttente;
+      const attente = hero.choixEnAttente;
       carte.badge.setText(attente > 0 && !mort ? `+${attente}` : "");
       if (attente > 0 && !mort) {
         g.fillStyle(0xf0c419, 0.18);
