@@ -80,7 +80,11 @@ export class UiScene extends Phaser.Scene {
   private ouvrirFiche(index: number): void {
     const hero = this.arene.etatEquipe.heros[index];
     if (!hero) return;
-    this.fiche.afficher(hero, () => this.arene.events.emit("changer-hero", index));
+    this.fiche.afficher(
+      hero,
+      () => this.arene.events.emit("changer-hero", index),
+      this.arene.groupeDe(hero),
+    );
   }
 
   /** Le panneau des capacites suit toujours le heros incarne. */

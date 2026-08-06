@@ -29,9 +29,11 @@ import {
   type Point,
   type Posture,
 } from "../core/ordres";
+import { Affinites } from "../core/affinites";
 import { Commandement } from "../game/commandement";
 import type { EtatEquipe } from "../game/hud";
 import type { EtatOrdres } from "../game/panneauOrdres";
+import type { GroupeAffiche } from "../game/ficheHero";
 
 /**
  * L'arene : combat, equipe, IA, progression.
@@ -76,6 +78,9 @@ export class ArenaScene extends Phaser.Scene {
   /** Le poste de commandement : selection, ordres, formation (DESIGN.md §4.4) */
   commandement!: Commandement;
   private graphiquesOrdres!: Phaser.GameObjects.Graphics;
+  /** Experience de groupe : combattre ensemble rend plus fort (DESIGN.md §4.16) */
+  affinites = new Affinites();
+  private prochainTickAffinites = 0;
   private equipe!: Phaser.Physics.Arcade.Group;
   private ennemis!: Phaser.Physics.Arcade.Group;
   private projectiles!: Phaser.Physics.Arcade.Group;
@@ -143,6 +148,10 @@ export class ArenaScene extends Phaser.Scene {
     this.martyr = null;
     this.resurrectionUtilisee = false;
     this.figeJusqua = 0;
+    // Une nouvelle partie, une nouvelle equipe : les liens ne se transmettent
+    // pas. Ils le feront le jour ou les heros survivront a une partie (§4.12).
+    this.affinites = new Affinites();
+    this.prochainTickAffinites = 0;
   }
 
   get hero(): Hero {
@@ -163,6 +172,22 @@ export class ArenaScene extends Phaser.Scene {
       indexIncarne: this.indexIncarne,
       changementAutorise: this.changementAutorise(),
       selection: this.commandement?.selectionnes ?? [],
+    };
+  }
+
+  /**
+   * Les liens d'un heros avec le reste de l'equipe, pour sa fiche
+   * (DESIGN.md §4.16). Un systeme invisible ne change aucune decision.
+   */
+  groupeDe(hero: Hero): GroupeAffiche {
+    return {
+      bonus: hero.bonusGroupe,
+      liens: this.heros
+        .filter((autre) => autre !== hero && autre.estVivant)
+        .map((autre) => ({
+          nom: autre.classe.nom,
+          force: this.affinites.affinite(hero.identifiant, autre.identifiant),
+        })),
     };
   }
 
@@ -523,6 +548,7 @@ export class ArenaScene extends Phaser.Scene {
     if (this.termine || this.enPause) return;
 
     this.majEtats(delta);
+    this.majAffinites();
     this.majContexteEquipe();
     this.majCommandement();
     this.majProvocation();
@@ -545,6 +571,31 @@ export class ArenaScene extends Phaser.Scene {
     this.gererCapacites();
     this.fairePartirLesVagues();
     this.trierProfondeurs();
+  }
+
+  /** Toutes les x millisecondes : chaque paire de heros coute un calcul. */
+  private static readonly PERIODE_AFFINITES = 250;
+
+  /**
+   * L'experience de groupe (DESIGN.md §4.16) : les heros qui se battent
+   * ensemble apprennent a travailler ensemble.
+   *
+   * Un simple horodatage plutot qu'une minuterie (regle 4 du §4.17), et un
+   * calcul par paire toutes les 250 ms plutot qu'a chaque image (regle 5).
+   */
+  private majAffinites(): void {
+    if (this.time.now < this.prochainTickAffinites) return;
+    const periode = ArenaScene.PERIODE_AFFINITES;
+    this.prochainTickAffinites = this.time.now + periode;
+
+    const tous = this.heros.filter((h) => h.estVivant).map((h) => h.identifiant);
+    // Au combat seulement : ni la cite, ni le repli ne font une equipe.
+    const auCombat = this.heros.filter((h) => h.estAuCombat).map((h) => h.identifiant);
+    this.affinites.ecouler(tous, auCombat, periode / 1000);
+
+    for (const hero of this.heros) {
+      hero.bonusGroupe = hero.estAuCombat ? this.affinites.bonus(hero.identifiant, auCombat) : 0;
+    }
   }
 
   /**

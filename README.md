@@ -82,9 +82,12 @@ un ultime et un trait par classe, l'IA qui joue les heros non incarnes, la regle
 des 20%, la cite ou l'on se soigne, la mort definitive, et la boucle
 XP → niveau → choix d'amelioration.
 
-**Jalon 4, en cours** — les ordres : position, posture, formations, et le meme
-systeme pour les mort-vivants du Necromancien. Reste a faire :
-l'**experience de groupe** (DESIGN.md §4.16).
+**Jalon 4** — les ordres : position, posture, formations, le meme systeme pour
+les mort-vivants du Necromancien, et l'**experience de groupe** : deux heros qui
+se battent cote a cote apprennent a travailler ensemble (+10% de degats au
+plafond, visible dans la fiche de heros).
+
+Prochain jalon : le village.
 
 ## Structure du code
 
@@ -96,6 +99,7 @@ src/
     competences.ts   ameliorations et leurs raretes
     ia.ts            decisions des heros joues par l'IA (fonction pure, testee)
     ordres.ts        postures, formations et postes (fonction pure, testee)
+    affinites.ts     experience de groupe par paire de heros (testee)
   game/      ce qui vit a l'ecran
     art.ts             textures placeholder generees par code
     entities.ts        heros, ennemis et invocations

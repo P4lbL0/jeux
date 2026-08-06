@@ -755,10 +755,46 @@ tout le reste du jeu encourage. Tu veux tourner entre tes héros pour ramasser l
 en attente, mais tu veux aussi garder une équipe soudée. Cette tension-là, aucun autre
 système du jeu ne la produisait.
 
-> ⚠️ À trancher : si le bonus de groupe est trop fort, le joueur figera une équipe et ne
-> touchera plus jamais aux autres — exactement l'inverse de ce que la règle des 20% et
-> les choix en attente cherchent à provoquer. Il faudra qu'il reste **confortable, pas
-> décisif**.
+#### Comment ça se gagne
+
+L'affinité se compte **par paire de héros**, en **secondes de combat partagé** : les deux
+doivent être dehors, réellement au combat. Ni la cité, ni le repli, ni la garnison ne
+comptent — on n'apprend pas à travailler ensemble en se soignant chacun dans son coin.
+
+**Dix minutes de combat côte à côte** amènent une paire à son maximum.
+
+#### Ce que ça donne
+
+**+10% de dégâts au plafond. Une seule statistique, et c'est tout.**
+
+Un héros ne cumule pas ses liens : son bonus est la **moyenne** de ses affinités avec les
+alliés qui se battent avec lui à cet instant. Sortir avec trois vieux camarades vaut donc
+mieux que sortir avec un seul — mais sans jamais dépasser les 10%.
+
+Une seule statistique, et pas deux : « +10% de dégâts **et** +10% de cadence » ferait
++21% de dégâts par seconde, et « confortable, jamais décisif » deviendrait un mensonge.
+Et ce n'est ni la vie maximum ni la vitesse : une vie maximum qui dérive lentement ferait
+bouger la jauge de vie toute seule, ce qui est illisible.
+
+#### L'oubli
+
+**Une affinité s'efface quand les deux héros cessent de sortir ensemble** — six fois plus
+lentement qu'elle ne se gagne, et seulement quand au moins l'un des deux est au combat.
+Une équipe qui se repose ne perd rien.
+
+> ⚠️ C'est le point de vigilance du système. L'oubli punit exactement la rotation que la
+> règle des 20% et les choix en attente cherchent à encourager. Deux garde-fous le
+> tiennent :
+>
+> - le **plancher d'acquis** : une paire ne redescend jamais sous **25%** de son meilleur
+>   niveau. Ce qui a vraiment été appris ne se perd pas — on rouille, on ne désapprend pas.
+> - le **plafond de 10%**, qui fait qu'oublier un lien coûte au pire 10% de dégâts.
+>
+> S'il s'avère en jeu que le joueur n'ose plus faire tourner son équipe, c'est le facteur
+> d'oubli qu'on baisse en premier — pas le bonus.
+
+Les trois premières formations (libre, mur, cercle) sont acquises d'emblée. Ce sont les
+**suivantes** qui s'apprendront par l'affinité, quand il y en aura.
 
 ### 4.17 Tenir la fluidité
 
@@ -791,7 +827,7 @@ incertain d'abord. À chaque jalon, le jeu doit être **jouable** — moche, mai
 | **1** | ✅ Arène, héros, auto-attaque, ultimes, traits de classe, ennemis, mort | **Oui, bouger est amusant** — valide au test du 6 août |
 | **2** | ✅ XP, montée de niveau, pause et choix d'amélioration | La boucle de combat tourne |
 | **3** | ✅ Équipe, IA, règle des 20%, cité, switch, barre d'équipe, mort définitive | Le cœur du jeu est là |
-| **4** | Ordres, postures et formations, expérience de groupe (§4.16) | La couche tactique existe |
+| **4** | ✅ Ordres, postures et formations, expérience de groupe (§4.16) | La couche tactique existe |
 | **5** | Village hub, PNJ, phase de préparation, argent, équipement | Les deux moitiés du jeu sont reliées |
 | **6** | Défenses à placer, de la baliste au canon laser | La tower-defense existe |
 | **7** | Restauration du village, améliorations cumulables, montée en puissance infinie | La partie longue existe |
@@ -871,6 +907,10 @@ vaut le découvrir en semaine 1 qu'en mois 6.
   sélection souple, sans jamais mettre le jeu en pause (§4.4)
 - ✅ Formations → des **postes** relatifs à une ancre, attribués par le **rôle** de la
   classe (avant / flanc / centre / arrière) (§4.4)
+- ✅ Expérience de groupe → **+10% de dégâts au plafond**, une seule statistique, la
+  moyenne des liens et non leur somme (§4.16)
+- ✅ Une affinité **s'efface** quand la paire cesse de sortir ensemble — six fois plus
+  lentement qu'elle ne se gagne, et jamais sous 25% de son record (§4.16)
 
 ---
 

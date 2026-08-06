@@ -34,7 +34,15 @@ export interface Capacite {
  * aux kills, le tout multiplie par le multiplicateur global. Rien ne modifie
  * jamais directement les donnees de la classe.
  */
+/**
+ * On pourra recruter plusieurs heros d'une meme classe (DESIGN.md §4.1) : leur
+ * identite ne peut donc pas etre leur classe. Ce compteur la leur donne.
+ */
+let prochainIdentifiant = 1;
+
 export class Hero extends Phaser.Physics.Arcade.Sprite {
+  /** Identifiant stable, pour les affinites de groupe (DESIGN.md §4.16) */
+  readonly identifiant = `h${prochainIdentifiant++}`;
   readonly classe: ClasseDef;
   readonly bonus: Bonus = bonusVierge();
   /** Palier atteint pour chaque competence, par identifiant */
@@ -73,6 +81,12 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   alliesAbsents = 0;
   /** Vrai quand il se bat a portee de la cite, pour le Serment du protecteur */
   presCite = false;
+  /**
+   * Bonus d'equipe soudee, recalcule regulierement par la scene : de 0 a 0,10
+   * (DESIGN.md §4.16). Il ne touche que les degats — une vie maximum qui derive
+   * ferait bouger la jauge de vie toute seule.
+   */
+  bonusGroupe = 0;
   /** Le Serment de fer se declenche a chaque nouveau passage sous 50% de vie */
   private sermentArme = true;
   /** Cibles deja touchees, pour la Marque de sang */
@@ -131,7 +145,10 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   get degats(): number {
     const base =
       (this.classe.degats + this.bonus.degats) * (1 + this.tranches * this.bonus.degatsParTranche);
-    const contexte = this.bonusCite * (1 + this.alliesAbsents * this.bonus.dernierDebout);
+    const contexte =
+      this.bonusCite *
+      (1 + this.alliesAbsents * this.bonus.dernierDebout) *
+      (1 + this.bonusGroupe);
     return Math.max(
       1,
       Math.round(

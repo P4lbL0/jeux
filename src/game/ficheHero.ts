@@ -15,7 +15,23 @@ import type { Hero } from "./entities";
  */
 
 const LARGEUR = 460;
-const HAUTEUR = 440;
+/** Hauteur du bloc fixe : portrait, barres et apercu chiffre */
+const HAUT_APERCU = 276;
+const HAUTEUR_LIGNE_LIEN = 17;
+const HAUTEUR_LIGNE_COMPETENCE = 19;
+const MAX_COMPETENCES = 6;
+
+/** Un lien d'affinite tel qu'il s'affiche : un nom et une force de 0 a 1. */
+export interface LienAffiche {
+  nom: string;
+  force: number;
+}
+
+export interface GroupeAffiche {
+  /** Bonus de degats en cours, de 0 a 0,10 (DESIGN.md §4.16) */
+  bonus: number;
+  liens: LienAffiche[];
+}
 
 export class FicheHero {
   private objets: Phaser.GameObjects.GameObject[] = [];
@@ -27,17 +43,27 @@ export class FicheHero {
     return this.ouverte;
   }
 
-  basculer(hero: Hero, surIncarner: () => void): void {
+  basculer(hero: Hero, surIncarner: () => void, groupe: GroupeAffiche): void {
     if (this.ouverte) {
       this.fermer();
       return;
     }
-    this.afficher(hero, surIncarner);
+    this.afficher(hero, surIncarner, groupe);
   }
 
-  afficher(hero: Hero, surIncarner: () => void): void {
+  afficher(hero: Hero, surIncarner: () => void, groupe: GroupeAffiche): void {
     this.fermer();
     this.ouverte = true;
+
+    // La fiche se dimensionne sur son contenu : figee, elle debordait des que
+    // le heros passait six competences.
+    const entrees = Object.entries(hero.competences);
+    const lignesLiens = Math.ceil(groupe.liens.length / 2);
+    const nbCompetences = Math.max(1, Math.min(MAX_COMPETENCES, entrees.length));
+    const basLiens = HAUT_APERCU + 20 + lignesLiens * HAUTEUR_LIGNE_LIEN;
+    const hautCompetences = basLiens + 10;
+    const basCompetences = hautCompetences + 20 + nbCompetences * HAUTEUR_LIGNE_COMPETENCE;
+    const HAUTEUR = basCompetences + 58;
 
     const x = this.scene.scale.width / 2 - LARGEUR / 2;
     const y = this.scene.scale.height / 2 - HAUTEUR / 2;
@@ -97,16 +123,36 @@ export class FicheHero {
       this.texte(cx + LARGEUR / 2 - 52, cy + 3, valeur, 10, "#f2e9d8").setOrigin(1, 0);
     });
 
+    // --- Affinites de groupe (DESIGN.md §4.16) ---
+    // Sans cet affichage, le joueur subirait un bonus qu'il ne peut ni voir ni
+    // comprendre — et un systeme invisible ne change aucune decision.
+    this.texte(x + 22, y + HAUT_APERCU, "EQUIPE SOUDEE", 11, "#8a8397");
+    this.texte(
+      x + LARGEUR - 22,
+      y + HAUT_APERCU,
+      `+${(groupe.bonus * 100).toFixed(1)}% de degats`,
+      11,
+      groupe.bonus > 0 ? "#7ee0a0" : "#6b6478",
+    ).setOrigin(1, 0);
+
+    const colonne = LARGEUR / 2 - 20;
+    groupe.liens.forEach((lien, i) => {
+      const cx = x + 22 + (i % 2) * colonne;
+      const cy = y + HAUT_APERCU + 20 + Math.floor(i / 2) * HAUTEUR_LIGNE_LIEN;
+      this.texte(cx + 4, cy, lien.nom.slice(0, 10), 10, "#c8bfae");
+      this.barre(cadre, cx + colonne - 84, cy + 3, 66, 7, lien.force, 0x7ee0a0);
+    });
+
     // --- Competences ---
-    this.texte(x + 22, y + 276, "COMPETENCES", 11, "#8a8397");
-    const entrees = Object.entries(hero.competences);
+    const yc = y + hautCompetences;
+    this.texte(x + 22, yc, "COMPETENCES", 11, "#8a8397");
     if (entrees.length === 0) {
-      this.texte(x + 22, y + 296, "Aucune pour l'instant.", 11, "#6b6478");
+      this.texte(x + 22, yc + 20, "Aucune pour l'instant.", 11, "#6b6478");
     }
-    entrees.slice(0, 6).forEach(([id, palier], i) => {
+    entrees.slice(0, MAX_COMPETENCES).forEach(([id, palier], i) => {
       const def = competenceParId(id);
       if (!def) return;
-      const cy = y + 296 + i * 19;
+      const cy = yc + 20 + i * HAUTEUR_LIGNE_COMPETENCE;
       const couleur = COULEURS_RANG[def.rang];
       cadre.fillStyle(couleur, 0.16);
       cadre.fillRoundedRect(x + 22, cy, LARGEUR - 44, 17, 4);
@@ -117,7 +163,7 @@ export class FicheHero {
     });
 
     // --- Boutons ---
-    const yb = y + HAUTEUR - 44;
+    const yb = y + basCompetences + 14;
     if (!hero.estIncarne && hero.etat !== "mort") {
       this.bouton(cadre, x + 22, yb, 180, 30, "INCARNER", 0xf0c419, () => {
         this.fermer();
