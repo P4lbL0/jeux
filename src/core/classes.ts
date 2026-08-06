@@ -12,6 +12,13 @@ export type ClassId = "guerrier" | "chevalier" | "mage" | "assassin";
 
 export type EffetUltime = "tourbillon" | "rempart" | "meteore" | "ombre";
 
+/**
+ * Le trait est ce qui differencie vraiment les classes manette en main.
+ * Les chiffres seuls ne suffisent pas : deux classes aux stats differentes mais
+ * au meme comportement se jouent pareil (DESIGN.md §4.2).
+ */
+export type TraitClasse = "arc-large" | "riposte" | "explosion" | "critique";
+
 export interface UltimeDef {
   nom: string;
   /** Rechargement en millisecondes */
@@ -40,6 +47,9 @@ export interface ClasseDef {
    * sinon le deplacement ne veut plus rien dire (DESIGN.md §4.2).
    */
   distanceIdeale: string;
+  trait: TraitClasse;
+  traitNom: string;
+  traitTexte: string;
   /** Le rang du heros determinera combien d'ultimes sont disponibles (DESIGN.md §4.1) */
   ultimes: UltimeDef[];
 }
@@ -50,13 +60,16 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     nom: "Guerrier",
     couleur: 0xc0392b,
     accent: 0xf0b27a,
-    pvMax: 120,
-    vitesse: 105,
-    portee: 48,
+    pvMax: 130,
+    vitesse: 108,
+    portee: 58,
     cadence: 520,
-    degats: 11,
+    degats: 13,
     esquive: 0.05,
     distanceIdeale: "Au contact, toujours en mouvement",
+    trait: "arc-large",
+    traitNom: "Fauchage",
+    traitTexte: "Frappe tout un demi-cercle devant lui",
     ultimes: [{ nom: "Tourbillon", rechargement: 7000, effet: "tourbillon" }],
   },
   chevalier: {
@@ -64,13 +77,16 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     nom: "Chevalier",
     couleur: 0x4a86c8,
     accent: 0xd5dbe3,
-    pvMax: 185,
-    vitesse: 86,
-    portee: 42,
-    cadence: 720,
+    pvMax: 210,
+    vitesse: 82,
+    portee: 44,
+    cadence: 760,
     degats: 9,
     esquive: 0.02,
     distanceIdeale: "En premiere ligne, il encaisse",
+    trait: "riposte",
+    traitNom: "Riposte",
+    traitTexte: "Blesse quiconque le touche : plus on l'attaque, plus il tue",
     ultimes: [{ nom: "Rempart", rechargement: 9000, effet: "rempart" }],
   },
   mage: {
@@ -78,13 +94,16 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     nom: "Mage",
     couleur: 0x8e44ad,
     accent: 0x5ec8f0,
-    pvMax: 78,
-    vitesse: 95,
-    portee: 250,
-    cadence: 780,
-    degats: 17,
+    pvMax: 76,
+    vitesse: 96,
+    portee: 260,
+    cadence: 800,
+    degats: 16,
     esquive: 0.05,
     distanceIdeale: "Le plus loin possible, jamais rattrape",
+    trait: "explosion",
+    traitNom: "Deflagration",
+    traitTexte: "Chaque tir explose et touche tout le groupe",
     ultimes: [{ nom: "Meteore", rechargement: 8000, effet: "meteore" }],
   },
   assassin: {
@@ -92,13 +111,16 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     nom: "Assassin",
     couleur: 0x2c3e50,
     accent: 0x7ee0a0,
-    pvMax: 88,
-    vitesse: 132,
-    portee: 36,
-    cadence: 300,
-    degats: 8,
+    pvMax: 84,
+    vitesse: 142,
+    portee: 34,
+    cadence: 250,
+    degats: 7,
     esquive: 0.1,
     distanceIdeale: "Dans le dos, il pique et il repart",
+    trait: "critique",
+    traitNom: "Mise a mort",
+    traitTexte: "25% de coups critiques, et la cadence la plus rapide du jeu",
     ultimes: [{ nom: "Ombre", rechargement: 6500, effet: "ombre" }],
   },
 };

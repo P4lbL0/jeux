@@ -17,7 +17,12 @@ export class ChoixClasseScene extends Phaser.Scene {
   create(): void {
     creerTexturesPlaceholder(this);
     this.construire();
-    this.scale.on("resize", () => this.construire());
+
+    const redessiner = () => this.construire();
+    this.scale.on("resize", redessiner);
+    // Sans ce retrait, l'ecran continuerait de se reconstruire en arriere-plan
+    // pendant qu'on joue.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off("resize", redessiner));
   }
 
   private construire(): void {
@@ -48,11 +53,11 @@ export class ChoixClasseScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    const largeurCarte = 168;
+    const largeurCarte = 186;
     const espace = 16;
     const total = ORDRE_CLASSES.length * largeurCarte + (ORDRE_CLASSES.length - 1) * espace;
     const debut = l / 2 - total / 2;
-    const y = h * 0.42;
+    const y = h * 0.3;
 
     ORDRE_CLASSES.forEach((id, i) => {
       this.carte(id, debut + i * (largeurCarte + espace), y, largeurCarte, i + 1);
@@ -83,7 +88,7 @@ export class ChoixClasseScene extends Phaser.Scene {
 
   private carte(id: ClassId, x: number, y: number, largeur: number, numero: number): void {
     const classe = CLASSES[id];
-    const hauteur = 214;
+    const hauteur = 278;
 
     const fond = this.add.graphics();
     fond.fillStyle(0x1b1720, 0.9);
@@ -126,6 +131,26 @@ export class ChoixClasseScene extends Phaser.Scene {
       lineSpacing: 2,
     });
 
+    // Le trait : c'est lui qui fait qu'une classe ne se joue pas comme une
+    // autre. Il merite plus de place que les chiffres.
+    const yTrait = y + 216;
+    const separateur = this.add.graphics();
+    separateur.lineStyle(1, classe.couleur, 0.5);
+    separateur.lineBetween(x + 16, yTrait - 8, x + largeur - 16, yTrait - 8);
+
+    this.add.text(x + 16, yTrait, classe.traitNom.toUpperCase(), {
+      fontFamily: "monospace",
+      fontSize: "11px",
+      color: teinte(classe.couleur),
+    });
+    this.add.text(x + 16, yTrait + 18, classe.traitTexte, {
+      fontFamily: "monospace",
+      fontSize: "10px",
+      color: "#c8bfae",
+      wordWrap: { width: largeur - 32 },
+      lineSpacing: 2,
+    });
+
     this.add
       .zone(x, y, largeur, hauteur)
       .setOrigin(0)
@@ -136,4 +161,8 @@ export class ChoixClasseScene extends Phaser.Scene {
   private lancer(classe: ClassId): void {
     this.scene.start("arena", { classe });
   }
+}
+
+function teinte(couleur: number): string {
+  return `#${couleur.toString(16).padStart(6, "0")}`;
 }

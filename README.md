@@ -24,32 +24,41 @@ npm run build   # verifie les types et construit la version finale
 | Touche | Action |
 |---|---|
 | `ZQSD` ou les fleches | Se deplacer |
-| `1` | Ultime |
+| `Espace` (ou `1`) | Ultime |
+| `1` `2` `3` | Choisir une amelioration a la montee de niveau |
 | Molette | Zoomer / dezoomer |
 | `R` | Recommencer apres la mort |
 
 L'attaque, la visee et l'esquive sont **automatiques** : le joueur ne controle
 que le deplacement et ses ultimes.
 
+Chaque montee de niveau met le jeu **en pause** et propose trois ameliorations.
+C'est toujours le joueur qui choisit — jamais l'IA (DESIGN.md §4.3).
+
 ## Ou en est le projet
 
 Voir la feuille de route dans [DESIGN.md](DESIGN.md#5-ordre-de-construction).
 
-**Jalon 1 en cours** — une arene, un heros, l'attaque automatique, un ultime par
-classe, des ennemis qui arrivent sans fin. Il ne sert qu'a repondre a une
-question : *est-ce que bouger et lacher un ultime, c'est amusant ?*
+**Jalons 1 et 2** — une arene, un heros, l'attaque automatique, un ultime et un
+trait par classe, des ennemis qui arrivent sans fin, et la boucle XP → niveau →
+choix d'amelioration.
+
+Prochain jalon : plusieurs heros, l'IA, la regle des 20% et le changement de
+heros en plein combat.
 
 ## Structure du code
 
 ```
 src/
-  core/      logique pure, sans Phaser, testable au jalon pres
-    rng.ts       aleatoire seede (une graine = une partie rejouable)
-    classes.ts   donnees des 4 classes — c'est ici qu'on equilibre
+  core/      logique pure, sans Phaser, testable
+    rng.ts           aleatoire seede (une graine = une partie rejouable)
+    classes.ts       donnees des 4 classes — c'est ici qu'on equilibre
+    competences.ts   ameliorations et leurs raretes
   game/      ce qui vit a l'ecran
-    art.ts       textures placeholder generees par code
-    entities.ts  heros et ennemis
-    hud.ts       barre de heros (le futur ecran de triage)
+    art.ts             textures placeholder generees par code
+    entities.ts        heros et ennemis
+    hud.ts             barre de heros (le futur ecran de triage)
+    choixCompetence.ts ecran de montee de niveau
   scenes/    les ecrans du jeu
 ```
 

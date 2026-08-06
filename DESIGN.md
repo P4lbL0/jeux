@@ -180,6 +180,21 @@ rester loin, l'assassin veut être dans le dos, le chevalier veut être devant e
 encaisser. Si toutes les classes se jouent à la même distance, le jeu n'a plus qu'un
 seul bouton pour de vrai.
 
+**Le trait de classe** — ajouté après le premier test de jeu. Des statistiques
+différentes ne suffisent pas : deux classes aux chiffres distincts mais au même
+comportement se jouent pareil. Chaque classe a donc une **règle qui n'appartient
+qu'à elle** :
+
+| Classe | Trait | Effet |
+|---|---|---|
+| Guerrier | Fauchage | Frappe un demi-cercle entier, là où les autres touchent un cône étroit |
+| Chevalier | Riposte | Blesse quiconque le touche : plus on l'attaque, plus il tue |
+| Mage | Déflagration | Chaque tir explose et touche tout le groupe |
+| Assassin | Mise à mort | Coups critiques fréquents, et la cadence la plus rapide du jeu |
+
+C'est le trait, pas la fiche de statistiques, qui doit faire dire au joueur « je ne
+joue pas du tout pareil avec celui-là ».
+
 ### 4.3 Héros, IA et permadeath — la règle des 20%
 
 C'est le système central du jeu. Il tient en trois règles :
@@ -396,9 +411,9 @@ incertain d'abord. À chaque jalon, le jeu doit être **jouable** — moche, mai
 
 | Jalon | Contenu | On sait quoi à la fin |
 |---|---|---|
-| **0** | Squelette technique, un carré qui se déplace | La plomberie fonctionne |
-| **1** | Une arène, un héros, auto-attaque, ultime, ennemis, mort | **Est-ce que bouger + un ultime, c'est amusant ?** ← le vrai test |
-| **2** | Vague complète : compteur, XP, pause de niveau, bilan | La boucle de combat tourne |
+| **0** | ✅ Squelette technique | La plomberie fonctionne |
+| **1** | ✅ Arène, héros, auto-attaque, ultimes, traits de classe, ennemis, mort | **Oui, bouger est amusant** — valide au test du 6 août |
+| **2** | ✅ XP, montée de niveau, pause et choix d'amélioration | La boucle de combat tourne |
 | **3** | Plusieurs héros, IA, règle des 20%, switch, barre de HUD | Le cœur du jeu est là |
 | **4** | Ordres, postures et formations | La couche tactique existe |
 | **5** | Village hub, PNJ, phase de préparation, argent, équipement | Les deux moitiés du jeu sont reliées |

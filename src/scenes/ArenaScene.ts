@@ -1,24 +1,25 @@
 import Phaser from "phaser";
 import { Rng } from "../core/rng";
 import { CLASSES, type ClassId } from "../core/classes";
+import { tirerCompetences } from "../core/competences";
 import { creerTexturesPlaceholder } from "../game/art";
 import { Ennemi, Hero } from "../game/entities";
 import { Hud } from "../game/hud";
+import { ChoixCompetence } from "../game/choixCompetence";
 
 /**
- * JALON 1 — l'arene.
+ * JALON 1 + 2 — l'arene.
  *
- * Cette scene ne sert qu'a repondre a une seule question (DESIGN.md §5) :
- * est-ce que se deplacer et lacher un ultime, c'est amusant pendant
- * 30 secondes ? Tout le reste — village, defenses, equipe, rangs — viendra
- * par-dessus, et seulement si la reponse est oui.
+ * Elle repond a la question du jalon 1 (bouger et lacher un ultime, est-ce
+ * amusant ?) et porte la boucle de progression du jalon 2 : XP, montee de
+ * niveau, choix d'amelioration avec mise en pause.
  */
 
 const MONDE = { largeur: 1600, hauteur: 1200 };
 const MUR = 16;
 
 /** Portee au-dela de laquelle une classe est consideree comme distante */
-const PORTEE_CORPS_A_CORPS = 60;
+const PORTEE_CORPS_A_CORPS = 90;
 
 export class ArenaScene extends Phaser.Scene {
   private rng!: Rng;
@@ -26,15 +27,19 @@ export class ArenaScene extends Phaser.Scene {
   private ennemis!: Phaser.Physics.Arcade.Group;
   private projectiles!: Phaser.Physics.Arcade.Group;
   private hud!: Hud;
+  private choixCompetence!: ChoixCompetence;
 
   private zqsd!: Record<string, Phaser.Input.Keyboard.Key>;
   private fleches!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private touchesUltimes: Phaser.Input.Keyboard.Key[] = [];
+  private touchesUltimes: Phaser.Input.Keyboard.Key[][] = [];
 
   private debut = 0;
   private prochaineApparition = 0;
   private kills = 0;
   private termine = false;
+
+  private niveauxEnAttente = 0;
+  private debutPause = 0;
 
   private stats!: Phaser.GameObjects.Text;
 
@@ -43,10 +48,10 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   init(data: { classe?: ClassId }): void {
-    const id = data.classe ?? "guerrier";
-    this.registry.set("classe", id);
+    this.registry.set("classe", data.classe ?? "guerrier");
     this.kills = 0;
     this.termine = false;
+    this.niveauxEnAttente = 0;
   }
 
   create(): void {
@@ -71,16 +76,21 @@ export class ArenaScene extends Phaser.Scene {
     this.configurerZoom();
     this.configurerTouches();
 
-    this.physics.add.overlap(this.hero, this.ennemis, (_h, e) =>
-      this.contactEnnemi(e as Ennemi),
-    );
+    this.physics.add.overlap(this.hero, this.ennemis, (_h, e) => this.contactEnnemi(e as Ennemi));
     this.physics.add.overlap(this.projectiles, this.ennemis, (p, e) =>
       this.impactProjectile(p as Phaser.Physics.Arcade.Image, e as Ennemi),
     );
 
     this.hud = new Hud(this, this.hero);
+    this.choixCompetence = new ChoixCompetence(this);
     this.stats = this.add
-      .text(0, 0, "", { fontFamily: "monospace", fontSize: "12px", color: "#f2e9d8" })
+      .text(0, 0, "", {
+        fontFamily: "monospace",
+        fontSize: "12px",
+        color: "#f2e9d8",
+        align: "right",
+      })
+      .setOrigin(1, 0)
       .setScrollFactor(0)
       .setDepth(1003);
 
@@ -91,10 +101,7 @@ export class ArenaScene extends Phaser.Scene {
   // ---------------------------------------------------------------- decor
 
   private construireDecor(): void {
-    this.add
-      .tileSprite(0, 0, MONDE.largeur, MONDE.hauteur, "herbe")
-      .setOrigin(0)
-      .setDepth(-1000);
+    this.add.tileSprite(0, 0, MONDE.largeur, MONDE.hauteur, "herbe").setOrigin(0).setDepth(-1000);
 
     // Mur en ruine sur les quatre bords : il donne une limite lisible a l'arene.
     const bords: [number, number, number, number][] = [
@@ -111,13 +118,10 @@ export class ArenaScene extends Phaser.Scene {
   private configurerZoom(): void {
     // Zoom libre a la molette (DESIGN.md §4.11), avec des bornes : sans elles
     // le joueur trouve toujours la distance qui casse le jeu.
-    this.input.on(
-      "wheel",
-      (_p: unknown, _o: unknown, _dx: number, dy: number) => {
-        const cam = this.cameras.main;
-        cam.setZoom(Phaser.Math.Clamp(cam.zoom - dy * 0.0016, 1.4, 6));
-      },
-    );
+    this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => {
+      const cam = this.cameras.main;
+      cam.setZoom(Phaser.Math.Clamp(cam.zoom - dy * 0.0016, 1.4, 6));
+    });
   }
 
   private configurerTouches(): void {
@@ -126,12 +130,17 @@ export class ArenaScene extends Phaser.Scene {
     // ZQSD et fleches en meme temps : pas besoin de choisir.
     this.zqsd = clavier.addKeys("Z,Q,S,D") as Record<string, Phaser.Input.Keyboard.Key>;
     this.fleches = clavier.createCursorKeys();
-    // Une touche par ultime (DESIGN.md §4.2)
-    this.touchesUltimes = [
-      clavier.addKey(Phaser.Input.Keyboard.KeyCodes.ONE),
-      clavier.addKey(Phaser.Input.Keyboard.KeyCodes.TWO),
-      clavier.addKey(Phaser.Input.Keyboard.KeyCodes.THREE),
+
+    // Une touche par ultime (DESIGN.md §4.2). Le premier a aussi ESPACE :
+    // sur un clavier AZERTY, la rangee des chiffres demande souvent Shift.
+    const K = Phaser.Input.Keyboard.KeyCodes;
+    const codesParUltime = [
+      [K.ONE, K.NUMPAD_ONE, K.SPACE],
+      [K.TWO, K.NUMPAD_TWO],
+      [K.THREE, K.NUMPAD_THREE],
     ];
+    this.touchesUltimes = codesParUltime.map((codes) => codes.map((c) => clavier.addKey(c)));
+
     clavier.addKey(Phaser.Input.Keyboard.KeyCodes.R).on("down", () => {
       if (this.termine) this.scene.start("choix-classe");
     });
@@ -139,8 +148,8 @@ export class ArenaScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- boucle
 
-  update(_temps: number, delta: number): void {
-    if (this.termine) return;
+  update(): void {
+    if (this.termine || this.choixCompetence.estOuvert) return;
 
     this.deplacerHero();
     this.deplacerEnnemis();
@@ -151,10 +160,8 @@ export class ArenaScene extends Phaser.Scene {
 
     this.hud.rafraichir();
     const secondes = Math.floor((this.time.now - this.debut) / 1000);
-    this.stats.setPosition(this.scale.width - 150, 16);
+    this.stats.setPosition(this.scale.width - 16, 16);
     this.stats.setText(`Survie : ${secondes}s\nElimines : ${this.kills}`);
-
-    void delta;
   }
 
   private deplacerHero(): void {
@@ -166,19 +173,17 @@ export class ArenaScene extends Phaser.Scene {
 
     // Normaliser : sans ca, la diagonale est 40% plus rapide.
     dir.normalize();
-    if (dir.lengthSq() > 0) this.regarderVers(dir);
-    this.hero.setVelocity(dir.x * this.hero.classe.vitesse, dir.y * this.hero.classe.vitesse);
+    if (dir.lengthSq() > 0) {
+      this.hero.regard.copy(dir);
+      if (dir.x !== 0) this.hero.setFlipX(dir.x < 0);
+    }
+    this.hero.setVelocity(dir.x * this.hero.vitesse, dir.y * this.hero.vitesse);
 
     // Clignotement quand la vie est critique : le joueur doit le voir sans
     // quitter l'action des yeux.
     this.hero.setAlpha(
       this.hero.estCritique && Math.floor(this.time.now / 140) % 2 === 0 ? 0.55 : 1,
     );
-  }
-
-  private regarderVers(dir: Phaser.Math.Vector2): void {
-    this.hero.regard.copy(dir);
-    if (dir.x !== 0) this.hero.setFlipX(dir.x < 0);
   }
 
   private deplacerEnnemis(): void {
@@ -204,11 +209,11 @@ export class ArenaScene extends Phaser.Scene {
 
   private attaqueAutomatique(): void {
     if (!this.hero.peutAttaquer()) return;
-    const cible = this.ennemiLePlusProche(this.hero.classe.portee);
+    const cible = this.ennemiLePlusProche(this.hero.portee);
     if (!cible) return;
 
     this.hero.marquerAttaque();
-    if (this.hero.classe.portee <= PORTEE_CORPS_A_CORPS) {
+    if (this.hero.portee <= PORTEE_CORPS_A_CORPS) {
       this.frapperAuContact(cible);
     } else {
       this.lancerProjectile(cible);
@@ -216,37 +221,40 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private frapperAuContact(cible: Ennemi): void {
-    const portee = this.hero.classe.portee;
+    const portee = this.hero.portee;
     const angle = Phaser.Math.Angle.Between(this.hero.x, this.hero.y, cible.x, cible.y);
+    // Trait "arc-large" du guerrier : il fauche un demi-cercle entier la ou les
+    // autres classes ne touchent qu'un cone etroit.
+    const demiArc = this.hero.classe.trait === "arc-large" ? Math.PI / 2 : Math.PI / 4;
 
-    // Touche tout ce qui se trouve dans un arc devant le heros, pas seulement
-    // la cible : c'est ce qui rend le corps a corps agreable face a un groupe.
-    for (const objet of this.ennemis.getChildren()) {
-      const e = objet as Ennemi;
+    for (const e of [...this.ennemis.getChildren()] as Ennemi[]) {
       if (!e.active) continue;
       const d = Phaser.Math.Distance.Between(this.hero.x, this.hero.y, e.x, e.y);
       if (d > portee) continue;
       const a = Phaser.Math.Angle.Between(this.hero.x, this.hero.y, e.x, e.y);
-      if (Math.abs(Phaser.Math.Angle.Wrap(a - angle)) > Math.PI / 3) continue;
-      this.blesserEnnemi(e, this.hero.classe.degats);
+      if (Math.abs(Phaser.Math.Angle.Wrap(a - angle)) > demiArc) continue;
+      this.frapper(e);
     }
 
     const arc = this.add
       .image(
-        this.hero.x + Math.cos(angle) * portee * 0.55,
-        this.hero.y + Math.sin(angle) * portee * 0.55,
+        this.hero.x + Math.cos(angle) * portee * 0.5,
+        this.hero.y + Math.sin(angle) * portee * 0.5,
         "impact",
       )
       .setDepth(this.hero.y + 1)
-      .setScale(portee / 26)
-      .setAlpha(0.5)
+      .setScale(portee / 22)
+      .setAlpha(0.45)
       .setTint(0xffe9a8);
     this.tweens.add({ targets: arc, alpha: 0, duration: 150, onComplete: () => arc.destroy() });
   }
 
   private lancerProjectile(cible: Ennemi): void {
-    const p = this.projectiles.create(this.hero.x, this.hero.y, "projectile") as
-      Phaser.Physics.Arcade.Image;
+    const p = this.projectiles.create(
+      this.hero.x,
+      this.hero.y,
+      "projectile",
+    ) as Phaser.Physics.Arcade.Image;
     p.setDepth(this.hero.y + 1);
     p.setTint(this.hero.classe.accent);
     const angle = Phaser.Math.Angle.Between(this.hero.x, this.hero.y, cible.x, cible.y);
@@ -256,8 +264,28 @@ export class ArenaScene extends Phaser.Scene {
 
   private impactProjectile(p: Phaser.Physics.Arcade.Image, e: Ennemi): void {
     if (!p.active || !e.active) return;
+    const x = p.x;
+    const y = p.y;
     p.destroy();
-    this.blesserEnnemi(e, this.hero.classe.degats);
+
+    if (this.hero.classe.trait === "explosion") {
+      // Trait du mage : chaque tir souffle un groupe entier. C'est ce qui le
+      // rend utile de loin malgre sa cadence lente.
+      this.effetCercle(x, y, 48, 0xd06bff);
+      for (const voisin of this.ennemisDansRayon(x, y, 48)) this.frapper(voisin);
+    } else {
+      this.frapper(e);
+    }
+  }
+
+  /** Applique les degats du heros a un ennemi, coup critique compris. */
+  private frapper(e: Ennemi): void {
+    const critique = this.rng.next() < this.hero.critChance;
+    const degats = critique
+      ? Math.round(this.hero.degats * this.hero.critMultiplicateur)
+      : this.hero.degats;
+    if (critique) this.flotter(e.x, e.y - 14, `${degats} !`, "#ffd166");
+    this.blesserEnnemi(e, degats);
   }
 
   private ennemiLePlusProche(portee: number): Ennemi | null {
@@ -276,31 +304,70 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private blesserEnnemi(e: Ennemi, degats: number): void {
+    if (!e.active) return;
     e.pv -= degats;
     e.setTintFill(0xffffff);
     this.time.delayedCall(60, () => e.active && e.clearTint());
 
     if (e.pv > 0) return;
     this.kills += 1;
+    if (this.hero.bonus.soinParKill > 0) this.hero.soigner(this.hero.bonus.soinParKill);
     const monte = this.hero.gagnerXp(e.xpDonnee);
     e.destroy();
-    if (monte) this.celebrerNiveau();
+    if (monte) this.monterDeNiveau();
   }
 
-  private celebrerNiveau(): void {
-    this.flotter(this.hero.x, this.hero.y - 22, `NIVEAU ${this.hero.niveau}`, "#5ec8f0");
+  // ---------------------------------------------------------- progression
+
+  private monterDeNiveau(): void {
+    this.niveauxEnAttente += 1;
+    this.flotter(this.hero.x, this.hero.y - 24, `NIVEAU ${this.hero.niveau}`, "#5ec8f0");
     this.effetCercle(this.hero.x, this.hero.y, 70, 0x5ec8f0);
+    if (!this.choixCompetence.estOuvert) this.ouvrirChoix();
+  }
+
+  /**
+   * Le jeu se met en pause le temps du choix (DESIGN.md §4.8). Au jalon 3,
+   * seuls les niveaux du heros *incarne* ouvriront cet ecran : ceux des heros
+   * joues par l'IA s'accumuleront en attente.
+   */
+  private ouvrirChoix(): void {
+    this.debutPause = this.time.now;
+    this.physics.pause();
+
+    const choix = tirerCompetences(
+      this.rng,
+      this.hero.classe.id,
+      this.hero.competencesPrises,
+      3,
+      // Passera au rang du heros quand les rangs existeront (DESIGN.md §4.1).
+      0,
+    );
+
+    this.choixCompetence.afficher(this.hero.niveau, choix, (competence) => {
+      this.hero.apprendre(competence);
+      this.fermerChoix();
+    });
+  }
+
+  private fermerChoix(): void {
+    // Sans ce decalage, le temps passe dans le menu rechargerait les ultimes
+    // gratuitement.
+    this.hero.decalerRechargements(this.time.now - this.debutPause);
+    this.physics.resume();
+    this.niveauxEnAttente = Math.max(0, this.niveauxEnAttente - 1);
+    if (this.niveauxEnAttente > 0) this.ouvrirChoix();
   }
 
   // -------------------------------------------------------------- ultimes
 
   private gererUltimes(): void {
     this.hero.classe.ultimes.forEach((ultime, i) => {
-      const touche = this.touchesUltimes[i];
-      if (!touche || !Phaser.Input.Keyboard.JustDown(touche)) return;
+      const touches = this.touchesUltimes[i];
+      if (!touches || !touches.some((t) => Phaser.Input.Keyboard.JustDown(t))) return;
       if (!this.hero.peutLancerUltime(i)) return;
       this.hero.marquerUltime(i);
-      this.flotter(this.hero.x, this.hero.y - 26, ultime.nom.toUpperCase(), "#f0c419");
+      this.flotter(this.hero.x, this.hero.y - 28, ultime.nom.toUpperCase(), "#f0c419");
 
       switch (ultime.effet) {
         case "tourbillon":
@@ -321,20 +388,22 @@ export class ArenaScene extends Phaser.Scene {
 
   /** Guerrier : tout ce qui l'entoure prend cher et recule. */
   private ultimeTourbillon(): void {
-    const rayon = 90;
+    const rayon = 110;
     this.effetCercle(this.hero.x, this.hero.y, rayon, 0xff9d4a);
+    this.cameras.main.shake(140, 0.006);
     for (const e of this.ennemisDansRayon(this.hero.x, this.hero.y, rayon)) {
-      this.repousser(e, this.hero.x, this.hero.y, 260);
-      this.blesserEnnemi(e, 28);
+      this.repousser(e, this.hero.x, this.hero.y, 300);
+      this.blesserEnnemi(e, this.hero.degats * 3);
     }
   }
 
   /** Chevalier : invulnerable un temps, et il degage la place autour de lui. */
   private ultimeRempart(): void {
-    this.hero.rendreInvulnerable(3000);
-    this.effetCercle(this.hero.x, this.hero.y, 120, 0x8ec9ff);
-    for (const e of this.ennemisDansRayon(this.hero.x, this.hero.y, 120)) {
-      this.repousser(e, this.hero.x, this.hero.y, 380);
+    this.hero.rendreInvulnerable(3500);
+    this.effetCercle(this.hero.x, this.hero.y, 140, 0x8ec9ff);
+    for (const e of this.ennemisDansRayon(this.hero.x, this.hero.y, 140)) {
+      this.repousser(e, this.hero.x, this.hero.y, 420);
+      this.blesserEnnemi(e, this.hero.degats);
     }
     const aura = this.add
       .image(this.hero.x, this.hero.y, "impact")
@@ -342,55 +411,60 @@ export class ArenaScene extends Phaser.Scene {
       .setAlpha(0.35)
       .setTint(0x8ec9ff)
       .setDepth(this.hero.y - 1);
-    this.tweens.add({ targets: aura, alpha: 0, duration: 3000, onComplete: () => aura.destroy() });
+    this.tweens.add({ targets: aura, alpha: 0, duration: 3500, onComplete: () => aura.destroy() });
   }
 
   /** Mage : frappe le groupe le plus dense a distance. */
   private ultimeMeteore(): void {
-    const candidats = this.ennemisDansRayon(this.hero.x, this.hero.y, 320);
+    const candidats = this.ennemisDansRayon(this.hero.x, this.hero.y, 340);
     if (candidats.length === 0) return;
 
     let cible = candidats[0]!;
     let meilleurCompte = -1;
     for (const e of candidats) {
-      const compte = this.ennemisDansRayon(e.x, e.y, 90).length;
+      const compte = this.ennemisDansRayon(e.x, e.y, 100).length;
       if (compte > meilleurCompte) {
         meilleurCompte = compte;
         cible = e;
       }
     }
 
-    this.effetCercle(cible.x, cible.y, 100, 0xd06bff);
-    for (const e of this.ennemisDansRayon(cible.x, cible.y, 100)) {
-      this.blesserEnnemi(e, 60);
+    this.effetCercle(cible.x, cible.y, 110, 0xd06bff);
+    this.cameras.main.shake(180, 0.007);
+    for (const e of this.ennemisDansRayon(cible.x, cible.y, 110)) {
+      this.blesserEnnemi(e, this.hero.degats * 4);
     }
   }
 
   /** Assassin : traverse la melee en laissant des cadavres derriere lui. */
   private ultimeOmbre(): void {
-    const distance = 210;
+    const distance = 230;
     const depart = new Phaser.Math.Vector2(this.hero.x, this.hero.y);
     const arrivee = new Phaser.Math.Vector2(
       Phaser.Math.Clamp(this.hero.x + this.hero.regard.x * distance, MUR + 8, MONDE.largeur - MUR - 8),
       Phaser.Math.Clamp(this.hero.y + this.hero.regard.y * distance, MUR + 8, MONDE.hauteur - MUR - 8),
     );
 
-    this.hero.rendreInvulnerable(450);
+    this.hero.rendreInvulnerable(500);
     const trainee = this.add
       .line(0, 0, depart.x, depart.y, arrivee.x, arrivee.y, 0x7ee0a0)
       .setOrigin(0)
       .setLineWidth(3)
-      .setAlpha(0.7)
+      .setAlpha(0.75)
       .setDepth(this.hero.y - 1);
-    this.tweens.add({ targets: trainee, alpha: 0, duration: 300, onComplete: () => trainee.destroy() });
+    this.tweens.add({
+      targets: trainee,
+      alpha: 0,
+      duration: 320,
+      onComplete: () => trainee.destroy(),
+    });
 
     const segment = new Phaser.Geom.Line(depart.x, depart.y, arrivee.x, arrivee.y);
-    for (const objet of this.ennemis.getChildren()) {
-      const e = objet as Ennemi;
+    for (const e of [...this.ennemis.getChildren()] as Ennemi[]) {
       if (!e.active) continue;
       const proche = Phaser.Geom.Line.GetNearestPoint(segment, e, new Phaser.Geom.Point());
-      if (Phaser.Math.Distance.Between(proche.x, proche.y, e.x, e.y) <= 42) {
-        this.blesserEnnemi(e, 40);
+      if (Phaser.Math.Distance.Between(proche.x, proche.y, e.x, e.y) <= 44) {
+        this.blesserEnnemi(e, this.hero.degats * 5);
       }
     }
     this.hero.setPosition(arrivee.x, arrivee.y);
@@ -430,19 +504,32 @@ export class ArenaScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const rayon = Math.max(cam.width, cam.height) / cam.zoom / 2 + 60;
     const angle = this.rng.range(0, Math.PI * 2);
-    const x = Phaser.Math.Clamp(this.hero.x + Math.cos(angle) * rayon, MUR + 10, MONDE.largeur - MUR - 10);
-    const y = Phaser.Math.Clamp(this.hero.y + Math.sin(angle) * rayon, MUR + 10, MONDE.hauteur - MUR - 10);
+    const x = Phaser.Math.Clamp(
+      this.hero.x + Math.cos(angle) * rayon,
+      MUR + 10,
+      MONDE.largeur - MUR - 10,
+    );
+    const y = Phaser.Math.Clamp(
+      this.hero.y + Math.sin(angle) * rayon,
+      MUR + 10,
+      MONDE.hauteur - MUR - 10,
+    );
 
-    const e = new Ennemi(this, x, y, puissance);
-    this.ennemis.add(e);
+    this.ennemis.add(new Ennemi(this, x, y, puissance));
   }
 
   // --------------------------------------------------------------- degats
 
   private contactEnnemi(e: Ennemi): void {
-    if (!e.active || this.termine) return;
+    if (!e.active || this.termine || this.choixCompetence.estOuvert) return;
     if (!e.peutFrapper(this.time.now)) return;
     e.marquerCoup(this.time.now);
+
+    // Trait "riposte" du chevalier : il blesse ce qui le touche, esquive ou
+    // non. Plus on l'attaque, plus il tue.
+    if (this.hero.classe.trait === "riposte") {
+      this.blesserEnnemi(e, Math.round(this.hero.degats * 0.9));
+    }
 
     const esquive = this.hero.subirDegats(e.degats, this.rng.next());
     if (esquive) {
@@ -466,7 +553,7 @@ export class ArenaScene extends Phaser.Scene {
       .text(
         cam.width / 2,
         cam.height / 2,
-        `Le heros est tombe.\n\n${secondes} secondes  ·  ${this.kills} elimines\n\nR pour recommencer`,
+        `Le heros est tombe.\n\n${secondes} secondes  ·  ${this.kills} elimines  ·  niveau ${this.hero.niveau}\n\nR pour recommencer`,
         {
           fontFamily: "monospace",
           fontSize: "20px",
