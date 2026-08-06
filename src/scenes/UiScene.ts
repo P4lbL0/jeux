@@ -4,6 +4,7 @@ import { Hud } from "../game/hud";
 import { PanneauCapacites } from "../game/panneauCapacites";
 import { ChoixCompetence } from "../game/choixCompetence";
 import { FicheHero } from "../game/ficheHero";
+import { PanneauOrdres } from "../game/panneauOrdres";
 import type { Hero } from "../game/entities";
 import type { ArenaScene } from "./ArenaScene";
 
@@ -27,6 +28,7 @@ export class UiScene extends Phaser.Scene {
   private capacites!: PanneauCapacites;
   private choix!: ChoixCompetence;
   private fiche!: FicheHero;
+  private ordres!: PanneauOrdres;
   private stats!: Phaser.GameObjects.Text;
 
   constructor() {
@@ -40,12 +42,18 @@ export class UiScene extends Phaser.Scene {
   create(): void {
     const equipe = this.arene.etatEquipe;
 
-    // Cliquer un portrait ouvre la fiche du heros, meme s'il est joue par
-    // l'IA : c'est la qu'on lit ses statistiques et ses competences.
-    this.hud = new Hud(this, equipe.heros, (index) => this.ouvrirFiche(index));
+    // Clic gauche sur un portrait : la fiche du heros, meme s'il est joue par
+    // l'IA. Clic droit : on le selectionne pour lui donner un ordre.
+    this.hud = new Hud(
+      this,
+      equipe.heros,
+      (index) => this.ouvrirFiche(index),
+      (index, touteLaClasse) => this.arene.events.emit("selectionner", index, touteLaClasse),
+    );
     this.capacites = new PanneauCapacites(this, equipe.heros[equipe.indexIncarne]!);
     this.choix = new ChoixCompetence(this);
     this.fiche = new FicheHero(this);
+    this.ordres = new PanneauOrdres(this, 12, 12 + 62 + 10);
 
     this.stats = this.add
       .text(0, 0, "", {
@@ -108,6 +116,7 @@ export class UiScene extends Phaser.Scene {
 
   update(): void {
     this.hud.rafraichir(this.arene.etatEquipe);
+    this.ordres.rafraichir(this.arene.etatOrdres);
     this.capacites.rafraichir();
     const resume = this.arene.resume;
     this.stats.setPosition(this.scale.width - 16, 16);

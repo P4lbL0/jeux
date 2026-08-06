@@ -11,6 +11,7 @@ import {
   type EffetCapacite,
   type EvolutionDef,
 } from "../core/competences";
+import type { Ordre, Point } from "../core/ordres";
 
 /** Une capacite utilisable : l'ultime de classe, ou une competence active. */
 export interface Capacite {
@@ -50,6 +51,13 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   /** Choix de competence gagnes mais pas encore faits (DESIGN.md §4.3) */
   choixEnAttente = 0;
   regard = new Phaser.Math.Vector2(1, 0);
+
+  /** L'ordre en cours du joueur (DESIGN.md §4.4) */
+  ordre: Ordre = { posture: "temporiser", ancre: null };
+  /** Sa place dans la formation, recalculee a chaque image ; null = formation libre */
+  poste: Point | null = null;
+  /** Allie qu'il protege : son ancre le suit partout */
+  protege: Hero | null = null;
 
   /** Points de vie maximum gagnes par la Provocation, cumules pour la partie */
   pvGagnesProvocation = 0;
@@ -526,11 +534,25 @@ export class Invocation extends Phaser.Physics.Arcade.Sprite {
   seuilExecution = 0;
   /** Souffle tout autour en disparaissant */
   explosif = false;
+  /**
+   * Le meme ordre que les heros IA (DESIGN.md §4.4, §4.14) : c'est ce qui evite
+   * d'avoir deux systemes de commandement a maintenir. Sans ancre, il tient la
+   * position de son maitre.
+   */
+  ordre: Ordre = { posture: "temporiser", ancre: null };
+  /** Allie qu'il protege : son ancre le suit partout */
+  protege: Hero | null = null;
   private prochainCoup = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string, maitre: Hero) {
     super(scene, x, y, texture);
     this.maitre = maitre;
+    // Il nait avec l'ordre en cours de son maitre : sans ca, chaque nouveau
+    // mort-vivant repartirait au hasard au milieu d'une manoeuvre. L'ancre est
+    // recopiee, jamais partagee : elle est deplacee en place a chaque image.
+    const ancre = maitre.ordre.ancre;
+    this.ordre = { posture: maitre.ordre.posture, ancre: ancre ? { ...ancre } : null };
+    this.protege = maitre.protege;
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.body?.setSize(8, 9);

@@ -1,4 +1,5 @@
 import type { EtatHero } from "./classes";
+import { LAISSE, ORDRE_PAR_DEFAUT, REGLAGES, TOLERANCE_ANCRE, type Ordre, type Point } from "./ordres";
 
 /**
  * L'IA qui joue les heros que le joueur n'incarne pas (DESIGN.md §4.3).
@@ -17,9 +18,9 @@ import type { EtatHero } from "./classes";
  * sans lancer le jeu. La garantie « l'IA ne perd jamais un heros » merite
  * d'etre verifiee autrement qu'a l'oeil.
  *
- * Au jalon 4, le joueur pourra lui donner des ordres — position, posture,
- * formation (DESIGN.md §4.4). Pour l'instant elle applique le comportement par
- * defaut de la classe.
+ * Le joueur la commande par des ordres (DESIGN.md §4.4). Un ordre ne remplace
+ * jamais cette logique : il en regle les chiffres, et il ne peut rien contre le
+ * repli des 20%.
  */
 
 export interface Vecteur {
@@ -27,14 +28,13 @@ export interface Vecteur {
   y: number;
 }
 
-/** Au-dela de cette distance de la cite, un heros IA revient : il la defend. */
-export const LAISSE = 430;
+export { LAISSE };
 
 /** Part de vie a partir de laquelle un heros soigne repart au combat */
 export const SEUIL_RETOUR = 0.7;
 
-/** Nombre d'ennemis autour qui declenche un ultime */
-export const ENNEMIS_POUR_ULTIME = 3;
+/** Nombre d'ennemis autour qui declenche un ultime, en posture par defaut */
+export const ENNEMIS_POUR_ULTIME = REGLAGES.temporiser.ennemisPourCapacite;
 
 /** Ce dont l'IA a besoin pour decider. Un Hero satisfait cette forme. */
 export interface HeroPilote {
@@ -45,6 +45,10 @@ export interface HeroPilote {
   portee: number;
   /** Ne sort jamais de la cite : le Necromancien laisse ses morts se battre */
   resteEnCite?: boolean;
+  /** L'ordre en cours ; absent, il temporise autour de la cite */
+  ordre?: Ordre;
+  /** Sa place dans la formation, si l'equipe en tient une (DESIGN.md §4.4) */
+  poste?: Point | null;
 }
 
 export interface ContexteIA {
@@ -63,11 +67,14 @@ export function piloter(hero: HeroPilote, ctx: ContexteIA): DecisionIA {
   const immobile = { direction: { x: 0, y: 0 }, lancerUltime: false };
   const versCite = { x: ctx.cite.x - hero.x, y: ctx.cite.y - hero.y };
   const distanceCite = longueur(versCite);
+  const ordre = hero.ordre ?? ORDRE_PAR_DEFAUT;
 
   if (hero.etat === "mort") return immobile;
 
-  // 1. Repli : rien d'autre ne compte.
-  if (hero.etat === "repli") {
+  // 1. Repli : rien d'autre ne compte. Aucune posture ne peut l'annuler — c'est
+  //    la garantie que l'IA ne perd jamais un heros (DESIGN.md §4.3 et §4.4).
+  if (hero.etat === "repli" || ordre.posture === "repli") {
+    if (hero.etat === "cite") return immobile;
     return { direction: normaliser(versCite), lancerUltime: false };
   }
 
@@ -76,32 +83,41 @@ export function piloter(hero: HeroPilote, ctx: ContexteIA): DecisionIA {
   if (hero.resteEnCite) {
     return {
       direction: distanceCite > ctx.cite.rayon * 0.6 ? normaliser(versCite) : { x: 0, y: 0 },
-      lancerUltime: ctx.nombreEnnemisAutour(hero.x, hero.y, 400) >= ENNEMIS_POUR_ULTIME,
+      lancerUltime:
+        ctx.nombreEnnemisAutour(hero.x, hero.y, 400) >= REGLAGES[ordre.posture].ennemisPourCapacite,
     };
   }
 
   // 3. A l'abri dans la cite : il se soigne tant qu'il n'est pas remis.
   if (hero.etat === "cite" && hero.ratioPv < SEUIL_RETOUR) return immobile;
 
+  // 4. Ou il se tient. Son poste de formation prime sur l'ancre qu'on lui a
+  //    donnee, qui prime sur la cite.
+  const reglage = REGLAGES[ordre.posture];
+  const ancre = hero.poste ?? ordre.ancre ?? ctx.cite;
+  const tolerance = hero.poste || ordre.ancre ? TOLERANCE_ANCRE : ctx.cite.rayon;
+  const versAncre = { x: ancre.x - hero.x, y: ancre.y - hero.y };
+  const distanceAncre = longueur(versAncre);
+
   const cible = ctx.ennemiLePlusProche(hero.x, hero.y, 1000);
 
-  // 4. Rien a combattre : il retourne monter la garde autour de la cite.
+  // 5. Rien a combattre : il retourne tenir sa place.
   if (!cible) {
     return {
-      direction: distanceCite > ctx.cite.rayon ? normaliser(versCite) : { x: 0, y: 0 },
+      direction: distanceAncre > tolerance ? normaliser(versAncre) : { x: 0, y: 0 },
       lancerUltime: false,
     };
   }
 
-  // 5. Trop loin de la cite : il la defend, il ne part pas a l'aventure.
-  if (distanceCite > LAISSE) {
-    return { direction: normaliser(versCite), lancerUltime: false };
+  // 6. Trop loin de son ancre : il la tient, il ne part pas a l'aventure.
+  if (distanceAncre > reglage.laisse) {
+    return { direction: normaliser(versAncre), lancerUltime: false };
   }
 
-  // 6. Combat : tenir la distance ideale de sa classe.
+  // 7. Combat : tenir la distance ideale de sa classe, resserree en agressif.
   const versCible = { x: cible.x - hero.x, y: cible.y - hero.y };
   const distance = longueur(versCible);
-  const ideale = distanceIdeale(hero);
+  const ideale = distanceIdeale(hero) * reglage.distance;
 
   let direction: Vecteur;
   if (distance > ideale * 1.15) {
@@ -116,7 +132,7 @@ export function piloter(hero: HeroPilote, ctx: ContexteIA): DecisionIA {
 
   return {
     direction,
-    lancerUltime: ctx.nombreEnnemisAutour(hero.x, hero.y, 110) >= ENNEMIS_POUR_ULTIME,
+    lancerUltime: ctx.nombreEnnemisAutour(hero.x, hero.y, 110) >= reglage.ennemisPourCapacite,
   };
 }
 

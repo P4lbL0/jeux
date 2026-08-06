@@ -41,6 +41,15 @@ export const COULEURS_RANG: Record<Rang, number> = {
   SSR: 0xf0c419,
 };
 
+/**
+ * Le poste qu'une classe occupe dans une formation (DESIGN.md §4.4).
+ *
+ * C'est une donnee de classe et non une categorie de code : une formation ne
+ * connait que des roles, jamais des noms de classes. Ajouter une classe demain,
+ * c'est lui donner un role — pas retoucher les formations.
+ */
+export type Role = "avant" | "flanc" | "centre" | "arriere";
+
 export type EffetUltime =
   | "tourbillon"
   | "rempart"
@@ -96,6 +105,8 @@ export interface ClasseDef {
    * sinon le deplacement ne veut plus rien dire (DESIGN.md §4.2).
    */
   distanceIdeale: string;
+  /** Sa place dans une formation (DESIGN.md §4.4) */
+  role: Role;
   trait: TraitClasse;
   traitNom: string;
   traitTexte: string;
@@ -121,6 +132,7 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     degats: 13,
     esquive: 0.05,
     distanceIdeale: "Au contact, toujours en mouvement",
+    role: "avant",
     trait: "arc-large",
     traitNom: "Fauchage",
     traitTexte: "Frappe tout un demi-cercle devant lui",
@@ -148,6 +160,7 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     degats: 9,
     esquive: 0.02,
     distanceIdeale: "En premiere ligne, il encaisse pour les autres",
+    role: "avant",
     trait: "riposte",
     traitNom: "Serment",
     traitTexte: "Blesse quiconque le touche : plus on l'attaque, plus il tue",
@@ -175,6 +188,7 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     degats: 16,
     esquive: 0.05,
     distanceIdeale: "Le plus loin possible, jamais rattrape",
+    role: "arriere",
     trait: "explosion",
     traitNom: "Deflagration",
     traitTexte: "Chaque tir explose et touche tout le groupe",
@@ -202,6 +216,7 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     degats: 7,
     esquive: 0.1,
     distanceIdeale: "Dans le dos, il pique et il repart",
+    role: "flanc",
     trait: "critique",
     traitNom: "Mise a mort",
     traitTexte: "25% de coups critiques, et la cadence la plus rapide du jeu",
@@ -229,6 +244,7 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     degats: 11,
     esquive: 0.07,
     distanceIdeale: "Loin et mobile, il ne s'arrete jamais",
+    role: "arriere",
     trait: "volee",
     traitNom: "Volee",
     traitTexte: "Tire trois fleches en eventail a chaque attaque",
@@ -256,6 +272,7 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     degats: 8,
     esquive: 0.04,
     distanceIdeale: "Derriere la ligne, a portee de ses blesses",
+    role: "centre",
     trait: "soin-de-zone",
     traitNom: "Verbe",
     traitTexte: "Chaque attaque soigne aussi l'allie le plus blesse autour d'elle",
@@ -284,6 +301,7 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     degats: 10,
     esquive: 0.03,
     distanceIdeale: "Dans la cite, a l'abri, pendant que ses morts travaillent",
+    role: "centre",
     trait: "necromancie",
     traitNom: "Relevement",
     traitTexte: "8% des cadavres se relevent pour se battre a ses cotes",

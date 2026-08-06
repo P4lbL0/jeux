@@ -23,15 +23,40 @@ npm run build   # verifie les types et construit la version finale
 
 | Touche | Action |
 |---|---|
-| `ZQSD`, les fleches, ou **clic** | Se deplacer (maintenir le clic pour guider) |
+| `ZQSD`, les fleches, ou **clic gauche** | Se deplacer (maintenir pour guider) |
 | `Espace` (ou `1`) | Ultime |
-| `A` / `E`, ou clic sur un portrait | Changer de heros |
+| `A` / `E`, ou clic gauche sur un portrait | Changer de heros / voir sa fiche |
 | `1` `2` `3` | Choisir une amelioration a la montee de niveau |
 | Molette | Zoomer / dezoomer |
 | `R` | Recommencer apres la mort |
 
 L'attaque, la visee et l'esquive sont **automatiques** : le joueur ne controle
 que le deplacement et ses ultimes.
+
+## Les ordres
+
+Gauche, c'est **moi** ; droite, c'est **les autres**. Le combat ne s'arrete
+jamais pour donner un ordre (DESIGN.md §4.4).
+
+| Touche | Action |
+|---|---|
+| **Clic droit** sur le sol | La selection va tenir ce point |
+| **Clic droit** sur un allie | La selection le protege : l'ancre le suit |
+| **Clic droit** sur un portrait | Ajoute / retire ce heros de la selection |
+| **Maj + clic droit** sur un portrait | Selectionne toute sa classe |
+| `W` / `X` / `C` | Temporiser / Agressif / Repli |
+| `V` | Change de formation (libre, mur, cercle) |
+| `Echap` | *Rompez* : plus de selection, plus de position tenue |
+
+Sans selection, l'ordre vaut pour **toute l'equipe**. Le heros incarne n'obeit
+jamais : c'est le joueur qui le pilote.
+
+Les **mort-vivants du Necromancien recoivent exactement les memes ordres** —
+c'est un seul systeme, pas deux (DESIGN.md §4.14).
+
+**Aucune posture n'annule le repli des 20%.** Un heros en posture agressive qui
+tombe au seuil critique decroche quand meme. C'est teste
+([ia.test.ts](src/core/ia.test.ts)), et ca doit le rester.
 
 Chaque montee de niveau met le jeu **en pause** et propose trois ameliorations.
 C'est toujours le joueur qui choisit — jamais l'IA (DESIGN.md §4.3).
@@ -52,12 +77,14 @@ Consequence : un heros ne peut mourir **que par une decision du joueur**.
 
 Voir la feuille de route dans [DESIGN.md](DESIGN.md#5-ordre-de-construction).
 
-**Jalons 1 a 3** — une arene, une equipe de quatre heros, l'attaque automatique,
+**Jalons 1 a 3** — une arene, une equipe de heros, l'attaque automatique,
 un ultime et un trait par classe, l'IA qui joue les heros non incarnes, la regle
 des 20%, la cite ou l'on se soigne, la mort definitive, et la boucle
 XP → niveau → choix d'amelioration.
 
-Prochain jalon : les ordres donnes a l'IA — position, posture, formations.
+**Jalon 4, en cours** — les ordres : position, posture, formations, et le meme
+systeme pour les mort-vivants du Necromancien. Reste a faire :
+l'**experience de groupe** (DESIGN.md §4.16).
 
 ## Structure du code
 
@@ -65,15 +92,19 @@ Prochain jalon : les ordres donnes a l'IA — position, posture, formations.
 src/
   core/      logique pure, sans Phaser, testable
     rng.ts           aleatoire seede (une graine = une partie rejouable)
-    classes.ts       donnees des 4 classes — c'est ici qu'on equilibre
+    classes.ts       donnees des 7 classes — c'est ici qu'on equilibre
     competences.ts   ameliorations et leurs raretes
     ia.ts            decisions des heros joues par l'IA (fonction pure, testee)
+    ordres.ts        postures, formations et postes (fonction pure, testee)
   game/      ce qui vit a l'ecran
     art.ts             textures placeholder generees par code
-    entities.ts        heros et ennemis
-    hud.ts             barre de heros (le futur ecran de triage)
-    panneauUltimes.ts  panneau des ultimes, en bas a gauche
+    entities.ts        heros, ennemis et invocations
+    commandement.ts    selection et distribution des ordres
+    hud.ts             barre de heros (l'ecran de triage)
+    panneauCapacites.ts panneau des capacites, en bas a gauche
+    panneauOrdres.ts   qui obeit, et a quoi
     choixCompetence.ts ecran de montee de niveau
+    ficheHero.ts       fiche detaillee d'un heros
   scenes/    les ecrans du jeu
     ChoixClasseScene.ts  choix de la classe de depart
     ArenaScene.ts        le combat

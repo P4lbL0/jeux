@@ -38,6 +38,8 @@ export interface EtatEquipe {
   indexIncarne: number;
   /** Le heros courant permet-il d'en changer maintenant ? (DESIGN.md §4.3) */
   changementAutorise: boolean;
+  /** Heros vises par le prochain ordre (DESIGN.md §4.4) */
+  selection: Hero[];
 }
 
 interface Carte {
@@ -56,7 +58,8 @@ export class Hud {
   constructor(
     private scene: Phaser.Scene,
     heros: Hero[],
-    surSelection: (index: number) => void,
+    surFiche: (index: number) => void,
+    surSelection: (index: number, touteLaClasse: boolean) => void,
   ) {
     this.graphiques = scene.add.graphics().setDepth(1000);
 
@@ -76,13 +79,20 @@ export class Hud {
         .zone(x, MARGE, LARGEUR, HAUTEUR)
         .setOrigin(0)
         .setInteractive({ useHandCursor: true })
-        .on("pointerdown", () => surSelection(i));
+        // Gauche pour consulter, droite pour commander : la meme regle que sur
+        // le terrain (DESIGN.md §4.4).
+        .on("pointerdown", (pointeur: Phaser.Input.Pointer) => {
+          if (pointeur.rightButtonDown()) surSelection(i, pointeur.event.shiftKey);
+          else surFiche(i);
+        });
     });
 
     this.info = this.texte(0, 0, 11, "#d8d2c4").setOrigin(0.5, 0);
     this.info.setText(
-      "ZQSD, fleches ou clic : se deplacer   ·   ESPACE, 2, 3 : capacites   ·   A / E : changer de heros   ·   clic sur un portrait : sa fiche",
+      "ZQSD ou clic gauche : se deplacer   ·   ESPACE, 2, 3 : capacites   ·   A / E : changer de heros\n" +
+        "clic DROIT : ordonner   ·   W / X / C : temporiser, agressif, repli   ·   V : formation   ·   ECHAP : rompez",
     );
+    this.info.setAlign("center");
 
     this.alerte = this.texte(0, 0, 13, "#ff8a7a").setOrigin(0.5, 0);
 
@@ -101,7 +111,7 @@ export class Hud {
   }
 
   private placerBas(): void {
-    this.info.setPosition(this.scene.scale.width / 2, this.scene.scale.height - 26);
+    this.info.setPosition(this.scene.scale.width / 2, this.scene.scale.height - 40);
     this.alerte.setPosition(this.scene.scale.width / 2, MARGE + HAUTEUR + 10);
   }
 
@@ -123,6 +133,14 @@ export class Hud {
       g.fillRoundedRect(x, y, LARGEUR, HAUTEUR, 6);
       g.lineStyle(incarne ? 3 : 2, incarne ? 0xf0c419 : 0x4a4152, 1);
       g.strokeRoundedRect(x, y, LARGEUR, HAUTEUR, 6);
+
+      // Selectionne : le prochain ordre est pour lui (DESIGN.md §4.4). Le
+      // lisere se pose en dehors du cadre pour ne pas concurrencer celui,
+      // jaune, du heros incarne.
+      if (etat.selection.includes(hero)) {
+        g.lineStyle(2, 0x5ec8f0, 0.95);
+        g.strokeRoundedRect(x - 3, y - 3, LARGEUR + 6, HAUTEUR + 6, 8);
+      }
 
       g.fillStyle(0x2a2433, 1);
       g.fillRect(x + 10, y + 12, 24, 38);

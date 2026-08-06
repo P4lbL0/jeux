@@ -3,7 +3,7 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-08-06
+> Dernière mise à jour : 2026-08-06 (jalon 4 : ordres et formations)
 
 ---
 
@@ -255,16 +255,111 @@ Le système récompense la rotation entre les personnages.
 
 ### 4.4 Ordres et formations
 
-Le joueur ne subit pas l'IA, il la **commande**. Il peut décider :
+Le joueur ne subit pas l'IA, il la **commande**. Il peut décider **où** un subordonné se
+rend, **quelle posture** il adopte, et **quelle formation** l'équipe tient.
 
-- **Où** un héros IA se rend sur la carte (point de ralliement) ;
-- **Quelle posture** il adopte : temporiser, attaquer agressivement, se replier ;
-- **Quelle formation** l'équipe tient : les tanks devant, les soigneurs derrière, etc.
+C'est la couche tactique du combat. Avec un joueur qui ne fait que bouger et lâcher une
+capacité, ce sont ces ordres qui portent la profondeur du jeu.
 
-C'est la couche tactique du combat. Avec un joueur qui ne fait que bouger et lâcher un
-ultime, ce sont ces ordres qui portent la profondeur du jeu.
+#### Un seul système, deux populations
 
-> Cela implique l'existence d'une classe **soigneur** — à confirmer, voir §6.
+Tout ce qui obéit au joueur — **héros joué par l'IA** et **mort-vivant du Nécromancien**
+(§4.14) — reçoit exactement le même objet :
+
+```
+Ordre = { posture, ancre }
+```
+
+L'**ancre** est soit un point de la carte, soit **une entité à suivre**. C'est ce second
+cas qui donne gratuitement le « protéger ce héros » du §4.14 : protéger quelqu'un, c'est
+s'ancrer sur lui. Deux systèmes de commandement séparés, ce serait deux fois le travail
+et deux fois les bugs — il n'y en a donc qu'un.
+
+#### Les trois postures
+
+| Posture | Le héros IA… | Le mort-vivant… |
+|---|---|---|
+| **Temporiser** *(défaut)* | tient son ancre, n'engage que ce qui vient à lui, garde ses capacités pour les gros paquets | tient la position |
+| **Agressif** | va chercher l'ennemi loin de son ancre, colle sa cible, lâche ses capacités dès qu'elles sont prêtes | charge |
+| **Repli** | décroche vers la cité et y reste jusqu'à guérison | revient au nécromancien |
+
+Concrètement, une posture ne fait que régler trois chiffres : la **laisse** (jusqu'où il
+s'éloigne de son ancre), la **distance de combat** qu'il cherche à tenir, et le **nombre
+d'ennemis** à partir duquel il déclenche une capacité. Rien de plus. C'est volontaire :
+un système d'ordres qui a sa propre logique de combat en parallèle de l'IA, c'est deux
+IA à déboguer.
+
+> ⚠️ **Aucune posture ne passe outre la règle des 20%.** Un héros en posture agressive
+> qui tombe au seuil critique décroche quand même, et rien ne peut l'en empêcher. Si un
+> ordre pouvait annuler le repli automatique, le joueur pourrait tuer un héros sans le
+> décider vraiment — et tout le §4.3 s'effondre. C'est la règle la plus importante de ce
+> système, et elle doit être **testée**, pas seulement écrite.
+
+#### Qui reçoit l'ordre
+
+La sélection est souple, parce que les besoins le sont : parfois on redéploie toute
+l'équipe, parfois on rappelle un seul blessé, parfois on veut que **tous les distants**
+reculent d'un coup.
+
+- **Rien de sélectionné** → l'ordre vaut pour **toute l'équipe IA**.
+- **Un ou plusieurs héros sélectionnés** → l'ordre ne vaut que pour eux.
+- **Toute une classe d'un coup** → tous les héros de cette classe rejoignent la sélection.
+
+Le héros incarné n'obéit jamais : c'est le joueur qui le pilote.
+
+#### Les formations
+
+Une formation attribue à chaque héros un **poste**, une place relative à un point
+d'ancrage. Ancre par défaut : le **héros incarné** — la formation le suit donc en
+permanence, et le joueur déplace toute sa ligne en se déplaçant lui-même.
+
+Le poste dépend du **rôle** de la classe, pas de son nom : c'est une donnée de plus dans
+`classes.ts`, au même titre que la portée.
+
+| Rôle | Classes | Place |
+|---|---|---|
+| **Avant** | Guerrier, Chevalier Sacré | Devant l'ancre, face à la menace |
+| **Flanc** | Assassin | Sur les côtés, il prend à revers |
+| **Centre** | Oracle, Nécromancien | Au milieu, protégé, à portée de ses blessés |
+| **Arrière** | Mage, Rôdeur | Derrière, hors de la mêlée |
+
+Trois formations pour commencer :
+
+- **Libre** — aucun poste, chacun joue sa distance idéale. C'est le comportement actuel,
+  et il reste le défaut.
+- **Mur** — les rôles s'étagent face à la menace. La formation d'attaque et de progression.
+- **Cercle** — tout le monde autour de l'ancre, les avants tournés vers l'extérieur. La
+  formation de siège, quand on est encerclé ou qu'on tient la cité.
+
+Les formations suivantes ne s'achètent pas : elles **s'apprennent** par l'expérience de
+groupe (§4.16).
+
+> Un poste n'est pas une laisse courte : un héros à son poste se bat normalement contre
+> ce qui l'approche, il revient simplement à sa place quand la pression retombe. Une
+> formation qui fige les héros produirait des cibles immobiles, et le §4.17 rappelle
+> qu'un héros qui ne bouge pas se fait encercler.
+
+#### Les commandes
+
+Le combat ne s'arrête **jamais** pour donner un ordre. C'est un survivors-like : une
+pause tactique à chaque décision détruirait le rythme qui fait tout le jeu.
+
+| Commande | Effet |
+|---|---|
+| **Clic droit** sur le sol | Ancre la sélection sur ce point |
+| **Clic droit** sur un allié | Ancre la sélection sur lui — c'est le « protège-le » |
+| **Clic droit** sur un portrait | Ajoute / retire ce héros de la sélection |
+| **Maj + clic droit** sur un portrait | Sélectionne toute sa classe |
+| **W** / **X** / **C** | Temporiser / Agressif / Repli |
+| **V** | Change de formation |
+| **Échap** | *Rompez* : efface la sélection **et** toutes les positions tenues à la main |
+
+Une ancre posée à la main **détache** le héros de la formation — sinon l'ordre le plus
+précis serait le seul à ne rien faire. C'est à ça que sert *Rompez* : sans lui, un héros
+envoyé tenir un carrefour y resterait le restant de la partie.
+
+Le clic **gauche** ne change pas de rôle : il déplace le héros incarné et ouvre les
+fiches. Gauche, c'est *moi* ; droite, c'est *les autres*.
 
 ### 4.5 Vagues
 
@@ -628,9 +723,10 @@ pas de ce qu'elle fait, mais de ce qui est *déjà mort*. Elle transforme les pe
 tiennes comprises — en ressource. Et elle donne au village une population qui n'a pas
 besoin d'être nourrie.
 
-> ⚠️ À surveiller : les ordres aux sbires doivent partager la même interface que les
-> ordres aux héros IA (§4.4). Deux systèmes de commandement séparés, ce serait deux fois
-> le travail et deux fois les bugs.
+> Les ordres aux sbires **partagent le même système** que les ordres aux héros IA : même
+> objet `Ordre`, mêmes postures, même sélection (§4.4). « Tenir une position » est la
+> posture *temporiser*, « charger » est la posture *agressif*, et « protéger un héros »
+> est simplement une ancre posée sur ce héros.
 
 ### 4.15 L'effectif : dix dehors, le reste en garnison
 
@@ -738,7 +834,6 @@ vaut le découvrir en semaine 1 qu'en mois 6.
 - [ ] Niveau maximum de chaque rang au-delà du F (F = 10)
 - [ ] Liste des compétences et de leurs raretés
 - [ ] Ultime de chaque classe
-- [ ] Existe-t-il une classe **soigneur** ? Les formations du §4.4 la supposent.
 - [ ] Comment recrute-t-on un héros ? Il se présente, on l'achète, on le trouve ?
 - [ ] Liste des défenses entre la baliste et le canon laser
 - [ ] Coût du totem d'immortalité, et est-il consommé à l'usage ou permanent ?
@@ -771,6 +866,11 @@ vaut le découvrir en semaine 1 qu'en mois 6.
 - ✅ On peut recruter **plusieurs héros de la même classe** (§4.1)
 - ✅ **Dix héros dehors** au maximum, le reste en garnison défend la ville (§4.15)
 - ✅ **Expérience de groupe** : combattre ensemble donne des bonus et débloque des formations (§4.16)
+- ✅ Classe **soigneur** → c'est l'**Oracle**, il n'en faut pas une seconde (§4.1)
+- ✅ Ordres → **un seul système** pour les héros IA et les sbires : posture + ancre,
+  sélection souple, sans jamais mettre le jeu en pause (§4.4)
+- ✅ Formations → des **postes** relatifs à une ancre, attribués par le **rôle** de la
+  classe (avant / flanc / centre / arrière) (§4.4)
 
 ---
 

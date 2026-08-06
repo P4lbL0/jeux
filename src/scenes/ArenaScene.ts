@@ -21,7 +21,17 @@ import {
   type Dome,
 } from "../game/entities";
 import { piloter, type ContexteIA } from "../core/ia";
+import {
+  NOMS_FORMATION,
+  NOMS_POSTURE,
+  REGLAGES,
+  TOLERANCE_ANCRE,
+  type Point,
+  type Posture,
+} from "../core/ordres";
+import { Commandement } from "../game/commandement";
 import type { EtatEquipe } from "../game/hud";
+import type { EtatOrdres } from "../game/panneauOrdres";
 
 /**
  * L'arene : combat, equipe, IA, progression.
@@ -63,6 +73,9 @@ export class ArenaScene extends Phaser.Scene {
   private rng!: Rng;
   private heros: Hero[] = [];
   private indexIncarne = 0;
+  /** Le poste de commandement : selection, ordres, formation (DESIGN.md §4.4) */
+  commandement!: Commandement;
+  private graphiquesOrdres!: Phaser.GameObjects.Graphics;
   private equipe!: Phaser.Physics.Arcade.Group;
   private ennemis!: Phaser.Physics.Arcade.Group;
   private projectiles!: Phaser.Physics.Arcade.Group;
@@ -149,6 +162,25 @@ export class ArenaScene extends Phaser.Scene {
       heros: this.heros,
       indexIncarne: this.indexIncarne,
       changementAutorise: this.changementAutorise(),
+      selection: this.commandement?.selectionnes ?? [],
+    };
+  }
+
+  /** Ce que l'interface doit savoir des ordres en cours (DESIGN.md §4.4). */
+  get etatOrdres(): EtatOrdres {
+    const vises = this.commandement?.destinataires(this.hero ?? null) ?? [];
+    const postures = new Set(vises.map((h) => h.ordre.posture));
+    return {
+      formation: this.commandement?.formation ?? "libre",
+      // Une seule posture affichee quand toute la selection est d'accord :
+      // annoncer « Agressif » alors que la moitie temporise serait un mensonge.
+      posture: postures.size === 1 ? [...postures][0]! : null,
+      nombreVises: vises.length,
+      selectionExplicite: !(this.commandement?.selectionVide ?? true),
+      message:
+        this.time.now - (this.commandement?.dernierMessageA ?? 0) < 1600
+          ? this.commandement.dernierMessage
+          : "",
     };
   }
 
@@ -167,6 +199,10 @@ export class ArenaScene extends Phaser.Scene {
     this.projectiles = this.physics.add.group();
     this.invocations = this.physics.add.group();
     this.composerEquipe();
+    this.commandement = new Commandement(this.heros);
+    // Sous les personnages : les reperes d'ordres ne doivent jamais masquer le
+    // combat.
+    this.graphiquesOrdres = this.add.graphics().setDepth(-400);
 
     this.physics.world.setBounds(MUR, MUR, MONDE.largeur - MUR * 2, MONDE.hauteur - MUR * 2);
     this.cameras.main.setBounds(0, 0, MONDE.largeur, MONDE.hauteur);
@@ -189,9 +225,11 @@ export class ArenaScene extends Phaser.Scene {
     this.scene.launch("ui", { arene: this });
     this.events.on("choix-fait", this.resoudreChoix, this);
     this.events.on("changer-hero", this.changerHero, this);
+    this.events.on("selectionner", this.selectionnerDepuisUi, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.events.off("choix-fait", this.resoudreChoix, this);
       this.events.off("changer-hero", this.changerHero, this);
+      this.events.off("selectionner", this.selectionnerDepuisUi, this);
     });
 
     this.debut = this.time.now;
@@ -270,6 +308,10 @@ export class ArenaScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * Gauche, c'est *moi* ; droite, c'est *les autres* (DESIGN.md §4.4).
+   * Le combat ne s'arrete jamais pour donner un ordre.
+   */
   private configurerSouris(): void {
     // Sans ca, le clic droit ouvre le menu du navigateur en plein combat.
     this.input.mouse?.disableContextMenu();
@@ -280,8 +322,90 @@ export class ArenaScene extends Phaser.Scene {
       this.destination = new Phaser.Math.Vector2(point.x, point.y);
       this.montrerMarqueur();
     };
-    this.input.on("pointerdown", viser);
-    this.input.on("pointermove", (p: Phaser.Input.Pointer) => p.isDown && viser(p));
+
+    this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
+      if (this.termine || this.enPause) return;
+      if (p.rightButtonDown()) this.ordonnerAncre(p);
+      else viser(p);
+    });
+    // Maintenir guide le heros ; le clic droit, lui, ne se maintient pas.
+    this.input.on(
+      "pointermove",
+      (p: Phaser.Input.Pointer) => p.isDown && !p.rightButtonDown() && viser(p),
+    );
+  }
+
+  // ------------------------------------------------------------ commandement
+
+  /**
+   * Clic droit : la selection va tenir ce point. Sur un allie, elle le suit
+   * partout — proteger quelqu'un, c'est s'ancrer sur lui (DESIGN.md §4.4).
+   */
+  private ordonnerAncre(pointeur: Phaser.Input.Pointer): void {
+    const point = this.cameras.main.getWorldPoint(pointeur.x, pointeur.y);
+    const protege = this.alliePres(point.x, point.y);
+    const incarne = this.hero ?? null;
+
+    const nombre = this.commandement.ancrer(
+      protege ? { x: protege.x, y: protege.y } : { x: point.x, y: point.y },
+      protege ?? null,
+      incarne,
+      this.sbires,
+    );
+    if (nombre === 0) return;
+
+    this.effetCercle(point.x, point.y, protege ? 34 : 22, protege ? 0x7ee0a0 : 0x5ec8f0);
+    this.annoncer(
+      protege
+        ? `${nombre} protege${nombre > 1 ? "nt" : ""} ${protege.classe.nom}`
+        : `${nombre} en route`,
+    );
+  }
+
+  /** Le heros le plus proche du clic, s'il est assez pres pour etre vise. */
+  private alliePres(x: number, y: number): Hero | null {
+    let meilleur: Hero | null = null;
+    let distance = 26;
+    for (const hero of this.heros) {
+      if (!hero.estVivant) continue;
+      const d = Phaser.Math.Distance.Between(x, y, hero.x, hero.y);
+      if (d < distance) {
+        distance = d;
+        meilleur = hero;
+      }
+    }
+    return meilleur;
+  }
+
+  private ordonnerPosture(posture: Posture): void {
+    const nombre = this.commandement.donnerPosture(posture, this.hero ?? null, this.sbires);
+    if (nombre > 0) this.annoncer(`${nombre} · ${NOMS_POSTURE[posture]}`);
+  }
+
+  private changerFormation(): void {
+    const formation = this.commandement.changerFormation();
+    this.annoncer(`Formation : ${NOMS_FORMATION[formation]}`);
+  }
+
+  private rompre(): void {
+    this.commandement.rompre(this.sbires);
+    this.annoncer("Rompez");
+  }
+
+  /** Clic droit sur un portrait, transmis par l'interface. */
+  private selectionnerDepuisUi(index: number, touteLaClasse: boolean): void {
+    const hero = this.heros[index];
+    if (!hero || !hero.estVivant) return;
+    if (touteLaClasse) this.commandement.selectionnerClasse(hero.classe.id);
+    else this.commandement.basculer(hero);
+  }
+
+  private annoncer(message: string): void {
+    this.commandement.annoncer(message, this.time.now);
+  }
+
+  private get sbires(): Invocation[] {
+    return (this.invocations.getChildren() as Invocation[]).filter((i) => i.active);
   }
 
   private montrerMarqueur(): void {
@@ -320,6 +444,22 @@ export class ArenaScene extends Phaser.Scene {
     // A et E encadrent ZQSD : on change de heros sans lacher les deplacements.
     clavier.addKey(K.A).on("down", () => this.changerHeroRelatif(-1));
     clavier.addKey(K.E).on("down", () => this.changerHeroRelatif(1));
+
+    // Les ordres tombent sous la rangee de deplacement : la main gauche
+    // commande sans jamais lacher ZQSD (DESIGN.md §4.4).
+    const ordres: [number, () => void][] = [
+      [K.W, () => this.ordonnerPosture("temporiser")],
+      [K.X, () => this.ordonnerPosture("agressif")],
+      [K.C, () => this.ordonnerPosture("repli")],
+      [K.V, () => this.changerFormation()],
+      [K.ESC, () => this.rompre()],
+    ];
+    for (const [code, action] of ordres) {
+      clavier.addKey(code).on("down", () => {
+        if (this.termine || this.enPause) return;
+        action();
+      });
+    }
 
     clavier.addKey(K.R).on("down", () => {
       if (!this.termine) return;
@@ -384,6 +524,7 @@ export class ArenaScene extends Phaser.Scene {
 
     this.majEtats(delta);
     this.majContexteEquipe();
+    this.majCommandement();
     this.majProvocation();
     this.majOrbiteurs();
     this.majAuras();
@@ -404,6 +545,56 @@ export class ArenaScene extends Phaser.Scene {
     this.gererCapacites();
     this.fairePartirLesVagues();
     this.trierProfondeurs();
+  }
+
+  /**
+   * La formation et les ancres, recalculees une fois par image pour toute
+   * l'equipe — jamais heros par heros (regle 5 du §4.17).
+   *
+   * L'ancre de la formation, c'est le heros incarne : le joueur deplace donc
+   * toute sa ligne en se deplacant lui-meme (DESIGN.md §4.4).
+   */
+  private majCommandement(): void {
+    const sbires = this.sbires;
+    this.commandement.suivreLesProteges(sbires);
+
+    const ancre = this.hero?.estVivant ? { x: this.hero.x, y: this.hero.y } : CITE;
+    const menace = this.ennemiLePlusProche(ancre.x, ancre.y, 900);
+    this.commandement.majPostes(
+      ancre,
+      menace ? { x: menace.x, y: menace.y } : null,
+      this.hero ?? null,
+    );
+
+    this.dessinerOrdres();
+  }
+
+  /**
+   * Un seul objet Graphics, efface et redessine (regle 3 du §4.17) : le joueur
+   * doit voir d'un coup d'oeil qui il commande et ou il l'envoie.
+   */
+  private dessinerOrdres(): void {
+    const g = this.graphiquesOrdres;
+    g.clear();
+
+    for (const hero of this.heros) {
+      if (!hero.estVivant) continue;
+
+      if (this.commandement.estSelectionne(hero)) {
+        g.lineStyle(1, 0x5ec8f0, 0.9);
+        g.strokeEllipse(hero.x, hero.y + 6, 20, 10);
+      }
+
+      // Le trait ne se dessine que pour une position donnee a la main : les
+      // postes de formation en tracerait un par heros a chaque image, pour rien.
+      const ancre = hero.ordre.ancre;
+      if (!ancre) continue;
+      const couleur = hero.protege ? 0x7ee0a0 : 0x5ec8f0;
+      g.lineStyle(1, couleur, 0.25);
+      g.lineBetween(hero.x, hero.y, ancre.x, ancre.y);
+      g.lineStyle(1, couleur, 0.7);
+      g.strokeCircle(ancre.x, ancre.y, 7);
+    }
   }
 
   /**
@@ -483,18 +674,34 @@ export class ArenaScene extends Phaser.Scene {
         continue;
       }
 
+      // Sans ancre, il tient la position de son maitre : le meme systeme
+      // d'ordres que les heros IA (DESIGN.md §4.4 et §4.14).
+      const ancre: Point = objet.ordre.ancre ?? { x: objet.maitre.x, y: objet.maitre.y };
+      const reglage = REGLAGES[objet.ordre.posture];
+      const distanceAncre = Phaser.Math.Distance.Between(objet.x, objet.y, ancre.x, ancre.y);
+
       // Le spectre acheve en priorite ce qui agonise.
       const cible =
-        (objet.seuilExecution > 0
-          ? this.ennemisDansRayon(objet.x, objet.y, 460).find(
-              (e) => e.pv / e.pvMax <= objet.seuilExecution,
-            )
-          : null) ?? this.ennemiLePlusProche(objet.x, objet.y, 900);
+        objet.ordre.posture === "repli"
+          ? null
+          : ((objet.seuilExecution > 0
+              ? this.ennemisDansRayon(objet.x, objet.y, 460).find(
+                  (e) => e.pv / e.pvMax <= objet.seuilExecution,
+                )
+              : null) ?? this.ennemiLePlusProche(objet.x, objet.y, 900));
 
-      if (!cible) {
-        objet.setVelocity(0, 0);
+      // Rien a poursuivre, ou trop loin de sa position : il y retourne.
+      if (!cible || distanceAncre > reglage.laisse) {
+        if (distanceAncre <= TOLERANCE_ANCRE) {
+          objet.setVelocity(0, 0);
+          continue;
+        }
+        const retour = Phaser.Math.Angle.Between(objet.x, objet.y, ancre.x, ancre.y);
+        objet.setVelocity(Math.cos(retour) * objet.vitesse, Math.sin(retour) * objet.vitesse);
+        objet.setFlipX(ancre.x < objet.x);
         continue;
       }
+
       const angle = Phaser.Math.Angle.Between(objet.x, objet.y, cible.x, cible.y);
       objet.setVelocity(Math.cos(angle) * objet.vitesse, Math.sin(angle) * objet.vitesse);
       objet.setFlipX(cible.x < objet.x);
