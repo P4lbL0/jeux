@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
+  AMPLITUDE,
   dansLeVillage,
   estPraticable,
+  estTerreFerme,
   frontsDeLaVague,
+  ligneDeMontagne,
+  ligneDEau,
   MONDE,
+  ondulation,
   POSTES,
   PRATICABLE,
   pointDApparition,
   repartition,
+  terrainEn,
   TERRAIN,
   VILLAGE,
   type Front,
@@ -20,19 +26,78 @@ describe("Carte — les flancs fermes", () => {
    */
   it("interdit la mer a l'ouest", () => {
     expect(estPraticable(10, 500)).toBe(false);
-    expect(estPraticable(TERRAIN.mer - 1, 500)).toBe(false);
-    expect(estPraticable(TERRAIN.mer + 1, 500)).toBe(true);
+    expect(estPraticable(TERRAIN.mer - AMPLITUDE.cote - 1, 500)).toBe(false);
   });
 
   it("interdit la montagne au sud", () => {
     expect(estPraticable(800, MONDE.hauteur - 10)).toBe(false);
-    expect(estPraticable(800, TERRAIN.montagne + 1)).toBe(false);
-    expect(estPraticable(800, TERRAIN.montagne - 1)).toBe(true);
+    expect(estPraticable(800, TERRAIN.montagne + AMPLITUDE.montagne + 1)).toBe(false);
+  });
+
+  /**
+   * Le garde-fou du littoral ondulant : la zone praticable est un rectangle,
+   * mais les limites serpentent. Si le rectangle mordait sur l'eau ou sur la
+   * roche, un heros pourrait marcher dans la mer.
+   */
+  it("ne laisse aucun point praticable tomber dans l'eau ou dans la roche", () => {
+    for (let x = PRATICABLE.x; x <= PRATICABLE.x + PRATICABLE.largeur; x += 7) {
+      for (let y = PRATICABLE.y; y <= PRATICABLE.y + PRATICABLE.hauteur; y += 7) {
+        expect(estTerreFerme(x, y)).toBe(true);
+      }
+    }
+  });
+
+  it("garde la ligne d'eau a l'ouest du bord praticable, quelle que soit la hauteur", () => {
+    for (let y = 0; y <= MONDE.hauteur; y += 3) {
+      expect(ligneDEau(y)).toBeLessThan(PRATICABLE.x);
+    }
+  });
+
+  it("garde le pied de la montagne au sud du bord praticable", () => {
+    const bas = PRATICABLE.y + PRATICABLE.hauteur;
+    for (let x = 0; x <= MONDE.largeur; x += 3) {
+      expect(ligneDeMontagne(x)).toBeGreaterThan(bas);
+    }
+  });
+});
+
+describe("Carte — le littoral", () => {
+  /**
+   * Une cote droite se lit comme un mur d'editeur de niveau. Elle doit onduler
+   * (DESIGN.md §4.11, reference WorldBox).
+   */
+  it("fait serpenter la cote au lieu de la tracer a la regle", () => {
+    const lignes = [];
+    for (let y = 0; y <= MONDE.hauteur; y += 40) lignes.push(ligneDEau(y));
+    const min = Math.min(...lignes);
+    const max = Math.max(...lignes);
+    expect(max - min).toBeGreaterThan(30);
+  });
+
+  it("garde l'ondulation dans ses bornes", () => {
+    for (let t = 0; t < 4000; t += 3) {
+      const v = ondulation(t, 130, 34);
+      expect(Math.abs(v)).toBeLessThanOrEqual(34);
+    }
+  });
+
+  it("etage la mer du large jusqu'au rivage", () => {
+    const y = 500;
+    const eau = ligneDEau(y);
+    expect(terrainEn(eau - 200, y)).toBe("abysse");
+    expect(terrainEn(eau - 70, y)).toBe("mer");
+    expect(terrainEn(eau - 10, y)).toBe("haut-fond");
+    expect(terrainEn(eau + 10, y)).toBe("sable");
   });
 
   it("laisse la plage et la foret praticables : ce sont des lieux de travail", () => {
-    expect(estPraticable(TERRAIN.mer + 20, 500)).toBe(true);
-    expect(estPraticable(900, TERRAIN.foret + 20)).toBe(true);
+    expect(terrainEn(PRATICABLE.x + 2, 500)).toBe("sable");
+    expect(terrainEn(900, TERRAIN.foret + AMPLITUDE.foret + 10)).toBe("sous-bois");
+  });
+
+  it("donne la meme carte a chaque appel : on doit pouvoir apprendre son terrain", () => {
+    expect(terrainEn(700, 400)).toBe(terrainEn(700, 400));
+    expect(ligneDEau(333)).toBe(ligneDEau(333));
   });
 });
 
@@ -67,6 +132,12 @@ describe("Carte — les postes de travail", () => {
   it("les pose hors du village : ils doivent etre defendus, pas offerts", () => {
     for (const poste of POSTES) {
       expect(dansLeVillage(poste.position.x, poste.position.y)).toBe(false);
+    }
+  });
+
+  it("les pose sur de la terre ferme", () => {
+    for (const poste of POSTES) {
+      expect(estTerreFerme(poste.position.x, poste.position.y)).toBe(true);
     }
   });
 

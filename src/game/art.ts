@@ -1,6 +1,6 @@
 import Phaser from "phaser";
-import { Rng } from "../core/rng";
 import { CLASSES, ORDRE_CLASSES } from "../core/classes";
+import { ligneDEau, MONDE, terrainEn, VILLAGE, type Terrain } from "../core/carte";
 
 /**
  * Textures placeholder generees par code.
@@ -18,8 +18,10 @@ export const TAILLE_HERO = { largeur: 12, hauteur: 18 };
 export const TAILLE_ENNEMI = { largeur: 12, hauteur: 16 };
 
 export function creerTexturesPlaceholder(scene: Phaser.Scene): void {
-  creerHerbe(scene);
-  creerTerrains(scene);
+  creerCarte(scene);
+  creerArbre(scene);
+  creerRocher(scene);
+  creerMaison(scene);
   creerMur(scene);
   creerEnnemi(scene);
   creerMortVivant(scene);
@@ -139,32 +141,6 @@ function creerIconesUltimes(scene: Phaser.Scene): void {
   g.destroy();
 }
 
-/** Herbe facon WorldBox : plusieurs verts en damier irregulier, pas un fond uni. */
-function creerHerbe(scene: Phaser.Scene): void {
-  const verts = [0x4a7a2c, 0x53862f, 0x5c9134, 0x639a38];
-  const g = scene.make.graphics({ x: 0, y: 0 }, false);
-  // Graine fixe : la texture est identique a chaque lancement.
-  const rng = new Rng(20260806);
-
-  for (let y = 0; y < 128; y += 8) {
-    for (let x = 0; x < 128; x += 8) {
-      g.fillStyle(rng.pick(verts), 1);
-      g.fillRect(x, y, 8, 8);
-    }
-  }
-  // Quelques touffes et cailloux pour casser la regularite.
-  for (let i = 0; i < 26; i++) {
-    g.fillStyle(0x7ab648, 1);
-    g.fillRect(rng.int(0, 124), rng.int(0, 124), 4, 3);
-  }
-  for (let i = 0; i < 8; i++) {
-    g.fillStyle(0x6b6f63, 1);
-    g.fillRect(rng.int(0, 124), rng.int(0, 124), 3, 3);
-  }
-
-  g.generateTexture("herbe", 128, 128);
-  g.destroy();
-}
 
 /** Icones des competences actives, meme convention que les ultimes. */
 function creerIconesCapacites(scene: Phaser.Scene): void {
@@ -430,72 +406,383 @@ function creerIconesCapacites(scene: Phaser.Scene): void {
   });
 }
 
+/** Cote d'une tuile de terrain, en pixels. C'est la maille du pixel-art. */
+const TUILE = 8;
+
 /**
- * Les terrains de la carte du village (DESIGN.md §4.6).
+ * Les teintes de chaque nature de sol.
  *
- * Chacun doit se reconnaitre **a la couleur seule**, meme dezoome au maximum :
- * c'est ce qui permet au joueur de savoir d'un coup d'oeil ou sont ses flancs
- * fermes. Bleu = mer, sable = plage, gris = montagne, vert sombre = foret.
+ * Trois variantes par terrain : c'est ce qui donne le grain de WorldBox, ou
+ * l'herbe n'est jamais d'un seul vert. La palette est chaude et saturee
+ * malgre le contexte post-apo (DESIGN.md §4.11).
  */
-function creerTerrains(scene: Phaser.Scene): void {
-  const rng = new Rng(20260807);
-  const T = 64;
+const TEINTES: Record<Terrain, number[]> = {
+  abysse: [0x14395f, 0x173e66, 0x113456],
+  mer: [0x1f5789, 0x235e92, 0x1b5081],
+  "haut-fond": [0x3f8fc0, 0x459ac9, 0x3886b7],
+  sable: [0xe4d3a4, 0xdcc998, 0xebdcb1],
+  // L'ecart entre les verts reste serre : trop de contraste et la prairie se
+  // lit comme un damier de bruit au lieu d'un sol.
+  herbe: [0x4f8330, 0x538734, 0x4a7d2e, 0x578c37],
+  "sous-bois": [0x2f5522, 0x355e26, 0x28491d],
+  // L'eboulis est franchement plus clair que la roche : c'est ce contraste qui
+  // rend visible le pied de montagne qui serpente. Trop proches, les deux gris
+  // se lisaient comme une seule bande droite.
+  eboulis: [0x8b857a, 0x958f83, 0x817b71],
+  roche: [0x565450, 0x5e5b56, 0x4d4b47],
+};
 
-  const pave = (cle: string, teintes: number[], grain: [number, number, number][]) => {
-    const g = scene.make.graphics({ x: 0, y: 0 }, false);
-    for (let y = 0; y < T; y += 8) {
-      for (let x = 0; x < T; x += 8) {
-        g.fillStyle(rng.pick(teintes), 1);
-        g.fillRect(x, y, 8, 8);
-      }
-    }
-    for (const [couleur, nombre, taille] of grain) {
-      for (let i = 0; i < nombre; i++) {
-        g.fillStyle(couleur, 1);
-        g.fillRect(rng.int(0, T - taille), rng.int(0, T - taille), taille, taille);
-      }
-    }
-    g.generateTexture(cle, T, T);
-    g.destroy();
-  };
-
-  pave("mer", [0x1d4f78, 0x21587f, 0x1a4870, 0x255f88], [[0x3d7fae, 10, 3]]);
-  pave("sable", [0xd9c79a, 0xe2d2a8, 0xcfbc8f], [[0xbfa877, 14, 3]]);
-  pave("montagne", [0x5c5a56, 0x67655f, 0x514f4c], [[0x7b7972, 12, 4], [0x3f3d3b, 8, 5]]);
-  pave("sous-bois", [0x2f5222, 0x365c27, 0x28471d], [[0x1f3a17, 10, 5]]);
-
-  // L'ecume : une bande claire qui vient mourir sur le sable. Elle est animee
-  // en decalant sa position, jamais en creant de nouveaux objets (§4.17).
-  const g = scene.make.graphics({ x: 0, y: 0 }, false);
-  g.fillStyle(0xdff0f5, 0.85);
-  for (let x = 0; x < T; x += 4) {
-    const hauteur = 3 + Math.round(Math.sin((x / T) * Math.PI * 2) * 2);
-    g.fillRect(x, 6 - hauteur / 2, 4, hauteur);
-  }
-  g.fillStyle(0xffffff, 0.5);
-  for (let x = 0; x < T; x += 8) g.fillRect(x, 5, 3, 2);
-  g.generateTexture("ecume", T, 12);
-  g.destroy();
-
-  creerArbre(scene);
-  creerRocher(scene);
+/**
+ * Bruit entier deterministe, entre 0 et 1.
+ *
+ * Il sert a varier chaque tuile sans stocker un tableau de 30 000 cases, et
+ * surtout sans aleatoire : la carte doit etre identique a chaque partie pour
+ * qu'on puisse apprendre son terrain.
+ */
+function grain(x: number, y: number, sel = 0): number {
+  let h = (x * 374761393 + y * 668265263 + sel * 1442695040) | 0;
+  h = (h ^ (h >>> 13)) * 1274126177;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
-/** Un arbre de la foret du sud. Silhouette avant tout : une boule sur un tronc. */
+/**
+ * La carte entiere, cuite une fois dans une seule texture (DESIGN.md §4.6).
+ *
+ * Trente mille tuiles en trente mille objets Phaser, c'est le jeu par terre
+ * (§4.17, regle 1). Une seule image de 1600x1200 dessinee au demarrage ne
+ * coute rien ensuite : zero objet, zero calcul par image.
+ *
+ * Le rendu suit trois regles tirees de WorldBox :
+ *
+ * 1. **Le littoral serpente** — il est decoupe a la tuile, jamais a la regle.
+ * 2. **La mer s'etage** : abysse, mer, haut-fond. C'est ce degrade qui donne
+ *    la sensation de vagues, bien mieux qu'une bande d'ecume plaquee dessus.
+ * 3. **Chaque terrain a plusieurs teintes**, pour qu'aucune zone ne soit un
+ *    aplat.
+ */
+function creerCarte(scene: Phaser.Scene): void {
+  // Recommencer une partie relance create() : sans ce garde, on refabriquerait
+  // une carte de deux millions de pixels a chaque fois.
+  if (scene.textures.exists("carte")) return;
+
+  const texture = scene.textures.createCanvas("carte", MONDE.largeur, MONDE.hauteur);
+  const ctx = texture?.getContext();
+  if (!texture || !ctx) return;
+
+  for (let py = 0; py < MONDE.hauteur; py += TUILE) {
+    for (let px = 0; px < MONDE.largeur; px += TUILE) {
+      // Le centre de la tuile decide de sa nature : c'est ce qui produit
+      // l'escalier de pixels au lieu d'une diagonale lissee.
+      const sol = terrainEn(px + TUILE / 2, py + TUILE / 2);
+      const teintes = TEINTES[sol];
+      const teinte = teintes[Math.floor(grain(px, py) * teintes.length)]!;
+      ctx.fillStyle = hex(teinte);
+      ctx.fillRect(px, py, TUILE, TUILE);
+
+      peindreDetail(ctx, px, py, sol);
+    }
+  }
+
+  peindreEcume(ctx);
+  peindreVillage(ctx);
+  texture.refresh();
+}
+
+/**
+ * Le sol du village : de la terre battue, avec une place plus claire au centre.
+ *
+ * Cuit dans la meme texture que le terrain — c'est un sol, pas un objet, et il
+ * ne bougera jamais.
+ */
+function peindreVillage(ctx: CanvasRenderingContext2D): void {
+  const terres = [0x8b7b60, 0x94856c, 0x7f7057, 0x9c8d73];
+  const debutX = Math.floor((VILLAGE.x - VILLAGE.rayon) / TUILE) * TUILE;
+  const debutY = Math.floor((VILLAGE.y - VILLAGE.rayon) / TUILE) * TUILE;
+
+  for (let py = debutY; py < VILLAGE.y + VILLAGE.rayon; py += TUILE) {
+    for (let px = debutX; px < VILLAGE.x + VILLAGE.rayon; px += TUILE) {
+      const d = Math.hypot(px + TUILE / 2 - VILLAGE.x, py + TUILE / 2 - VILLAGE.y);
+      if (d > VILLAGE.rayon) continue;
+
+      const de = grain(px, py, 13);
+      // Le bord s'effrite : quelques tuiles manquantes evitent le disque parfait.
+      if (d > VILLAGE.rayon - TUILE * 1.5 && de > 0.55) continue;
+
+      ctx.fillStyle = hex(terres[Math.floor(de * terres.length)]!);
+      ctx.fillRect(px, py, TUILE, TUILE);
+      if (de > 0.88) {
+        ctx.fillStyle = "#6f6350";
+        ctx.fillRect(px + 2, py + 3, 3, 2);
+      }
+    }
+  }
+}
+
+/**
+ * Les maisons du village, facon WorldBox : un toit tres colore et tres net, un
+ * mur de terre, une porte sombre. Ce sont le toit et sa couleur qui rendent une
+ * maison reconnaissable de loin — pas le detail des murs (DESIGN.md §4.11).
+ */
+function creerMaison(scene: Phaser.Scene): void {
+  const toits: [string, number, number][] = [
+    ["maison-bleue", 0x6f8fb5, 0x8fadd0],
+    ["maison-rouge", 0xa8412f, 0xc85f45],
+    ["maison-jaune", 0xc79a3a, 0xe0b855],
+  ];
+
+  for (const [cle, toit, toitClair] of toits) {
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(0x000000, 0.24);
+    g.fillEllipse(11, 25, 20, 5);
+
+    // Le mur, en torchis.
+    g.fillStyle(0xb5713f, 1);
+    g.fillRect(3, 13, 16, 11);
+    g.fillStyle(0x8f5730, 1);
+    g.fillRect(3, 22, 16, 2);
+
+    // Le toit : deux pentes, la face au soleil plus claire.
+    g.fillStyle(toit, 1);
+    g.fillTriangle(11, 1, 1, 15, 21, 15);
+    g.fillStyle(toitClair, 1);
+    g.fillTriangle(11, 1, 1, 15, 11, 15);
+    // Les tuiles, suggerees par deux entailles.
+    g.fillStyle(0x000000, 0.16);
+    g.fillRect(4, 11, 14, 1);
+    g.fillRect(6, 7, 10, 1);
+
+    g.fillStyle(0x3a2a1c, 1); // la porte
+    g.fillRect(9, 17, 5, 7);
+    g.generateTexture(cle, 22, 28);
+    g.destroy();
+  }
+}
+
+/**
+ * Le grain d'une tuile : brins d'herbe, fleurs, cailloux, cretes de roche.
+ * C'est ce qui empeche le sol d'etre un damier, meme en le regardant de pres.
+ */
+function peindreDetail(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  sol: Terrain,
+): void {
+  const de = grain(px, py, 7);
+  if (sol === "herbe") {
+    if (de > 0.9) {
+      // Une fleur : rare, coloree, c'est elle qui rechauffe la prairie.
+      ctx.fillStyle = de > 0.97 ? "#e8d05a" : "#d9698a";
+      ctx.fillRect(px + 3, py + 3, 2, 2);
+    } else if (de > 0.72) {
+      ctx.fillStyle = "#6aa63f";
+      ctx.fillRect(px + 2, py + 4, 3, 2);
+    }
+    return;
+  }
+  if (sol === "sable" && de > 0.85) {
+    ctx.fillStyle = "#c9b585";
+    ctx.fillRect(px + 2, py + 3, 3, 2);
+    return;
+  }
+  if (sol === "sous-bois" && de > 0.78) {
+    ctx.fillStyle = "#213d19";
+    ctx.fillRect(px + 1, py + 2, 4, 4);
+    return;
+  }
+  if ((sol === "roche" || sol === "eboulis") && de > 0.7) {
+    // Une arete claire au nord du bloc, son ombre au sud : la roche prend du
+    // relief sans qu'on dessine un seul rocher.
+    ctx.fillStyle = de > 0.88 ? "#8f8b81" : "#4b4944";
+    ctx.fillRect(px, py + (de > 0.88 ? 0 : TUILE - 2), TUILE, 2);
+    return;
+  }
+  if ((sol === "mer" || sol === "abysse") && de > 0.93) {
+    // Un reflet, tres rare : la mer respire sans clignoter.
+    ctx.fillStyle = sol === "mer" ? "#3d7fae" : "#1d4b78";
+    ctx.fillRect(px + 1, py + 3, 5, 2);
+  }
+}
+
+/**
+ * L'ecume, la ou le haut-fond touche le sable.
+ *
+ * Elle ne se pose **qu'une tuile sur deux environ**, et c'est tout le secret :
+ * une ligne continue se lit comme une echelle posee sur la carte, une ligne
+ * trouee se lit comme de la mousse. La precedente version en barreaux reguliers
+ * etait exactement l'erreur a ne pas faire.
+ */
+function peindreEcume(ctx: CanvasRenderingContext2D): void {
+  for (let py = 0; py < MONDE.hauteur; py += TUILE) {
+    const y = py + TUILE / 2;
+    // On cale l'ecume sur la grille : elle doit epouser l'escalier du rivage.
+    const bord = Math.floor(ligneDEau(y) / TUILE) * TUILE;
+    for (let i = -2; i <= 0; i++) {
+      const px = bord + i * TUILE;
+      if (px < 0 || terrainEn(px + TUILE / 2, y) !== "haut-fond") continue;
+      const de = grain(px, py, 31);
+      if (de < 0.42) continue;
+      ctx.fillStyle = i === 0 ? "rgba(233,246,250,0.92)" : "rgba(196,231,242,0.55)";
+      ctx.fillRect(px, py, TUILE, TUILE);
+    }
+  }
+}
+
+function hex(couleur: number): string {
+  return `#${couleur.toString(16).padStart(6, "0")}`;
+}
+
+/** Une boule de feuillage : centre et rayon, en pixels. */
+interface Houppier {
+  x: number;
+  y: number;
+  r: number;
+}
+
+/**
+ * Les silhouettes d'arbres.
+ *
+ * La recette vient de l'observation d'un pixel-art de reference : un arbre
+ * lisible n'est pas **une** boule, c'est **plusieurs boules qui se chevauchent**
+ * a des hauteurs differentes. C'est ce decalage qui donne une silhouette qu'on
+ * reconnait de loin, et le §4.11 rappelle que c'est la silhouette qui porte
+ * toute la lisibilite quand on dezoome.
+ *
+ * Faire varier les boules suffit a faire varier l'arbre : aucun des cinq n'a la
+ * meme decoupe.
+ */
+/**
+ * Cote d'un pixel d'arbre, en pixels ecran.
+ *
+ * Les arbres sont dessines sur une grille deux fois plus grossiere que le
+ * reste : c'est **la** difference entre un dessin lisse et du vrai pixel-art.
+ * Tracer les boules au pixel fin donnait des bords presque ronds, et ca se
+ * voyait immediatement des qu'on zoomait.
+ */
+const ECHELLE_ARBRE = 2;
+
+/** Silhouettes en coordonnees de grille, pas en pixels ecran. */
+const SILHOUETTES: Houppier[][] = [
+  // Un grand, elance, la cime bien detachee.
+  [
+    { x: 7, y: 4, r: 3.6 },
+    { x: 4, y: 7, r: 3.1 },
+    { x: 9, y: 7, r: 3.1 },
+    { x: 6, y: 9, r: 3.1 },
+  ],
+  // Un trapu, large, presque rond.
+  [
+    { x: 6, y: 6, r: 4.2 },
+    { x: 3, y: 8, r: 3 },
+    { x: 9, y: 8, r: 3 },
+  ],
+  // Un penche, deux cimes.
+  [
+    { x: 5, y: 5, r: 3.1 },
+    { x: 8, y: 6, r: 3.6 },
+    { x: 6, y: 9, r: 3.6 },
+  ],
+  // Un petit buisson.
+  [
+    { x: 6, y: 8, r: 3.6 },
+    { x: 3, y: 10, r: 2.6 },
+    { x: 9, y: 10, r: 2.6 },
+  ],
+  // Un tres haut, quatre etages.
+  [
+    { x: 6, y: 3, r: 2.6 },
+    { x: 8, y: 5, r: 3.1 },
+    { x: 4, y: 7, r: 3.1 },
+    { x: 7, y: 10, r: 3.1 },
+  ],
+];
+
+/**
+ * Sombre (contour), moyen (masse), clair (lumiere).
+ *
+ * Aucun vert vif : l'ecart entre le moyen et le clair reste faible. Un
+ * feuillage trop lumineux tire l'oeil vers le decor alors qu'il doit rester
+ * derriere les personnages (DESIGN.md §4.11).
+ */
+const VERTS: [number, number, number][] = [
+  [0x1c3714, 0x2f5c1f, 0x40792b],
+  [0x18300f, 0x2a5320, 0x3a6b26],
+  [0x22421a, 0x356523, 0x467d2d],
+  [0x1a3312, 0x2d5a1e, 0x3d7028],
+  [0x152c0e, 0x264c1a, 0x356123],
+];
+
+const GRILLE_ARBRE = { largeur: 13, hauteur: 15 };
+const LARGEUR_ARBRE = GRILLE_ARBRE.largeur * ECHELLE_ARBRE;
+const HAUTEUR_ARBRE = GRILLE_ARBRE.hauteur * ECHELLE_ARBRE;
+
+/** Les cles des arbres, dans l'ordre ou ils sont fabriques. */
+export const ARBRES = SILHOUETTES.map((_, i) => `arbre-${i}`);
+
+/**
+ * Les arbres, dessines pixel par pixel.
+ *
+ * On rasterise a la main au lieu d'empiler des `fillCircle` : un cercle Phaser
+ * est lisse, et un bord lisse dans un jeu pixel-art se voit immediatement des
+ * qu'on zoome. Ici chaque pixel est decide, donc chaque bord est net.
+ */
 function creerArbre(scene: Phaser.Scene): void {
-  const g = scene.make.graphics({ x: 0, y: 0 }, false);
-  g.fillStyle(0x000000, 0.22);
-  g.fillEllipse(12, 27, 16, 5);
-  g.fillStyle(0x50381f, 1);
-  g.fillRect(10, 18, 4, 9);
-  g.fillStyle(0x2c5320, 1);
-  g.fillCircle(12, 13, 10);
-  g.fillStyle(0x3a6b28, 1);
-  g.fillCircle(10, 11, 7);
-  g.fillStyle(0x4d8434, 1);
-  g.fillCircle(9, 9, 3);
-  g.generateTexture("arbre", 24, 30);
-  g.destroy();
+  const E = ECHELLE_ARBRE;
+
+  SILHOUETTES.forEach((houppiers, index) => {
+    const [sombre, moyen, clair] = VERTS[index % VERTS.length]!;
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+
+    /** Un pixel de la grille grossiere, pose en pixels ecran. */
+    const point = (x: number, y: number, couleur: number, alpha = 1) => {
+      g.fillStyle(couleur, alpha);
+      g.fillRect(x * E, y * E, E, E);
+    };
+
+    const dedans = (x: number, y: number) =>
+      houppiers.some((h) => (x - h.x) ** 2 + (y - h.y) ** 2 <= h.r * h.r);
+
+    // L'ombre portee ancre l'arbre au sol : sans elle il flotte.
+    const solY = GRILLE_ARBRE.hauteur - 2;
+    for (let x = 3; x <= 9; x++) point(x, solY, 0x000000, 0.18);
+
+    // Le tronc, evase a la base.
+    const basFeuillage = Math.round(Math.max(...houppiers.map((h) => h.y + h.r))) - 1;
+    for (let y = basFeuillage; y < solY; y++) {
+      point(5, y, 0x5b3f27);
+      point(6, y, 0x452f1d);
+    }
+    point(4, solY - 1, 0x452f1d);
+    point(7, solY - 1, 0x452f1d);
+
+    // Une touffe au pied : elle cache la jointure tronc-sol.
+    for (let x = 4; x <= 8; x++) point(x, solY - 1, sombre);
+
+    for (let y = 0; y < GRILLE_ARBRE.hauteur; y++) {
+      for (let x = 0; x < GRILLE_ARBRE.largeur; x++) {
+        if (!dedans(x, y)) continue;
+
+        // Un pixel de bord devient le contour sombre : c'est lui qui detache
+        // l'arbre de l'herbe, et c'est ce qui manquait le plus.
+        const bord =
+          !dedans(x - 1, y) || !dedans(x + 1, y) || !dedans(x, y - 1) || !dedans(x, y + 1);
+        if (bord) {
+          point(x, y, sombre);
+          continue;
+        }
+
+        // La lumiere vient du haut a gauche. Elle tient en deux ou trois
+        // pixels par boule : un aplat clair mange la silhouette.
+        const eclaire = houppiers.some(
+          (h) => (x - (h.x - h.r * 0.42)) ** 2 + (y - (h.y - h.r * 0.5)) ** 2 <= (h.r * 0.34) ** 2,
+        );
+        point(x, y, eclaire ? clair : moyen);
+      }
+    }
+
+    g.generateTexture(`arbre-${index}`, LARGEUR_ARBRE, HAUTEUR_ARBRE);
+    g.destroy();
+  });
 }
 
 /** Un bloc de roche, pour marquer le pied de la montagne. */

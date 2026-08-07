@@ -3,3 +3,11 @@ dist
 .vite
 *.local
 .DS_Store
+
+# Images de reference (WorldBox, moodboards...) : elles restent en local.
+# Ce sont les sprites de quelqu'un d'autre, ils n'ont rien a faire sur GitHub.
+/*.jpg
+/*.jpeg
+/*.png
+/*.webp
+reference/

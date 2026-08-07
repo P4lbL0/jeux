@@ -9,7 +9,7 @@ import {
   type CompetenceDef,
   type EvolutionDef,
 } from "../core/competences";
-import { creerTexturesPlaceholder } from "../game/art";
+import { ARBRES, creerTexturesPlaceholder } from "../game/art";
 import {
   Double,
   Ennemi,
@@ -38,9 +38,10 @@ import {
   PRATICABLE,
   pointDApparition,
   repartition,
-  TERRAIN,
+  terrainEn,
   VILLAGE,
   type Front,
+  type Terrain,
 } from "../core/carte";
 import { Commandement } from "../game/commandement";
 import type { EtatEquipe } from "../game/hud";
@@ -135,7 +136,6 @@ export class ArenaScene extends Phaser.Scene {
   private fronts: Front[] = ["nord"];
   private partPremierFront = 1;
   private vague = 0;
-  private ecume!: Phaser.GameObjects.TileSprite;
   private kills = 0;
   private termine = false;
 
@@ -323,35 +323,9 @@ export class ArenaScene extends Phaser.Scene {
    * cours de partie (§4.17).
    */
   private construireDecor(): void {
-    this.add.tileSprite(0, 0, MONDE.largeur, MONDE.hauteur, "herbe").setOrigin(0).setDepth(-1000);
-
-    // --- La mer et la plage, a l'ouest ---
-    this.add
-      .tileSprite(0, 0, TERRAIN.mer, MONDE.hauteur, "mer")
-      .setOrigin(0)
-      .setDepth(-995);
-    this.add
-      .tileSprite(TERRAIN.mer, 0, TERRAIN.plage - TERRAIN.mer, MONDE.hauteur, "sable")
-      .setOrigin(0)
-      .setDepth(-994);
-
-    // L'ecume vit sur la ligne de rivage. On la deplace, on ne la refabrique
-    // jamais : c'est un seul objet pour toute la partie.
-    this.ecume = this.add
-      .tileSprite(TERRAIN.mer - 26, 0, 52, MONDE.hauteur, "ecume")
-      .setOrigin(0)
-      .setDepth(-993)
-      .setAlpha(0.75);
-
-    // --- La montagne et sa foret, au sud ---
-    this.add
-      .tileSprite(0, TERRAIN.montagne, MONDE.largeur, MONDE.hauteur - TERRAIN.montagne, "montagne")
-      .setOrigin(0)
-      .setDepth(-995);
-    this.add
-      .tileSprite(0, TERRAIN.foret, MONDE.largeur, TERRAIN.montagne - TERRAIN.foret, "sous-bois")
-      .setOrigin(0)
-      .setDepth(-994);
+    // Tout le sol tient dans une seule image, cuite au demarrage : la mer
+    // etagee, le littoral qui serpente, la plage, la foret et la roche.
+    this.add.image(0, 0, "carte").setOrigin(0).setDepth(-1000);
 
     this.semerLeDecor();
     this.construireVillage();
@@ -361,28 +335,49 @@ export class ArenaScene extends Phaser.Scene {
   /**
    * Arbres et rochers, semes avec une graine fixe pour que la carte soit la
    * meme d'une partie a l'autre : on doit pouvoir apprendre son terrain.
+   *
+   * Chaque graine est refusee si elle ne tombe pas sur le bon sol. Sans ce
+   * filtre, il poussait des arbres dans la mer et au milieu du village.
    */
   private semerLeDecor(): void {
     const rng = new Rng(20260807);
 
-    // La foret, dense a la lisiere de la montagne.
-    for (let i = 0; i < 120; i++) {
-      const x = rng.range(0, MONDE.largeur);
-      const y = rng.range(TERRAIN.foret - 30, TERRAIN.montagne + 10);
-      this.add.image(x, y, "arbre").setDepth(y).setScale(rng.range(0.8, 1.2));
-    }
-    // Quelques bosquets qui remontent vers les terres, pour casser la ligne.
-    for (let i = 0; i < 26; i++) {
-      const x = rng.range(TERRAIN.plage + 40, MONDE.largeur - 40);
-      const y = rng.range(TERRAIN.foret - 180, TERRAIN.foret - 40);
-      this.add.image(x, y, "arbre").setDepth(y).setScale(rng.range(0.7, 1));
-    }
-    // Les rochers du pied de la montagne.
-    for (let i = 0; i < 46; i++) {
-      const x = rng.range(0, MONDE.largeur);
-      const y = rng.range(TERRAIN.montagne - 20, MONDE.hauteur - 30);
-      this.add.image(x, y, "rocher").setDepth(y).setScale(rng.range(0.8, 1.6));
-    }
+    const semer = (
+      essais: number,
+      sols: Terrain[],
+      poser: (x: number, y: number) => void,
+      zone?: { x0: number; x1: number; y0: number; y1: number },
+    ) => {
+      const cadre = zone ?? { x0: 0, x1: MONDE.largeur, y0: 0, y1: MONDE.hauteur };
+      for (let i = 0; i < essais; i++) {
+        const x = rng.range(cadre.x0, cadre.x1);
+        const y = rng.range(cadre.y0, cadre.y1);
+        if (!sols.includes(terrainEn(x, y))) continue;
+        // Le village est une place, pas une clairiere : rien n'y pousse.
+        if (Phaser.Math.Distance.Between(x, y, CITE.x, CITE.y) < CITE.rayon + 26) continue;
+        poser(x, y);
+      }
+    };
+
+    // La foret du sud. Elle doit etre **dense** : c'est elle qui rend le flanc
+    // sud credible. Le sous-bois ne couvre qu'un dixieme de la carte, il faut
+    // donc beaucoup de tirages pour l'y remplir.
+    semer(3200, ["sous-bois"], (x, y) => {
+      this.add.image(x, y, rng.pick(ARBRES)).setDepth(y).setScale(rng.range(0.9, 1.3));
+    });
+
+    // Des bosquets epars sur la prairie : le decor ne doit jamais etre un fond
+    // uni, mais il ne doit pas non plus masquer les personnages (§4.11).
+    semer(700, ["herbe"], (x, y) => {
+      if (rng.next() > 0.3) return;
+      this.add.image(x, y, rng.pick(ARBRES)).setDepth(y).setScale(rng.range(0.75, 1.05));
+    });
+
+    // Les rochers, sur l'eboulis et au pied de la montagne.
+    semer(900, ["eboulis", "roche"], (x, y) => {
+      if (rng.next() > 0.4) return;
+      this.add.image(x, y, "rocher").setDepth(y).setScale(rng.range(0.8, 1.7));
+    });
   }
 
   /**
@@ -391,19 +386,29 @@ export class ArenaScene extends Phaser.Scene {
    * plus au centre — il est adosse a la mer et a la montagne.
    */
   private construireVillage(): void {
-    const sol = this.add.graphics().setDepth(-950);
-    sol.fillStyle(0x8a7f6d, 1);
-    sol.fillCircle(CITE.x, CITE.y, CITE.rayon);
-    sol.fillStyle(0x9c917d, 1);
-    sol.fillCircle(CITE.x, CITE.y, CITE.rayon - 18);
-    sol.lineStyle(3, 0x5d5546, 1);
-    sol.strokeCircle(CITE.x, CITE.y, CITE.rayon);
+    const rng = new Rng(20260808);
 
-    for (let i = 0; i < 22; i++) {
-      const a = (i / 22) * Math.PI * 2;
-      this.add
-        .image(CITE.x + Math.cos(a) * CITE.rayon, CITE.y + Math.sin(a) * CITE.rayon, "mur")
-        .setDepth(-940);
+    // La palissade, ouverte au nord et a l'est : c'est par la que ca arrive,
+    // et une enceinte fermee ferait mentir la carte.
+    for (let i = 0; i < 30; i++) {
+      const a = (i / 30) * Math.PI * 2;
+      const versLesFronts = Math.cos(a) > 0.55 || Math.sin(a) < -0.55;
+      if (versLesFronts && i % 3 !== 0) continue;
+      const x = CITE.x + Math.cos(a) * CITE.rayon;
+      const y = CITE.y + Math.sin(a) * CITE.rayon;
+      this.add.image(x, y, "mur").setDepth(y - 4);
+    }
+
+    // Les maisons, en couronne autour de la place centrale. Elles sont posees
+    // une fois pour toutes : le village en ruine et sa restauration arrivent
+    // au jalon 7.
+    const maisons = ["maison-bleue", "maison-rouge", "maison-jaune"];
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2 + 0.4;
+      const rayon = CITE.rayon * rng.range(0.55, 0.78);
+      const x = CITE.x + Math.cos(a) * rayon;
+      const y = CITE.y + Math.sin(a) * rayon;
+      this.add.image(x, y, rng.pick(maisons)).setDepth(y).setScale(rng.range(1, 1.35));
     }
 
     this.add
@@ -684,11 +689,6 @@ export class ArenaScene extends Phaser.Scene {
     this.gererCapacites();
     this.fairePartirLesVagues();
     this.trierProfondeurs();
-
-    // Le ressac : on fait respirer un seul objet deja pose, on n'en cree
-    // aucun (§4.17). C'est ce qui rend le bord ouest vivant a l'oeil.
-    this.ecume.x = TERRAIN.mer - 26 + Math.sin(this.time.now / 900) * 9;
-    this.ecume.tilePositionY = this.time.now / 220;
   }
 
   /** Toutes les x millisecondes : chaque paire de heros coute un calcul. */
