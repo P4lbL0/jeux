@@ -1,6 +1,9 @@
 # Prompt de reprise
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
+>
+> Dernière mise à jour : 2026-08-08 (après le jalon combat & monstres, et le
+> passage aux vraies animations).
 
 ---
 
@@ -36,115 +39,181 @@ Le §6 de `DESIGN.md` liste les questions encore ouvertes, et le §5 la feuille 
 - **Tu écris le design dans `DESIGN.md` avant de le coder.** Quand je te donne une idée,
   tu la notes d'abord, tu me dis ce que tu en penses honnêtement — y compris quand tu
   penses que c'est une mauvaise idée — puis tu la codes.
-- **Pose-moi des questions à choix** plutôt que des questions ouvertes. Je trouve ça plus
-  simple et plus ludique.
+- **Pose-moi des questions à choix** plutôt que des questions ouvertes.
 - **Vérifie toujours** : `npx tsc --noEmit`, puis `npx vitest run`, puis `npm run build`.
 - **Commits en français**, un par bloc de travail, poussés sur
   `https://github.com/P4lbL0/jeux.git`.
-- Ne me dis jamais que quelque chose marche si tu ne l'as pas vérifié. Tu ne peux pas
-  jouer au jeu : dis-le, et demande-moi de tester.
+- Ne me dis jamais que quelque chose marche si tu ne l'as pas vérifié.
+
+### Tu peux jouer au jeu toi-même — sers-t'en
+
+C'est nouveau, et ça a permis de trouver plusieurs bugs que la compilation ne voyait pas.
+Playwright est installé dans `node_modules` (⚠️ **non déclaré dans `package.json`** — il
+disparaîtra à un `npm ci`, à déclarer en `devDependencies` si on veut le garder).
+
+La recette qui marche :
+
+1. `npx vite --port 5199 --strictPort` en tâche de fond.
+2. Un script Node qui lance Chromium, va sur `http://localhost:5199/`, attend ~3 s,
+   appuie sur **`Digit1`** pour choisir une classe et démarrer.
+3. **Appuyer sur `Digit1` régulièrement** : le menu de choix de compétence met le jeu en
+   pause et le fige tant qu'on ne choisit pas. Sans ça la partie s'arrête à ~45 s et on
+   croit à un bug.
+4. Pour inspecter l'état, exposer temporairement le jeu dans `src/main.ts`
+   (`(window as ...).__jeu = jeu;`) — **et le retirer après**.
+5. Pour aller vite : `arene.debut = arene.time.now - 300_000` fait monter la puissance
+   des vagues instantanément (tous les archétypes apparaissent, 240 ennemis).
+6. Enrober les méthodes du prototype (`Object.getPrototypeOf(arene)`) pour compter les
+   appels réels. C'est la seule mesure qui ne suppose rien.
+
+Deux pièges rencontrés : `ANIMATION_START` est émis par **le sprite**, pas par le
+gestionnaire global (`arene.anims.on("start")` ne capte rien) ; et un instantané unique
+ne prouve rien sur un événement bref — il faut échantillonner dans la durée.
 
 ## Ce qui est déjà fait
 
-**Jalons 0 à 3 terminés** (voir §5 de `DESIGN.md`) :
+**Jalons 0 à 4 terminés**, et le **bloc 1 du jalon 5** (voir §5 de `DESIGN.md`) :
 
-- Vite + TypeScript + Phaser 3, tests avec Vitest.
-- Une arène, sept classes jouables, l'attaque automatique, les traits de classe.
+- Vite + TypeScript + Phaser 3, tests avec Vitest. **105 tests verts.**
+- Sept classes jouables, attaque automatique, traits de classe, ultimes.
 - Une équipe : un héros incarné, les autres joués par l'IA.
 - **La règle des 20%** — le cœur du jeu : l'IA se replie à 20% de vie et ne perd jamais
-  un héros ; le joueur ne peut pas changer de héros sous 20% et doit le ramener à la
-  cité ; la mort est définitive. Conséquence : un héros ne meurt que par une décision du
-  joueur.
-- La cité au centre de l'arène : on y est à l'abri, on s'y soigne.
-- XP, niveaux, et un **choix de compétence tous les 5 niveaux** qui met le jeu en pause.
+  un héros ; le joueur ne peut pas changer de héros sous 20% ; la mort est définitive.
+- XP, niveaux, **choix de compétence tous les 5 niveaux** (met le jeu en pause).
 - **Plus de 70 compétences** : passives, actives, automatiques, à paliers, avec des
   évolutions qui changent leur nature et la couleur du héros.
-- Interface dans une **scène séparée** (`UiScene`) pour échapper au zoom de la caméra.
-- Fiche de héros consultable en cliquant un portrait.
+- **Ordres, postures et formations** (§4.4), commandement des sbires, **expérience de
+  groupe** (§4.16).
+- **La carte** : village adossé à la mer et à la montagne, flancs fermés, fronts qui
+  s'ouvrent par vague (§4.6).
+- Interface dans une scène séparée (`UiScene`), fiche de héros au clic.
+
+### Les vrais sprites (brief graphismes — terminé sauf §5)
+
+Les placeholders générés par code sont toujours là en **filet de sécurité**
+(`src/game/art.ts`, chaque fonction gardée par `if (scene.textures.exists(cle)) return;`),
+mais **30 PNG réels** vivent maintenant dans `src/assets/` et sont ramassés
+automatiquement par `src/game/assets.ts` (glob Vite, le nom du fichier = la clé de
+texture). Personnages en 32×32, sols en 64, maisons en 48.
+
+⚠️ **PixelLab est à 0 crédit.** `scripts/generer-assets.ts` ne peut plus rien produire.
+Tout ce qui est visuel doit donc se faire en code ou avec des assets gratuits.
+
+### Le jalon combat & monstres (`BRIEF-COMBAT-ET-MONSTRES.md`) — terminé sauf §5
+
+- **`src/game/effets.ts`** — impacts, poufs de mort, tranches, flashs, secousses,
+  hitstop, recul. Émetteurs de particules **créés une fois** et réutilisés, quota de
+  14 gerbes par image, hitstop rendu sur horodatage.
+- **Les monstres attaquent vraiment.** `contactEnnemi` ne blesse plus : il **arme**. Le
+  monstre se cabre (pose `charge`, teinte d'avertissement, vitesse à 25 %), puis
+  `resoudreFrappe` applique les dégâts à échéance — piloté par horodatage dans la boucle
+  existante, aucune minuterie ajoutée. Un coup peut **partir dans le vide** si la cible
+  s'est écartée (~7 % de ratés mesurés en jeu).
+- **`src/game/ennemis.ts`** — 6 archétypes en table déclarative, testés : `fonceur`,
+  `essaim` (petit/rapide), `revenant` (sprite `mort-vivant`), `cracheur` (tire à
+  distance), `brute` (×1,4, télégraphe de 620 ms), `kamikaze` (clignote puis explose).
+  Verrouillés derrière des seuils de puissance ; le fonceur reste majoritaire.
+- Mesuré en jeu : 42 FPS à 240 ennemis, aucune erreur console, hitbox du héros
+  **inchangée (8×10)**.
+
+### Les animations (fait après le brief, pas dans un brief)
+
+`poses.ts` faisait tourner les sprites faute de planches. Il annonçait sa propre fin —
+elle est arrivée. **Il choisit maintenant quelle animation jouer, et l'angle reste à 0.**
+
+- **`scripts/animer-sprites.ts`** — il ne *génère* rien, il **recompose**. Chaque sprite
+  est coupé à la hanche, et chaque frame incline le buste ou balance les jambes **autour
+  de ce pivot**. Les pixels sortis sont exactement les pixels d'entrée : la direction
+  artistique ne peut pas dériver. Gratuit, hors-ligne, instantané, illimité.
+- **`scripts/png.ts`** — lecture/écriture PNG avec le `zlib` de Node, **sans dépendance**.
+- **7 animations × 12 personnages** : `repos`, `marche`, `attaque`, `charge`,
+  `incantation`, `touche`, `mort`. Une seule planche par personnage
+  (`src/assets/anims/`), plus un `manifeste.json` généré qui porte les plages de frames.
+- Régénérer : `npx tsx scripts/animer-sprites.ts` (`--planche` ajoute une image de
+  contrôle agrandie dans `.tmp/`). **Le script se fiche de la taille de la source** : si
+  les sprites repassent en 64 px un jour, on relance sans rien changer.
+
+⚠️ **Tout ce travail n'est pas encore commité.** Le dernier commit est `1f17274`. Il faut
+relire le diff et découper en commits propres (le brief combat, puis les animations).
 
 ## Ce qui reste à faire
 
-### Jalon 4 — les ordres et les formations *(le prochain)*
+### Tout de suite
 
-- **Ordres aux héros IA** (§4.4) : leur dire où se rendre, et quelle posture adopter —
-  temporiser, attaquer agressivement, se replier.
-- **Formations** : tanks devant, soigneurs derrière.
-- **Commandement des sbires du Nécromancien** (§4.14) : les positionner, leur faire tenir
-  une position, charger, protéger. **Doit partager la même interface que les ordres aux
-  héros** — deux systèmes séparés, ce serait deux fois le travail et deux fois les bugs.
-- **Expérience de groupe** (§4.16) : plus des héros combattent ensemble, plus ils gagnent
-  de statistiques, et ça débloque des formations. Attention : le bonus doit rester
-  confortable, jamais décisif, sinon le joueur fige une équipe et ne tourne plus jamais.
+1. **Commiter et pousser** le travail en cours (voir ci-dessus).
+2. **Déclarer Playwright** en `devDependencies`, ou accepter de le réinstaller à chaque
+   fois qu'on veut piloter le jeu.
+3. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
+   parce qu'à 32 px, 3 px disloquent le personnage. Si c'est trop timide, toutes les
+   amplitudes sont dans une seule table en haut de `scripts/animer-sprites.ts` — je n'ai
+   pas pu en juger à ta place, ça se lit en mouvement, pas sur une capture.
 
-### Jalon 5 — le village
+### Jalon 5 — le village *(en cours, bloc 1 fait)*
 
-Le hub : se promener, parler aux PNJ, la phase de préparation, l'argent, l'équipement.
-Le village devient une **cible** pour les monstres (aujourd'hui la cité est un abri
-total où l'on peut camper indéfiniment — c'est un trou connu).
+Le bloc 1 (la carte, les flancs, les fronts) est livré. Restent :
 
-### Jalon 6 — les défenses
+- **Les habitants** (§4.18) : pêcheur, bûcheron, mineur, forgeron, charpentier. Chacun a
+  un **métier**, un **rang** et un **niveau** — et rang et niveau ne font qu'**une seule
+  chose : la cadence de production**. Pas de statistiques de combat.
+- **La récolte** : poisson, bois, minerai.
+- **La phase de préparation** entre deux vagues, l'argent, l'équipement.
+- **Fermer le trou de la cité** (voir dettes).
 
-Les placer et les orienter avant la vague. Progression de l'arsenal : de la **baliste**
-au **canon laser**.
+### Jalons suivants
 
-### Jalon 7 — la restauration du village
+| Jalon | Contenu |
+|---|---|
+| **6** | Défenses à placer et orienter, de la baliste au canon laser |
+| **7** | Restauration du village, améliorations cumulables, montée en puissance infinie |
+| **8** | Recrutement, rangs F→SRR++, classes rares, effectif de 10 et garnison (§4.15) |
+| **9** | Prologue, choix de classe, dialogues, narration |
+| **10** | Défaite, corruption, retour du héros en **antagoniste** (le plus important, §4.12) |
+| **11** | Leaderboard en ligne |
 
-Améliorations cumulables sans plafond, montée en puissance infinie des monstres. Les
-dégâts subis par le village retardent la vague suivante (§4.6) — vérifier qu'encaisser
-volontairement ne soit jamais rentable.
+Note pour le jalon 8 : le paramètre `faveur` de `tirerCompetences()` est **déjà en place**
+pour que le rang augmente la chance de tirer une compétence rare — il n'y a qu'à le
+brancher.
 
-### Jalon 8 — le recrutement et les rangs
+### Deux chantiers visuels optionnels, gratuits
 
-- Rangs des héros : `F E D C B A A+ A++ S S+ S++ SR SRR SRR+ SRR++`.
-- **Le rang est un plafond de niveau** (F = niveau 10 max). Monter en rang multiplie les
-  statistiques, augmente le nombre de capacités, et **augmente la chance de tirer une
-  compétence de rang élevé** — le paramètre `faveur` de `tirerCompetences()` est déjà en
-  place pour ça, il n'y a qu'à le brancher.
-- Le rank up se paie en **matériaux rares lâchés par les monstres**.
-- Classes très rares aux rangs élevés.
-- On peut recruter **plusieurs héros de la même classe**.
-- **Dix héros dehors au maximum** ; les autres restent en garnison et défendent la ville
-  si des monstres entrent (§4.15).
-
-### Jalon 9 — le prologue
-
-Choix de classe, arrivée au village en ruine, dialogues, on devient Protecteur.
-
-### Jalon 10 — la défaite et l'antagoniste
-
-Le système le plus important du jeu (§4.12). Quand on perd, le héros de départ **survit**,
-perd du pouvoir, **se corrompt**, et part vers un autre village — c'est la partie
-suivante. Au bout de plusieurs défaites il **bascule** et revient comme **antagoniste** :
-ton propre personnage, avec ta classe et tes compétences, vient détruire ton village.
-
-### Jalon 11 — le leaderboard
-
-Le seul morceau en ligne. Le score (vagues survécues) est déjà compté. Il faudra un
-petit serveur. À savoir : les scores d'un jeu qui tourne chez le joueur sont
-falsifiables.
+- **§5 du brief combat — frames d'effets dessinées.** Les particules codées suffisent
+  aujourd'hui. Pour pousser le « waouh » : packs CC0 (Foozle *Pixel Magic Effects*, tag
+  *Effects* d'itch.io). **Un agent ne peut pas récupérer le zip d'itch tout seul** (page
+  de téléchargement, « name your price »). La marche à suivre : je télécharge, je dépose
+  le PNG dans `src/assets/` nommé `fx-<nom>-<largeur>x<hauteur>.png`, et l'agent branche
+  `load.spritesheet` + `anims.create` dans `poufMort` / `eclatImpact`.
+- **Repasser les héros en 64×64.** Les sprites sont en 32 px par **choix assumé**
+  (`scripts/catalogue-assets.ts`, justifié dans `generer-assets.ts:107` : à 32 px le
+  détail mange la silhouette). **Agrandir ne crée aucun détail** — il faut redessiner.
+  Piste gratuite : ComfyUI + SD1.5 en local (la machine a une RTX 1000 Ada, ~4–6 Go
+  VRAM, Python 3.11 installé, ~6 Go à télécharger). À faire en **img2img faible
+  denoise, une seule image par héros** — surtout pas frame par frame, l'IA ne tient pas
+  la cohérence entre frames en 32 px. Ensuite on relance `animer-sprites.ts` tel quel.
 
 ## Dettes et pièges connus
 
-- **La fluidité.** Le jeu a ramé lourdement à cause du nombre d'objets vivants. Les cinq
-  règles du §4.17 de `DESIGN.md` sont à respecter absolument : tout ce qui apparaît a un
-  plafond, la difficulté monte par la force et non par le nombre, aucun objet Texte créé
-  en plein combat, aucune minuterie par coup encaissé, rien qui trie une liste par entité
-  et par image.
+- **La fluidité.** Les cinq règles du §4.17 de `DESIGN.md` sont à respecter absolument :
+  tout ce qui apparaît a un plafond, la difficulté monte par la force et non par le
+  nombre, aucun objet Texte créé en plein combat, aucune minuterie par coup encaissé,
+  rien qui trie une liste par entité et par image.
+- **La cité est toujours un abri total** : on s'y soigne et rien n'empêche d'y camper
+  (`majEtats`, `ArenaScene.ts`). C'est le trou à fermer dans la suite du jalon 5.
 - **Combinaison possiblement cassée** : `Écho` + `Capacités affinées` + `Danse des
-  ombres` pourrait permettre d'enchaîner les capacités sans fin. À vérifier en jeu.
-- **La cité est un abri total** : rien n'empêche d'y camper. Se refermera au jalon 5.
-- **Le Nécromancien n'est pas encore intéressant à incarner** tant que le commandement
-  des sbires n'existe pas (jalon 4).
-- **Pas de sauvegarde** pour l'instant. Prévu en `localStorage`, avec un export/import de
+  ombres` pourrait permettre d'enchaîner les capacités sans fin. Jamais vérifié en jeu.
+- **Pas de sauvegarde** (aucun `localStorage` dans le code). Prévu avec export/import de
   fichier dès qu'il y aura une vraie progression à perdre.
-- Les sprites sont des **placeholders générés par code** dans `src/game/art.ts`. Je
-  dessinerai les miens : pour en remplacer un, charger le PNG sous la même clé dans
-  `preload()` et supprimer la fonction correspondante. Le jeu a un **zoom libre**, donc un
-  sprite doit rester reconnaissable tout petit.
+- **Le kamikaze ne blesse que les héros**, pas les invocations. Choix de simplicité, à
+  revoir si ça se voit.
+- **Le martyre (Chevalier Sacré) ne déclenche pas `tomber()`** si le martyr incarné
+  descend à 0 PV. Comportement d'origine, conservé tel quel — à trancher.
+- **Les hitbox ne doivent jamais bouger.** `calerCorps` (`entities.ts`) les cale sur les
+  dimensions de la texture ; une frame d'animation fait exactement la taille de la
+  source, c'est ce qui garantit que rien n'a bougé. Les variantes d'archétype changent
+  leur hitbox **volontairement** avec leur échelle, comme le golem.
 
 ## Questions encore ouvertes
 
-Elles sont listées au §6 de `DESIGN.md`. Les plus importantes :
+Listées au §6 de `DESIGN.md`. Les plus importantes :
 
 - Y a-t-il des dégâts **physiques** et **magiques** séparés ? (aujourd'hui une seule
   statistique)
@@ -157,8 +226,10 @@ Elles sont listées au §6 de `DESIGN.md`. Les plus importantes :
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests
+npx vitest run   # les tests (105)
 npm run build    # vérifie les types et construit
+
+npx tsx scripts/animer-sprites.ts --planche   # régénère les planches d'animation
 ```
 
 **Commence par me dire ce que tu as compris et ce que tu comptes faire en premier, avant

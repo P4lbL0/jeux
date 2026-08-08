@@ -17,10 +17,27 @@ import {
   Hero,
   Invocation,
   MortVivant,
+  orienter,
+  rafraichirTeinte,
+  SEUIL_REGARD,
+  SEUIL_REGARD_PIXELS,
   type Capacite,
   type Dome,
 } from "../game/entities";
+import { choisirArchetype } from "../game/ennemis";
 import { piloter, type ContexteIA } from "../core/ia";
+import { animer, animerMort, declencher } from "../game/poses";
+import {
+  eclatImpact,
+  flashCible,
+  hitstop,
+  majEffets,
+  poufMort,
+  preparerEffets,
+  recul,
+  secousse,
+  tranche,
+} from "../game/effets";
 import {
   NOMS_FORMATION,
   NOMS_POSTURE,
@@ -84,8 +101,51 @@ const MAX_ENNEMIS = 240;
 /** Au-dela, on cesse d'afficher les nombres flottants : ils coutent cher. */
 const MAX_TEXTES_FLOTTANTS = 24;
 
+/**
+ * Cadavres qui tombent en meme temps.
+ *
+ * Une capacite de zone tue parfois trente monstres dans la meme image : sans
+ * plafond, ca ferait trente sprites et trente tweens d'un coup. Au-dela, le
+ * pouf de particules suffit a raconter la mort.
+ */
+const MAX_CADAVRES = 24;
+
+/** Impulsion rendue a un heros qui encaisse, en pixels par seconde. */
+const FORCE_RECUL = 110;
+
+/** Vitesse d'un crachat de monstre, en pixels par seconde. */
+const VITESSE_CRACHAT = 210;
+
+/** Rayon de l'explosion d'un kamikaze, en pixels. */
+const RAYON_KAMIKAZE = 92;
+
 /** Mort-vivants simultanes par Necromancien */
 const MAX_MORTS_VIVANTS = 12;
+
+/**
+ * Le zoom de depart, et ses bornes.
+ *
+ * Il valait 3 du temps des placeholders, qui faisaient 18 px de haut : un heros
+ * occupait donc une cinquantaine de pixels a l'ecran. Les sprites de
+ * `src/assets/` en font 32, et on les affiche a leur taille native — les
+ * reduire d'un facteur fractionnaire les transformerait en bouillie, et meme
+ * une reduction de moitie leur mange la tete.
+ *
+ * C'est donc le zoom qui absorbe la difference : a 1,7 un heros retrouve ses
+ * cinquante pixels a l'ecran. **L'empreinte visible est la meme qu'avant**, et
+ * aucune donnee de jeu n'a bouge — ni vitesse, ni portee, ni hitbox.
+ */
+const ZOOM_DEFAUT = 1.7;
+const ZOOM_MIN = 0.8;
+const ZOOM_MAX = 3.4;
+
+/**
+ * Part de la direction demandee par l'IA reprise a chaque image.
+ *
+ * Assez haut pour que le heros reste reactif, assez bas pour qu'un changement
+ * de cible ne se traduise pas par un demi-tour instantane.
+ */
+const LISSAGE_DIRECTION = 0.18;
 
 export class ArenaScene extends Phaser.Scene {
   private rng!: Rng;
@@ -100,6 +160,8 @@ export class ArenaScene extends Phaser.Scene {
   private equipe!: Phaser.Physics.Arcade.Group;
   private ennemis!: Phaser.Physics.Arcade.Group;
   private projectiles!: Phaser.Physics.Arcade.Group;
+  /** Les crachats des monstres a distance : ils volent dans l'autre sens */
+  private projectilesEnnemis!: Phaser.Physics.Arcade.Group;
   /** Tout ce qui se bat pour l'equipe sans etre un heros */
   private invocations!: Phaser.Physics.Arcade.Group;
   /** Instant a partir duquel un familier detruit peut revenir */
@@ -122,6 +184,10 @@ export class ArenaScene extends Phaser.Scene {
   private textesActifs = 0;
   /** Heros ciblables, recalcules une fois par image et non par ennemi */
   private ciblesPossibles: Hero[] = [];
+  /** Cadavres en train de tomber : plafonnes, une mort en masse coute cher */
+  private cadavres = 0;
+  /** Archetypes deja croises, pour n'annoncer chacun qu'une fois */
+  private archetypesVus = new Set<string>();
 
   private zqsd!: Record<string, Phaser.Input.Keyboard.Key>;
   private fleches!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -165,6 +231,8 @@ export class ArenaScene extends Phaser.Scene {
     this.textesLibres = [];
     this.textesActifs = 0;
     this.ciblesPossibles = [];
+    this.cadavres = 0;
+    this.archetypesVus = new Set();
     this.martyr = null;
     this.resurrectionUtilisee = false;
     this.figeJusqua = 0;
@@ -240,11 +308,15 @@ export class ArenaScene extends Phaser.Scene {
     console.log(`[arene] graine = ${graine}`);
 
     creerTexturesPlaceholder(this);
+    // Les emetteurs de particules sont crees une fois pour toute la partie :
+    // il y a jusqu'a MAX_ENNEMIS combattants, on n'en fabrique pas un par coup.
+    preparerEffets(this);
     this.construireDecor();
 
     this.equipe = this.physics.add.group();
     this.ennemis = this.physics.add.group();
     this.projectiles = this.physics.add.group();
+    this.projectilesEnnemis = this.physics.add.group();
     this.invocations = this.physics.add.group();
     this.composerEquipe();
     this.commandement = new Commandement(this.heros);
@@ -261,7 +333,7 @@ export class ArenaScene extends Phaser.Scene {
       PRATICABLE.hauteur,
     );
     this.cameras.main.setBounds(0, 0, MONDE.largeur, MONDE.hauteur);
-    this.cameras.main.setZoom(3);
+    this.cameras.main.setZoom(ZOOM_DEFAUT);
     this.cameras.main.startFollow(this.hero, true, 0.12, 0.12);
     this.configurerZoom();
     this.configurerTouches();
@@ -272,6 +344,9 @@ export class ArenaScene extends Phaser.Scene {
     );
     this.physics.add.overlap(this.projectiles, this.ennemis, (p, e) =>
       this.impactProjectile(p as Phaser.Physics.Arcade.Image, e as Ennemi),
+    );
+    this.physics.add.overlap(this.projectilesEnnemis, this.equipe, (p, h) =>
+      this.impactCrachat(p as Phaser.Physics.Arcade.Image, h as Hero),
     );
     this.physics.add.overlap(this.invocations, this.ennemis, (m, e) =>
       this.melee(m as Invocation, e as Ennemi),
@@ -359,24 +434,44 @@ export class ArenaScene extends Phaser.Scene {
       }
     };
 
+    /**
+     * Un element de decor, pose a sa taille native.
+     *
+     * Plus de `setScale(rng.range(...))` : une echelle fractionnaire donne des
+     * pixels de tailles inegales, ce qui saute aux yeux sur du vrai pixel-art.
+     * La variete vient desormais des cinq silhouettes d'arbre et du miroir
+     * horizontal, qui ne coutent aucun flou.
+     */
+    const poser = (x: number, y: number, cle: string) => {
+      this.add.image(x, y, cle).setDepth(y).setFlipX(rng.next() < 0.5);
+    };
+
+    /**
+     * Les tirages sont exprimes **par million de pixels de carte**, pas en
+     * nombre absolu : agrandir le monde ne doit pas le vider. Un compte fixe
+     * repartit les memes arbres sur une surface plus grande, et la foret se
+     * clairseme toute seule des qu'on touche a `MONDE`.
+     */
+    const tirages = (parMegapixel: number) =>
+      Math.round(((MONDE.largeur * MONDE.hauteur) / 1_000_000) * parMegapixel);
+
     // La foret du sud. Elle doit etre **dense** : c'est elle qui rend le flanc
-    // sud credible. Le sous-bois ne couvre qu'un dixieme de la carte, il faut
-    // donc beaucoup de tirages pour l'y remplir.
-    semer(3200, ["sous-bois"], (x, y) => {
-      this.add.image(x, y, rng.pick(ARBRES)).setDepth(y).setScale(rng.range(0.9, 1.3));
-    });
+    // sud credible. Deux fois moins serree qu'au temps des placeholders, parce
+    // que les arbres de `src/assets/` couvrent trois fois plus de surface : a
+    // densite egale, la foret devenait un mur opaque au-dessus du combat.
+    semer(tirages(830), ["sous-bois"], (x, y) => poser(x, y, rng.pick(ARBRES)));
 
     // Des bosquets epars sur la prairie : le decor ne doit jamais etre un fond
     // uni, mais il ne doit pas non plus masquer les personnages (§4.11).
-    semer(700, ["herbe"], (x, y) => {
-      if (rng.next() > 0.3) return;
-      this.add.image(x, y, rng.pick(ARBRES)).setDepth(y).setScale(rng.range(0.75, 1.05));
+    semer(tirages(365), ["herbe"], (x, y) => {
+      if (rng.next() > 0.22) return;
+      poser(x, y, rng.pick(ARBRES));
     });
 
     // Les rochers, sur l'eboulis et au pied de la montagne.
-    semer(900, ["eboulis", "roche"], (x, y) => {
-      if (rng.next() > 0.4) return;
-      this.add.image(x, y, "rocher").setDepth(y).setScale(rng.range(0.8, 1.7));
+    semer(tirages(470), ["eboulis", "roche"], (x, y) => {
+      if (rng.next() > 0.3) return;
+      poser(x, y, "rocher");
     });
   }
 
@@ -408,7 +503,10 @@ export class ArenaScene extends Phaser.Scene {
       const rayon = CITE.rayon * rng.range(0.55, 0.78);
       const x = CITE.x + Math.cos(a) * rayon;
       const y = CITE.y + Math.sin(a) * rayon;
-      this.add.image(x, y, rng.pick(maisons)).setDepth(y).setScale(rng.range(1, 1.35));
+      // Taille native, comme le reste du decor : trois toits de couleurs
+      // differentes suffisent a ce qu'aucune maison ne soit la copie de sa
+      // voisine, et une maison mise a l'echelle perdrait sa nettete.
+      this.add.image(x, y, rng.pick(maisons)).setDepth(y);
     }
 
     this.add
@@ -447,7 +545,7 @@ export class ArenaScene extends Phaser.Scene {
   private configurerZoom(): void {
     this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => {
       const cam = this.cameras.main;
-      cam.setZoom(Phaser.Math.Clamp(cam.zoom - dy * 0.0016, 1.4, 6));
+      cam.setZoom(Phaser.Math.Clamp(cam.zoom - dy * 0.0016, ZOOM_MIN, ZOOM_MAX));
     });
   }
 
@@ -681,14 +779,44 @@ export class ArenaScene extends Phaser.Scene {
     if (this.time.now >= this.figeJusqua) {
       this.deplacerEnnemis();
     } else {
-      for (const objet of this.ennemis.getChildren()) (objet as Ennemi).setVelocity(0, 0);
+      for (const objet of this.ennemis.getChildren()) {
+        const e = objet as Ennemi;
+        e.setVelocity(0, 0);
+        // Le temps ne passe pas pour eux : leurs horodatages sont repousses
+        // d'autant. Sinon le degel ferait tomber d'un coup tous les coups
+        // armes pendant l'Heure sombre — l'ultime punirait celui qui le lance.
+        e.decaler(delta);
+      }
     }
 
     for (const hero of this.heros) this.attaquerAvec(hero);
     this.gererCapacitesAuto();
     this.gererCapacites();
     this.fairePartirLesVagues();
+    this.majPoses();
+    this.majTeintes();
+    // Le micro-gel se rend la main tout seul, sur horodatage.
+    majEffets(this, this.time.now, true);
     this.trierProfondeurs();
+  }
+
+  /**
+   * L'eclair blanc d'encaissement des allies, repose une fois par image.
+   *
+   * Les ennemis sont traites dans leur propre boucle (`teinterEnnemi`), qui a
+   * des regles en plus. Ici, c'est le meme principe : un horodatage plutot
+   * qu'une minuterie par coup recu.
+   */
+  private majTeintes(): void {
+    const maintenant = this.time.now;
+    for (const hero of this.heros) {
+      if (hero.etat === "mort") continue;
+      rafraichirTeinte(hero, maintenant);
+    }
+    for (const objet of this.invocations.getChildren()) {
+      const i = objet as Invocation;
+      if (i.active) rafraichirTeinte(i, maintenant);
+    }
   }
 
   /** Toutes les x millisecondes : chaque paire de heros coute un calcul. */
@@ -867,13 +995,13 @@ export class ArenaScene extends Phaser.Scene {
         }
         const retour = Phaser.Math.Angle.Between(objet.x, objet.y, ancre.x, ancre.y);
         objet.setVelocity(Math.cos(retour) * objet.vitesse, Math.sin(retour) * objet.vitesse);
-        objet.setFlipX(ancre.x < objet.x);
+        orienter(objet, ancre.x - objet.x, SEUIL_REGARD_PIXELS);
         continue;
       }
 
       const angle = Phaser.Math.Angle.Between(objet.x, objet.y, cible.x, cible.y);
       objet.setVelocity(Math.cos(angle) * objet.vitesse, Math.sin(angle) * objet.vitesse);
-      objet.setFlipX(cible.x < objet.x);
+      orienter(objet, cible.x - objet.x, SEUIL_REGARD_PIXELS);
     }
   }
 
@@ -881,6 +1009,7 @@ export class ArenaScene extends Phaser.Scene {
     if (!invoque.active || !e.active || this.enPause) return;
     if (!invoque.peutFrapper(this.time.now)) return;
     invoque.marquerCoup(this.time.now);
+    declencher(invoque.pose, invoque, "attaque", this.time.now, e);
 
     if (invoque.degats > 0) {
       // Le spectre execute ce qui est deja a l'agonie.
@@ -889,9 +1018,13 @@ export class ArenaScene extends Phaser.Scene {
       if (acheve) this.flotter(e.x, e.y - 16, "ACHEVE", "#9fd8ff");
     }
 
+    // L'echange se paie des deux cotes. L'eclair d'encaissement est date
+    // plutot que confie a une minuterie : une minuterie par coup rendait la
+    // main a `clearTint`, qui effacait au passage la couleur du double.
     invoque.pv -= e.degats;
-    invoque.setTintFill(0xffffff);
-    this.time.delayedCall(60, () => invoque.active && invoque.clearTint());
+    flashCible(invoque, this.time.now, 60);
+    declencher(invoque.pose, invoque, "touche", this.time.now, e);
+    eclatImpact(this, invoque.x, invoque.y - 4, e.archetype.couleurImpact, 3);
     if (invoque.pv <= 0) this.detruireInvocation(invoque);
   }
 
@@ -1064,6 +1197,11 @@ export class ArenaScene extends Phaser.Scene {
     const hero = this.hero;
     if (!hero || hero.etat === "mort") return;
 
+    // Le recul d'un coup encaisse tient la main quelques images. Sans ce
+    // passage, la vitesse du joueur, reecrite ici a chaque image, effacerait
+    // l'impulsion avant qu'elle n'ait deplace quoi que ce soit.
+    if (hero.estEnRecul) return;
+
     if (hero.estImmobilise) {
       hero.setVelocity(0, 0);
       return;
@@ -1091,7 +1229,7 @@ export class ArenaScene extends Phaser.Scene {
     dir.normalize();
     if (dir.lengthSq() > 0) {
       hero.regard.copy(dir);
-      if (dir.x !== 0) hero.setFlipX(dir.x < 0);
+      orienter(hero, dir.x, SEUIL_REGARD);
     }
     hero.setVelocity(dir.x * hero.vitesse, dir.y * hero.vitesse);
 
@@ -1107,18 +1245,30 @@ export class ArenaScene extends Phaser.Scene {
 
     for (const hero of this.heros) {
       if (hero.estIncarne || hero.etat === "mort") continue;
+      // Un heros repousse subit son recul avant de reprendre sa course.
+      if (hero.estEnRecul) continue;
       if (hero.estImmobilise) {
         hero.setVelocity(0, 0);
         continue;
       }
 
       const { direction, lancerUltime } = piloter(hero, contexte);
+
+      // Le lissage : la direction va vers celle que l'IA demande sans y sauter.
+      // `piloter()` reste franche et testable ; c'est l'affichage qui amortit.
+      // Sans ca, un changement de cible au milieu d'une nuee fait faire
+      // demi-tour en une image, et ca se lit comme un tremblement.
+      const lisse = hero.directionLissee.lerp(
+        new Phaser.Math.Vector2(direction.x, direction.y),
+        LISSAGE_DIRECTION,
+      );
+
       // Un heros qui decroche court plus vite : c'est ce qui rend le repli
       // credible plutot que suicidaire.
       const vitesse = hero.vitesse * (hero.etat === "repli" ? 1.35 : 1);
-      hero.setVelocity(direction.x * vitesse, direction.y * vitesse);
-      if (direction.x !== 0) hero.setFlipX(direction.x < 0);
-      if (direction.x !== 0 || direction.y !== 0) hero.regard.set(direction.x, direction.y);
+      hero.setVelocity(lisse.x * vitesse, lisse.y * vitesse);
+      orienter(hero, lisse.x, SEUIL_REGARD);
+      if (lisse.lengthSq() > 0.01) hero.regard.set(lisse.x, lisse.y);
 
       if (lancerUltime && hero.etat === "combat") {
         // L'IA lance la premiere capacite prete. Elle ne choisit jamais
@@ -1129,29 +1279,125 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * La boucle des monstres : un seul parcours par image, comme avant.
+   *
+   * Elle porte desormais trois choses de plus, et c'est voulu qu'elles soient
+   * ici plutot que dans des minuteries : le coup arme qui arrive a echeance,
+   * l'engagement du cracheur qui n'attend pas le contact, et la teinte.
+   */
   private deplacerEnnemis(): void {
     // Calcule une seule fois par image : c'etait refait pour chaque ennemi.
     this.ciblesPossibles = this.heros.filter((h) => h.estAuCombat && !h.estInvisible);
+    const maintenant = this.time.now;
 
-    for (const objet of this.ennemis.getChildren()) {
+    // Copie de la liste : un kamikaze qui s'ouvre, ou une riposte qui tue le
+    // frappeur, retire un element du groupe **pendant** le parcours. C'est la
+    // meme precaution que dans `frapperAuContact`.
+    for (const objet of [...this.ennemis.getChildren()]) {
       const e = objet as Ennemi;
       if (!e.active) continue;
 
-      const cible = this.cibleDe(e) ?? CITE;
-      const angle = Phaser.Math.Angle.Between(e.x, e.y, cible.x, cible.y);
-      e.setVelocity(Math.cos(angle) * e.vitesseEffective, Math.sin(angle) * e.vitesseEffective);
-      e.setFlipX(cible.x < e.x);
-      if (this.time.now < e.flashJusqua) {
-        e.setTintFill(0xffffff);
-      } else if (e.souscontrat) {
-        // Un ennemi sous contrat reste marque en rouge jusqu'a la fin.
-        e.setTint(0xff3b30);
-      } else {
-        e.setTint(this.time.now < e.ralentiJusqua ? 0x8ed6ff : 0xffffff);
+      // Le coup arme part-il ? C'est le seul endroit ou un monstre blesse.
+      if (e.enArmement && maintenant >= e.instantFrappe) this.resoudreFrappe(e);
+      if (!e.active) continue;
+
+      // Le cracheur n'attend pas le contact : il engage des qu'il vous voit.
+      if (
+        !e.enArmement &&
+        e.archetype.comportement === "cracheur" &&
+        e.peutFrapper(maintenant)
+      ) {
+        const proie = this.heroLePlusProche(e.x, e.y, e.archetype.portee);
+        if (proie) this.armerEnnemi(e, proie);
       }
 
+      this.avancerEnnemi(e, maintenant);
+      this.teinterEnnemi(e, maintenant);
       this.bloquerParLesDomes(e);
     }
+  }
+
+  /**
+   * Ou va un monstre.
+   *
+   * Deux nuances par rapport a « il fonce tout droit » : pendant son armement
+   * il ralentit fortement — un coup telegraphie qu'on voit venir mais auquel on
+   * ne peut pas echapper ne telegraphie rien — et le cracheur garde ses
+   * distances au lieu de venir au contact.
+   */
+  private avancerEnnemi(e: Ennemi, maintenant: number): void {
+    // Repousse : son impulsion a la priorite sur sa volonte.
+    if (maintenant < e.reculJusqua) return;
+
+    const cible = this.cibleDe(e) ?? CITE;
+    const angle = Phaser.Math.Angle.Between(e.x, e.y, cible.x, cible.y);
+    orienter(e, cible.x - e.x, SEUIL_REGARD_PIXELS);
+
+    // Il se cabre : il n'avance quasiment plus, on a le temps de s'ecarter.
+    const vitesse = e.vitesseEffective * (e.enArmement ? 0.25 : 1);
+
+    if (e.archetype.comportement === "cracheur") {
+      const distance = Phaser.Math.Distance.Between(e.x, e.y, cible.x, cible.y);
+      const bonne = e.archetype.portee * 0.75;
+      if (distance < bonne * 0.7) {
+        // Trop pres : il recule pour retrouver sa distance de tir.
+        e.setVelocity(-Math.cos(angle) * vitesse * 0.7, -Math.sin(angle) * vitesse * 0.7);
+        return;
+      }
+      if (distance < bonne) {
+        e.setVelocity(0, 0);
+        return;
+      }
+    }
+
+    e.setVelocity(Math.cos(angle) * vitesse, Math.sin(angle) * vitesse);
+  }
+
+  /**
+   * La couleur dit ce qu'il est et ce qu'il fait, dans cet ordre de priorite :
+   * l'eclair d'encaissement, le contrat, l'armement, le ralentissement, puis la
+   * teinte de son archetype.
+   */
+  private teinterEnnemi(e: Ennemi, maintenant: number): void {
+    if (maintenant < e.flashJusqua) {
+      e.setTintFill(0xffffff);
+      return;
+    }
+    // Un ennemi sous contrat reste marque en rouge jusqu'a la fin.
+    if (e.souscontrat) {
+      e.setTint(0xff3b30);
+      return;
+    }
+    if (e.enArmement) {
+      // L'avertissement. Le kamikaze, lui, clignote : c'est une meche.
+      if (e.archetype.comportement === "kamikaze") {
+        if (Math.floor(maintenant / 80) % 2 === 0) e.setTintFill(0xffe0b0);
+        else e.setTint(0xff7a2f);
+        return;
+      }
+      e.setTint(0xffd166);
+      return;
+    }
+    if (maintenant < e.ralentiJusqua) {
+      e.setTint(0x8ed6ff);
+      return;
+    }
+    e.setTint(e.teinte ?? 0xffffff);
+  }
+
+  /** Le heros ciblable le plus proche, pour ce qui vise a distance. */
+  private heroLePlusProche(x: number, y: number, portee: number): Hero | null {
+    let meilleur: Hero | null = null;
+    let meilleureDistance = portee;
+    for (const h of this.ciblesPossibles) {
+      const d = Phaser.Math.Distance.Between(x, y, h.x, h.y);
+      if (d < meilleureDistance) {
+        meilleureDistance = d;
+        meilleur = h;
+      }
+    }
+    return meilleur;
   }
 
   /**
@@ -1213,6 +1459,36 @@ export class ArenaScene extends Phaser.Scene {
     this.domes = this.domes.filter((d) => d !== dome);
   }
 
+  /**
+   * Le balancement de marche et les poses, pour tout ce qui se bat.
+   *
+   * Un sinus par combattant et par image, rien de plus : c'est assez leger pour
+   * les 240 ennemis du plafond (§4.17, regle 5). Aucune minuterie, aucun objet
+   * cree — l'etat tient dans quatre nombres portes par chaque entite.
+   */
+  private majPoses(): void {
+    const maintenant = this.time.now;
+
+    const animerEntite = (objet: Hero | Ennemi | Invocation) => {
+      const corps = objet.body as Phaser.Physics.Arcade.Body | null;
+      animer(objet, objet.pose, corps ? corps.velocity.length() : 0, maintenant);
+    };
+
+    for (const hero of this.heros) {
+      // Un mort ne se balance pas : il reste a plat, le temps qu'on le pleure.
+      if (hero.etat === "mort") continue;
+      animerEntite(hero);
+    }
+    for (const objet of this.ennemis.getChildren()) {
+      const e = objet as Ennemi;
+      if (e.active) animerEntite(e);
+    }
+    for (const objet of this.invocations.getChildren()) {
+      const i = objet as Invocation;
+      if (i.active) animerEntite(i);
+    }
+  }
+
   private trierProfondeurs(): void {
     for (const hero of this.heros) hero.setDepth(hero.y);
     for (const objet of this.ennemis.getChildren()) {
@@ -1237,6 +1513,9 @@ export class ArenaScene extends Phaser.Scene {
     if (!cible) return;
 
     hero.marquerAttaque();
+    // La fente part vers la cible, et sa duree est calee sur celle de l'eclair
+    // d'impact : le geste et le coup doivent se lire comme un seul evenement.
+    declencher(hero.pose, hero, "attaque", this.time.now, cible);
     if (hero.portee <= PORTEE_CORPS_A_CORPS) this.frapperAuContact(hero, cible);
     else this.lancerProjectile(hero, cible);
 
@@ -1273,17 +1552,9 @@ export class ArenaScene extends Phaser.Scene {
       this.frapper(hero, e);
     }
 
-    const arc = this.add
-      .image(
-        hero.x + Math.cos(angle) * portee * 0.5,
-        hero.y + Math.sin(angle) * portee * 0.5,
-        "impact",
-      )
-      .setDepth(hero.y + 1)
-      .setScale(portee / 22)
-      .setAlpha(0.45)
-      .setTint(0xffe9a8);
-    this.tweens.add({ targets: arc, alpha: 0, duration: 150, onComplete: () => arc.destroy() });
+    // Le meme arc qu'avant, mais sorti d'ici : c'est desormais la brique que
+    // les monstres utilisent aussi quand ils frappent (`effets.tranche`).
+    tranche(this, hero.x, hero.y, angle, 0xffe9a8, portee);
   }
 
   private lancerProjectile(hero: Hero, cible: Ennemi): void {
@@ -1400,6 +1671,9 @@ export class ArenaScene extends Phaser.Scene {
     // creait des centaines par seconde. Un simple horodatage suffit.
     e.setTintFill(0xffffff);
     e.flashJusqua = this.time.now + 70;
+    // La gerbe est plafonnee par image dans `effets.ts` : une chaine d'eclairs
+    // ou une aura de zone passe ici des dizaines de fois d'affilee.
+    eclatImpact(this, e.x, e.y - 4, e.archetype.couleurImpact, 4);
 
     const vol = auteur.volDeVie + volDeVieSup;
     if (vol > 0) auteur.soigner(inflige * vol);
@@ -1436,12 +1710,47 @@ export class ArenaScene extends Phaser.Scene {
     const x = e.x;
     const y = e.y;
 
+    // La mort se voit : un pouf de particules, et une depouille qui bascule.
+    // Purement decoratif et entierement detache — la logique ci-dessous n'a pas
+    // bouge d'une ligne, et le sprite du monstre est detruit comme avant.
+    this.marquerLaMort(e);
+
     // L'XP va au heros qui a tue, pas a l'equipe (DESIGN.md §4.5).
     const monte = auteur.gagnerXp(e.xpDonnee);
     e.destroy();
     // Le cadavre peut se relever pour le Necromancien (DESIGN.md §4.14).
     this.tenterRelevement(x, y);
     if (monte) this.monterDeNiveau(auteur);
+  }
+
+  /**
+   * Le visuel de mort d'un monstre : un pouf, et une depouille qui s'affale.
+   *
+   * La depouille est une **copie detachee** du sprite — meme texture, meme
+   * teinte, meme orientation — sans corps physique. C'est ce qui autorise la
+   * bascule et le retrecissement de `animerMort` : il n'y a plus de hitbox a
+   * fausser, et le monstre reel, lui, est detruit dans la foulee.
+   */
+  private marquerLaMort(e: Ennemi): void {
+    poufMort(this, e.x, e.y, e.archetype.couleurImpact);
+    if (this.cadavres >= MAX_CADAVRES) return;
+
+    const cle = `${e.familleSprite}-mort`;
+    if (!this.anims.exists(cle)) return;
+
+    const depouille = this.add
+      .sprite(e.x, e.y, cle)
+      .setScale(e.scaleX)
+      .setFlipX(e.flipX)
+      .setDepth(e.y - 1);
+    if (e.teinte !== null) depouille.setTint(e.teinte);
+
+    this.cadavres += 1;
+    depouille.play(cle);
+    depouille.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+      this.cadavres -= 1;
+      depouille.destroy();
+    });
   }
 
   // ---------------------------------------------------------- progression
@@ -1527,6 +1836,10 @@ export class ArenaScene extends Phaser.Scene {
     // Sans ce decalage, le temps passe dans le menu rechargerait tout.
     const pause = this.time.now - this.debutPause;
     for (const hero of this.heros) hero.decalerRechargements(pause);
+    // Les monstres aussi : sinon, un menu de dix secondes ferait arriver a
+    // echeance tous les coups armes a la fois, et la vague entiere frapperait
+    // dans l'image de la reprise.
+    for (const objet of this.ennemis.getChildren()) (objet as Ennemi).decaler(pause);
     this.physics.resume();
     this.enPause = false;
     if (this.hero.choixEnAttente > 0) this.ouvrirChoix();
@@ -1561,6 +1874,9 @@ export class ArenaScene extends Phaser.Scene {
     // Echo : la capacite peut ne pas partir en rechargement du tout.
     hero.marquerCapacite(capacite, this.rng.next());
     this.flotter(hero.x, hero.y - 28, capacite.nom.toUpperCase(), "#f0c419");
+    // Il se cabre en arriere : plus ample et plus lent qu'un coup, pour qu'on
+    // distingue au premier regard une capacite d'une attaque ordinaire.
+    declencher(hero.pose, hero, "incantation", this.time.now);
 
     switch (capacite.effet) {
       case "tourbillon":
@@ -2439,42 +2755,202 @@ export class ArenaScene extends Phaser.Scene {
         ? this.fronts[1]!
         : this.fronts[0]!;
 
+    // L'archetype module la puissance, il ne la remplace pas : les seuils font
+    // que les premieres minutes n'envoient que des fonceurs, puis que la
+    // variete s'ouvre a mesure que la vague durcit.
+    const archetype = choisirArchetype(puissance, this.rng.next());
     const point = pointDApparition(front, this.rng.next());
-    this.ennemis.add(new Ennemi(this, point.x, point.y, puissance));
+    const e = new Ennemi(this, point.x, point.y, puissance, archetype);
+    this.ennemis.add(e);
+    this.annoncerNouveaute(archetype.id, archetype.nom);
+  }
+
+  /**
+   * La premiere apparition d'un archetype se dit.
+   *
+   * Un monstre qui tire a distance ou qui explose change la facon de jouer :
+   * le decouvrir en mourant serait une punition, pas une surprise.
+   */
+  private annoncerNouveaute(id: string, nom: string): void {
+    if (this.archetypesVus.has(id)) return;
+    this.archetypesVus.add(id);
+    // Le fonceur est le fond de la vague : il n'a rien d'une nouvelle.
+    if (id === "fonceur") return;
+    this.events.emit("annonce", `Nouveau : ${nom}`);
   }
 
   // --------------------------------------------------------------- degats
 
+  /**
+   * Un monstre touche un heros : il **s'arme**, il ne blesse pas encore.
+   *
+   * C'est tout le changement du jalon. Avant, le contact appliquait les degats
+   * dans l'image meme : on encaissait sans avoir rien vu venir. Maintenant le
+   * contact ne fait que declencher le telegraphe ; les degats sont appliques
+   * par `resoudreFrappe`, quelques centaines de millisecondes plus tard, et
+   * seulement si la cible est toujours la.
+   */
   private contactEnnemi(hero: Hero, e: Ennemi): void {
     if (!e.active || this.termine || this.enPause) return;
     // Un heros en repli, a la cite ou invisible a decroche.
     if (!hero.estAuCombat || hero.estInvisible) return;
-    if (!e.peutFrapper(this.time.now)) return;
-    e.marquerCoup(this.time.now);
+    // Le cracheur n'a rien a faire au corps a corps : il tire, et c'est tout.
+    if (e.archetype.comportement === "cracheur") return;
+    if (e.enArmement || !e.peutFrapper(this.time.now)) return;
+    this.armerEnnemi(e, hero);
+  }
 
-    // Trait "riposte" du Chevalier Sacre : il blesse ce qui le touche.
-    if (hero.classe.trait === "riposte") {
-      this.blesserEnnemi(e, Math.round(hero.degats * 0.9), hero);
+  /** Il se cabre, se tourne vers sa proie, et le coup part plus tard. */
+  private armerEnnemi(e: Ennemi, hero: Hero): void {
+    const maintenant = this.time.now;
+    e.armer(maintenant, hero);
+    declencher(e.pose, e, "charge", maintenant, hero);
+    orienter(e, hero.x - e.x, SEUIL_REGARD_PIXELS);
+  }
+
+  /**
+   * Le coup arme arrive a echeance.
+   *
+   * Il peut tres bien **partir dans le vide** : c'est ce qui donne son sens au
+   * telegraphe. Voir venir un coup sans pouvoir l'eviter ne serait qu'une
+   * decoration.
+   */
+  private resoudreFrappe(e: Ennemi): void {
+    const cible = e.cibleArmee;
+    const maintenant = this.time.now;
+    e.desarmer();
+
+    // Le kamikaze n'a pas de coup : il a une meche.
+    if (e.archetype.comportement === "kamikaze") {
+      this.exploser(e);
+      return;
     }
+
+    if (!cible || !cible.estAuCombat || cible.estInvisible) return;
+
+    const angle = Phaser.Math.Angle.Between(e.x, e.y, cible.x, cible.y);
+    declencher(e.pose, e, "attaque", maintenant, cible);
+
+    if (e.archetype.comportement === "cracheur") {
+      this.cracher(e, angle);
+      return;
+    }
+
+    // Trait "riposte" du Chevalier Sacre : il blesse ce qui le frappe.
+    if (cible.classe.trait === "riposte") {
+      this.blesserEnnemi(e, Math.round(cible.degats * 0.9), cible);
+    }
+
+    const distance = Phaser.Math.Distance.Between(e.x, e.y, cible.x, cible.y);
+    if (distance > e.archetype.portee) {
+      // Elle s'est ecartee a temps : le geste fauche l'air, en gris.
+      tranche(this, e.x, e.y, angle, 0x8a8397, e.archetype.portee);
+      return;
+    }
+
+    tranche(this, e.x, e.y, angle, e.archetype.couleurImpact, e.archetype.portee);
+    // La brute frappe assez fort pour qu'on le sente a la manette.
+    if (e.archetype.comportement === "brute" && cible.estIncarne) hitstop(this, 45);
+    this.encaisser(cible, e.degats, e.x, e.y, e.archetype.couleurImpact);
+  }
+
+  /**
+   * Un heros encaisse : le bloc de degats commun a toutes les sources.
+   *
+   * Rien n'a change au calcul — martyre, esquive, `subirDegats`, plancher de
+   * vie des heros IA sont exactement ceux d'avant. Ce qui s'y ajoute est
+   * purement visuel : eclat d'impact, eclair blanc, sursaut et recul.
+   */
+  private encaisser(
+    hero: Hero,
+    degats: number,
+    sourceX: number,
+    sourceY: number,
+    couleur: number,
+  ): void {
+    const maintenant = this.time.now;
 
     // Martyre : le Chevalier Sacre encaisse a la place de toute l'equipe.
     if (this.martyr && this.martyr !== hero && this.martyr.etat !== "mort") {
-      this.martyr.subirDegats(e.degats, this.rng.next());
+      this.martyr.subirDegats(degats, this.rng.next());
+      flashCible(this.martyr, maintenant);
+      declencher(this.martyr.pose, this.martyr, "touche", maintenant, { x: sourceX });
       this.flotter(this.martyr.x, this.martyr.y - 22, "Martyre", "#ffd166");
       return;
     }
 
-    const esquive = hero.subirDegats(e.degats, this.rng.next());
+    const esquive = hero.subirDegats(degats, this.rng.next());
     if (esquive) {
       if (hero.estIncarne) this.flotter(hero.x, hero.y - 18, "Esquive", "#7ee0a0");
       return;
     }
 
+    eclatImpact(this, hero.x, hero.y - 4, couleur);
+    flashCible(hero, maintenant);
+    declencher(hero.pose, hero, "touche", maintenant, { x: sourceX });
+    // Subtil a dessein : 110 ms d'impulsion, une douzaine de pixels. Un
+    // knockback qui se voit se met a lutter avec le deplacement du joueur.
+    recul(hero, sourceX, sourceY, FORCE_RECUL, maintenant);
+
     if (hero.estIncarne) {
-      this.flotter(hero.x, hero.y - 18, `-${e.degats}`, "#ff6b5a");
-      this.cameras.main.shake(90, 0.004);
+      this.flotter(hero.x, hero.y - 18, `-${degats}`, "#ff6b5a");
+      secousse(this, "leger");
     }
     if (hero.pv <= 0) this.tomber(hero);
+  }
+
+  /** Le crachat du monstre a distance : le tir de `tirer`, dans l'autre sens. */
+  private cracher(e: Ennemi, angle: number): void {
+    const p = this.projectilesEnnemis.create(
+      e.x,
+      e.y,
+      "projectile",
+    ) as Phaser.Physics.Arcade.Image;
+    p.setDepth(e.y + 1);
+    p.setTint(e.archetype.couleurImpact);
+    // Les degats voyagent avec le projectile : son auteur peut mourir avant
+    // qu'il n'arrive, et le crachat doit quand meme faire son office.
+    p.setData("degats", e.degats);
+    // Plus lent que les traits des heros : un tir qu'on ne peut pas voir
+    // arriver n'est pas un tir, c'est une taxe.
+    p.setVelocity(Math.cos(angle) * VITESSE_CRACHAT, Math.sin(angle) * VITESSE_CRACHAT);
+    eclatImpact(this, e.x, e.y, e.archetype.couleurImpact, 3);
+    this.time.delayedCall(2200, () => p.destroy());
+  }
+
+  private impactCrachat(p: Phaser.Physics.Arcade.Image, hero: Hero): void {
+    if (!p.active || this.termine || this.enPause) return;
+    if (!hero.estAuCombat || hero.estInvisible) return;
+    const degats = (p.getData("degats") as number | undefined) ?? 6;
+    const { x, y } = p;
+    p.destroy();
+    eclatImpact(this, x, y, 0x7ee0a0);
+    this.encaisser(hero, degats, x, y, 0x7ee0a0);
+  }
+
+  /**
+   * Le kamikaze s'ouvre.
+   *
+   * Il meurt sans donner ni kill ni experience : c'est le prix de l'avoir
+   * laisse arriver. Le tuer avant qu'il n'explose, lui, rapporte normalement —
+   * d'ou le clignotement pendant tout son armement.
+   */
+  private exploser(e: Ennemi): void {
+    const { x, y } = e;
+    const couleur = e.archetype.couleurImpact;
+
+    this.effetCercle(x, y, RAYON_KAMIKAZE, couleur);
+    poufMort(this, x, y, couleur);
+    secousse(this, "moyen");
+    hitstop(this, 45);
+
+    for (const hero of this.heros) {
+      if (!hero.estAuCombat || hero.estInvisible) continue;
+      if (Phaser.Math.Distance.Between(x, y, hero.x, hero.y) > RAYON_KAMIKAZE) continue;
+      this.encaisser(hero, Math.round(e.degats * 1.6), x, y, couleur);
+    }
+
+    e.destroy();
   }
 
   /** La mort est definitive. Elle ne peut arriver qu'au heros incarne. */
@@ -2492,8 +2968,13 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     hero.mourir();
+    // Il s'affaisse au lieu de se contenter de grisonner. Sans danger pour le
+    // jeu : `animerMort` commence par couper son corps physique, et un heros
+    // mort ne se releve jamais (la Resurrection est traitee au-dessus).
+    animerMort(hero);
     this.effetCercle(hero.x, hero.y, 90, 0xff3b30);
-    this.cameras.main.shake(320, 0.012);
+    poufMort(this, hero.x, hero.y, 0xff3b30);
+    secousse(this, "fort");
     this.flotter(hero.x, hero.y - 30, `${hero.classe.nom} est tombe`, "#ff6b5a");
     this.events.emit("hero-tombe", hero);
 
@@ -2510,6 +2991,9 @@ export class ArenaScene extends Phaser.Scene {
 
   private finDePartie(): void {
     this.termine = true;
+    // `update` ne tournera plus : on rend la main au monde ici, sinon un
+    // micro-gel en cours resterait en place pour de bon.
+    majEffets(this, this.time.now, false);
     this.physics.pause();
     this.effacerDestination();
     const resume = this.resume;

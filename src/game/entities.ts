@@ -12,6 +12,119 @@ import {
   type EvolutionDef,
 } from "../core/competences";
 import type { Ordre, Point } from "../core/ordres";
+import { nouvellePose } from "./poses";
+import { ARCHETYPE_DEFAUT, type Archetype } from "./ennemis";
+
+/**
+ * Cale le corps physique au centre de la texture, quelle qu'en soit la taille.
+ *
+ * Les placeholders faisaient 12x18 et 12x16 ; les vrais sprites de
+ * `src/assets/` en font 32. Sans ce calcul, un `setOffset` ecrit en dur pour
+ * une frame de 12 px placerait le corps dans le coin haut-gauche d'une frame de
+ * 32 px : le heros encaisserait des coups a cote de lui.
+ *
+ * La **hitbox ne change pas d'un pixel** — ni sa taille, ni sa position par
+ * rapport au centre du sprite. C'est exactement ce que faisaient les valeurs
+ * ecrites en dur : corps centre horizontalement, et son bord haut 4 px au-dessus
+ * du centre. Seule la taille de la texture bouge, donc seul l'offset suit.
+ */
+function calerCorps(
+  objet: Phaser.Physics.Arcade.Sprite,
+  largeur: number,
+  hauteur: number,
+): void {
+  const corps = objet.body as Phaser.Physics.Arcade.Body | null;
+  if (!corps) return;
+
+  // Un corps Arcade est exprime en pixels de la texture source, puis multiplie
+  // par l'echelle du sprite. On divise donc par l'echelle pour que `largeur` et
+  // `hauteur` restent des **pixels du monde** : afficher un personnage plus
+  // petit ne doit pas retrecir sa hitbox.
+  const echelle = objet.scaleX || 1;
+  const source = { largeur: largeur / echelle, hauteur: hauteur / echelle };
+
+  corps.setSize(source.largeur, source.hauteur);
+  corps.setOffset(
+    (objet.width - source.largeur) / 2,
+    objet.height / 2 - HAUT_DU_CORPS / echelle,
+  );
+}
+
+/** De combien le corps physique deborde au-dessus du centre du sprite. */
+const HAUT_DU_CORPS = 4;
+
+/**
+ * Echelle d'affichage des personnages et des monstres.
+ *
+ * Les sprites de `src/assets/` font 32 px ; a 0,75 ils en occupent 24, ce qui
+ * les rend un peu moins encombrants sans les rendre illisibles. C'est le seul
+ * cran de reduction qui reste propre : a 0,5 la tete des personnages disparait
+ * purement et simplement.
+ *
+ * Le decor, lui, garde sa taille native — c'est bien le rapport entre les
+ * personnages et le monde qu'on voulait resserrer.
+ *
+ * **Aucun effet sur le jeu** : `calerCorps` divise par cette echelle, donc les
+ * hitbox gardent exactement la taille qu'elles avaient.
+ */
+export const ECHELLE_PERSONNAGE = 0.75;
+
+/** Le familier golem est une fois et demie plus gros que les autres. */
+const GROSSEUR_GOLEM = 1.5;
+
+/**
+ * Oriente un sprite a gauche ou a droite, avec une **zone morte**.
+ *
+ * C'est la correction du « bourdonnement ». L'ancien code faisait
+ * `setFlipX(direction.x < 0)` a chaque image : des qu'un personnage se deplace
+ * presque a la verticale — ce qui arrive tout le temps, l'IA contournant sa
+ * cible (`ia.ts`, etape 7) — la composante horizontale oscille autour de zero et
+ * le sprite se retournait plusieurs dizaines de fois par seconde.
+ *
+ * En deca du seuil, on **garde l'orientation precedente** : `flipX` sert
+ * lui-meme de memoire, il n'y a donc rien a stocker.
+ *
+ * @param ecart composante horizontale du deplacement ou de la visee
+ * @param seuil en deca duquel on ne se retourne pas ; meme unite que `ecart`
+ */
+export function orienter(
+  sprite: Phaser.GameObjects.Sprite,
+  ecart: number,
+  seuil: number,
+): void {
+  if (ecart > seuil) sprite.setFlipX(false);
+  else if (ecart < -seuil) sprite.setFlipX(true);
+}
+
+/** Zone morte pour une direction normalisee : environ 20° de part et d'autre. */
+export const SEUIL_REGARD = 0.35;
+
+/** Zone morte quand on oriente d'apres deux positions, en pixels. */
+export const SEUIL_REGARD_PIXELS = 10;
+
+/** Ce qui porte une teinte de fond et un eclair d'encaissement date. */
+interface Teintable extends Phaser.GameObjects.Sprite {
+  /** Instant de fin de l'eclair blanc ; voir `effets.flashCible` */
+  flashJusqua: number;
+  /** Teinte permanente (evolution, archetype, mort) ; null = aucune */
+  teinte: number | null;
+}
+
+/**
+ * Repose la teinte d'un combattant, une fois par image.
+ *
+ * L'eclair d'encaissement l'emporte tant qu'il dure, puis la teinte de fond
+ * reprend la main. Sans ce rappel, un `clearTint()` apres un coup effacerait
+ * pour toujours la couleur d'un archetype ou d'une evolution.
+ */
+export function rafraichirTeinte(objet: Teintable, maintenant: number): void {
+  if (maintenant < objet.flashJusqua) {
+    objet.setTintFill(0xffffff);
+    return;
+  }
+  if (objet.teinte === null) objet.clearTint();
+  else objet.setTint(objet.teinte);
+}
 
 /** Une capacite utilisable : l'ultime de classe, ou une competence active. */
 export interface Capacite {
@@ -59,6 +172,23 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   /** Choix de competence gagnes mais pas encore faits (DESIGN.md §4.3) */
   choixEnAttente = 0;
   regard = new Phaser.Math.Vector2(1, 0);
+  /**
+   * La direction de l'IA, lissee d'une image a l'autre.
+   *
+   * `piloter()` renvoie une direction franche, recalculee de zero a chaque
+   * image : quand la cible la plus proche change au milieu d'une nuee, elle peut
+   * s'inverser d'un coup. Lisser ce vecteur donne un deplacement qui se lit
+   * comme une intention plutot que comme une hesitation.
+   */
+  directionLissee = new Phaser.Math.Vector2(0, 0);
+  /** Balancement de marche et poses d'attaque (voir `poses.ts`) */
+  pose = nouvellePose();
+  /** Eclair blanc au moment d'encaisser, gere sans minuterie */
+  flashJusqua = 0;
+  /** Teinte permanente : celle d'une evolution, puis celle de la mort */
+  teinte: number | null = null;
+  /** Instant de fin du recul : jusque-la, son deplacement laisse la main */
+  reculJusqua = 0;
 
   /** L'ordre en cours du joueur (DESIGN.md §4.4) */
   ordre: Ordre = { posture: "temporiser", ancre: null };
@@ -100,8 +230,12 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   /** Pendant l'Exil : insoignable, et le moindre contact est fatal */
   private condamneJusqua = 0;
 
+  /** Prefixe de ses planches d'animation (voir `poses.ts`) */
+  readonly familleSprite: string;
+
   constructor(scene: Phaser.Scene, x: number, y: number, classe: ClasseDef) {
     super(scene, x, y, `hero-${classe.id}`);
+    this.familleSprite = `hero-${classe.id}`;
     this.classe = classe;
     this.pv = classe.pvMax;
     if (classe.id === "assassin") this.bonus.discretion = true;
@@ -109,8 +243,9 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.setCollideWorldBounds(true);
-    this.body?.setSize(8, 10);
-    (this.body as Phaser.Physics.Arcade.Body).setOffset(2, 5);
+    // L'echelle avant le calage : le corps se calcule a partir d'elle.
+    this.setScale(ECHELLE_PERSONNAGE);
+    calerCorps(this, 8, 10);
   }
 
   // ------------------------------------------------- statistiques effectives
@@ -296,13 +431,21 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     return this.bonus.sermentDeFer;
   }
 
+  /** Vrai tant qu'un coup encaisse le repousse : son pilote patiente. */
+  get estEnRecul(): boolean {
+    return this.scene.time.now < this.reculJusqua;
+  }
+
   mourir(): void {
     this.etat = "mort";
     this.pv = 0;
     this.estIncarne = false;
     this.setVelocity(0, 0);
+    // La teinte de la mort ecrase celle d'une eventuelle evolution : ce qui
+    // compte a partir de la, c'est qu'on voie du premier coup d'oeil qu'il est
+    // tombe. La bascule et le fondu sont joues par la scene (`animerMort`).
+    this.teinte = 0x4a4152;
     this.setTint(0x4a4152);
-    this.setAlpha(0.55);
   }
 
   /** Renvoie true si les degats ont ete esquives */
@@ -406,6 +549,8 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
    */
   decalerRechargements(millisecondes: number): void {
     this.prochaineAttaque += millisecondes;
+    this.reculJusqua += millisecondes;
+    this.flashJusqua += millisecondes;
     this.invulnerableJusqua += millisecondes;
     this.invisibleJusqua += millisecondes;
     this.immobiliseJusqua += millisecondes;
@@ -471,7 +616,12 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.evolutions[competenceId] = evolution;
     evolution.appliquer?.(this.bonus);
     // Le build se voit a l'ecran : une evolution change l'allure du heros.
-    if (evolution.teinte !== undefined) this.setTint(evolution.teinte);
+    // Elle est retenue, pas seulement posee : un eclair d'encaissement la
+    // remplace le temps d'un clignotement, et il faut savoir y revenir.
+    if (evolution.teinte !== undefined) {
+      this.teinte = evolution.teinte;
+      this.setTint(evolution.teinte);
+    }
   }
 }
 
@@ -481,6 +631,10 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
   vitesse: number;
   degats: number;
   xpDonnee: number;
+  /** Ce qu'il est : silhouette, statistiques relatives, facon de frapper */
+  readonly archetype: Archetype;
+  /** Prefixe de ses planches d'animation (voir `poses.ts`) */
+  readonly familleSprite: string;
   /** Cible provoquee : le Chevalier Sacre force les ennemis a le viser */
   provoquePar: Hero | null = null;
   /** Invocation qui l'attire (golem, double de l'assassin) */
@@ -490,24 +644,62 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
   ralentiJusqua = 0;
   /** Eclair blanc au moment d'encaisser, gere sans minuterie */
   flashJusqua = 0;
+  /** Teinte de fond : celle de son archetype */
+  teinte: number | null = null;
+  /** Instant de fin du recul : jusque-la, son deplacement laisse la main */
+  reculJusqua = 0;
+  /** Balancement de marche et pose de coup (voir `poses.ts`) */
+  pose = nouvellePose();
+
+  /**
+   * Le telegraphe (voir §3 du brief combat).
+   *
+   * Un coup de monstre se joue en deux temps : il se cabre, **puis** il frappe.
+   * L'etat de cet armement tient en deux nombres et une reference — pas de
+   * minuterie, comme partout ailleurs : la scene compare `instantFrappe` a
+   * l'horloge dans sa boucle des ennemis, qui tourne de toute facon.
+   */
+  enArmement = false;
+  /** Instant ou le coup arme partira */
+  instantFrappe = 0;
+  /** Qui il visait au moment de s'armer ; il peut la rater si elle s'ecarte */
+  cibleArmee: Hero | null = null;
+
   private facteurRalenti = 0.5;
   private prochainCoup = 0;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, puissance: number) {
-    super(scene, x, y, "ennemi");
-    this.pvMax = Math.round(10 + puissance * 6);
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    puissance: number,
+    archetype: Archetype = ARCHETYPE_DEFAUT,
+  ) {
+    super(scene, x, y, archetype.texture);
+    this.familleSprite = archetype.texture;
+    this.archetype = archetype;
+    // L'archetype **module** la montee en puissance, il ne la remplace pas :
+    // la formule de base est celle d'avant, multipliee ensuite.
+    this.pvMax = Math.max(1, Math.round((10 + puissance * 6) * archetype.multPv));
     this.pv = this.pvMax;
-    this.vitesse = 42 + puissance * 3;
-    this.degats = Math.round(6 + puissance * 2);
-    this.xpDonnee = 1;
+    this.vitesse = (42 + puissance * 3) * archetype.multVitesse;
+    this.degats = Math.max(1, Math.round((6 + puissance * 2) * archetype.multDegats));
+    this.xpDonnee = archetype.xp;
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
     // La mer et la montagne ne laissent passer personne (DESIGN.md §4.6) :
     // un flanc qu'un monstre peut contourner n'est pas un flanc ferme.
     this.setCollideWorldBounds(true);
-    this.body?.setSize(8, 9);
-    (this.body as Phaser.Physics.Arcade.Body).setOffset(2, 4);
+    // Meme calage que le golem (l. 732) : l'echelle d'abord, la hitbox recalee
+    // derriere avec elle. Une brute occupe donc plus de place a l'ecran **et**
+    // dans le monde — ce qu'on voit est ce qu'on touche.
+    this.setScale(ECHELLE_PERSONNAGE * archetype.echelle);
+    calerCorps(this, 8 * archetype.echelle, 9 * archetype.echelle);
+    if (archetype.teinte !== 0xffffff) {
+      this.teinte = archetype.teinte;
+      this.setTint(archetype.teinte);
+    }
   }
 
   get vitesseEffective(): number {
@@ -527,7 +719,47 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
   }
 
   marquerCoup(maintenant: number): void {
-    this.prochainCoup = maintenant + 700;
+    this.prochainCoup = maintenant + this.archetype.recuperation;
+  }
+
+  /**
+   * Il se cabre : le coup partira a `instantFrappe`, pas avant.
+   *
+   * Le rechargement est pose **des maintenant**, et il court a partir de la
+   * frappe : sans ca, le contact rearmerait l'ennemi a chaque image pendant
+   * tout son armement.
+   */
+  armer(maintenant: number, cible: Hero): void {
+    this.enArmement = true;
+    this.cibleArmee = cible;
+    this.instantFrappe = maintenant + this.archetype.armement;
+    this.prochainCoup = this.instantFrappe + this.archetype.recuperation;
+  }
+
+  /** Il a frappe, ou renonce : il redevient disponible. */
+  desarmer(): void {
+    this.enArmement = false;
+    this.cibleArmee = null;
+  }
+
+  /** Vrai tant qu'un coup encaisse le repousse. */
+  get estEnRecul(): boolean {
+    return this.scene.time.now < this.reculJusqua;
+  }
+
+  /**
+   * Repousse tous ses horodatages.
+   *
+   * Le pendant de `Hero.decalerRechargements` : quand le jeu se fige pour un
+   * choix de competence, le temps de menu ne doit pas armer une vague entiere
+   * de monstres qui frapperaient tous a la reprise.
+   */
+  decaler(millisecondes: number): void {
+    this.prochainCoup += millisecondes;
+    this.instantFrappe += millisecondes;
+    this.ralentiJusqua += millisecondes;
+    this.flashJusqua += millisecondes;
+    this.reculJusqua += millisecondes;
   }
 }
 
@@ -562,10 +794,19 @@ export class Invocation extends Phaser.Physics.Arcade.Sprite {
   ordre: Ordre = { posture: "temporiser", ancre: null };
   /** Allie qu'il protege : son ancre le suit partout */
   protege: Hero | null = null;
+  /** Balancement de marche et pose de coup (voir `poses.ts`) */
+  pose = nouvellePose();
+  /** Eclair blanc au moment d'encaisser, gere sans minuterie */
+  flashJusqua = 0;
+  /** Teinte permanente : celle du double de l'assassin, par exemple */
+  teinte: number | null = null;
+  /** Prefixe de ses planches d'animation (voir `poses.ts`) */
+  readonly familleSprite: string;
   private prochainCoup = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string, maitre: Hero) {
     super(scene, x, y, texture);
+    this.familleSprite = texture;
     this.maitre = maitre;
     // Il nait avec l'ordre en cours de son maitre : sans ca, chaque nouveau
     // mort-vivant repartirait au hasard au milieu d'une manoeuvre. L'ancre est
@@ -576,8 +817,8 @@ export class Invocation extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.setCollideWorldBounds(true);
-    this.body?.setSize(8, 9);
-    (this.body as Phaser.Physics.Arcade.Body).setOffset(2, 4);
+    this.setScale(ECHELLE_PERSONNAGE);
+    calerCorps(this, 8, 9);
   }
 
   peutFrapper(maintenant: number): boolean {
@@ -622,7 +863,13 @@ export class Familier extends Invocation {
     this.provoque = golem;
     this.furtif = spectre;
     this.seuilExecution = spectre ? 0.15 : 0;
-    if (golem) this.setScale(1.5);
+    // Le golem est une masse : une fois et demie les autres, a l'ecran comme
+    // dans le monde. L'echelle se compose avec celle des personnages, et le
+    // corps est recale derriere pour que sa hitbox reste celle d'avant.
+    if (golem) {
+      this.setScale(ECHELLE_PERSONNAGE * GROSSEUR_GOLEM);
+      calerCorps(this, 8 * GROSSEUR_GOLEM, 9 * GROSSEUR_GOLEM);
+    }
   }
 }
 
@@ -638,6 +885,7 @@ export class Double extends Invocation {
     this.explosif = true;
     this.finDeVie = scene.time.now + 5000;
     this.setAlpha(0.6);
+    this.teinte = 0x9fd8ff;
     this.setTint(0x9fd8ff);
   }
 }
