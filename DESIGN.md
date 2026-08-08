@@ -3,7 +3,8 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-08-06 (jalon 4 : ordres et formations)
+> Dernière mise à jour : 2026-08-08 (jalon 5 : le cycle jour/nuit, les habitants,
+> les constructions et le ciel)
 
 ---
 
@@ -44,7 +45,8 @@ parce que l'architecture du code repose dessus.
 | Améliorations | L'IA **ne choisit jamais**. Le choix appartient toujours au joueur. Le jeu se met en **pause** pour choisir. |
 | Ressources | **Trois, jamais fusionnées** : l'XP (puissance), l'argent (matériel), les matériaux (rangs). |
 | Rank up | Avec des **matériaux rares** lâchés par les monstres. |
-| Fin de partie | Tous les héros morts **ou** village tombé = partie terminée. |
+| Rythme | Un **cycle jour/nuit** : 30 min de jour, 15 min de nuit (§4.19). |
+| Fin de partie | Tous les héros morts **ou** **plus un seul habitant vivant** = partie terminée (§4.18). |
 | Après une défaite | Le héros de départ survit, s'affaiblit et **se corrompt**. Au bout de plusieurs défaites, il bascule et devient l'antagoniste (§4.12). |
 
 ---
@@ -59,38 +61,40 @@ parce que l'architecture du code repose dessus.
                               ↓
 
    ┌────────────────────────────────────────────────────────┐
-   │  PHASE DE VILLAGE  (temps calme)                       │
-   │  · se promener, parler aux PNJ                         │
-   │  · dépenser l'XP : réparations et améliorations        │
-   │  · dépenser l'argent : armes, équipement, totems       │
+   │  LE JOUR  (30 minutes réelles)                         │
+   │  · les habitants travaillent, la récolte tombe seule   │
+   │  · le joueur récolte à la main, bien plus vite         │
+   │  · réparer, construire, placer et orienter les défenses│
+   │  · affecter les métiers, donner les postures civiles   │
+   │  · accueillir ou refuser ceux qui attendent aux portes │
    │  · attribuer les montées de niveau en attente          │
-   │  · placer et orienter les défenses                     │
-   │  · donner les ordres et formations aux héros IA        │
-   │  · choisir quel héros on incarnera                     │
+   │  · MAIS : une horde peut tomber à tout moment (§4.19)  │
    └────────────────────────────────────────────────────────┘
                               ↓
-      déclenchement aléatoire — délai allongé si le village
-      a subi de gros dégâts à la vague précédente (§4.6)
+                     le soleil se couche
+                    (l'annonce, c'est le ciel)
                               ↓
    ┌────────────────────────────────────────────────────────┐
-   │  VAGUE  (combat)                                       │
+   │  LA NUIT  (15 minutes réelles)                         │
+   │  · un effectif défini d'avance arrive par les fronts   │
+   │  · les habitants rentrent — sauf ceux qu'on laisse     │
    │  · le joueur incarne un héros, les autres sont en IA   │
    │  · switch libre entre héros — sauf sous 20% de vie     │
-   │  · ultimes activables                                  │
-   │  · les défenses agissent seules                        │
-   │  · chaque kill donne de l'XP au héros qui l'a fait     │
+   │  · les défenses et les tours occupées agissent         │
    │  · montée de niveau du héros incarné → PAUSE + choix   │
-   │  · un héros IA à 20% de vie se replie automatiquement  │
+   │  · effectif épuisé avant l'aube → la nuit devient      │
+   │    calme : c'est la récompense d'avoir nettoyé vite    │
    └────────────────────────────────────────────────────────┘
                               ↓
    ┌────────────────────────────────────────────────────────┐
-   │  BILAN DE VAGUE                                        │
+   │  L'AUBE                                                │
    │  · versement de l'argent                               │
-   │  · dégâts subis par le village à réparer               │
-   │  · nouveaux héros parfois disponibles au recrutement   │
+   │  · ce que la nuit a cassé reste cassé, à réparer       │
+   │  · naissances, arrivées aux portes, survivants à aller │
+   │    chercher                                            │
    └────────────────────────────────────────────────────────┘
                               ↓
-                    retour à la phase de village
+                        retour au jour
                  (jusqu'à la défaite — le jeu est sans fin)
 ```
 
@@ -402,7 +406,7 @@ règle qui structure tout le combat.
 **Pourquoi c'est une très bonne décision de design**, et pas seulement du décor :
 
 - **Elle donne un sens aux défenses.** Un village attaqué sur 360° transforme la
-  tower-defense du jalon 6 en pelote d'épingles : on entoure, et c'est tout. Avec deux
+  tower-defense du jalon 7 en pelote d'épingles : on entoure, et c'est tout. Avec deux
   fronts, **placer une baliste devient un choix** — nord ou est, et on ne peut pas les
   couvrir tous les deux.
 - **Elle donne enfin un travail aux ordres du jalon 4.** Deux fronts, un seul héros
@@ -431,7 +435,7 @@ règle qui structure tout le combat.
 fois.** C'est plus dur qu'un front unique, pas plus facile. Les fronts s'ouvrent donc
 progressivement :
 
-| Vagues | Fronts | Annoncé ? |
+| Nuits | Fronts | Annoncé ? |
 |---|---|---|
 | 1 à 4 | Le **nord** seul | Oui |
 | 5 à 9 | Le nord **ou** l'est, tiré au sort | Oui |
@@ -445,15 +449,15 @@ nombre ; ouvrir un flanc est exactement l'inverse d'un ajout d'ennemis.
 L'annonce est obligatoire. Un front qui s'ouvre sans prévenir, dans un jeu où déplacer
 son équipe prend du temps, ne se joue pas — il se subit.
 
-**Dégâts et délai de la vague suivante** : plus le village a pris cher, plus la vague
-suivante **met de temps à arriver**. C'est un mécanisme d'auto-régulation malin : le
-joueur en difficulté reçoit automatiquement le temps de se refaire, sans qu'on ait
-besoin d'un mode facile.
+**L'auto-régulation ne passe plus par le délai, mais par la nuit elle-même.** Le
+cycle jour/nuit (§4.19) donne à tout le monde le même calendrier : 30 minutes de jour,
+15 minutes de nuit, quoi qu'il arrive. Ce qui s'adapte, c'est la **fin de la nuit** —
+une nuit dont l'effectif est épuisé devient calme, et le joueur qui a nettoyé vite
+récupère ses minutes. Le joueur en difficulté, lui, se bat jusqu'à l'aube.
 
-> ⚠️ Point de vigilance : il faudra vérifier qu'encaisser des dégâts volontairement
-> pour gagner du temps de préparation n'est jamais rentable. Le coût de réparation doit
-> toujours dépasser la valeur du temps offert. C'est un réglage de chiffres, pas un
-> problème de conception — mais il faut y penser au moment de l'équilibrage.
+> Décision antérieure abandonnée : « plus le village a pris cher, plus la vague suivante
+> tarde ». Elle réglait le même problème, mais elle récompensait le fait d'encaisser, et
+> le calendrier du jour/nuit la rend inutile.
 
 ### 4.7 Défenses
 
@@ -891,10 +895,12 @@ habitant a un **métier**, un **rang** et un **niveau** — la même échelle qu
 | Métier | Où il travaille | Ce qu'il produit |
 |---|---|---|
 | **Pêcheur** | La plage, à l'ouest | Poisson |
+| **Fermier** | Les champs, autour du village | Blé |
 | **Bûcheron** | La forêt, au sud | Bois |
 | **Mineur** | La montagne, au sud | Minerai |
 | **Forgeron** | Le village | Transforme le minerai en équipement et en défenses |
 | **Charpentier** | Le village | Répare et construit avec le bois |
+| **Guetteur** | Une tour | Ne produit rien : il voit loin et il donne l'alerte (§4.20) |
 
 **Le rang et le niveau font une seule chose : la cadence.** Un mineur de rang A produit
 plus vite qu'un mineur de rang F, point. Pas de statistiques de combat, pas d'arbre de
@@ -907,13 +913,58 @@ compétences, pas de second écran de personnage.
 > chiffre qu'on lit en une seconde**. C'est ce qui permet d'en avoir vingt sans noyer le
 > jeu. Si un habitant mérite un vrai build, c'est qu'il aurait dû être un héros.
 
+#### Comment un habitant progresse
+
+**Le niveau se gagne en travaillant.** Un bûcheron qui coupe du bois toute la journée
+monte de niveau tout seul, sans que le joueur s'en occupe : personne n'a envie de
+distribuer des points à quinze villageois. Un habitant qu'on laisse tranquille
+s'améliore donc de lui-même.
+
+**Le rang, lui, s'achète.** Passer de F à E débloque le plafond de niveau, exactement
+comme pour les héros (§4.1) — mais c'est une dépense volontaire, et donc une décision :
+faire décoller un mineur, ou réparer la palissade. C'est là toute la différence entre
+un village qui tourne et un village dans lequel on investit.
+
+#### D'où viennent les habitants
+
+Trois portes d'entrée, et elles ne se ressemblent pas :
+
+| Voie | Comment | Ce que ça coûte |
+|---|---|---|
+| **Les naissances** | Le village fait des enfants quand la nourriture est excédentaire et qu'il reste un toit libre | Rien, mais c'est lent et il faut de la marge |
+| **Les portes** | Un inconnu se présente et attend qu'on lui ouvre | Une bouche de plus à nourrir tous les jours — et parfois pire |
+| **Les survivants** | Ils apparaissent au bord de la carte pendant le jour, parfois poursuivis, parfois blessés | Il faut aller les chercher et les ramener **vivants** |
+
+Les survivants sont la voie la plus intéressante : elle donne au jour une raison de
+sortir du village, elle met le joueur en danger volontairement, et elle rend chaque
+habitant mémorable — « celui-là, je suis allé le chercher ». Un événement rare peut y
+faire arriver bien mieux qu'un villageois : un **héros blessé** qu'on soigne et qu'on
+escorte rejoint l'équipe (le détail des rangs et des classes rares appartient au
+jalon 9).
+
+**Et parfois, ce qu'on laisse entrer est fou.** Un arrivant peut être un meurtrier. À la
+porte, quelque chose cloche sans qu'on puisse en être sûr : il ne dit pas d'où il vient,
+son métier ne colle pas à ses mains, il arrive seul en pleine nuit. Puis, un jour, il tue
+un habitant, il ouvre une porte ou il met le feu.
+
+> **Pourquoi les indices sont obligatoires.** Sans eux, accepter un arrivant est une
+> loterie, et le §4.18 pose comme principe qu'une perte définitive vient toujours d'un
+> arbitrage. Avec eux, le doute devient le jeu : refuser un innocent coûte une paire de
+> bras, accepter un fou coûte un mort. Les deux erreurs doivent faire mal, sinon il n'y a
+> qu'une seule bonne réponse et la question disparaît.
+
 #### La récolte se fait à deux vitesses
 
 **Les habitants produisent tout seuls**, en continu, tant qu'ils sont à leur poste. Le
 joueur décide **qui fait quoi**, jamais *quand*.
 
 **Et le joueur peut récolter lui-même**, à la main, bien plus vite qu'un habitant — mais
-**seulement pendant la phase de village**, jamais pendant une vague.
+**seulement pendant le jour**, jamais pendant la nuit.
+
+**Il récolte en frappant.** On s'approche d'un arbre, d'un filon, d'un banc de poissons,
+et l'attaque automatique s'en charge : aucune touche de plus, aucune barre de
+progression à regarder. Ça réutilise exactement le combat, et ça donne aux statistiques
+un usage inattendu — un héros qui frappe fort récolte vite.
 
 > **Pourquoi cette restriction.** Sans elle, on obtient le pire compromis possible : un
 > joueur qui abandonne le combat pour aller couper du bois parce que c'est plus rentable.
@@ -940,8 +991,46 @@ tiens le nord, tant pis pour le pêcheur ». Exactement comme pour les héros, l
 définitive n'est acceptable que si elle vient d'une décision.
 
 Et ça donne aux **postes de travail** leur vrai rôle : ce ne sont pas des décors, ce sont
-les points que la défense doit couvrir. La plage, la forêt et la mine sont les endroits
-où l'on a quelque chose à perdre.
+les points que la défense doit couvrir. La plage, les champs, la forêt et la mine sont
+les endroits où l'on a quelque chose à perdre.
+
+#### Les habitants reçoivent des ordres, comme tout le monde
+
+Le §4.4 gère déjà deux populations avec un seul système — les héros IA et les sbires.
+Les habitants sont la troisième, et ils réutilisent le même vocabulaire. Trois postures,
+et rien d'autre :
+
+| Posture | Ce qu'il fait |
+|---|---|
+| **Au travail** | Il reste à son poste, jour **et** nuit. Il ne fuit que si un monstre est sur lui |
+| **Prudent** | Il rentre dès qu'un monstre est en vue, et repart quand la voie est libre |
+| **À l'abri** | Il ne sort pas du village. Il ne produit rien |
+
+Plus une **cloche** au centre du village : une touche, et tout le monde rentre
+immédiatement. C'est l'outil de l'urgence — quand une horde tombe en plein jour, on n'a
+pas le temps d'ouvrir un panneau.
+
+C'est cette posture qui rend la nuit intéressante côté économie. Laisser le mineur
+travailler la nuit, c'est de l'avidité : la mine est abritée des deux fronts, le pari est
+raisonnable. Le même pari sur la plage ou sur les champs du nord est beaucoup plus cher.
+Et si une tour couvre le poste (§4.20), le pari change encore.
+
+#### Plus un seul habitant vivant = partie terminée
+
+Le village, ce ne sont pas ses murs, c'est sa population. La règle est donc simple, et
+elle remplace toute jauge d'intégrité : **quand le dernier habitant meurt, la partie
+s'arrête**. Les maisons, les champs et les tours peuvent brûler — ça coûte cher, ça se
+répare, on survit. Ce qu'on ne remplace pas, ce sont les gens.
+
+C'est cohérent jusqu'au bout : sans habitants, il n'y a plus de production, donc plus de
+nourriture, donc plus de naissances. Un village vidé ne se relève pas, et prolonger la
+partie ne ferait que retarder l'inévitable.
+
+> ⚠️ Point de vigilance : on commence à **trois** habitants. Trois vies civiles séparent
+> donc le joueur de l'écran-titre, et une mauvaise nuit peut finir une partie très tôt.
+> C'est assumé tant qu'on est en phase de test — on rafraîchit la page, on recommence.
+> À rouvrir le jour où la sauvegarde existera, parce qu'une partie de plusieurs heures
+> perdue à la deuxième nuit ne se pardonne pas de la même façon.
 
 **Le lien avec le Nécromancien** : le §4.14 promet déjà que les morts-vivants conservés
 peuvent être affectés au travail du village. Ils occupent donc des postes de métier —
@@ -958,17 +1047,152 @@ possible, et chacune doit couvrir un axe que les autres ne couvrent pas.
 | Ressource | Vient de | Sert à | Axe |
 |---|---|---|---|
 | **Bois** | La forêt | Réparer et construire | Le village tient debout |
-| **Minerai** | La montagne | Défenses et équipement | Le village frappe |
-| **Nourriture** | La mer | Nourrir les habitants | Le village vit |
+| **Minerai** | La montagne | Défenses et équipement, via la forge | Le village frappe |
+| **Poisson** | La mer | Nourrir les habitants | Le village vit |
+| **Blé** | Les champs | Nourrir les habitants | Le village vit |
 
-La **nourriture** est la seule qui soit une *contrainte* et non un *achat* : si elle
-manque, les habitants ne travaillent plus. C'est elle qui empêche d'empiler les habitants
-sans réfléchir — et c'est exactement ce que le lore du Nécromancien annonçait déjà
-(« personne ne mange à sa table », « une population qui n'a pas besoin d'être nourrie »).
+Le bois et le minerai servent **dès le premier matin**, et à deux choses opposées : le
+bois répare ce que la nuit a cassé, le minerai part à la forge et en ressort en
+équipement pour les héros. Tenir debout, ou frapper plus fort. C'est ce qui relie enfin
+les deux moitiés du jeu — le village produit, les héros en profitent.
 
-> ⚠️ Point de vigilance : ces trois-là ne doivent **jamais** être convertibles entre
-> elles, ni en argent. Sinon on retombe sur le problème du §4.8 — le joueur n'optimise
-> plus qu'une ressource et la moitié des décisions disparaît.
+**La nourriture est la seule contrainte, et non un achat.** Chaque habitant mange un peu
+par jour. À zéro, la production s'arrête net : ils ne meurent pas de faim (le §4.18
+refuse une mort qui ne vienne pas d'un monstre), ils cessent simplement de travailler.
+C'est elle qui empêche d'empiler les habitants sans réfléchir — et c'est exactement ce
+que le lore du Nécromancien annonçait déjà (« personne ne mange à sa table », « une
+population qui n'a pas besoin d'être nourrie »).
+
+**Pourquoi deux nourritures et pas une.** Le poisson vient de la mer, à l'ouest, derrière
+un flanc fermé : sûr, régulier, jamais menacé. Le blé vient des champs, qui s'étendent en
+terrain ouvert et qu'une horde ruine en les traversant. La même ressource obtenue de deux
+façons n'aurait rien apporté ; deux stocks distincts font que **manger devient une
+question de risque** — et qu'un village qui ne mise que sur la pêche plafonne.
+
+> ⚠️ Point de vigilance : ça fait **quatre** ressources récoltées, plus l'argent, plus
+> les matériaux. Le §4.18 disait « le moins possible », et on est allé dans l'autre sens.
+> Si le blé et le poisson finissent par se comporter pareil à l'usage, il faudra les
+> fusionner — c'est la première chose à vérifier une fois qu'on y joue.
+
+> ⚠️ Et aucune de ces ressources n'est convertible dans une autre, ni en argent. Sinon on
+> retombe sur le problème du §4.8 — le joueur n'optimise plus qu'une ressource et la
+> moitié des décisions disparaît.
+
+### 4.19 Le cycle jour/nuit
+
+Le jeu ne s'organise plus en « phase de village » et « vague », mais en **journées**.
+
+| Moment | Durée réelle | Ce qui s'y passe |
+|---|---|---|
+| **Le jour** | 30 minutes | On produit, on répare, on construit, on accueille — et on peut se faire surprendre |
+| **La nuit** | 15 minutes | L'assaut : un effectif défini arrive par les fronts ouverts (§4.6) |
+
+**Pourquoi c'est mieux que « vague / entracte ».** C'est la même mécanique, mais dite
+dans une langue que personne n'a besoin d'apprendre. Le coucher de soleil est l'annonce
+la plus lisible qui soit — le §4.6 exige qu'un assaut soit toujours annoncé, et un ciel
+qui baisse ne peut pas être manqué. Les habitants ont enfin un rythme naturel : ils
+travaillent au jour, ils rentrent au soir.
+
+#### La nuit a un effectif, pas seulement une durée
+
+Une nuit envoie un nombre de monstres **fixé d'avance** — la nuit 1 en envoie peu, la
+nuit 12 beaucoup plus, et surtout beaucoup plus forts. Quand le dernier tombe avant
+l'aube, **plus rien ne vient** : le joueur ramasse son butin dans le noir, ramène ses
+blessés, souffle.
+
+> **Pourquoi la nuit calme est la bonne récompense.** Elle ne coûte pas une ligne
+> d'équilibrage et elle se comprend sans explication : avoir nettoyé vite se paie en
+> temps libre. C'est aussi la seule façon de rendre la puissance satisfaisante sans
+> ajouter de chiffre — un joueur qui monte en force ne voit pas un nombre grossir, il
+> voit ses nuits raccourcir.
+
+#### Le jour n'est jamais sûr
+
+**Une horde peut tomber à n'importe quel moment de la journée.** Elle est annoncée
+quelques secondes à l'avance — un cri au loin, une bannière — et pas plus : assez pour
+rappeler un héros ou sonner la cloche, trop peu pour tout réorganiser.
+
+> **Pourquoi c'est indispensable.** 30 minutes de jour absolument sûr, ce serait 30
+> minutes de temps mort, et deux tiers de la partie passés à ne rien risquer. Avec la
+> horde, on travaille en surveillant l'horizon : c'est ce que doit être un village
+> assiégé. C'est aussi ce qui donne un sens aux postures civiles (§4.18) — laisser
+> quelqu'un aux champs en plein jour redevient un pari.
+
+#### Le jeu se met en pause quand on n'est pas devant
+
+Si la fenêtre perd le focus, **tout s'arrête** : le cycle, les monstres, la production.
+Une journée dure 30 minutes réelles ; sans ça, aller chercher un café coûterait un
+habitant.
+
+### 4.20 Les constructions : ce qui tient, ce qui tire
+
+Deux familles, et deux règles nettes. C'est la distinction qui fait tout le système.
+
+**Les positions occupées** ne font rien toutes seules. Une tour de guet est un point
+haut : c'est **l'occupant qui décide de ce qui en sort**. Un mage niveau 100 y lance ses
+capacités à couvert et tient un front à lui seul. Un villageois dans la même tour ne fait
+que voir loin et donner l'alerte. La tour ne fournit que la position, la portée et la
+protection.
+
+**Les engins autonomes** — balistes, canons, et tout ce qui suit jusqu'au canon laser —
+tirent sans personne dedans. Ils appartiennent au jalon 7 ; le jalon 5 n'en pose aucun.
+
+> **Pourquoi cette séparation est bonne.** Elle donne un sens à *qui* on met *où*, ce
+> qu'aucune tower-defense classique ne demande. Et elle respecte le §4.18 sans effort :
+> un habitant en tour n'a toujours aucune statistique de combat, son rang ne change que
+> la **cadence** — ici, la cadence à laquelle il tire ou il alerte. Un habitant en tour
+> ne récolte pas : produire ou défendre, il faut choisir.
+
+#### Une tour n'est pas une cachette
+
+Les monstres ne peuvent pas frapper l'occupant d'une tour. Alors ils frappent **la
+tour** : elle a des points de vie, et quand elle tombe, l'occupant tombe avec elle,
+sonné, au milieu d'eux.
+
+> Sans cette règle, poster son meilleur héros en tour serait la stratégie optimale et
+> définitive du jeu. Avec elle, la tour protège vraiment — mais elle devient un objectif,
+> et la réparer coûte du bois.
+
+#### Les murs bloquent, et ils cassent
+
+Un mur a des points de vie. Les monstres le frappent, ou cherchent une ouverture s'il en
+reste une. On peut donc se murer complètement — et un village entièrement clos se fait
+défoncer, parce que rien ne détourne plus les coups.
+
+C'est ce qui empêche le mur de ramener le camping que le §4.6 a chassé. Tenir une ligne
+doit être satisfaisant ; s'enfermer derrière ne doit jamais être une solution.
+
+### 4.21 Le ciel : la météo et les catastrophes
+
+Un jalon à lui tout seul, à faire **après** le village. Il est écrit ici parce que ce
+qu'il contient a des conséquences sur le reste, et qu'il vaut mieux les connaître avant.
+
+| Phénomène | Ce que ça fait |
+|---|---|
+| **La pluie** | Accélère la pousse des champs. C'est le phénomène de base, celui qui pose toute la plomberie |
+| **L'orage** | Les monstres deviennent **plus forts** et gagnent des attaques électriques |
+| **L'incendie** | Se propage, détruit champs, forêt et bâtiments |
+| **Le météore** | Change la carte **définitivement** : cratère, forêt brûlée, gravats |
+
+**L'orage est le meilleur levier de difficulté du jeu**, et c'est exactement celui que le
+§4.17 réclame : il monte la **force**, jamais le nombre. Une nuit d'orage n'envoie pas un
+monstre de plus — elle envoie les mêmes, en pire, et elle se voit venir dans le ciel.
+
+#### Ce que le météore impose au code
+
+Aujourd'hui la carte est une **formule** : `carte.ts` calcule le terrain d'un point à la
+demande, ce qui la rend identique à chaque partie et apprenable par cœur. Un cratère
+permanent n'a pas sa place dans une formule.
+
+La carte devient donc une **grille modifiable** — mais les formules ne disparaissent
+pas : elles servent à **cuire** la grille au démarrage au lieu d'être interrogées en
+direct. La carte reste la même d'une partie à l'autre, les 25 tests gardent leur sens, et
+par-dessus vient une couche d'écriture qui encaisse les cratères, les incendies, les murs
+et les champs.
+
+Cette grille ne sert pas qu'au ciel : **poser un mur ou labourer un champ, c'est écrire
+dedans**. Elle arrive donc avec les constructions, au bloc 3 du jalon 5, avant même les
+météores.
 
 ---
 
@@ -984,13 +1208,32 @@ incertain d'abord. À chaque jalon, le jeu doit être **jouable** — moche, mai
 | **2** | ✅ XP, montée de niveau, pause et choix d'amélioration | La boucle de combat tourne |
 | **3** | ✅ Équipe, IA, règle des 20%, cité, switch, barre d'équipe, mort définitive | Le cœur du jeu est là |
 | **4** | ✅ Ordres, postures et formations, expérience de groupe (§4.16) | La couche tactique existe |
-| **5** | Village hub adossé à la mer et à la montagne, habitants et métiers, récolte, phase de préparation (§4.6, §4.18) | Les deux moitiés du jeu sont reliées |
-| **6** | Défenses à placer, de la baliste au canon laser | La tower-defense existe |
-| **7** | Restauration du village, améliorations cumulables, montée en puissance infinie | La partie longue existe |
-| **8** | Recrutement, rangs F→SRR++, classes rares, effectif de 10 et garnison (§4.15) | La collection existe |
-| **9** | Prologue, choix de classe, dialogues, narration | Le jeu a un début |
-| **10** | Défaite, corruption, retour du héros en antagoniste | Le jeu a une **suite** |
-| **11** | Leaderboard en ligne | Le score compte pour de vrai |
+| **5** | Le village vivant, en trois blocs (voir ci-dessous) | Les deux moitiés du jeu sont reliées |
+| **6** | Le ciel : pluie, orages, incendies, météores, carte modifiable (§4.21) | Le monde a une humeur |
+| **7** | Défenses à placer, de la baliste au canon laser | La tower-defense existe |
+| **8** | Restauration du village, améliorations cumulables, montée en puissance infinie | La partie longue existe |
+| **9** | Recrutement, rangs F→SRR++, classes rares, effectif de 10 et garnison (§4.15) | La collection existe |
+| **10** | Prologue, choix de classe, dialogues, narration | Le jeu a un début |
+| **11** | Défaite, corruption, retour du héros en antagoniste | Le jeu a une **suite** |
+| **12** | Leaderboard en ligne | Le score compte pour de vrai |
+
+### Le jalon 5 en détail
+
+Il a grossi : le cycle jour/nuit, les hordes, les habitants, les métiers, la faim, les
+ordres civils, les murs, les tours, les arrivées, les naissances et les traitres. On le
+livre donc en **trois blocs jouables**, pour pouvoir juger le rythme avant d'empiler la
+suite.
+
+| Bloc | Contenu | On juge quoi à la fin |
+|---|---|---|
+| **1** ✅ | La carte, les flancs fermés, les fronts (§4.6) | La géographie tient |
+| **2** | Le cycle jour/nuit, les hordes, les habitants, les métiers, la récolte à deux vitesses, la faim, la pause hors focus | **Le rythme** : 30/15 est-il le bon chiffre ? |
+| **3** | La grille modifiable, les murs, les tours occupées, les ordres civils, les dégâts au village, les champs | Défendre un lieu est-il intéressant ? |
+| **4** | Les arrivées aux portes, les naissances, les survivants à escorter, les traitres | Le village vit-il tout seul ? |
+
+C'est le bloc 2 qui porte tout le risque : si 30 minutes de jour et 15 de nuit ne se
+jouent pas bien, tout le reste est bâti sur du sable. Il faut donc pouvoir régler les
+durées **sans toucher au code** — une seule table de constantes.
 
 Le jalon 1 est le plus important du projet. Si se déplacer et lâcher un ultime n'est pas
 agréable pendant 30 secondes d'affilée, aucun système au-dessus ne le sauvera — et mieux
@@ -1030,6 +1273,14 @@ vaut le découvrir en semaine 1 qu'en mois 6.
 - [ ] Liste des défenses entre la baliste et le canon laser
 - [ ] Coût du totem d'immortalité, et est-il consommé à l'usage ou permanent ?
 - [ ] Peut-on soigner un héros blessé rentré à la cité, et à quel prix ?
+- [ ] **30 minutes de jour et 15 de nuit, est-ce le bon chiffre ?** C'est la question du
+      bloc 2, et elle ne se tranche qu'en jouant. Les durées vivent dans une seule table.
+- [ ] **Le blé et le poisson se comportent-ils vraiment différemment ?** S'ils finissent
+      par se valoir, il faut les fusionner en une seule nourriture (§4.18).
+- [ ] Combien de temps un habitant met-il à grandir avant de pouvoir travailler ?
+- [ ] La cloche de rappel a-t-elle un coût, ou peut-on la sonner en boucle ?
+- [ ] La sauvegarde : elle passera par **Supabase**, pas par `localStorage`. Tant qu'elle
+      n'existe pas, rafraîchir la page est une nouvelle partie — et c'est assumé.
 
 ### Tranché récemment
 
@@ -1077,6 +1328,29 @@ vaut le découvrir en semaine 1 qu'en mois 6.
   **seulement pendant la phase de village** (§4.18)
 - ✅ Un habitant **fuit** dès qu'un ennemi approche, et ne meurt **que s'il est rattrapé** —
   donc que si le joueur a laissé ce flanc sans personne (§4.18)
+- ✅ Le rythme → un **cycle jour/nuit**, 30 minutes de jour et 15 de nuit (§4.19)
+- ✅ La nuit a un **effectif défini** ; épuisé avant l'aube, elle devient calme (§4.19)
+- ✅ Le jour n'est jamais sûr : une **horde** peut tomber à tout moment, annoncée
+  quelques secondes à l'avance seulement (§4.19)
+- ✅ Le nombre de monstres à l'écran **baisse fortement** ; la difficulté monte par la
+  force, jamais par le nombre (§4.17, §4.19)
+- ✅ Fin de partie → **plus un seul habitant vivant**, et non une jauge d'intégrité (§4.18)
+- ✅ Le joueur récolte **en frappant** la ressource, avec son attaque automatique (§4.18)
+- ✅ Habitants : le **niveau** se gagne en travaillant, le **rang** s'achète (§4.18)
+- ✅ Les habitants reçoivent des **postures** comme les héros, plus une **cloche** de
+  rappel général (§4.18)
+- ✅ Le blé et les **champs** s'ajoutent à la pêche : deux nourritures, deux niveaux de
+  risque (§4.18)
+- ✅ Les habitants arrivent par **naissance**, par les **portes** ou en allant chercher
+  des **survivants** — et un arrivant peut être un **fou** (§4.18)
+- ✅ Une **tour est une position, pas une arme** : c'est l'occupant qui décide de ce qui
+  en sort, et la tour a des points de vie (§4.20)
+- ✅ Les **murs** bloquent et se cassent : on peut se murer, mais s'enfermer ne sauve
+  jamais (§4.20)
+- ✅ La météo et les catastrophes deviennent **un jalon à part**, après le village (§4.21)
+- ✅ La carte devient une **grille modifiable**, cuite au démarrage depuis les formules
+  actuelles (§4.21)
+- ✅ Le jeu se met en **pause** quand la fenêtre perd le focus (§4.19)
 
 ---
 
