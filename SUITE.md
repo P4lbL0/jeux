@@ -2,8 +2,8 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-08-08 (après le bloc 2 du jalon 5 : le cycle
-> jour/nuit et les habitants).
+> Dernière mise à jour : 2026-08-08 (après le bloc 3 du jalon 5 : la grille, les
+> murs, les tours et les champs).
 
 ---
 
@@ -47,9 +47,9 @@ Le §6 de `DESIGN.md` liste les questions encore ouvertes, et le §5 la feuille 
 
 ### Tu peux jouer au jeu toi-même — sers-t'en
 
-C'est nouveau, et ça a permis de trouver plusieurs bugs que la compilation ne voyait pas.
-Playwright est installé dans `node_modules` (⚠️ **non déclaré dans `package.json`** — il
-disparaîtra à un `npm ci`, à déclarer en `devDependencies` si on veut le garder).
+Ça a permis de trouver plusieurs bugs que la compilation ne voyait pas — dont deux du
+jalon 5 : les habitants qui fuyaient droit dans la horde, et le village qui démarrait avec
+quatre habitants au lieu de trois. Playwright est déclaré en `devDependencies`.
 
 La recette qui marche :
 
@@ -61,8 +61,9 @@ La recette qui marche :
    croit à un bug.
 4. Pour inspecter l'état, exposer temporairement le jeu dans `src/main.ts`
    (`(window as ...).__jeu = jeu;`) — **et le retirer après**.
-5. Pour aller vite : `arene.debut = arene.time.now - 300_000` fait monter la puissance
-   des vagues instantanément (tous les archétypes apparaissent, 240 ennemis).
+5. Pour aller vite : une journée dure 30 minutes réelles, on ne l'attend pas.
+   `arene.cycle.ecoule = arene.cycle.duree - 30` force la bascule à l'image suivante, et
+   `arene.cycle.jour = 8` fait monter la puissance de la nuit d'un coup.
 6. Enrober les méthodes du prototype (`Object.getPrototypeOf(arene)`) pour compter les
    appels réels. C'est la seule mesure qui ne suppose rien.
 
@@ -72,9 +73,9 @@ ne prouve rien sur un événement bref — il faut échantillonner dans la duré
 
 ## Ce qui est déjà fait
 
-**Jalons 0 à 4 terminés**, et les **blocs 1 et 2 du jalon 5** (voir §5 de `DESIGN.md`) :
+**Jalons 0 à 4 terminés**, et les **blocs 1, 2 et 3 du jalon 5** (voir §5 de `DESIGN.md`) :
 
-- Vite + TypeScript + Phaser 3, tests avec Vitest. **140 tests verts.**
+- Vite + TypeScript + Phaser 3, tests avec Vitest. **155 tests verts.**
 - Sept classes jouables, attaque automatique, traits de classe, ultimes.
 - Une équipe : un héros incarné, les autres joués par l'IA.
 - **La règle des 20%** — le cœur du jeu : l'IA se replie à 20% de vie et ne perd jamais
@@ -162,6 +163,29 @@ Le jeu ne s'organise plus en vagues, mais en **journées** (§4.19) : 30 minutes
 
 Touches ajoutées : **`B`** la cloche (tout le monde rentre), **`F`** le tableau du village.
 
+### Le bloc 3 — la grille, les murs, les tours et les champs
+
+- **`src/core/grille.ts`** — la carte devient modifiable sans rien jeter : les formules de
+  `carte.ts` la **cuisent** au démarrage (~3000 cases de 32 px), et une couche d'écriture
+  encaisse murs, champs, ruines et demain les cratères. Un test vérifie case par case que
+  cuire la carte ne la change pas.
+- **Le camping est fermé — et le problème n'était pas celui que je croyais.** Se planquer
+  n'était pas seulement toléré, c'était *optimal* : un monstre visait le héros le plus
+  proche où qu'il fût, donc un joueur caché attirait toute la vague sur lui et protégeait
+  ses habitants sans rien faire. Un héros n'est cible que dans `RAYON_DE_VUE` (340 px) ;
+  au-delà, le monstre continue vers le village.
+- **`src/core/constructions.ts` + `src/game/constructions.ts`** — palissade et tour. Une
+  **tour est une position, pas une arme** : +120 de portée, occupant hors de portée de la
+  mêlée, et quand elle tombe il tombe avec elle. Touches `G`, `H`, `T`.
+- **`src/game/champs.ts`** — semis (`J`), maturation pilotée par la cadence des fermiers,
+  moisson automatique, piétinement par les hordes. La pluie du jalon 6 n'aura qu'à
+  multiplier `croissanceParSeconde`, le point d'accroche est déjà là.
+- **Le poste des champs commence vide** : le village garde ses trois habitants, et y
+  mettre un fermier veut dire le retirer du bois ou du minerai. Clic droit sur une ligne
+  du tableau change le poste, clic gauche la posture.
+- Conséquence sur le cœur : `PRODUCTION.fermier` vaut `null` et `cadence()` ne regarde
+  plus ce que le métier récolte — sinon le fermier comptait deux fois.
+
 ## Ce qui reste à faire
 
 ### Tout de suite
@@ -177,15 +201,15 @@ Touches ajoutées : **`B`** la cloche (tout le monde rentre), **`F`** le tableau
    contradiction entre les traitres et le §4.18, le totem d'immortalité, et propose un
    système d'humeurs. La critique sur la fuite des civils a déjà été corrigée.
 
-### Jalon 5 — le village *(blocs 1 et 2 faits)*
+### Jalon 5 — le village *(blocs 1, 2 et 3 faits)*
 
-- **Bloc 3** : la carte en **grille modifiable** (cuite au démarrage depuis les formules
-  de `carte.ts`), les **murs** (PV, cassables), les **tours occupées** — une tour est une
-  position, pas une arme : c'est l'occupant qui décide de ce qui en sort (§4.20) —, les
-  **ordres civils** (trois postures, déjà dans `core/habitants.ts`, pas encore pilotables),
-  les **dégâts au village** et les **champs de blé**.
-- **Bloc 4** : les arrivées aux portes (avec des **fous** parmi eux), les naissances, les
-  survivants à escorter.
+- **Bloc 4**, seul restant : les arrivées aux portes (avec des **fous** parmi eux), les
+  naissances, les survivants à escorter. ⚠️ Le §4.18 dit qu'une perte définitive vient
+  toujours d'un arbitrage — un fou qui tue un habitant par tirage caché contredirait ça
+  frontalement. C'est à trancher **avant** de coder le bloc 4.
+- Hors bloc 3 et assumé : **les maisons du village ne sont pas destructibles**. Les
+  monstres cassent ce que le joueur bâtit et tuent les habitants — c'est déjà ce qui ferme
+  le camping — mais le village lui-même attend le jalon 8, celui de sa restauration.
 
 ### Jalons suivants
 
