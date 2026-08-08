@@ -2,8 +2,8 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-08-08 (après le jalon combat & monstres, et le
-> passage aux vraies animations).
+> Dernière mise à jour : 2026-08-08 (après le bloc 2 du jalon 5 : le cycle
+> jour/nuit et les habitants).
 
 ---
 
@@ -72,9 +72,9 @@ ne prouve rien sur un événement bref — il faut échantillonner dans la duré
 
 ## Ce qui est déjà fait
 
-**Jalons 0 à 4 terminés**, et le **bloc 1 du jalon 5** (voir §5 de `DESIGN.md`) :
+**Jalons 0 à 4 terminés**, et les **blocs 1 et 2 du jalon 5** (voir §5 de `DESIGN.md`) :
 
-- Vite + TypeScript + Phaser 3, tests avec Vitest. **105 tests verts.**
+- Vite + TypeScript + Phaser 3, tests avec Vitest. **140 tests verts.**
 - Sept classes jouables, attaque automatique, traits de classe, ultimes.
 - Une équipe : un héros incarné, les autres joués par l'IA.
 - **La règle des 20%** — le cœur du jeu : l'IA se replie à 20% de vie et ne perd jamais
@@ -85,7 +85,8 @@ ne prouve rien sur un événement bref — il faut échantillonner dans la duré
 - **Ordres, postures et formations** (§4.4), commandement des sbires, **expérience de
   groupe** (§4.16).
 - **La carte** : village adossé à la mer et à la montagne, flancs fermés, fronts qui
-  s'ouvrent par vague (§4.6).
+  s'ouvrent par nuit (§4.6).
+- **Le cycle jour/nuit et les habitants** (§4.18, §4.19) — voir le détail plus bas.
 - Interface dans une scène séparée (`UiScene`), fiche de héros au clic.
 
 ### Les vrais sprites (brief graphismes — terminé sauf §5)
@@ -133,44 +134,72 @@ elle est arrivée. **Il choisit maintenant quelle animation jouer, et l'angle re
   contrôle agrandie dans `.tmp/`). **Le script se fiche de la taille de la source** : si
   les sprites repassent en 64 px un jour, on relance sans rien changer.
 
-⚠️ **Tout ce travail n'est pas encore commité.** Le dernier commit est `1f17274`. Il faut
-relire le diff et découper en commits propres (le brief combat, puis les animations).
+### Le bloc 2 du jalon 5 — le cycle jour/nuit et les habitants
+
+Le jeu ne s'organise plus en vagues, mais en **journées** (§4.19) : 30 minutes de jour,
+15 minutes de nuit.
+
+- **`src/core/cycle.ts`** — pur et testé. **Une seule table, `REGLAGES_CYCLE`**, porte
+  toutes les durées et tous les effectifs. C'est le seul endroit à toucher pour re-régler
+  le rythme, et c'est justement ce qu'il faut trancher en jouant.
+- La nuit a un **effectif défini**, pas un robinet : épuisé avant l'aube, plus rien ne
+  vient. Le plafond d'écran est passé de **240 à 60**.
+- Le calendrier des espèces n'est écrit nulle part : il tombe de la rencontre entre
+  `puissanceParNuit` et les seuils de `ennemis.ts` — une espèce nouvelle par nuit pendant
+  six nuits.
+- Le jour n'est jamais sûr : une **horde** peut tomber à tout moment, annoncée 6 s avant.
+- **`src/core/habitants.ts`** (règles) et **`src/game/village.ts`** (sprites) : trois
+  habitants au départ, le niveau se gagne en travaillant, le rang s'achète, et l'un comme
+  l'autre ne changent que la **cadence**. Ils fuient en se **courbant autour** de la
+  menace, pas en ligne droite vers le village.
+- La faim arrête le travail sans tuer. Un village entièrement affamé ne peut plus se
+  nourrir seul — la sortie, c'est d'aller pêcher soi-même, et l'annonce le dit.
+- **Plus un seul habitant vivant = partie terminée.**
+- La récolte à la main se fait **en frappant**, et seulement le jour. Mesuré en jeu :
+  ~98/min pour le joueur contre 6/min pour un habitant de rang F.
+- **La pause hors focus** : fenêtre en arrière-plan, tout s'arrête — et le temps est rendu
+  au retour (`decalerLeTemps`), sinon la nuit entière frapperait dans l'image de la reprise.
+
+Touches ajoutées : **`B`** la cloche (tout le monde rentre), **`F`** le tableau du village.
 
 ## Ce qui reste à faire
 
 ### Tout de suite
 
-1. **Commiter et pousser** le travail en cours (voir ci-dessus).
-2. **Déclarer Playwright** en `devDependencies`, ou accepter de le réinstaller à chaque
-   fois qu'on veut piloter le jeu.
-3. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
-   parce qu'à 32 px, 3 px disloquent le personnage. Si c'est trop timide, toutes les
-   amplitudes sont dans une seule table en haut de `scripts/animer-sprites.ts` — je n'ai
-   pas pu en juger à ta place, ça se lit en mouvement, pas sur une capture.
+1. **Juger le rythme en jouant.** C'est *la* question du bloc 2 : 30 minutes de jour et
+   15 de nuit, est-ce jouable ? Et l'effectif de 30 monstres pour la nuit 1, réparti sur
+   ~10 minutes, ne fait qu'un monstre toutes les 20 secondes — sur le papier c'est très
+   calme. Tout se règle dans `REGLAGES_CYCLE`.
+2. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
+   parce qu'à 32 px, 3 px disloquent le personnage. Amplitudes en haut de
+   `scripts/animer-sprites.ts`.
+3. **Répondre au `feedback.md`** déposé à la racine : il soulève l'appétit des héros, la
+   contradiction entre les traitres et le §4.18, le totem d'immortalité, et propose un
+   système d'humeurs. La critique sur la fuite des civils a déjà été corrigée.
 
-### Jalon 5 — le village *(en cours, bloc 1 fait)*
+### Jalon 5 — le village *(blocs 1 et 2 faits)*
 
-Le bloc 1 (la carte, les flancs, les fronts) est livré. Restent :
-
-- **Les habitants** (§4.18) : pêcheur, bûcheron, mineur, forgeron, charpentier. Chacun a
-  un **métier**, un **rang** et un **niveau** — et rang et niveau ne font qu'**une seule
-  chose : la cadence de production**. Pas de statistiques de combat.
-- **La récolte** : poisson, bois, minerai.
-- **La phase de préparation** entre deux vagues, l'argent, l'équipement.
-- **Fermer le trou de la cité** (voir dettes).
+- **Bloc 3** : la carte en **grille modifiable** (cuite au démarrage depuis les formules
+  de `carte.ts`), les **murs** (PV, cassables), les **tours occupées** — une tour est une
+  position, pas une arme : c'est l'occupant qui décide de ce qui en sort (§4.20) —, les
+  **ordres civils** (trois postures, déjà dans `core/habitants.ts`, pas encore pilotables),
+  les **dégâts au village** et les **champs de blé**.
+- **Bloc 4** : les arrivées aux portes (avec des **fous** parmi eux), les naissances, les
+  survivants à escorter.
 
 ### Jalons suivants
 
 | Jalon | Contenu |
 |---|---|
-| **6** | Défenses à placer et orienter, de la baliste au canon laser |
-| **7** | Restauration du village, améliorations cumulables, montée en puissance infinie |
-| **8** | Recrutement, rangs F→SRR++, classes rares, effectif de 10 et garnison (§4.15) |
-| **9** | Prologue, choix de classe, dialogues, narration |
-| **10** | Défaite, corruption, retour du héros en **antagoniste** (le plus important, §4.12) |
-| **11** | Leaderboard en ligne |
+| **6** | **Le ciel** : pluie, orages, incendies, météores, carte modifiée à jamais (§4.21) |
+| **7** | Défenses à placer et orienter, de la baliste au canon laser |
+| **8** | Restauration du village, améliorations cumulables, montée en puissance infinie |
+| **9** | Recrutement, rangs F→SRR++, classes rares, effectif de 10 et garnison (§4.15) |
+| **10** | Prologue, choix de classe, dialogues, narration |
+| **11** | Défaite, corruption, retour du héros en **antagoniste** (le plus important, §4.12) |
+| **12** | Leaderboard en ligne |
 
-Note pour le jalon 8 : le paramètre `faveur` de `tirerCompetences()` est **déjà en place**
+Note pour le jalon 9 : le paramètre `faveur` de `tirerCompetences()` est **déjà en place**
 pour que le rang augmente la chance de tirer une compétence rare — il n'y a qu'à le
 brancher.
 
@@ -197,7 +226,11 @@ brancher.
   nombre, aucun objet Texte créé en plein combat, aucune minuterie par coup encaissé,
   rien qui trie une liste par entité et par image.
 - **La cité est toujours un abri total** : on s'y soigne et rien n'empêche d'y camper
-  (`majEtats`, `ArenaScene.ts`). C'est le trou à fermer dans la suite du jalon 5.
+  (`majEtats`, `ArenaScene.ts`). Le trou n'est **qu'à moitié fermé** : les habitants
+  peuvent maintenant mourir pendant qu'on campe, et perdre le dernier finit la partie —
+  mais les monstres ne s'en prennent toujours pas aux bâtiments. C'est le bloc 3.
+- **La sauvegarde n'existe pas, et c'est assumé** : rafraîchir la page est une nouvelle
+  partie. Elle passera par **Supabase**, pas par `localStorage`.
 - **Combinaison possiblement cassée** : `Écho` + `Capacités affinées` + `Danse des
   ombres` pourrait permettre d'enchaîner les capacités sans fin. Jamais vérifié en jeu.
 - **Pas de sauvegarde** (aucun `localStorage` dans le code). Prévu avec export/import de
