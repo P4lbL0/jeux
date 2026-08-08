@@ -87,8 +87,30 @@ les mort-vivants du Necromancien, et l'**experience de groupe** : deux heros qui
 se battent cote a cote apprennent a travailler ensemble (+10% de degats au
 plafond, visible dans la fiche de heros).
 
-**Jalon 5, en cours** — la carte du village. Reste a faire : les habitants et
-leurs metiers, la recolte, et la phase de village entre les vagues.
+**Jalon 5, en cours** — le village vivant, en quatre blocs.
+
+- *bloc 1* — la carte, les flancs fermes, les fronts.
+- *bloc 2* — le **cycle jour/nuit** (30 min de jour, 15 de nuit), les hordes qui
+  peuvent tomber en plein jour, les **habitants** et leurs metiers, la recolte a
+  deux vitesses, la faim, et la pause quand la fenetre perd le focus.
+- *bloc 3, a faire* — la carte en grille modifiable, les murs, les tours
+  occupees, les ordres civils, les degats au village, les champs.
+- *bloc 4, a faire* — les arrivees aux portes, les naissances, les traitres.
+
+### Le cycle jour/nuit (§4.19)
+
+Le jour on produit, on repare, on recolte a la main ; la nuit un **effectif
+defini** arrive par les fronts ouverts, et quand le dernier tombe, la nuit
+devient calme — c'est la recompense d'avoir nettoye vite.
+
+Toutes les durees et tous les effectifs sont dans **une seule table**,
+`REGLAGES_CYCLE` en haut de [src/core/cycle.ts](src/core/cycle.ts). C'est le seul
+endroit a toucher pour changer le rythme du jeu.
+
+| Touche | Effet |
+|---|---|
+| `B` | La cloche : tout le monde rentre immediatement |
+| `F` | Le tableau du village : stocks, vivres, habitants |
 
 ## La carte
 
@@ -111,9 +133,10 @@ seul jusqu'a la vague 4, l'un des deux jusqu'a la 9, les deux ensuite. Ouvrir un
 flanc est un levier de difficulte qui ne change aucun chiffre — il change **ou
 il faut etre**.
 
-Trois **postes de travail** sont deja traces sur la carte : la plage, la mine et
-la foret. Ils ne produisent rien encore, mais ce sont deja les endroits que la
-defense devra couvrir.
+Trois **postes de travail** sont traces sur la carte : la plage, la mine et la
+foret. Un habitant y travaille en continu, et le joueur peut y recolter lui-meme
+**en frappant** — mais seulement le jour. Ce sont les endroits que la defense
+doit couvrir : c'est la qu'on a quelque chose a perdre.
 
 ## Structure du code
 
@@ -127,9 +150,13 @@ src/
     ordres.ts        postures, formations et postes (fonction pure, testee)
     affinites.ts     experience de groupe par paire de heros (testee)
     carte.ts         terrain, flancs fermes et fronts (fonction pure, testee)
+    cycle.ts         le jour, la nuit, les effectifs et les hordes (testee)
+    habitants.ts     metiers, cadence, progression et faim (testee)
   game/      ce qui vit a l'ecran
     art.ts             textures placeholder generees par code
     entities.ts        heros, ennemis et invocations
+    village.ts         les habitants a l'ecran : postes, travail, fuite, mort
+    panneauVillage.ts  le compteur permanent, et le tableau a la demande
     commandement.ts    selection et distribution des ordres
     hud.ts             barre de heros (l'ecran de triage)
     panneauCapacites.ts panneau des capacites, en bas a gauche

@@ -45,6 +45,7 @@ export function creerTexturesPlaceholder(scene: Phaser.Scene): void {
   creerMur(scene);
   creerEnnemi(scene);
   creerMortVivant(scene);
+  creerVillageois(scene);
   creerFamiliers(scene);
   creerProjectile(scene);
   creerImpact(scene);
@@ -902,6 +903,42 @@ function creerMur(scene: Phaser.Scene): void {
   g.fillRect(2, 2, 5, 5);
   g.fillRect(9, 4, 4, 4);
   g.generateTexture("mur", 16, 16);
+  g.destroy();
+}
+
+/**
+ * Le villageois (DESIGN.md §4.18).
+ *
+ * Volontairement plus petit et plus terne qu'un heros : au premier coup d'oeil
+ * on doit savoir qui se bat et qui travaille. Le metier n'est pas dessine ici —
+ * il vient de la teinte appliquee au sprite, ce qui evite sept textures pour
+ * sept metiers.
+ *
+ * Pas de PNG pour lui : PixelLab est a zero credit, et le §4.11 preferera
+ * toujours un placeholder assume a un dessin approximatif. Le jour ou un sprite
+ * arrive dans `src/assets/villageois.png`, cette fonction s'efface toute seule.
+ */
+function creerVillageois(scene: Phaser.Scene): void {
+  if (scene.textures.exists("villageois")) return;
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+
+  g.fillStyle(0x000000, 0.25);
+  g.fillEllipse(6, 16, 10, 4);
+
+  g.fillStyle(0xb8a888, 1); // tunique de toile
+  g.fillRect(4, 9, 5, 5);
+  g.fillStyle(0x6b5a44, 1); // jambes
+  g.fillRect(4, 14, 2, 2);
+  g.fillRect(7, 14, 2, 2);
+  g.fillStyle(0xe8c39a, 1); // tete
+  g.fillRect(4, 5, 4, 4);
+  g.fillStyle(0x8a7550, 1); // coiffe
+  g.fillRect(3, 4, 6, 2);
+  g.fillStyle(0x1a1a1a, 1); // yeux
+  g.fillRect(5, 7, 1, 1);
+  g.fillRect(7, 7, 1, 1);
+
+  g.generateTexture("villageois", TAILLE_HERO.largeur, TAILLE_HERO.hauteur);
   g.destroy();
 }
 

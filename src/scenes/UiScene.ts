@@ -5,6 +5,7 @@ import { PanneauCapacites } from "../game/panneauCapacites";
 import { ChoixCompetence } from "../game/choixCompetence";
 import { FicheHero } from "../game/ficheHero";
 import { PanneauOrdres } from "../game/panneauOrdres";
+import { PanneauVillage } from "../game/panneauVillage";
 import type { Hero } from "../game/entities";
 import type { ArenaScene } from "./ArenaScene";
 
@@ -29,6 +30,7 @@ export class UiScene extends Phaser.Scene {
   private choix!: ChoixCompetence;
   private fiche!: FicheHero;
   private ordres!: PanneauOrdres;
+  private village!: PanneauVillage;
   private stats!: Phaser.GameObjects.Text;
   private annonce!: Phaser.GameObjects.Text;
   private finAnnonce = 0;
@@ -56,6 +58,7 @@ export class UiScene extends Phaser.Scene {
     this.choix = new ChoixCompetence(this);
     this.fiche = new FicheHero(this);
     this.ordres = new PanneauOrdres(this, 12, 12 + 62 + 10);
+    this.village = new PanneauVillage(this);
 
     this.stats = this.add
       .text(0, 0, "", {
@@ -84,12 +87,14 @@ export class UiScene extends Phaser.Scene {
     evenements.on("hero-incarne", this.changerPanneau, this);
     evenements.on("fin-de-partie", this.afficherFin, this);
     evenements.on("annonce", this.annoncer, this);
+    evenements.on("basculer-village", this.basculerVillage, this);
     // Sans ce nettoyage, les ecouteurs s'empileraient a chaque nouvelle partie.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       evenements.off("choix", this.ouvrirChoix, this);
       evenements.off("hero-incarne", this.changerPanneau, this);
       evenements.off("fin-de-partie", this.afficherFin, this);
       evenements.off("annonce", this.annoncer, this);
+      evenements.off("basculer-village", this.basculerVillage, this);
     });
   }
 
@@ -102,6 +107,10 @@ export class UiScene extends Phaser.Scene {
     this.annonce.setText(message);
     this.annonce.setAlpha(1);
     this.finAnnonce = this.time.now + 4000;
+  }
+
+  private basculerVillage(): void {
+    this.village.basculer();
   }
 
   private ouvrirFiche(index: number): void {
@@ -149,6 +158,7 @@ export class UiScene extends Phaser.Scene {
     this.hud.rafraichir(this.arene.etatEquipe);
     this.ordres.rafraichir(this.arene.etatOrdres);
     this.capacites.rafraichir();
+    this.village.rafraichir(this.arene.etatVillage, this.time.now);
     const resume = this.arene.resume;
     this.stats.setPosition(this.scale.width - 16, 16);
     this.stats.setText(`Survie : ${resume.secondes}s\nElimines : ${resume.kills}`);

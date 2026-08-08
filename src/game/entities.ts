@@ -28,7 +28,7 @@ import { ARCHETYPE_DEFAUT, type Archetype } from "./ennemis";
  * ecrites en dur : corps centre horizontalement, et son bord haut 4 px au-dessus
  * du centre. Seule la taille de la texture bouge, donc seul l'offset suit.
  */
-function calerCorps(
+export function calerCorps(
   objet: Phaser.Physics.Arcade.Sprite,
   largeur: number,
   hauteur: number,

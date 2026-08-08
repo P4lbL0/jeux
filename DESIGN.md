@@ -985,6 +985,12 @@ raison :
 3. **Arrivé au village, il est à l'abri**, et il repart travailler quand la voie est
    libre.
 
+**Et il ne fuit pas en ligne droite.** Le pêcheur est au nord-ouest, le village au sud, et
+les monstres arrivent justement du nord : viser bêtement le centre du village le ferait
+courir à travers eux. Sa fuite garde la direction de l'abri mais se courbe autour de la
+menace. Sans ça, la règle ci-dessous serait un mensonge — l'habitant mourrait de sa
+trajectoire, pas d'un flanc mal tenu.
+
 Conséquence : un habitant ne peut mourir **que parce que le joueur a laissé ce flanc sans
 personne**. Ce n'est jamais un coup du sort, c'est toujours un arbitrage assumé — « je
 tiens le nord, tant pis pour le pêcheur ». Exactement comme pour les héros, la perte
@@ -1059,6 +1065,12 @@ les deux moitiés du jeu — le village produit, les héros en profitent.
 **La nourriture est la seule contrainte, et non un achat.** Chaque habitant mange un peu
 par jour. À zéro, la production s'arrête net : ils ne meurent pas de faim (le §4.18
 refuse une mort qui ne vienne pas d'un monstre), ils cessent simplement de travailler.
+
+> **La famine n'est pas un cul-de-sac, et c'est voulu.** Un village entièrement affamé ne
+> produit plus rien, donc ne se nourrit plus jamais — sauf que le joueur, lui, peut aller
+> pêcher à la main, bien plus vite qu'un habitant. La sortie de la famine, c'est le
+> Protecteur qui va chercher à manger lui-même. C'est le seul moment du jeu où le héros
+> travaille pour le village au lieu de le défendre, et ça vaut la peine que ça arrive.
 C'est elle qui empêche d'empiler les habitants sans réfléchir — et c'est exactement ce
 que le lore du Nécromancien annonçait déjà (« personne ne mange à sa table », « une
 population qui n'a pas besoin d'être nourrie »).

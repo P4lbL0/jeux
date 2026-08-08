@@ -60,6 +60,18 @@ import {
   type Front,
   type Terrain,
 } from "../core/carte";
+import {
+  Cycle,
+  REGLAGES_CYCLE,
+  delaiProchaineHorde,
+  effectifDeLaNuit,
+  intervalleDeLaNuit,
+  puissanceDeLaNuit,
+  tailleDeLaHorde,
+} from "../core/cycle";
+import { Village, type Villageois } from "../game/village";
+import type { Habitant, Ressource, Stocks } from "../core/habitants";
+import type { Phase } from "../core/cycle";
 import { Commandement } from "../game/commandement";
 import type { EtatEquipe } from "../game/hud";
 import type { EtatOrdres } from "../game/panneauOrdres";
@@ -95,8 +107,43 @@ const PORTEE_CORPS_A_CORPS = 90;
  * tue : les sprites s'accumulent, et le jeu s'effondre au bout de quelques
  * minutes. Le plafond ne rend pas le jeu plus facile — les ennemis restants
  * deviennent simplement plus forts.
+ *
+ * Il vaut desormais 60 et non 240 : le §4.19 fait baisser fortement le nombre a
+ * l'ecran, et la difficulte remonte par la force des monstres. C'est aussi une
+ * regle de lisibilite — a 240 on ne voyait plus le terrain qu'on defend.
  */
-const MAX_ENNEMIS = 240;
+const MAX_ENNEMIS = REGLAGES_CYCLE.plafondEcran;
+
+/**
+ * Rayon dans lequel le heros incarne recolte a la main, autour d'un poste.
+ *
+ * Il recolte en frappant : on s'approche, l'attaque automatique s'en charge, et
+ * aucune touche ne s'ajoute (§4.18).
+ */
+const RAYON_RECOLTE = 46;
+
+/** Ce que l'interface lit du village, sans pouvoir y toucher. */
+export interface EtatVillage {
+  phase: Phase;
+  jour: number;
+  /** Avancement dans la phase, entre 0 et 1 */
+  part: number;
+  /** Temps restant avant la bascule, en millisecondes */
+  restant: number;
+  population: number;
+  /** Vrai si quelqu'un court en ce moment : c'est ce qui fait clignoter */
+  enFuite: boolean;
+  habitants: Habitant[];
+  stocks: Stocks;
+  joursDeVivres: number;
+}
+
+/** Ce que chaque poste donne au joueur qui y frappe (DESIGN.md §4.18). */
+const RECOLTE_DU_POSTE: Record<"pecheur" | "bucheron" | "mineur", Ressource> = {
+  pecheur: "poisson",
+  bucheron: "bois",
+  mineur: "minerai",
+};
 
 /** Au-dela, on cesse d'afficher les nombres flottants : ils coutent cher. */
 const MAX_TEXTES_FLOTTANTS = 24;
@@ -201,11 +248,28 @@ export class ArenaScene extends Phaser.Scene {
   /** Les fronts ouverts en ce moment (DESIGN.md §4.6) */
   private fronts: Front[] = ["nord"];
   private partPremierFront = 1;
-  private vague = 0;
   private kills = 0;
   private termine = false;
 
+  /** L'horloge de la partie : jour, nuit, numero de journee (DESIGN.md §4.19) */
+  cycle = new Cycle();
+  /** Les habitants, leurs postes et les stocks (DESIGN.md §4.18) */
+  village!: Village;
+  /** Ce qu'il reste a faire arriver de l'effectif de la nuit en cours */
+  private resteDeLaNuit = 0;
+  /** Instant de la prochaine horde de jour, et de celle qu'on vient d'annoncer */
+  private prochaineHorde = 0;
+  private hordeAuDepart = 0;
+  private tailleHordeEnRoute = 0;
+  /** Le voile de nuit : une seule image noire, dont on module l'opacite */
+  private voile!: Phaser.GameObjects.Rectangle;
+  /** Recolte manuelle accumulee, pour n'afficher un nombre que de loin en loin */
+  private cumulRecolte = 0;
+  private prochainGesteRecolte = 0;
+
   private enPause = false;
+  /** Vrai quand la pause vient de la fenetre, pas du menu de choix */
+  private pauseHorsFocus = false;
   private debutPause = 0;
   private modeChoix: "competence" | "evolution" = "competence";
   private competenceEnEvolution: CompetenceDef | null = null;
@@ -242,11 +306,32 @@ export class ArenaScene extends Phaser.Scene {
     this.prochainTickAffinites = 0;
     this.fronts = ["nord"];
     this.partPremierFront = 1;
-    this.vague = 0;
+    this.cycle = new Cycle();
   }
 
   get hero(): Hero {
     return this.heros[this.indexIncarne]!;
+  }
+
+  /**
+   * Ce que l'interface a besoin de savoir du village.
+   *
+   * Un objet neuf par image serait du gaspillage, mais il ne contient que des
+   * nombres et des references : c'est le meme cout qu'un appel de methode, et ca
+   * garde `UiScene` incapable de modifier quoi que ce soit.
+   */
+  get etatVillage(): EtatVillage {
+    return {
+      phase: this.cycle.phase,
+      jour: this.cycle.jour,
+      part: this.cycle.part,
+      restant: this.cycle.restant,
+      population: this.village.population,
+      enFuite: this.village.vivants.some((v) => v.etat === "fuite"),
+      habitants: this.village.habitants.map((v) => v.regles),
+      stocks: this.village.stocks,
+      joursDeVivres: this.village.joursDeVivres,
+    };
   }
 
   get resume(): { secondes: number; kills: number; niveau: number } {
@@ -352,6 +437,8 @@ export class ArenaScene extends Phaser.Scene {
       this.melee(m as Invocation, e as Ennemi),
     );
 
+    this.construireVillageVivant();
+
     this.scene.launch("ui", { arene: this });
     this.events.on("choix-fait", this.resoudreChoix, this);
     this.events.on("changer-hero", this.changerHero, this);
@@ -364,6 +451,82 @@ export class ArenaScene extends Phaser.Scene {
 
     this.debut = this.time.now;
     this.prochaineApparition = this.time.now + 1200;
+    this.programmerHorde();
+    this.events.emit("annonce", "Jour 1 — le village se reveille");
+  }
+
+  /**
+   * Le village vivant : les habitants, le voile de nuit, la pause hors focus.
+   *
+   * Le voile est **un seul rectangle** dont on module l'opacite : le §4.17
+   * interdit de creer des objets en plein jeu, et un fondu jour/nuit qui
+   * fabriquerait des calques serait exactement ce piege.
+   */
+  private construireVillageVivant(): void {
+    this.village = new Village(this, {
+      menaceAutour: (x, y, rayon) => this.ennemiLePlusProche(x, y, rayon),
+      annoncer: (message) => this.events.emit("annonce", message),
+    });
+
+    // Un monstre qui rattrape un habitant le tue : c'est la seule fenetre ou on
+    // peut le perdre, et elle ne s'ouvre que si ce flanc a ete laisse sans
+    // personne (DESIGN.md §4.18).
+    this.physics.add.overlap(this.village.groupe, this.ennemis, (v, e) =>
+      this.rattraperHabitant(v as Villageois, e as Ennemi),
+    );
+
+    this.voile = this.add
+      .rectangle(0, 0, MONDE.largeur, MONDE.hauteur, 0x0a0a1e)
+      .setOrigin(0)
+      .setAlpha(0)
+      // Au-dessus du monde, sous l'interface : la nuit assombrit le terrain,
+      // jamais les informations.
+      .setDepth(900);
+
+    // « Quand on n'est pas sur l'ecran, ca met pause et tout s'arrete » : une
+    // journee dure 30 minutes reelles, aller chercher un cafe couterait un
+    // habitant.
+    this.game.events.on(Phaser.Core.Events.BLUR, this.suspendre, this);
+    this.game.events.on(Phaser.Core.Events.FOCUS, this.reprendre, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off(Phaser.Core.Events.BLUR, this.suspendre, this);
+      this.game.events.off(Phaser.Core.Events.FOCUS, this.reprendre, this);
+    });
+  }
+
+  private suspendre(): void {
+    // Le menu de choix met deja le jeu en pause, et c'est lui qui decidera du
+    // degel : on ne se met pas en travers.
+    if (this.enPause || this.termine) return;
+    this.enPause = true;
+    this.pauseHorsFocus = true;
+    this.debutPause = this.time.now;
+    this.physics.pause();
+  }
+
+  private reprendre(): void {
+    if (!this.pauseHorsFocus || this.termine) return;
+    this.pauseHorsFocus = false;
+    // Le temps passe fenetre en arriere-plan ne doit rien declencher au retour :
+    // c'est exactement le decalage que le menu de choix applique deja.
+    this.decalerLeTemps(this.time.now - this.debutPause);
+    this.physics.resume();
+    this.enPause = false;
+  }
+
+  /**
+   * Rend a tout le monde le temps passe en pause.
+   *
+   * Sans ce decalage, une pause de dix secondes ferait arriver a echeance d'un
+   * seul coup tous les rechargements, tous les coups armes et toutes les
+   * apparitions — la vague entiere frapperait dans l'image de la reprise.
+   */
+  private decalerLeTemps(pause: number): void {
+    for (const hero of this.heros) hero.decalerRechargements(pause);
+    for (const objet of this.ennemis.getChildren()) (objet as Ennemi).decaler(pause);
+    this.prochaineApparition += pause;
+    this.prochaineHorde += pause;
+    if (this.hordeAuDepart > 0) this.hordeAuDepart += pause;
   }
 
   /**
@@ -694,6 +857,13 @@ export class ArenaScene extends Phaser.Scene {
       [K.C, () => this.ordonnerPosture("repli")],
       [K.V, () => this.changerFormation()],
       [K.ESC, () => this.rompre()],
+      // La cloche : une touche, tout le monde rentre. C'est l'outil de
+      // l'urgence — quand une horde tombe, on n'a pas le temps de changer sept
+      // postures une par une (DESIGN.md §4.18).
+      [K.B, () => this.village.sonnerCloche()],
+      // Le tableau du village. L'ecran reste degage : tout ce qui n'est pas la
+      // population se lit ici, a la demande.
+      [K.F, () => this.events.emit("basculer-village")],
     ];
     for (const [code, action] of ordres) {
       clavier.addKey(code).on("down", () => {
@@ -792,6 +962,9 @@ export class ArenaScene extends Phaser.Scene {
     for (const hero of this.heros) this.attaquerAvec(hero);
     this.gererCapacitesAuto();
     this.gererCapacites();
+    this.majCycle(delta);
+    this.village.majorer(delta);
+    this.recolterALaMain(delta);
     this.fairePartirLesVagues();
     this.majPoses();
     this.majTeintes();
@@ -1524,6 +1697,70 @@ export class ArenaScene extends Phaser.Scene {
     if (hero.classe.trait === "soin-de-zone") this.soignerLePlusBlesse(hero, 240, 4);
   }
 
+  /**
+   * Le joueur recolte lui-meme, a la main (DESIGN.md §4.18).
+   *
+   * Trois regles, et elles viennent toutes du design :
+   *
+   * - **seulement le jour.** Sans ca, on abandonnerait le combat pour aller
+   *   couper du bois parce que c'est plus rentable, et un survivors-like ne
+   *   survit pas a une corvee qui concurrence le combat ;
+   * - **en frappant.** Aucune touche de plus, aucune barre de progression : on
+   *   s'approche, et l'attaque automatique s'en charge ;
+   * - **bien plus vite qu'un habitant**, et d'autant plus vite qu'on frappe
+   *   fort. C'est le seul endroit du jeu ou une statistique de combat sert a
+   *   autre chose qu'a se battre.
+   */
+  private recolterALaMain(delta: number): void {
+    if (this.cycle.phase !== "jour") return;
+
+    const hero = this.hero;
+    if (hero.etat === "mort" || hero.estImmobilise) return;
+
+    for (const poste of POSTES) {
+      const distance = Phaser.Math.Distance.Between(
+        hero.x,
+        hero.y,
+        poste.position.x,
+        poste.position.y,
+      );
+      if (distance > RAYON_RECOLTE) continue;
+
+      const ressource = RECOLTE_DU_POSTE[poste.metier];
+      // La cadence suit ses degats : un heros qui tape fort abat plus de bois.
+      const quantite = (hero.degats * delta) / 1000 / 8;
+      this.village.recolter(ressource, quantite);
+      this.cumulRecolte += quantite;
+
+      // Le geste, et le compte rendu — mais seulement de temps en temps : le
+      // §4.17 interdit de fabriquer des textes en continu.
+      if (this.time.now >= this.prochainGesteRecolte) {
+        declencher(hero.pose, hero, "attaque", this.time.now, poste.position);
+        this.prochainGesteRecolte = this.time.now + 420;
+      }
+      if (this.cumulRecolte >= 5) {
+        this.flotter(hero.x, hero.y - 26, `+${Math.floor(this.cumulRecolte)}`, "#d8c48a");
+        this.cumulRecolte = 0;
+      }
+      return;
+    }
+
+    this.cumulRecolte = 0;
+  }
+
+  /** Un monstre a rattrape un habitant : il le tue (DESIGN.md §4.18). */
+  private rattraperHabitant(villageois: Villageois, e: Ennemi): void {
+    if (!e.active || !villageois.regles.vivant || this.termine || this.enPause) return;
+
+    this.village.tuer(villageois);
+    poufMort(this, villageois.x, villageois.y, 0xd8c48a);
+    secousse(this, "fort");
+
+    // Le village, c'est sa population : quand il n'y a plus personne, la partie
+    // est finie (§4.18).
+    if (this.village.eteint) this.finDePartie();
+  }
+
   private soignerLePlusBlesse(source: Hero, rayon: number, montant: number): void {
     let cible: Hero | null = null;
     for (const allie of this.heros) {
@@ -1833,13 +2070,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private terminerChoix(): void {
-    // Sans ce decalage, le temps passe dans le menu rechargerait tout.
-    const pause = this.time.now - this.debutPause;
-    for (const hero of this.heros) hero.decalerRechargements(pause);
-    // Les monstres aussi : sinon, un menu de dix secondes ferait arriver a
-    // echeance tous les coups armes a la fois, et la vague entiere frapperait
-    // dans l'image de la reprise.
-    for (const objet of this.ennemis.getChildren()) (objet as Ennemi).decaler(pause);
+    this.decalerLeTemps(this.time.now - this.debutPause);
     this.physics.resume();
     this.enPause = false;
     if (this.hero.choixEnAttente > 0) this.ouvrirChoix();
@@ -2705,46 +2936,131 @@ export class ArenaScene extends Phaser.Scene {
     e.setVelocity(Math.cos(angle) * force, Math.sin(angle) * force);
   }
 
-  // --------------------------------------------------------------- vagues
+  // -------------------------------------------------------- le jour et la nuit
 
-  private fairePartirLesVagues(): void {
-    if (this.time.now < this.prochaineApparition) return;
+  /**
+   * L'horloge du jeu (DESIGN.md §4.19).
+   *
+   * Elle ne fait que trois choses : avancer, annoncer les bascules, et teinter
+   * le ciel. Tout le calcul est dans `core/cycle.ts`, ou il se teste.
+   */
+  private majCycle(delta: number): void {
+    const bascule = this.cycle.avancer(delta);
 
-    const ecoule = (this.time.now - this.debut) / 1000;
-    const puissance = ecoule / 45;
-    const vivants = this.heros.filter((h) => h.etat !== "mort").length;
-    const voulu = Math.max(1, Math.floor((1 + ecoule / 18) * (vivants / 2)));
-    const intervalle = Math.max(300, 1400 - ecoule * 13);
+    if (bascule === "crepuscule") this.tomberLaNuit();
+    else if (bascule === "aube") this.leverLeJour();
 
-    this.majFronts(ecoule);
-
-    // Le plafond protege la fluidite : au-dela, la montee en puissance passe
-    // par la force des ennemis, pas par leur nombre.
-    const place = MAX_ENNEMIS - this.ennemis.getLength();
-    const nombre = Math.min(voulu, Math.max(0, place));
-
-    for (let i = 0; i < nombre; i++) this.faireApparaitreEnnemi(puissance);
-    this.prochaineApparition = this.time.now + intervalle;
+    this.teinterLeCiel();
   }
 
   /**
-   * Les vagues n'existent pas encore comme evenements a debut et fin nets : en
-   * attendant, la "vague" est le temps ecoule par tranches d'une minute. C'est
-   * suffisant pour eprouver l'ouverture progressive des fronts (§4.6), et ca
-   * sera remplace par la vraie phase de village au bloc suivant.
+   * L'opacite du voile, calculee une fois par image.
+   *
+   * Le fondu prend les dernieres minutes du jour et les premieres de la nuit :
+   * on voit le soleil descendre bien avant qu'il ne soit couche. Le §4.6 exige
+   * qu'un assaut soit annonce — c'est cette annonce-la, et elle ne peut pas
+   * etre manquee.
    */
-  private majFronts(ecoule: number): void {
-    const vague = 1 + Math.floor(ecoule / 60);
-    if (vague === this.vague) return;
+  private teinterLeCiel(): void {
+    const { phase, part } = this.cycle;
+    const NUIT_PLEINE = 0.55;
+    const FONDU = 0.12;
 
-    this.vague = vague;
-    this.fronts = frontsDeLaVague(vague, this.rng.next());
+    let opacite: number;
+    if (phase === "jour") {
+      opacite = part > 1 - FONDU ? ((part - (1 - FONDU)) / FONDU) * NUIT_PLEINE : 0;
+    } else {
+      opacite = part > 1 - FONDU ? (1 - (part - (1 - FONDU)) / FONDU) * NUIT_PLEINE : NUIT_PLEINE;
+    }
+    this.voile.setAlpha(opacite);
+  }
+
+  private tomberLaNuit(): void {
+    const nuit = this.cycle.nuit;
+    this.resteDeLaNuit = effectifDeLaNuit(nuit);
+    this.village.tomberLaNuit();
+
+    this.fronts = frontsDeLaVague(nuit, this.rng.next());
     this.partPremierFront = repartition(this.fronts, this.rng.next());
+    this.prochaineApparition = this.time.now;
 
-    // L'annonce est obligatoire : un front qui s'ouvre sans prevenir, dans un
-    // jeu ou deplacer son equipe prend du temps, se subit au lieu de se jouer.
     const ou = this.fronts.map((f) => NOMS_FRONT[f]).join(" et ");
-    this.events.emit("annonce", `Vague ${vague} — ils arrivent ${ou}`);
+    this.events.emit("annonce", `Nuit ${nuit} — ils arrivent ${ou}`);
+  }
+
+  private leverLeJour(): void {
+    // Ce qui restait de l'effectif ne poursuit pas la journee : la nuit est
+    // finie, ceux qui sont encore debout finissent la leur.
+    this.resteDeLaNuit = 0;
+    this.village.seLever();
+    this.programmerHorde();
+    this.events.emit("annonce", `Jour ${this.cycle.jour} — le soleil se leve`);
+  }
+
+  /**
+   * Les arrivees, jour et nuit confondus.
+   *
+   * La nuit vide un effectif ; le jour, c'est une horde annoncee qui tombe. Dans
+   * les deux cas le plafond d'ecran a le dernier mot : la difficulte monte par
+   * la force, pas par le nombre (§4.17).
+   */
+  private fairePartirLesVagues(): void {
+    if (this.cycle.phase === "nuit") this.deverserLaNuit();
+    else this.guetterLesHordes();
+  }
+
+  private deverserLaNuit(): void {
+    if (this.resteDeLaNuit <= 0) return;
+    if (this.time.now < this.prochaineApparition) return;
+
+    const place = MAX_ENNEMIS - this.ennemis.getLength();
+    if (place > 0) {
+      this.faireApparaitreEnnemi(puissanceDeLaNuit(this.cycle.nuit));
+      this.resteDeLaNuit -= 1;
+    }
+
+    // Meme quand l'ecran est plein, on repousse l'echeance : sinon on
+    // reessaierait a chaque image, pour rien.
+    this.prochaineApparition = this.time.now + intervalleDeLaNuit(this.cycle.nuit);
+  }
+
+  /**
+   * Les hordes de jour (DESIGN.md §4.19).
+   *
+   * Elles empechent la journee de 30 minutes d'etre un temps mort : on travaille
+   * en surveillant l'horizon. Le preavis est court — assez pour rappeler un
+   * heros ou sonner la cloche, trop peu pour tout reorganiser.
+   */
+  private guetterLesHordes(): void {
+    const maintenant = this.time.now;
+
+    if (this.hordeAuDepart > 0) {
+      if (maintenant < this.hordeAuDepart) return;
+      const puissance = puissanceDeLaNuit(this.cycle.jour);
+      const place = MAX_ENNEMIS - this.ennemis.getLength();
+      for (let i = 0; i < Math.min(this.tailleHordeEnRoute, place); i++) {
+        this.faireApparaitreEnnemi(puissance);
+      }
+      this.hordeAuDepart = 0;
+      this.programmerHorde();
+      return;
+    }
+
+    if (maintenant < this.prochaineHorde) return;
+
+    // Une horde n'ouvre pas de front : elle emprunte ceux qui le sont deja.
+    this.fronts = frontsDeLaVague(this.cycle.jour, this.rng.next());
+    this.partPremierFront = repartition(this.fronts, this.rng.next());
+    this.tailleHordeEnRoute = tailleDeLaHorde(this.cycle.jour);
+    this.hordeAuDepart = maintenant + REGLAGES_CYCLE.preavisHorde;
+
+    const ou = this.fronts.map((f) => NOMS_FRONT[f]).join(" et ");
+    this.events.emit("annonce", `Une horde arrive ${ou} !`);
+  }
+
+  private programmerHorde(): void {
+    this.prochaineHorde = this.time.now + delaiProchaineHorde(this.rng.next());
+    this.hordeAuDepart = 0;
   }
 
   private faireApparaitreEnnemi(puissance: number): void {
