@@ -321,8 +321,16 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     );
   }
 
+  /**
+   * Ce que la hauteur d'une tour ajoute a sa portee (DESIGN.md §4.20).
+   *
+   * Zero au sol. Ce n'est pas une statistique du heros : c'est la position qui
+   * la donne, et elle repart a zero des qu'il redescend.
+   */
+  porteeTour = 0;
+
   get portee(): number {
-    return this.classe.portee + this.bonus.portee;
+    return this.classe.portee + this.bonus.portee + this.porteeTour;
   }
 
   /** Plafonnee : une esquive de 100% rendrait le heros invincible. */

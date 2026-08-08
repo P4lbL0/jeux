@@ -58,7 +58,11 @@ export class UiScene extends Phaser.Scene {
     this.choix = new ChoixCompetence(this);
     this.fiche = new FicheHero(this);
     this.ordres = new PanneauOrdres(this, 12, 12 + 62 + 10);
-    this.village = new PanneauVillage(this);
+    this.village = new PanneauVillage(
+      this,
+      (index) => this.arene.events.emit("posture-habitant", index),
+      (index) => this.arene.events.emit("poste-habitant", index),
+    );
 
     this.stats = this.add
       .text(0, 0, "", {

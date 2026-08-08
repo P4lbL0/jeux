@@ -33,10 +33,20 @@ export class PanneauVillage {
   private cadre: Phaser.GameObjects.Rectangle;
   private titre: Phaser.GameObjects.Text;
   private stocks: Phaser.GameObjects.Text;
+  private aide: Phaser.GameObjects.Text;
   private lignes: Phaser.GameObjects.Text[] = [];
   private ouvert = false;
 
-  constructor(private scene: Phaser.Scene) {
+  /**
+   * @param changerPosture appele avec l'index de l'habitant clique. C'est le
+   *        seul endroit ou l'on donne un ordre a un civil : le §4.18 veut qu'on
+   *        puisse parier poste par poste, pas d'un seul interrupteur global.
+   */
+  constructor(
+    private scene: Phaser.Scene,
+    private changerPosture: (index: number) => void,
+    private changerPoste: (index: number) => void,
+  ) {
     this.compteur = scene.add
       .text(0, 0, "", { fontFamily: "monospace", fontSize: "13px", color: "#f2e9d8" })
       .setOrigin(1, 0)
@@ -49,12 +59,27 @@ export class PanneauVillage {
       .setDepth(1500)
       .setVisible(false);
 
-    this.titre = this.texte(14, "#ffd98a", "13px");
-    this.stocks = this.texte(15, "#d8c48a", "12px");
-    for (let i = 0; i < LIGNES; i++) this.lignes.push(this.texte(16, "#c8c2d4", "11px"));
+    this.titre = this.texte("#ffd98a", "13px");
+    this.stocks = this.texte("#d8c48a", "12px");
+    this.aide = this.texte("#8f8a9e", "10px");
+
+    for (let i = 0; i < LIGNES; i++) {
+      const ligne = this.texte("#c8c2d4", "11px");
+      // Cliquer un habitant fait tourner sa posture. Les objets sont fabriques
+      // une fois ici, ecouteurs compris : rien n'est cree en cours de partie.
+      ligne.setInteractive({ useHandCursor: true });
+      ligne.on("pointerdown", (p: Phaser.Input.Pointer) => {
+        if (!this.ouvert) return;
+        // Clic gauche : sa posture. Clic droit : son poste. Le §4.18 dit que le
+        // joueur decide **qui fait quoi** — c'est la, et nulle part ailleurs.
+        if (p.rightButtonDown()) this.changerPoste(i);
+        else this.changerPosture(i);
+      });
+      this.lignes.push(ligne);
+    }
   }
 
-  private texte(_ordre: number, couleur: string, taille: string): Phaser.GameObjects.Text {
+  private texte(couleur: string, taille: string): Phaser.GameObjects.Text {
     return this.scene.add
       .text(0, 0, "", { fontFamily: "monospace", fontSize: taille, color: couleur })
       .setDepth(1501)
@@ -99,6 +124,7 @@ export class PanneauVillage {
     this.cadre.setVisible(this.ouvert);
     this.titre.setVisible(this.ouvert);
     this.stocks.setVisible(this.ouvert);
+    this.aide.setVisible(this.ouvert);
     for (const ligne of this.lignes) ligne.setVisible(false);
     if (!this.ouvert) return;
 
@@ -107,6 +133,8 @@ export class PanneauVillage {
     this.cadre.setPosition(x, y);
     this.titre.setPosition(x + 12, y + 10);
     this.stocks.setPosition(x + 12, y + 30);
+    this.aide.setPosition(x + 12, y + 52 + LIGNES * 16 + 6);
+    this.aide.setText("Clic : posture  ·  clic droit : poste  ·  B : cloche");
 
     const vivres = etat.joursDeVivres;
     this.titre.setText(

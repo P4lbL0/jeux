@@ -429,6 +429,12 @@ règle qui structure tout le combat.
 > planquer devient le moyen le plus rapide de tout perdre. Sans cette règle, la carte
 > fermée est une régression, pas un progrès.
 
+**En pratique, ça tient à un seul nombre : le rayon de vue.** Un monstre ne poursuit un
+héros que s'il le voit ; au-delà, il continue vers le village et mange ce qu'il croise.
+Sans cette limite, se cacher était non seulement possible mais *optimal* — un joueur
+planqué attirait toute la vague sur lui et **protégeait ses habitants sans rien faire**.
+Le camping ne se ferme pas en punissant le joueur, il se ferme en cessant de le récompenser.
+
 #### Ouvrir un flanc est une montée en difficulté
 
 **Deux fronts, ce n'est pas moitié moins de travail — c'est deux endroits où être à la
@@ -895,7 +901,7 @@ habitant a un **métier**, un **rang** et un **niveau** — la même échelle qu
 | Métier | Où il travaille | Ce qu'il produit |
 |---|---|---|
 | **Pêcheur** | La plage, à l'ouest | Poisson |
-| **Fermier** | Les champs, autour du village | Blé |
+| **Fermier** | Les champs, au nord-est du village | Il ne récolte rien : **il fait pousser** |
 | **Bûcheron** | La forêt, au sud | Bois |
 | **Mineur** | La montagne, au sud | Minerai |
 | **Forgeron** | Le village | Transforme le minerai en équipement et en défenses |
@@ -952,6 +958,27 @@ un habitant, il ouvre une porte ou il met le feu.
 > arbitrage. Avec eux, le doute devient le jeu : refuser un innocent coûte une paire de
 > bras, accepter un fou coûte un mort. Les deux erreurs doivent faire mal, sinon il n'y a
 > qu'une seule bonne réponse et la question disparaît.
+
+#### Les champs : on sème, ça mûrit, on moissonne
+
+Le blé est le seul métier qui ne produise pas en continu, et c'est ce qui le rend
+intéressant. On sème un carré de terre, il mûrit, la moisson tombe d'un coup.
+
+**Ce qui fait pousser, c'est le fermier.** La somme des cadences des fermiers est un
+budget de croissance réparti sur tous les champs : plus de champs sans plus de bras, c'est
+plus lent partout. Son rang ne change donc toujours qu'une chose — la cadence (§4.18) —
+mais elle s'applique à la pousse plutôt qu'à un stock qui monte.
+
+**Et une horde qui traverse un champ le ruine.** C'est toute la raison d'être du blé : la
+pêche est adossée à un flanc fermé, donc rien ne peut jamais l'atteindre, et une ressource
+qu'on ne peut pas perdre ne fait rien travailler. Le blé est la nourriture qui se défend.
+
+> **Le poste des champs commence vide.** Y mettre quelqu'un veut dire le retirer du bois
+> ou du minerai — c'est la seule décision de production que le §4.18 accorde au joueur
+> (« il décide qui fait quoi, jamais quand »), et elle ne vaudrait rien si le poste était
+> déjà tenu. Un habitant **garde son niveau** en changeant de métier : il l'a gagné en
+> travaillant, pas en apprenant un geste, et le lui reprendre rendrait cette décision trop
+> chère pour être prise.
 
 #### La récolte se fait à deux vitesses
 
@@ -1239,9 +1266,14 @@ suite.
 | Bloc | Contenu | On juge quoi à la fin |
 |---|---|---|
 | **1** ✅ | La carte, les flancs fermés, les fronts (§4.6) | La géographie tient |
-| **2** | Le cycle jour/nuit, les hordes, les habitants, les métiers, la récolte à deux vitesses, la faim, la pause hors focus | **Le rythme** : 30/15 est-il le bon chiffre ? |
-| **3** | La grille modifiable, les murs, les tours occupées, les ordres civils, les dégâts au village, les champs | Défendre un lieu est-il intéressant ? |
+| **2** ✅ | Le cycle jour/nuit, les hordes, les habitants, les métiers, la récolte à deux vitesses, la faim, la pause hors focus | **Le rythme** : 30/15 est-il le bon chiffre ? |
+| **3** ✅ | La grille modifiable, les murs, les tours occupées, le rayon de vue qui ferme le camping, les ordres civils, les champs | Défendre un lieu est-il intéressant ? |
 | **4** | Les arrivées aux portes, les naissances, les survivants à escorter, les traitres | Le village vit-il tout seul ? |
+
+Reste hors du bloc 3, et c'est assumé : **les maisons du village ne sont pas encore
+destructibles**. Les monstres cassent ce que le joueur a bâti et tuent les habitants —
+c'est déjà ce qui ferme le camping — mais le village lui-même attend le jalon 8, celui de
+sa restauration, où il aura de toute façon besoin d'être réparable pièce par pièce.
 
 C'est le bloc 2 qui porte tout le risque : si 30 minutes de jour et 15 de nuit ne se
 jouent pas bien, tout le reste est bâti sur du sable. Il faut donc pouvoir régler les

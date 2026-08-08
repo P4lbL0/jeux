@@ -70,7 +70,12 @@ import {
   tailleDeLaHorde,
 } from "../core/cycle";
 import { Village, type Villageois } from "../game/village";
-import type { Habitant, Ressource, Stocks } from "../core/habitants";
+import { Grille } from "../core/grille";
+import { CONSTRUCTIONS, coutLisible, type TypeConstruction } from "../core/constructions";
+import { Constructions, PORTEE_OCCUPATION, type Construction } from "../game/constructions";
+import { Champs, REGLAGES_CHAMPS, type Champ } from "../game/champs";
+import { NOMS_POSTURE_CIVILE } from "../core/habitants";
+import type { Habitant, PostureCivile, Ressource, Stocks } from "../core/habitants";
 import type { Phase } from "../core/cycle";
 import { Commandement } from "../game/commandement";
 import type { EtatEquipe } from "../game/hud";
@@ -137,6 +142,24 @@ export interface EtatVillage {
   stocks: Stocks;
   joursDeVivres: number;
 }
+
+/**
+ * Jusqu'ou un monstre voit un heros (DESIGN.md §4.6).
+ *
+ * Au-dela, il ne le poursuit pas : il continue vers le village. C'est ce seul
+ * nombre qui empeche le camping de fonctionner — un heros planque a l'autre bout
+ * de la carte ne detourne plus personne des postes de travail.
+ */
+const RAYON_DE_VUE = 340;
+
+/**
+ * Ce qu'on peut poser sur la grille.
+ *
+ * Un champ n'est pas une construction — il ne bloque rien, il n'a pas de points
+ * de vie, et on le traverse. Mais il se pose exactement de la meme facon, alors
+ * il partage le meme mode et le meme apercu.
+ */
+type ModeBati = TypeConstruction | "champ";
 
 /** Ce que chaque poste donne au joueur qui y frappe (DESIGN.md §4.18). */
 const RECOLTE_DU_POSTE: Record<"pecheur" | "bucheron" | "mineur", Ressource> = {
@@ -266,6 +289,19 @@ export class ArenaScene extends Phaser.Scene {
   /** Recolte manuelle accumulee, pour n'afficher un nombre que de loin en loin */
   private cumulRecolte = 0;
   private prochainGesteRecolte = 0;
+
+  /** La carte en grille modifiable : c'est elle qu'on batit (DESIGN.md §4.21) */
+  grille = new Grille();
+  /** Les murs et les tours (DESIGN.md §4.20) */
+  constructions!: Constructions;
+  /** Les champs de ble : ils poussent, et une horde les ruine (§4.18) */
+  champs!: Champs;
+  /** Ce qu'on s'apprete a poser ; null quand le mode construction est ferme */
+  private enConstruction: ModeBati | null = null;
+  /** L'apercu fantome, cree une fois et deplace : jamais recree (§4.17) */
+  private fantome!: Phaser.GameObjects.Image;
+  /** La tour dans laquelle se tient le heros incarne, s'il y en a une */
+  private tourDuHero: Construction | null = null;
 
   private enPause = false;
   /** Vrai quand la pause vient de la fenetre, pas du menu de choix */
@@ -443,10 +479,14 @@ export class ArenaScene extends Phaser.Scene {
     this.events.on("choix-fait", this.resoudreChoix, this);
     this.events.on("changer-hero", this.changerHero, this);
     this.events.on("selectionner", this.selectionnerDepuisUi, this);
+    this.events.on("posture-habitant", this.tournerPostureCivile, this);
+    this.events.on("poste-habitant", this.tournerPosteCivil, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.events.off("choix-fait", this.resoudreChoix, this);
       this.events.off("changer-hero", this.changerHero, this);
       this.events.off("selectionner", this.selectionnerDepuisUi, this);
+      this.events.off("posture-habitant", this.tournerPostureCivile, this);
+      this.events.off("poste-habitant", this.tournerPosteCivil, this);
     });
 
     this.debut = this.time.now;
@@ -474,6 +514,26 @@ export class ArenaScene extends Phaser.Scene {
     this.physics.add.overlap(this.village.groupe, this.ennemis, (v, e) =>
       this.rattraperHabitant(v as Villageois, e as Ennemi),
     );
+
+    // Les murs et les tours. Ils arretent les corps : la collision suffit, on
+    // n'a rien a calculer par image.
+    this.constructions = new Constructions(this, this.grille);
+    this.champs = new Champs(this, this.grille);
+    // Un champ ne bloque personne : on le traverse — et le traverser le ruine.
+    this.physics.add.overlap(this.ennemis, this.champs.groupe, (_e, c) =>
+      this.pietinerChamp(c as Champ),
+    );
+    this.physics.add.collider(this.ennemis, this.constructions.groupe, (e, c) =>
+      this.cognerConstruction(e as Ennemi, c as Construction),
+    );
+    this.physics.add.collider(this.equipe, this.constructions.groupe);
+    this.physics.add.collider(this.village.groupe, this.constructions.groupe);
+
+    this.fantome = this.add
+      .image(0, 0, "mur")
+      .setAlpha(0.55)
+      .setVisible(false)
+      .setDepth(880);
 
     this.voile = this.add
       .rectangle(0, 0, MONDE.largeur, MONDE.hauteur, 0x0a0a1e)
@@ -729,13 +789,21 @@ export class ArenaScene extends Phaser.Scene {
 
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       if (this.termine || this.enPause) return;
+      // En mode construction, le clic gauche batit : c'est la seule chose qu'on
+      // fasse d'un clic a ce moment-la, et le clic droit continue de commander.
+      if (!p.rightButtonDown() && this.enConstruction) {
+        const point = this.cameras.main.getWorldPoint(p.x, p.y);
+        this.batirIci(point.x, point.y);
+        return;
+      }
       if (p.rightButtonDown()) this.ordonnerAncre(p);
       else viser(p);
     });
     // Maintenir guide le heros ; le clic droit, lui, ne se maintient pas.
     this.input.on(
       "pointermove",
-      (p: Phaser.Input.Pointer) => p.isDown && !p.rightButtonDown() && viser(p),
+      (p: Phaser.Input.Pointer) =>
+        p.isDown && !p.rightButtonDown() && !this.enConstruction && viser(p),
     );
   }
 
@@ -864,6 +932,12 @@ export class ArenaScene extends Phaser.Scene {
       // Le tableau du village. L'ecran reste degage : tout ce qui n'est pas la
       // population se lit ici, a la demande.
       [K.F, () => this.events.emit("basculer-village")],
+      // Batir : une touche par construction, et la meme touche referme. Deux
+      // suffisent aujourd'hui — l'arsenal complet est au jalon 7.
+      [K.G, () => this.basculerConstruction("palissade")],
+      [K.H, () => this.basculerConstruction("tour")],
+      [K.J, () => this.basculerConstruction("champ")],
+      [K.T, () => this.basculerTour()],
     ];
     for (const [code, action] of ordres) {
       clavier.addKey(code).on("down", () => {
@@ -965,6 +1039,10 @@ export class ArenaScene extends Phaser.Scene {
     this.majCycle(delta);
     this.village.majorer(delta);
     this.recolterALaMain(delta);
+    this.majFantome();
+    this.constructions.majorer(this.time.now);
+    // Les champs poussent une fois par seconde, jamais par image (§4.17).
+    this.champs.majorer(this.time.now, this.village.auTravail("fermier"), this.village.stocks);
     this.fairePartirLesVagues();
     this.majPoses();
     this.majTeintes();
@@ -1578,6 +1656,21 @@ export class ArenaScene extends Phaser.Scene {
    * la Provocation force sa cible, l'invisibilite retire une cible, et la
    * discretion de l'assassin le fait passer apres les autres.
    */
+  /**
+   * Ce que vise un monstre.
+   *
+   * **Il vient pour le village, pas pour vous.** C'etait la contrepartie
+   * obligatoire annoncee au §4.6, et elle manquait : tant qu'un monstre visait
+   * le heros le plus proche ou qu'il fut, un joueur prudent avait interet a se
+   * planquer — il attirait ainsi toute la vague sur lui et **protegeait ses
+   * habitants sans rien faire**. Se cacher etait la meilleure defense possible.
+   *
+   * Un heros n'est donc une cible que s'il est **a portee de vue**. Au-dela, le
+   * monstre continue vers le village et mange ce qu'il croise en chemin : un
+   * pecheur sur sa plage, une palissade, un champ. Se planquer devient
+   * exactement ce que le design promettait — le moyen le plus rapide de tout
+   * perdre.
+   */
   private cibleDe(e: Ennemi): { x: number; y: number } | null {
     // Une invocation provocatrice passe avant tout le reste.
     if (e.attirePar?.active && !e.attirePar.furtif) return e.attirePar;
@@ -1589,7 +1682,7 @@ export class ArenaScene extends Phaser.Scene {
     // Un simple parcours : trier a chaque image pour chaque ennemi coutait
     // beaucoup plus cher que le probleme ne le meritait.
     let premier: Hero | null = null;
-    let meilleure = Infinity;
+    let meilleure = RAYON_DE_VUE;
     let expose: Hero | null = null;
     let meilleureExpose = Infinity;
 
@@ -1717,7 +1810,22 @@ export class ArenaScene extends Phaser.Scene {
     const hero = this.hero;
     if (hero.etat === "mort" || hero.estImmobilise) return;
 
+    // S'occuper d'un champ, c'est le faire avancer vers la moisson. C'est ce qui
+    // donne au joueur quelque chose a faire de ses 30 minutes de jour.
+    const force = (hero.degats * delta) / 1000 / 400;
+    if (this.champs.travaillerALaMain(hero.x, hero.y, force, this.village.stocks)) {
+      if (this.time.now >= this.prochainGesteRecolte) {
+        declencher(hero.pose, hero, "attaque", this.time.now);
+        this.prochainGesteRecolte = this.time.now + 420;
+      }
+      return;
+    }
+
     for (const poste of POSTES) {
+      // Les champs n'ont pas de gisement a frapper : c'est le carre de terre
+      // lui-meme qu'on travaille, et c'est fait juste au-dessus.
+      if (poste.metier === "fermier") continue;
+
       const distance = Phaser.Math.Distance.Between(
         hero.x,
         hero.y,
@@ -1746,6 +1854,220 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     this.cumulRecolte = 0;
+  }
+
+  /**
+   * Faire tourner la posture d'un habitant (DESIGN.md §4.18).
+   *
+   * Trois postures, le meme vocabulaire que les heros du §4.4. La decision est
+   * poste par poste et non globale : laisser le mineur travailler la nuit est un
+   * pari raisonnable — la mine est abritee des deux fronts — alors que le meme
+   * pari sur la plage est beaucoup plus cher.
+   */
+  private tournerPostureCivile(index: number): void {
+    const villageois = this.village.habitants[index];
+    if (!villageois || !villageois.regles.vivant) return;
+
+    const suite: PostureCivile[] = ["travail", "prudent", "abri"];
+    const suivante = suite[(suite.indexOf(villageois.regles.posture) + 1) % suite.length]!;
+    this.village.changerPosture(villageois, suivante);
+    this.events.emit(
+      "annonce",
+      `${villageois.nom} — ${NOMS_POSTURE_CIVILE[suivante]}`,
+    );
+  }
+
+  /**
+   * L'envoyer au poste suivant (DESIGN.md §4.18).
+   *
+   * « Le joueur decide qui fait quoi, jamais quand » : c'est la seule decision
+   * de production du jeu, et c'est celle qui rend les champs jouables — sans un
+   * fermier a y mettre, rien n'y pousserait jamais.
+   */
+  private tournerPosteCivil(index: number): void {
+    const villageois = this.village.habitants[index];
+    if (!villageois || !villageois.regles.vivant) return;
+
+    const actuel = POSTES.findIndex((p) => p.id === villageois.poste?.id);
+    this.village.changerPoste(villageois, POSTES[(actuel + 1) % POSTES.length]!);
+  }
+
+  // --------------------------------------------------- batir et occuper
+
+  /**
+   * Le mode construction (DESIGN.md §4.20).
+   *
+   * **Seulement le jour** : batir un rempart au milieu d'un assaut n'aurait
+   * aucun sens, et le §4.7 fait de la disposition des defenses une phase de
+   * decision a part entiere. Une deuxieme pression sur la meme touche referme.
+   */
+  private basculerConstruction(type: ModeBati): void {
+    if (this.cycle.phase !== "jour") {
+      this.events.emit("annonce", "On ne batit pas en pleine nuit");
+      return;
+    }
+
+    this.enConstruction = this.enConstruction === type ? null : type;
+    if (!this.enConstruction) {
+      this.fantome.setVisible(false);
+      return;
+    }
+
+    if (type === "champ") {
+      this.fantome.setTexture("champ-jeune").setVisible(true);
+      this.events.emit(
+        "annonce",
+        `Champ — ${REGLAGES_CHAMPS.coutBois} bois · clic pour semer, pres des champs`,
+      );
+      return;
+    }
+
+    const def = CONSTRUCTIONS[type];
+    this.fantome.setTexture(def.texture).setVisible(true);
+    this.events.emit("annonce", `${def.nom} — ${coutLisible(def)} · clic pour poser`);
+  }
+
+  /**
+   * L'apercu suit la souris, aimante sur la case.
+   *
+   * Vert : c'est posable. Rouge : ca ne l'est pas — terrain qui ne porte pas,
+   * case deja prise, trop pres de la place du village, ou pas de quoi payer. Le
+   * joueur n'a jamais a deviner pourquoi son clic ne fait rien.
+   */
+  private majFantome(): void {
+    if (!this.enConstruction) return;
+
+    const pointeur = this.input.activePointer;
+    const monde = this.cameras.main.getWorldPoint(pointeur.x, pointeur.y);
+    const centre = this.grille.centreDe(monde.x, monde.y);
+    const possible =
+      this.enConstruction === "champ"
+        ? this.champs.possible(centre.x, centre.y, this.village.stocks)
+        : this.constructions.possible(
+            centre.x,
+            centre.y,
+            this.enConstruction,
+            this.village.stocks,
+          );
+
+    this.fantome.setPosition(centre.x, centre.y);
+    this.fantome.setTint(possible ? 0x7ee0a0 : 0xff6b5a);
+  }
+
+  private batirIci(x: number, y: number): boolean {
+    if (!this.enConstruction) return false;
+
+    const pose =
+      this.enConstruction === "champ"
+        ? this.champs.semer(x, y, this.village.stocks)
+        : this.constructions.batir(x, y, this.enConstruction, this.village.stocks);
+
+    if (!pose) {
+      this.events.emit("annonce", "Impossible de poser ici");
+      return true;
+    }
+
+    eclatImpact(this, pose.x, pose.y, 0xd8c48a);
+    return true;
+  }
+
+  /**
+   * Monter dans une tour, ou en descendre (DESIGN.md §4.20).
+   *
+   * La tour ne tire pas : elle donne une position. Le heros y gagne de la portee
+   * et devient intouchable au corps a corps — mais il ne peut plus bouger, et
+   * l'autre front n'est plus couvert. C'est le troc, et il est entier.
+   */
+  private basculerTour(): void {
+    const hero = this.hero;
+    if (!hero || hero.etat === "mort") return;
+
+    if (this.tourDuHero) {
+      this.descendreDeTour();
+      return;
+    }
+
+    const tour = this.constructions.tourLibre(hero.x, hero.y, PORTEE_OCCUPATION);
+    if (!tour) {
+      this.events.emit("annonce", "Aucune tour libre a portee");
+      return;
+    }
+
+    tour.occupant = hero;
+    this.tourDuHero = tour;
+    hero.setPosition(tour.x, tour.y - 18);
+    hero.setVelocity(0, 0);
+    // Intouchable au corps a corps : ce n'est pas une invulnerabilite, c'est de
+    // la hauteur. Les monstres s'en prendront a la tour.
+    hero.body!.enable = false;
+    hero.porteeTour = tour.def.bonusPortee;
+    hero.setDepth(tour.depth + 1);
+    this.events.emit("annonce", `${hero.classe.nom} monte en tour — T pour descendre`);
+  }
+
+  private descendreDeTour(): void {
+    const tour = this.tourDuHero;
+    if (!tour) return;
+
+    const hero = tour.occupant as Hero | null;
+    this.tourDuHero = null;
+    tour.occupant = null;
+    if (!hero) return;
+
+    hero.body!.enable = true;
+    hero.porteeTour = 0;
+    hero.setPosition(tour.x, tour.y + 26);
+  }
+
+  /**
+   * La tour vient de tomber : son occupant tombe avec elle.
+   *
+   * Sonne, a terre, au milieu d'eux — c'est ce qui empeche la tour d'etre une
+   * cachette (§4.20).
+   */
+  private ejecterDeLaTour(tour: Construction): void {
+    const occupant = this.constructions.detruire(tour);
+    if (!occupant) return;
+
+    if (occupant === this.tourDuHero?.occupant) this.tourDuHero = null;
+    const hero = occupant as Hero;
+    hero.body!.enable = true;
+    hero.porteeTour = 0;
+    hero.setPosition(tour.x, tour.y + 20);
+    recul(hero, tour.x, tour.y, this.time.now, 220);
+    this.encaisser(hero, Math.round(hero.pvMax * 0.15), tour.x, tour.y, 0xbfae8a);
+    this.events.emit("annonce", "La tour cede !");
+  }
+
+  /**
+   * Une horde traverse un champ : il est perdu (DESIGN.md §4.18).
+   *
+   * C'est la raison d'etre du ble. La peche est adossee a un flanc ferme, donc
+   * rien ne peut jamais l'atteindre — et une ressource qu'on ne peut pas perdre
+   * ne fait rien travailler.
+   */
+  private pietinerChamp(champ: Champ): void {
+    if (this.termine || this.enPause) return;
+    if (!this.champs.pietiner(champ)) return;
+
+    poufMort(this, champ.x, champ.y, 0xd8b64a);
+    this.events.emit("annonce", "Un champ est ravage");
+  }
+
+  private cognerConstruction(e: Ennemi, construction: Construction): void {
+    if (!e.active || this.termine || this.enPause) return;
+    if (!e.peutFrapper(this.time.now)) return;
+
+    e.marquerCoup(this.time.now);
+    declencher(e.pose, e, "attaque", this.time.now, construction);
+    eclatImpact(this, construction.x, construction.y, 0xbfae8a);
+
+    if (!this.constructions.blesser(construction, e.degats, this.time.now)) return;
+
+    poufMort(this, construction.x, construction.y, 0xbfae8a);
+    secousse(this, "fort");
+    if (construction.occupant) this.ejecterDeLaTour(construction);
+    else this.constructions.detruire(construction);
   }
 
   /** Un monstre a rattrape un habitant : il le tue (DESIGN.md §4.18). */

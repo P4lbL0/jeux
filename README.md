@@ -93,8 +93,9 @@ plafond, visible dans la fiche de heros).
 - *bloc 2* — le **cycle jour/nuit** (30 min de jour, 15 de nuit), les hordes qui
   peuvent tomber en plein jour, les **habitants** et leurs metiers, la recolte a
   deux vitesses, la faim, et la pause quand la fenetre perd le focus.
-- *bloc 3, a faire* — la carte en grille modifiable, les murs, les tours
-  occupees, les ordres civils, les degats au village, les champs.
+- *bloc 3* — la carte en **grille modifiable**, les murs et les tours qu'on
+  batit et qui cedent, le **rayon de vue** qui ferme enfin le camping, les
+  ordres civils, et les **champs de ble** qu'on seme et qu'une horde ruine.
 - *bloc 4, a faire* — les arrivees aux portes, les naissances, les traitres.
 
 ### Le cycle jour/nuit (§4.19)
@@ -111,6 +112,26 @@ endroit a toucher pour changer le rythme du jeu.
 |---|---|
 | `B` | La cloche : tout le monde rentre immediatement |
 | `F` | Le tableau du village : stocks, vivres, habitants |
+| `G` | Batir une palissade (le jour seulement) |
+| `H` | Batir une tour de guet |
+| `J` | Semer un champ, pres des champs |
+| `T` | Monter dans une tour a portee, ou en descendre |
+
+Dans le tableau du village, **cliquer** un habitant change sa posture, **clic
+droit** l'envoie a un autre poste.
+
+### Les constructions (§4.20)
+
+Deux familles, et c'est toute la regle :
+
+- **une tour est une position, pas une arme.** Elle ne tire pas ; elle donne un
+  point haut (+120 de portee) et met son occupant hors d'atteinte de la melee.
+  C'est l'occupant qui decide de ce qui en sort — un mage y lance ses capacites,
+  un villageois n'y fait qu'alerter ;
+- **elle a des points de vie**, et quand elle tombe l'occupant tombe avec elle.
+  Sans ca, y poster son meilleur heros serait la strategie definitive du jeu.
+
+Les engins autonomes (baliste, canon) sont du jalon 7 : il n'y en a aucun ici.
 
 ## La carte
 
@@ -152,10 +173,14 @@ src/
     carte.ts         terrain, flancs fermes et fronts (fonction pure, testee)
     cycle.ts         le jour, la nuit, les effectifs et les hordes (testee)
     habitants.ts     metiers, cadence, progression et faim (testee)
+    grille.ts        la carte modifiable, cuite depuis carte.ts (testee)
+    constructions.ts murs et tours : couts, points de vie (testee)
   game/      ce qui vit a l'ecran
     art.ts             textures placeholder generees par code
     entities.ts        heros, ennemis et invocations
     village.ts         les habitants a l'ecran : postes, travail, fuite, mort
+    constructions.ts   ce qu'on batit : pose, degats, occupation, chute
+    champs.ts          semis, maturation, moisson et pietinement
     panneauVillage.ts  le compteur permanent, et le tableau a la demande
     commandement.ts    selection et distribution des ordres
     hud.ts             barre de heros (l'ecran de triage)

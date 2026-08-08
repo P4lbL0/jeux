@@ -174,7 +174,7 @@ export const NOMS_FRONT: Record<Front, string> = { nord: "au NORD", est: "a l'ES
 export interface PosteTravail {
   id: string;
   nom: string;
-  metier: "pecheur" | "bucheron" | "mineur";
+  metier: "pecheur" | "bucheron" | "mineur" | "fermier";
   position: Point;
 }
 
@@ -185,6 +185,10 @@ export const POSTES: PosteTravail[] = [
   { id: "mine", nom: "La mine", metier: "mineur", position: { x: 760, y: 915 + DECALAGE_NORD } },
   // A la lisiere est de la foret : le plus expose au front est.
   { id: "foret", nom: "La foret", metier: "bucheron", position: { x: 1180, y: 905 + DECALAGE_NORD } },
+  // Les champs, au nord-est du village : en terrain ouvert, entre les deux
+  // fronts. C'est voulu — le ble doit se payer en risque, sinon il ne serait
+  // qu'une deuxieme peche (DESIGN.md §4.18).
+  { id: "champs", nom: "Les champs", metier: "fermier", position: { x: 720, y: 660 + DECALAGE_NORD } },
 ];
 
 // --------------------------------------------------------------- geometrie

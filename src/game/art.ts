@@ -46,6 +46,8 @@ export function creerTexturesPlaceholder(scene: Phaser.Scene): void {
   creerEnnemi(scene);
   creerMortVivant(scene);
   creerVillageois(scene);
+  creerTour(scene);
+  creerChamp(scene);
   creerFamiliers(scene);
   creerProjectile(scene);
   creerImpact(scene);
@@ -904,6 +906,66 @@ function creerMur(scene: Phaser.Scene): void {
   g.fillRect(9, 4, 4, 4);
   g.generateTexture("mur", 16, 16);
   g.destroy();
+}
+
+/**
+ * La tour de guet (DESIGN.md §4.20).
+ *
+ * Volontairement plus haute que large, et plus haute que tout le reste du
+ * decor : une position ne se lit qu'a sa hauteur. Elle est vide — le creneau du
+ * haut est un trou, parce que ce qui compte est **qui** on met dedans.
+ */
+function creerTour(scene: Phaser.Scene): void {
+  if (scene.textures.exists("tour")) return;
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+
+  g.fillStyle(0x000000, 0.28);
+  g.fillEllipse(16, 44, 26, 8);
+
+  g.fillStyle(0x6d6357, 1); // le fut
+  g.fillRect(6, 12, 20, 32);
+  g.fillStyle(0x574e44, 1); // l'ombre du cote droit
+  g.fillRect(20, 12, 6, 32);
+  g.fillStyle(0x837868, 1); // les pierres claires
+  g.fillRect(8, 18, 5, 4);
+  g.fillRect(15, 27, 5, 4);
+  g.fillRect(9, 34, 4, 4);
+
+  g.fillStyle(0x8a7f6d, 1); // la plateforme
+  g.fillRect(3, 6, 26, 7);
+  g.fillStyle(0x2a2530, 1); // le creneau, vide : c'est la place de l'occupant
+  g.fillRect(7, 8, 18, 4);
+  g.fillStyle(0x8a7f6d, 1);
+  g.fillRect(11, 8, 3, 4);
+  g.fillRect(18, 8, 3, 4);
+
+  g.generateTexture("tour", 32, 48);
+  g.destroy();
+}
+
+/**
+ * Le champ de ble (DESIGN.md §4.18).
+ *
+ * Deux textures : le champ laboure et le champ mur. C'est le seul element du
+ * decor qui change d'aspect en jouant, et il faut donc que la difference se voie
+ * de loin — le jaune contre le brun.
+ */
+function creerChamp(scene: Phaser.Scene): void {
+  for (const [cle, tige, sol] of [
+    ["champ-jeune", 0x6f7f45, 0x5a4a33],
+    ["champ-mur", 0xd8b64a, 0x6a5a3d],
+  ] as const) {
+    if (scene.textures.exists(cle)) continue;
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(sol, 1);
+    g.fillRect(0, 0, 32, 32);
+    g.fillStyle(tige, 1);
+    // Des sillons, pas un aplat : un carre uni se lirait comme un trou dans la
+    // carte plutot que comme une culture.
+    for (let x = 2; x < 30; x += 5) g.fillRect(x, 3, 3, 26);
+    g.generateTexture(cle, 32, 32);
+    g.destroy();
+  }
 }
 
 /**

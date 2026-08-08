@@ -36,11 +36,19 @@ export function stocksVides(): Stocks {
 /** Ce que chaque metier produit, ou `null` s'il transforme au lieu de recolter. */
 export const PRODUCTION: Record<Metier, Ressource | null> = {
   pecheur: "poisson",
-  fermier: "ble",
   bucheron: "bois",
   mineur: "minerai",
-  // Ceux-la ne recoltent rien : ils transforment (forge, charpente) ou ils
-  // veillent. Leur travail arrive au bloc 3 du jalon 5.
+  /**
+   * Le fermier ne recolte **rien directement**, et c'est voulu.
+   *
+   * Le ble ne tombe pas a la seconde : on seme, ca murit, on moissonne
+   * (§4.18). Sa cadence sert donc a faire **pousser les champs**
+   * (`game/champs.ts`), et le ble arrive par la moisson. Lui donner en plus une
+   * production continue le compterait deux fois.
+   */
+  fermier: null,
+  // Ceux-la ne recoltent rien non plus : ils transforment (forge, charpente) ou
+  // ils veillent. Leur travail arrive plus tard.
   forgeron: null,
   charpentier: null,
   guetteur: null,
@@ -171,7 +179,6 @@ export function plafondDeNiveau(rang: Rang): number {
  */
 export function cadence(habitant: Habitant): number {
   if (!habitant.vivant || !habitant.rassasie) return 0;
-  if (PRODUCTION[habitant.metier] === null) return 0;
 
   const { productionDeBase, gainParNiveau, multiplicateurParRang } = REGLAGES_VILLAGE;
   const rang = ORDRE_RANGS.indexOf(habitant.rang);
@@ -191,11 +198,16 @@ export function travailler(
   habitant: Habitant,
   minutes: number,
 ): { ressource: Ressource; quantite: number } | null {
-  const ressource = PRODUCTION[habitant.metier];
   const quantite = cadence(habitant) * minutes;
-  if (ressource === null || quantite <= 0) return null;
+  if (quantite <= 0) return null;
 
+  // Le niveau se gagne au travail, pas a la recolte : un fermier qui fait
+  // pousser et un forgeron qui forge progressent comme les autres, meme si rien
+  // ne tombe dans les stocks a cet instant.
   faireMonter(habitant, minutes);
+
+  const ressource = PRODUCTION[habitant.metier];
+  if (ressource === null) return null;
   return { ressource, quantite };
 }
 

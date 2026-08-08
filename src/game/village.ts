@@ -69,7 +69,11 @@ const NOMS = [
  */
 export class Villageois extends Phaser.Physics.Arcade.Sprite {
   readonly regles: Habitant;
-  readonly poste: PosteTravail | null;
+  /**
+   * Ou il travaille. Modifiable : le §4.18 dit que **le joueur decide qui fait
+   * quoi** — c'est meme la seule chose qu'il decide de la production.
+   */
+  poste: PosteTravail | null;
   etat: EtatVillageois = "en-route";
 
   constructor(scene: Phaser.Scene, regles: Habitant, poste: PosteTravail | null) {
@@ -109,9 +113,15 @@ export class Village {
     this.contexte = contexte;
     this.groupe = scene.physics.add.group();
 
-    // Trois habitants, un par poste : le village est en ruine (§4.6), et chaque
-    // nouvel arrivant doit se remarquer.
-    POSTES.forEach((poste, index) => {
+    // **Trois** habitants, et trois seulement : le village est en ruine (§4.6),
+    // et chaque nouvel arrivant doit se remarquer.
+    //
+    // Les champs restent donc **vides au depart**. C'est voulu : y mettre
+    // quelqu'un veut dire le retirer du bois ou du minerai, et c'est la seule
+    // decision de production que le §4.18 accorde au joueur. Elle ne vaudrait
+    // rien si le poste etait deja tenu.
+    const departs = POSTES.filter((poste) => poste.metier !== "fermier");
+    departs.forEach((poste, index) => {
       this.ajouter(creerHabitant(NOMS[index] ?? `Habitant ${index}`, poste.metier), poste);
     });
   }
@@ -191,6 +201,27 @@ export class Village {
 
   changerPosture(villageois: Villageois, posture: PostureCivile): void {
     villageois.regles.posture = posture;
+  }
+
+  /**
+   * L'envoyer a un autre poste (DESIGN.md §4.18).
+   *
+   * Il garde son **niveau** en changeant de metier : ce niveau, il l'a gagne en
+   * travaillant, pas en apprenant un geste. Le punir d'un changement de poste
+   * rendrait la seule decision de production du jeu trop chere pour etre prise.
+   */
+  changerPoste(villageois: Villageois, poste: PosteTravail): void {
+    villageois.poste = poste;
+    villageois.regles.metier = poste.metier;
+    villageois.setTint(TEINTES_METIER[poste.metier]);
+    this.contexte.annoncer(`${villageois.nom} part ${poste.nom.toLowerCase()}`);
+  }
+
+  /** Ceux qui sont a leur poste et qui travaillent vraiment, par metier. */
+  auTravail(metier: Metier): Habitant[] {
+    return this.habitants
+      .filter((v) => v.regles.vivant && v.etat === "au-poste" && v.regles.metier === metier)
+      .map((v) => v.regles);
   }
 
   // -------------------------------------------------------------- boucle

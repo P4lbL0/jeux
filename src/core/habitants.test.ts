@@ -41,13 +41,25 @@ describe("Un habitant", () => {
     expect(cadence(h)).toBe(0);
   });
 
-  it("ne produit rien s'il transforme au lieu de recolter", () => {
-    // Le forgeron et le charpentier travaillent au bloc 3 ; le guetteur, lui,
-    // ne produira jamais rien : il voit loin, c'est tout (§4.20).
-    for (const metier of ["forgeron", "charpentier", "guetteur"] as const) {
+  it("ne verse rien dans les stocks s'il ne recolte pas", () => {
+    // Le forgeron transforme, le guetteur veille, et le fermier fait **pousser**
+    // — le ble arrive a la moisson, pas a la seconde (§4.18).
+    for (const metier of ["forgeron", "charpentier", "guetteur", "fermier"] as const) {
       expect(PRODUCTION[metier]).toBeNull();
       expect(travailler(creerHabitant("X", metier), 10)).toBeNull();
     }
+  });
+
+  it("garde quand meme une cadence quand il ne recolte pas", () => {
+    // C'est elle qui fait pousser les champs : un fermier sans cadence ne ferait
+    // rien murir du tout.
+    expect(cadence(creerHabitant("Fermier", "fermier"))).toBeGreaterThan(0);
+  });
+
+  it("progresse en travaillant meme sans rien verser dans les stocks", () => {
+    const fermier = creerHabitant("Fermier", "fermier");
+    travailler(fermier, 30);
+    expect(fermier.niveau).toBeGreaterThan(1);
   });
 });
 
