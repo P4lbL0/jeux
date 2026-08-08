@@ -2,8 +2,12 @@
 
 Roguelike vu de dessus en pixel-art, avec gestion de village.
 
-Le design complet du jeu est dans **[DESIGN.md](DESIGN.md)** — c'est le document
-de reference. On y decide avant de coder.
+Le design complet du jeu est dans **[DESIGN.md](DESIGN.md)** — c'est le sommaire, le
+contenu vit dans [`design/`](design/), un fichier par section. C'est le document de
+reference : on y decide avant de coder.
+
+Les renvois du code (`DESIGN.md §4.18`) pointent vers le fichier qui porte ce numero,
+ici [`design/4.18-les-habitants.md`](design/4.18-les-habitants.md).
 
 ## Lancer le jeu
 
@@ -75,7 +79,7 @@ Consequence : un heros ne peut mourir **que par une decision du joueur**.
 
 ## Ou en est le projet
 
-Voir la feuille de route dans [DESIGN.md](DESIGN.md#5-ordre-de-construction).
+Voir la feuille de route dans [design/05-ordre-de-construction.md](design/05-ordre-de-construction.md).
 
 **Jalons 1 a 3** — une arene, une equipe de heros, l'attaque automatique,
 un ultime et un trait par classe, l'IA qui joue les heros non incarnes, la regle

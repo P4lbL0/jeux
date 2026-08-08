@@ -2,8 +2,8 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-08-08 (après le bloc 3 du jalon 5 : la grille, les
-> murs, les tours et les champs).
+> Dernière mise à jour : 2026-08-09 (après la **refonte du design du village et des
+> villageois** — aucun code écrit depuis le bloc 3).
 
 ---
 
@@ -21,11 +21,17 @@ ses **capacités**. L'attaque, la visée et l'esquive sont automatiques.
 
 ## Avant de toucher au code
 
-1. **Lis `DESIGN.md` en entier.** C'est le document de référence. Si le code et le
-   document se contredisent, c'est le code qu'on corrige.
-2. **Lis `README.md`** pour la structure et les commandes.
+1. **Lis `DESIGN.md`** — c'est le **sommaire**. Le contenu vit dans `design/`, un fichier
+   par section (`design/4.18-les-habitants.md` = le §4.18). Le document faisait 1800
+   lignes et a été découpé le 2026-08-09 ; **la numérotation en § n'a pas bougé**, donc
+   tous les renvois du code (`DESIGN.md §4.18`) restent valables.
+2. **Lis au minimum** `design/05-ordre-de-construction.md` (quoi coder ensuite),
+   `design/06-questions-ouvertes.md` (ce qui n'est pas tranché) et
+   `design/4.17-tenir-la-fluidite.md` (ses cinq règles ne se négocient pas). Puis les
+   sections de ce que tu vas toucher.
+3. **Lis `README.md`** pour la structure et les commandes.
 
-Le §6 de `DESIGN.md` liste les questions encore ouvertes, et le §5 la feuille de route.
+Si le code et le document se contredisent, c'est le code qu'on corrige.
 
 ## Comment je veux qu'on travaille
 
@@ -197,19 +203,62 @@ Touches ajoutées : **`B`** la cloche (tout le monde rentre), **`F`** le tableau
 2. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
    parce qu'à 32 px, 3 px disloquent le personnage. Amplitudes en haut de
    `scripts/animer-sprites.ts`.
-3. **Répondre au `feedback.md`** déposé à la racine : il soulève l'appétit des héros, la
-   contradiction entre les traitres et le §4.18, le totem d'immortalité, et propose un
-   système d'humeurs. La critique sur la fuite des civils a déjà été corrigée.
+3. ✅ **Le `feedback.md` a été traité** (session du 8-9 août). Tout est tranché et écrit
+   dans `DESIGN.md` : appétit des héros, totem, fous, humeurs, renommage, options.
 
-### Jalon 5 — le village *(blocs 1, 2 et 3 faits)*
+### ⚠️ Le design du village a été entièrement refondu le 2026-08-09
 
-- **Bloc 4**, seul restant : les arrivées aux portes (avec des **fous** parmi eux), les
-  naissances, les survivants à escorter. ⚠️ Le §4.18 dit qu'une perte définitive vient
-  toujours d'un arbitrage — un fou qui tue un habitant par tirage caché contredirait ça
-  frontalement. C'est à trancher **avant** de coder le bloc 4.
-- Hors bloc 3 et assumé : **les maisons du village ne sont pas destructibles**. Les
-  monstres cassent ce que le joueur bâtit et tuent les habitants — c'est déjà ce qui ferme
-  le camping — mais le village lui-même attend le jalon 8, celui de sa restauration.
+**Aucune ligne de code n'a encore été écrite pour ça.** Le `DESIGN.md` est à jour, le code
+ne l'est pas — c'est le plus gros écart du projet à ce jour. Ce qui a changé :
+
+- **L'église devient le cœur du jeu** (§4.22, section neuve) : refuge des civils, **seul**
+  lieu de soin, lieu de purge des états, origine de l'Oracle, et **cap des monstres**. Le
+  cercle `VILLAGE` de `carte.ts` n'est plus le refuge.
+- **Les habitants ont des traits, des humeurs et des états** (§4.23, section neuve), avec
+  une fiche cliquable. **Ça annule la vieille règle du §4.18** qui interdisait le second
+  écran de personnage — le §4.18 a été réécrit pour le dire.
+- **Le joueur aménage son village** à la Clash of Clans (§4.24, section neuve) : mode
+  édition en pause, construction libre partout, déplacement gratuit, **tout ce qui est
+  bâti se casse** (maisons comprises — ça remonte du jalon 8 au jalon 5), village qui
+  **démarre en ruines**.
+- **Le fou passe à l'acte sur un tirage caché** : ça contredit sciemment « une perte vient
+  toujours d'un arbitrage », c'est assumé et payé par trois contreparties (§4.18).
+- Totem **consommé à l'usage** (§4.3). Héros nourris par **ration forfaitaire** (§4.18).
+  **Pas de plafond dur** de population. **Fiche unique** héros/habitants et menu
+  d'**options** (§4.10).
+
+> **La règle de travail qui va avec** : sa dernière décision prime sur `DESIGN.md`, même
+> quand elle contredit frontalement une règle défendue ailleurs. On signale la
+> contradiction une fois, avec ce qu'elle coûte, puis on réécrit le paragraphe périmé
+> plutôt que de le laisser mentir.
+
+### Jalon 5 — le village *(blocs 1, 2 et 3 faits, 4 à 8 à faire)*
+
+L'ordre est fixé au §5 de `DESIGN.md` :
+
+| Bloc | Contenu |
+|---|---|
+| **4** | Les arrivées aux portes (avec des **fous**), les naissances, les survivants à escorter |
+| **5** | **L'église** : refuge, soins, purge, cap des monstres, niveaux, destruction et reconstruction |
+| **6** | **Traits, humeurs et états**, fiche unifiée, renommage |
+| **7** | **Mode d'aménagement** : édition en pause, construction libre, tout se casse, village en ruines, sol et chemins |
+| **8** | Confort : options, pause Échap, touches remappables |
+
+Le bloc 4 passe devant l'église **exprès** : il était déjà écrit, et les arrivants
+donneront de la matière aux traits du bloc 6 — un village de trois personnes ne teste rien.
+
+### ComfyUI est installé en local (2026-08-09)
+
+`C:\Users\lemir\Desktop\Projet\outils\ComfyUI`, hors du dépôt de jeu, avec son venv Python
+3.11 et SD1.5. La RTX 1000 Ada (6 Go) suffit. **C'est la réponse au « PixelLab à 0
+crédit »** pour tout ce qui est **image fixe** — bâtiments, décor, icônes : le problème de
+cohérence entre frames qui interdisait de l'utiliser pour les personnages animés ne se
+pose pas ici.
+
+La recette prévue : générer en 512 px, puis **réduire et quantifier la palette avec nos
+propres scripts** (`scripts/png.ts` sait déjà lire et écrire du PNG sans dépendance).
+C'est ce qui garantit que le résultat entre dans la direction artistique du jeu quel que
+soit le style du modèle.
 
 ### Jalons suivants
 
