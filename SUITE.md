@@ -255,10 +255,38 @@ crédit »** pour tout ce qui est **image fixe** — bâtiments, décor, icônes
 cohérence entre frames qui interdisait de l'utiliser pour les personnages animés ne se
 pose pas ici.
 
-La recette prévue : générer en 512 px, puis **réduire et quantifier la palette avec nos
-propres scripts** (`scripts/png.ts` sait déjà lire et écrire du PNG sans dépendance).
-C'est ce qui garantit que le résultat entre dans la direction artistique du jeu quel que
-soit le style du modèle.
+La chaîne complète est en place et **elle marche de bout en bout** :
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/demarrer-comfyui.ps1   # le serveur
+npx tsx scripts/generer-batiment.ts eglise "a small medieval chapel"    # 512 px
+npx tsx scripts/pixelliser.ts .tmp/generation/eglise.png src/assets/eglise.png --taille 64
+```
+
+`pixelliser.ts` détoure le fond magenta par diffusion depuis les bords, réduit par moyenne
+de bloc, et **recale les couleurs sur la palette relevée dans `src/assets/`** — même
+principe qu'`animer-sprites.ts` : la direction artistique ne peut pas dériver, puisque les
+couleurs de sortie *sont* celles du jeu.
+
+> ⚠️ **Mais le résultat est aujourd'hui moins bon que le placeholder dessiné en code, et
+> c'est mesuré, pas supposé.** Trois générations comparées à `creerEglise()` :
+>
+> - « top-down » donne une photo au ras du sol avec un ciel et des nuages. **« isometric »
+>   est le mot qui marche** — il est massivement représenté dans les données de jeux vidéo.
+> - Le fond uni doit être **pondéré** (`(...:1.6)`), sinon le modèle le traite comme une
+>   suggestion et le détourage échoue. Et même pondéré, **le magenta bave sur le sujet** :
+>   vitraux et bordures de toit repartent en rose, puis en rouge sale après recalage.
+> - À 64 px, le détail de SD1.5 devient du **bruit**. Demander des aplats (« flat colors,
+>   vector style ») nettoie l'image mais fait perdre la vue isométrique.
+>
+> **Conclusion : pour un bâtiment de 48 à 96 px, le dessin en code gagne.** La chaîne
+> ComfyUI reste installée et prête — elle vaudra probablement le coup pour des assets plus
+> grands (portraits, illustrations, fonds d'écran-titre), là où le détail a la place
+> d'exister. Les essais sont dans `.tmp/generation/`.
+
+Pour regarder un placeholder sans lancer une partie : `apercu.html` (page Vite séparée,
+`src/apercu.ts`) affiche les textures agrandies ×4 sur le sol du village, avec une maison
+à côté pour l'échelle.
 
 ### Jalons suivants
 

@@ -47,6 +47,7 @@ export function creerTexturesPlaceholder(scene: Phaser.Scene): void {
   creerMortVivant(scene);
   creerVillageois(scene);
   creerTour(scene);
+  creerEglise(scene);
   creerChamp(scene);
   creerFamiliers(scene);
   creerProjectile(scene);
@@ -941,6 +942,175 @@ function creerTour(scene: Phaser.Scene): void {
 
   g.generateTexture("tour", 32, 48);
   g.destroy();
+}
+
+/**
+ * L'eglise, aux quatre niveaux (DESIGN.md §4.22).
+ *
+ * C'est **le seul batiment du jeu dont la silhouette raconte la progression** :
+ * le joueur doit mesurer sa partie en la regardant depuis les champs. Les quatre
+ * niveaux suivent donc ce que dit le §4.22 — une chapelle basse, une nef, un
+ * clocher, puis quelque chose qui domine la carte.
+ *
+ * **L'emprise au sol ne change jamais** (48 px de large), seule la hauteur monte.
+ * C'est ce que fait un Clash of Clans, et c'est indispensable ici : le joueur
+ * peut deplacer l'eglise (§4.24), et un batiment qui grossirait en s'ameliorant
+ * finirait par ne plus tenir a l'endroit ou il a ete pose.
+ *
+ * ⚠️ **C'est un placeholder assume.** L'eglise definitive passera par ComfyUI
+ * (`scripts/generer-batiment.ts`) puis par `scripts/pixelliser.ts`. Le jour ou un
+ * PNG arrive dans `src/assets/eglise-N.png`, ces fonctions s'effacent toutes
+ * seules — comme tout le reste de ce fichier.
+ */
+function creerEglise(scene: Phaser.Scene): void {
+  // Les pierres sont celles du mur et de la tour : l'eglise doit appartenir au
+  // meme village, pas ressembler a un decor importe.
+  const PIERRE = 0x8a7f6d;
+  const OMBRE = 0x6d6357;
+  const SOMBRE = 0x574e44;
+  const CLAIR = 0xa2967f;
+  // L'ardoise n'existe nulle part ailleurs sur la carte : les maisons ont des
+  // toits bleus, rouges ou jaunes. C'est ce qui fait qu'on repere l'eglise du
+  // premier coup d'oeil au milieu du village (§4.22 — elle est l'objectif).
+  const TOIT = 0x46566b;
+  const TOIT_CLAIR = 0x5b6d84;
+  const OR = 0xe8c46a;
+  const VITRAIL = 0xd8724a;
+
+  /**
+   * Les quatre niveaux.
+   *
+   * `fleche` mene tout : le clocher est **construit depuis le haut**, pas depuis
+   * le bas. On reserve d'abord la croix (9 px), puis la fleche, et le fut occupe
+   * ce qui reste jusqu'a la nef. Une premiere version calculait l'inverse, en
+   * empilant depuis le sol — la croix du niveau 4 finissait a y = -8, donc
+   * dessinee hors de la texture et invisible.
+   *
+   * `large` monte avec la hauteur pour la meme raison : un clocher qui grandit
+   * sans s'elargir devient une cheminee d'usine. Le rapport reste sous 1:2,5.
+   */
+  const NIVEAUX = [
+    { hauteur: 48, nef: 30, fleche: 0, large: 0 },
+    { hauteur: 64, nef: 32, fleche: 8, large: 14 },
+    { hauteur: 80, nef: 34, fleche: 12, large: 18 },
+    { hauteur: 96, nef: 36, fleche: 16, large: 20 },
+  ];
+
+  NIVEAUX.forEach((niveau, index) => {
+    const cle = `eglise-${index + 1}`;
+    if (scene.textures.exists(cle)) return;
+
+    const L = 48;
+    const H = niveau.hauteur;
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    const centre = L / 2;
+
+    const nefG = centre - niveau.nef / 2;
+    const nefHaut = H - 26;
+    const nefToit = nefHaut - 13;
+    // La croix occupe les 9 px du haut, quelle que soit la taille du batiment.
+    const clocherHaut = 9 + niveau.fleche;
+
+    // L'ombre portee cale le batiment au sol : sans elle, un sprite haut donne
+    // l'impression de flotter au-dessus de la carte.
+    g.fillStyle(0x000000, 0.3);
+    g.fillEllipse(centre, H - 5, niveau.nef + 6, 10);
+
+    // Les contreforts d'abord, donc **derriere** la nef : ils ne doivent
+    // depasser que sur les cotes. N'arrivent qu'au dernier niveau, ou ils
+    // donnent l'air lourd d'une cathedrale plutot que d'une chapelle etiree.
+    if (index >= 3) {
+      g.fillStyle(OMBRE, 1);
+      g.fillRect(nefG - 5, H - 24, 5, 20);
+      g.fillRect(nefG + niveau.nef, H - 24, 5, 20);
+      g.fillStyle(SOMBRE, 1);
+      g.fillRect(nefG + niveau.nef, H - 24, 5, 20);
+    }
+
+    // ------------------------------------------------------------- le clocher
+    //
+    // Le fut est dessine **avant** la nef : la nef et son toit viennent ensuite
+    // le masquer par le bas, ce qui donne la bonne profondeur — le clocher est
+    // derriere la facade, pas pose dessus.
+    const clocherG = centre - niveau.large / 2;
+    if (niveau.large > 0) {
+      const fut = nefHaut + 6 - clocherHaut;
+      g.fillStyle(PIERRE, 1);
+      g.fillRect(clocherG, clocherHaut, niveau.large, fut);
+      g.fillStyle(SOMBRE, 1);
+      g.fillRect(clocherG + niveau.large - 6, clocherHaut, 6, fut);
+      g.fillStyle(CLAIR, 1); // quelques pierres claires, comme sur la tour
+      g.fillRect(clocherG + 3, clocherHaut + 16, 4, 3);
+      g.fillRect(clocherG + 8, clocherHaut + 25, 4, 3);
+    }
+
+    // ---------------------------------------------------------------- la nef
+    g.fillStyle(PIERRE, 1);
+    g.fillRect(nefG, nefHaut, niveau.nef, 22);
+    g.fillStyle(SOMBRE, 1); // le flanc droit dans l'ombre
+    g.fillRect(nefG + niveau.nef - 7, nefHaut, 7, 22);
+    g.fillStyle(OMBRE, 1); // le soubassement
+    g.fillRect(nefG, H - 8, niveau.nef, 4);
+
+    // Le toit de la nef, en deux pans pour qu'on lise le volume.
+    g.fillStyle(TOIT, 1);
+    g.fillTriangle(nefG - 3, nefHaut, centre, nefToit, nefG + niveau.nef + 3, nefHaut);
+    g.fillStyle(TOIT_CLAIR, 1);
+    g.fillTriangle(nefG - 3, nefHaut, centre, nefToit, centre, nefHaut);
+
+    // ------------------------------------------------- la baie et la fleche
+    //
+    // Dessinees **apres** le toit de la nef : sinon le pan de toit passait
+    // devant la baie du clocher et la cloche disparaissait a moitie.
+    if (niveau.large > 0) {
+      g.fillStyle(0x241f28, 1);
+      g.fillRect(clocherG + 3, clocherHaut + 4, niveau.large - 6, 8);
+      // La cloche n'apparait qu'au niveau 3 — celui ou elle se met a repousser
+      // les morts-vivants (§4.22).
+      if (index >= 2) {
+        g.fillStyle(OR, 1);
+        g.fillRect(centre - 2, clocherHaut + 5, 4, 6);
+      }
+
+      g.fillStyle(TOIT, 1);
+      g.fillTriangle(
+        clocherG - 3,
+        clocherHaut,
+        centre,
+        clocherHaut - niveau.fleche,
+        clocherG + niveau.large + 3,
+        clocherHaut,
+      );
+      g.fillStyle(TOIT_CLAIR, 1);
+      g.fillTriangle(clocherG - 3, clocherHaut, centre, clocherHaut - niveau.fleche, centre, clocherHaut);
+    }
+
+    // La croix, en or : le point le plus haut, et le seul or de la carte. Elle
+    // est posee sur la fleche, ou sur le faite de la nef quand il n'y en a pas —
+    // le niveau 1 est une chapelle, pas une grange.
+    const croix = niveau.large > 0 ? clocherHaut - niveau.fleche : nefToit;
+    g.fillStyle(OR, 1);
+    g.fillRect(centre - 1, croix - 8, 2, 9);
+    g.fillRect(centre - 3, croix - 6, 6, 2);
+
+    // ------------------------------------------------- la porte et le vitrail
+    g.fillStyle(0x3a2f2a, 1);
+    g.fillRect(centre - 4, H - 16, 8, 12);
+    g.fillStyle(OR, 0.5);
+    g.fillRect(centre - 4, H - 16, 8, 2);
+
+    // Le vitrail apparait au niveau 2 : au niveau 1 c'est une chapelle nue, et
+    // la difference doit se voir sans qu'on ait a compter les pixels.
+    if (index >= 1) {
+      g.fillStyle(VITRAIL, 1);
+      g.fillCircle(centre, nefHaut + 9, index >= 2 ? 4 : 3);
+      g.fillStyle(OR, 1);
+      g.fillRect(centre - 1, nefHaut + 5, 2, 8);
+    }
+
+    g.generateTexture(cle, L, H);
+    g.destroy();
+  });
 }
 
 /**
