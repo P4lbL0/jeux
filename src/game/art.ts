@@ -5,9 +5,12 @@ import { ligneDEau, MONDE, terrainEn, VILLAGE, type Terrain } from "../core/cart
 /**
  * Textures placeholder generees par code.
  *
- * TOUTES sont faites pour etre remplacees par tes propres dessins : le jour ou
- * tu as un PNG, il suffit de le charger sous la meme cle dans preload() et de
- * supprimer l'appel correspondant ici. Aucun autre fichier ne bouge.
+ * Ce fichier n'est plus la source de l'art du jeu : c'est un **filet de
+ * securite**. Les vrais sprites sont des PNG de `src/assets/`, charges par
+ * `BootScene` sous ces memes cles. Chaque fonction ci-dessous commence donc par
+ * `if (scene.textures.exists(cle)) return;` — elle ne fabrique un dessin au
+ * code que pour ce qui n'a pas encore de PNG. C'est ce qui permet de migrer un
+ * sprite a la fois sans jamais casser le jeu entre deux.
  *
  * Contrainte a respecter en dessinant (DESIGN.md §4.11, zoom libre) : le sprite
  * doit rester reconnaissable tout petit. C'est la silhouette et la couleur
@@ -17,7 +20,24 @@ import { ligneDEau, MONDE, terrainEn, VILLAGE, type Terrain } from "../core/cart
 export const TAILLE_HERO = { largeur: 12, hauteur: 18 };
 export const TAILLE_ENNEMI = { largeur: 12, hauteur: 16 };
 
+/**
+ * L'echelle a donner a un portrait pour qu'il tienne la hauteur voulue.
+ *
+ * Elle est **entiere** a dessein : agrandir du pixel-art d'un facteur
+ * fractionnaire produit des pixels de tailles inegales, et ca se voit tout de
+ * suite sur un portrait d'interface, qui est grand et immobile.
+ *
+ * Elle existe parce que les tailles de texture ont change — 18 px pour les
+ * placeholders, 32 px pour les sprites de `src/assets/`. Les `setScale(4)`
+ * ecrits en dur donnaient un portrait de 128 px dans un cadre de 64.
+ */
+export function echellePortrait(hauteurTexture: number, hauteurVoulue: number): number {
+  return Math.max(1, Math.round(hauteurVoulue / hauteurTexture));
+}
+
 export function creerTexturesPlaceholder(scene: Phaser.Scene): void {
+  // Les sols d'abord : la carte est cuite a partir d'eux.
+  creerSolsPlaceholder(scene);
   creerCarte(scene);
   creerArbre(scene);
   creerRocher(scene);
@@ -36,122 +56,119 @@ export function creerTexturesPlaceholder(scene: Phaser.Scene): void {
   }
 }
 
+/** Cote des icones d'interface, en pixels. */
+const T = 32;
+
 /**
- * Une icone par effet d'ultime. Dessinees en blanc : le panneau les teinte
- * ensuite a la couleur de la classe, et les grise pendant le rechargement.
+ * Le graveur d'icones.
+ *
+ * Il porte le garde commun a tout ce fichier : une cle deja fournie par un PNG
+ * n'est jamais redessinee. Les icones sont tracees **en blanc**, parce que le
+ * panneau les teinte ensuite a la couleur de la classe et les grise pendant le
+ * rechargement — une icone deja coloree ne saurait pas faire ca.
  */
-function creerIconesUltimes(scene: Phaser.Scene): void {
-  const T = 32;
-  const centre = T / 2;
-
-  // Tourbillon : quatre lames tournant autour d'un moyeu.
-  let g = scene.make.graphics({ x: 0, y: 0 }, false);
-  g.fillStyle(0xffffff, 1);
-  for (let i = 0; i < 4; i++) {
-    const a = (i * Math.PI) / 2 + Math.PI / 8;
-    g.fillTriangle(
-      centre + Math.cos(a) * 4,
-      centre + Math.sin(a) * 4,
-      centre + Math.cos(a + 0.9) * 14,
-      centre + Math.sin(a + 0.9) * 14,
-      centre + Math.cos(a + 0.2) * 15,
-      centre + Math.sin(a + 0.2) * 15,
-    );
-  }
-  g.fillCircle(centre, centre, 3);
-  g.generateTexture("ultime-tourbillon", T, T);
-  g.destroy();
-
-  // Rempart : un bouclier.
-  g = scene.make.graphics({ x: 0, y: 0 }, false);
-  g.fillStyle(0xffffff, 1);
-  g.fillPoints(
-    [
-      new Phaser.Geom.Point(16, 3),
-      new Phaser.Geom.Point(28, 8),
-      new Phaser.Geom.Point(27, 19),
-      new Phaser.Geom.Point(16, 29),
-      new Phaser.Geom.Point(5, 19),
-      new Phaser.Geom.Point(4, 8),
-    ],
-    true,
-  );
-  g.fillStyle(0x000000, 1);
-  g.fillRect(15, 9, 2, 13);
-  g.fillRect(10, 14, 12, 2);
-  g.generateTexture("ultime-rempart", T, T);
-  g.destroy();
-
-  // Meteore : une boule et sa trainee.
-  g = scene.make.graphics({ x: 0, y: 0 }, false);
-  g.fillStyle(0xffffff, 1);
-  g.fillCircle(20, 12, 8);
-  g.fillTriangle(4, 28, 13, 19, 16, 24);
-  g.fillTriangle(9, 29, 16, 22, 20, 26);
-  g.generateTexture("ultime-meteore", T, T);
-  g.destroy();
-
-  // Ombre : une dague.
-  g = scene.make.graphics({ x: 0, y: 0 }, false);
-  g.fillStyle(0xffffff, 1);
-  g.fillPoints(
-    [
-      new Phaser.Geom.Point(16, 2),
-      new Phaser.Geom.Point(20, 8),
-      new Phaser.Geom.Point(19, 20),
-      new Phaser.Geom.Point(13, 20),
-      new Phaser.Geom.Point(12, 8),
-    ],
-    true,
-  );
-  g.fillRect(8, 20, 16, 3);
-  g.fillRect(14, 23, 4, 7);
-  g.generateTexture("ultime-ombre", T, T);
-  g.destroy();
-
-  // Pluie de fleches : trois traits qui tombent.
-  g = scene.make.graphics({ x: 0, y: 0 }, false);
-  g.fillStyle(0xffffff, 1);
-  for (const x of [6, 15, 24]) {
-    g.fillRect(x, 4, 2, 18);
-    g.fillTriangle(x - 3, 20, x + 5, 20, x + 1, 29);
-  }
-  g.generateTexture("ultime-pluie-de-fleches", T, T);
-  g.destroy();
-
-  // Aube : un soleil levant.
-  g = scene.make.graphics({ x: 0, y: 0 }, false);
-  g.fillStyle(0xffffff, 1);
-  g.fillCircle(16, 20, 9);
-  g.fillRect(2, 22, 28, 3);
-  for (let i = 0; i < 5; i++) {
-    const a = Math.PI + (i / 4) * Math.PI;
-    g.fillCircle(16 + Math.cos(a) * 14, 20 + Math.sin(a) * 14, 2);
-  }
-  g.generateTexture("ultime-aube", T, T);
-  g.destroy();
-
-  // Levee des morts : une main qui sort de terre.
-  g = scene.make.graphics({ x: 0, y: 0 }, false);
-  g.fillStyle(0xffffff, 1);
-  g.fillRect(2, 24, 28, 3);
-  g.fillRect(13, 12, 6, 13);
-  for (const x of [9, 13, 17, 21]) g.fillRect(x, 6, 2, 9);
-  g.generateTexture("ultime-levee-des-morts", T, T);
-  g.destroy();
-}
-
-
-/** Icones des competences actives, meme convention que les ultimes. */
-function creerIconesCapacites(scene: Phaser.Scene): void {
-  const T = 32;
-  const dessiner = (cle: string, trace: (g: Phaser.GameObjects.Graphics) => void) => {
+function graveur(scene: Phaser.Scene) {
+  return (cle: string, trace: (g: Phaser.GameObjects.Graphics) => void) => {
+    if (scene.textures.exists(cle)) return;
     const g = scene.make.graphics({ x: 0, y: 0 }, false);
     g.fillStyle(0xffffff, 1);
     trace(g);
     g.generateTexture(cle, T, T);
     g.destroy();
   };
+}
+
+/** Une icone par effet d'ultime. */
+function creerIconesUltimes(scene: Phaser.Scene): void {
+  const dessiner = graveur(scene);
+  const centre = T / 2;
+
+  // Tourbillon : quatre lames tournant autour d'un moyeu.
+  dessiner("ultime-tourbillon", (g) => {
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2 + Math.PI / 8;
+      g.fillTriangle(
+        centre + Math.cos(a) * 4,
+        centre + Math.sin(a) * 4,
+        centre + Math.cos(a + 0.9) * 14,
+        centre + Math.sin(a + 0.9) * 14,
+        centre + Math.cos(a + 0.2) * 15,
+        centre + Math.sin(a + 0.2) * 15,
+      );
+    }
+    g.fillCircle(centre, centre, 3);
+  });
+
+  // Rempart : un bouclier.
+  dessiner("ultime-rempart", (g) => {
+    g.fillPoints(
+      [
+        new Phaser.Geom.Point(16, 3),
+        new Phaser.Geom.Point(28, 8),
+        new Phaser.Geom.Point(27, 19),
+        new Phaser.Geom.Point(16, 29),
+        new Phaser.Geom.Point(5, 19),
+        new Phaser.Geom.Point(4, 8),
+      ],
+      true,
+    );
+    g.fillStyle(0x000000, 1);
+    g.fillRect(15, 9, 2, 13);
+    g.fillRect(10, 14, 12, 2);
+  });
+
+  // Meteore : une boule et sa trainee.
+  dessiner("ultime-meteore", (g) => {
+    g.fillCircle(20, 12, 8);
+    g.fillTriangle(4, 28, 13, 19, 16, 24);
+    g.fillTriangle(9, 29, 16, 22, 20, 26);
+  });
+
+  // Ombre : une dague.
+  dessiner("ultime-ombre", (g) => {
+    g.fillPoints(
+      [
+        new Phaser.Geom.Point(16, 2),
+        new Phaser.Geom.Point(20, 8),
+        new Phaser.Geom.Point(19, 20),
+        new Phaser.Geom.Point(13, 20),
+        new Phaser.Geom.Point(12, 8),
+      ],
+      true,
+    );
+    g.fillRect(8, 20, 16, 3);
+    g.fillRect(14, 23, 4, 7);
+  });
+
+  // Pluie de fleches : trois traits qui tombent.
+  dessiner("ultime-pluie-de-fleches", (g) => {
+    for (const x of [6, 15, 24]) {
+      g.fillRect(x, 4, 2, 18);
+      g.fillTriangle(x - 3, 20, x + 5, 20, x + 1, 29);
+    }
+  });
+
+  // Aube : un soleil levant.
+  dessiner("ultime-aube", (g) => {
+    g.fillCircle(16, 20, 9);
+    g.fillRect(2, 22, 28, 3);
+    for (let i = 0; i < 5; i++) {
+      const a = Math.PI + (i / 4) * Math.PI;
+      g.fillCircle(16 + Math.cos(a) * 14, 20 + Math.sin(a) * 14, 2);
+    }
+  });
+
+  // Levee des morts : une main qui sort de terre.
+  dessiner("ultime-levee-des-morts", (g) => {
+    g.fillRect(2, 24, 28, 3);
+    g.fillRect(13, 12, 6, 13);
+    for (const x of [9, 13, 17, 21]) g.fillRect(x, 6, 2, 9);
+  });
+}
+
+/** Icones des competences actives, meme convention que les ultimes. */
+function creerIconesCapacites(scene: Phaser.Scene): void {
+  const dessiner = graveur(scene);
 
   // Sursaut sacre : une croix rayonnante.
   dessiner("cap-sursaut", (g) => {
@@ -445,6 +462,41 @@ function grain(x: number, y: number, sel = 0): number {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
+/** Cote d'une texture de sol placeholder. Huit carreaux de huit pixels. */
+const COTE_SOL = 64;
+
+/**
+ * Une texture de sol par nature de terrain, dessinee au code.
+ *
+ * Elle n'existe que pour les terrains sans PNG : `sol-herbe.png` charge par
+ * BootScene prend la place de `sol-herbe` sans que rien d'autre ne bouge.
+ *
+ * Le format est le meme dans les deux cas : une planche carree que
+ * `creerCarte()` decoupe en carreaux de `TUILE`. Une planche de 64 px offre
+ * donc 64 variantes de carreau — c'est ce qui remplace les trois teintes en
+ * aplat, et c'est ce qui empeche la prairie de se lire comme un damier.
+ */
+function creerSolsPlaceholder(scene: Phaser.Scene): void {
+  for (const sol of Object.keys(TEINTES) as Terrain[]) {
+    const cle = `sol-${sol}`;
+    if (scene.textures.exists(cle)) continue;
+
+    const texture = scene.textures.createCanvas(cle, COTE_SOL, COTE_SOL);
+    const ctx = texture?.getContext();
+    if (!texture || !ctx) continue;
+
+    const teintes = TEINTES[sol];
+    for (let y = 0; y < COTE_SOL; y += TUILE) {
+      for (let x = 0; x < COTE_SOL; x += TUILE) {
+        ctx.fillStyle = hex(teintes[Math.floor(grain(x, y) * teintes.length)]!);
+        ctx.fillRect(x, y, TUILE, TUILE);
+        peindreDetail(ctx, x, y, sol);
+      }
+    }
+    texture.refresh();
+  }
+}
+
 /**
  * La carte entiere, cuite une fois dans une seule texture (DESIGN.md §4.6).
  *
@@ -457,8 +509,13 @@ function grain(x: number, y: number, sel = 0): number {
  * 1. **Le littoral serpente** — il est decoupe a la tuile, jamais a la regle.
  * 2. **La mer s'etage** : abysse, mer, haut-fond. C'est ce degrade qui donne
  *    la sensation de vagues, bien mieux qu'une bande d'ecume plaquee dessus.
- * 3. **Chaque terrain a plusieurs teintes**, pour qu'aucune zone ne soit un
+ * 3. **Chaque terrain a plusieurs carreaux**, pour qu'aucune zone ne soit un
  *    aplat.
+ *
+ * Chaque tuile de la carte pioche un carreau dans la planche de son terrain,
+ * choisi par le meme bruit deterministe qu'avant. On ne repete donc jamais la
+ * planche telle quelle : elle sert de reserve de carreaux, ce qui evite le
+ * motif en damier que produit une texture posee bout a bout.
  */
 function creerCarte(scene: Phaser.Scene): void {
   // Recommencer une partie relance create() : sans ce garde, on refabriquerait
@@ -469,23 +526,53 @@ function creerCarte(scene: Phaser.Scene): void {
   const ctx = texture?.getContext();
   if (!texture || !ctx) return;
 
+  const planches = planchesDeSol(scene);
+
   for (let py = 0; py < MONDE.hauteur; py += TUILE) {
     for (let px = 0; px < MONDE.largeur; px += TUILE) {
       // Le centre de la tuile decide de sa nature : c'est ce qui produit
       // l'escalier de pixels au lieu d'une diagonale lissee.
       const sol = terrainEn(px + TUILE / 2, py + TUILE / 2);
-      const teintes = TEINTES[sol];
-      const teinte = teintes[Math.floor(grain(px, py) * teintes.length)]!;
-      ctx.fillStyle = hex(teinte);
-      ctx.fillRect(px, py, TUILE, TUILE);
+      const planche = planches[sol];
+      if (!planche) continue;
 
-      peindreDetail(ctx, px, py, sol);
+      const colonnes = Math.max(1, Math.floor(planche.width / TUILE));
+      const rangees = Math.max(1, Math.floor(planche.height / TUILE));
+      const carreau = Math.floor(grain(px, py) * colonnes * rangees);
+      ctx.drawImage(
+        planche,
+        (carreau % colonnes) * TUILE,
+        Math.floor(carreau / colonnes) * TUILE,
+        TUILE,
+        TUILE,
+        px,
+        py,
+        TUILE,
+        TUILE,
+      );
     }
   }
 
   peindreEcume(ctx);
   peindreVillage(ctx);
   texture.refresh();
+}
+
+/**
+ * Une planche de sol : le PNG charge par BootScene, ou le canvas fabrique par
+ * `creerSolsPlaceholder`. Les deux se decoupent pareil.
+ */
+type PlancheSol = HTMLImageElement | HTMLCanvasElement;
+
+/** L'image source de chaque terrain, prete a etre decoupee. */
+function planchesDeSol(scene: Phaser.Scene): Partial<Record<Terrain, PlancheSol>> {
+  const planches: Partial<Record<Terrain, PlancheSol>> = {};
+  for (const sol of Object.keys(TEINTES) as Terrain[]) {
+    const cle = `sol-${sol}`;
+    if (!scene.textures.exists(cle)) continue;
+    planches[sol] = scene.textures.get(cle).getSourceImage() as PlancheSol;
+  }
+  return planches;
 }
 
 /**
@@ -531,6 +618,7 @@ function creerMaison(scene: Phaser.Scene): void {
   ];
 
   for (const [cle, toit, toitClair] of toits) {
+    if (scene.textures.exists(cle)) continue;
     const g = scene.make.graphics({ x: 0, y: 0 }, false);
     g.fillStyle(0x000000, 0.24);
     g.fillEllipse(11, 25, 20, 5);
@@ -730,6 +818,7 @@ function creerArbre(scene: Phaser.Scene): void {
   const E = ECHELLE_ARBRE;
 
   SILHOUETTES.forEach((houppiers, index) => {
+    if (scene.textures.exists(`arbre-${index}`)) return;
     const [sombre, moyen, clair] = VERTS[index % VERTS.length]!;
     const g = scene.make.graphics({ x: 0, y: 0 }, false);
 
@@ -787,6 +876,7 @@ function creerArbre(scene: Phaser.Scene): void {
 
 /** Un bloc de roche, pour marquer le pied de la montagne. */
 function creerRocher(scene: Phaser.Scene): void {
+  if (scene.textures.exists("rocher")) return;
   const g = scene.make.graphics({ x: 0, y: 0 }, false);
   g.fillStyle(0x000000, 0.22);
   g.fillEllipse(11, 19, 18, 5);
@@ -802,6 +892,7 @@ function creerRocher(scene: Phaser.Scene): void {
 
 /** Mur en ruine qui delimite l'arene. */
 function creerMur(scene: Phaser.Scene): void {
+  if (scene.textures.exists("mur")) return;
   const g = scene.make.graphics({ x: 0, y: 0 }, false);
   g.fillStyle(0x6d6357, 1);
   g.fillRect(0, 0, 16, 16);
@@ -815,6 +906,7 @@ function creerMur(scene: Phaser.Scene): void {
 }
 
 function creerHero(scene: Phaser.Scene, cle: string, couleur: number, accent: number): void {
+  if (scene.textures.exists(cle)) return;
   const g = scene.make.graphics({ x: 0, y: 0 }, false);
 
   // Ombre portee, cuite dans la texture : elle ancre le perso au sol.
@@ -841,6 +933,7 @@ function creerHero(scene: Phaser.Scene, cle: string, couleur: number, accent: nu
 }
 
 function creerEnnemi(scene: Phaser.Scene): void {
+  if (scene.textures.exists("ennemi")) return;
   const g = scene.make.graphics({ x: 0, y: 0 }, false);
 
   g.fillStyle(0x000000, 0.25);
@@ -863,6 +956,7 @@ function creerEnnemi(scene: Phaser.Scene): void {
 
 /** Mort-vivant releve par le Necromancien : la meme carrure, la couleur de la tombe. */
 function creerMortVivant(scene: Phaser.Scene): void {
+  if (scene.textures.exists("mort-vivant")) return;
   const g = scene.make.graphics({ x: 0, y: 0 }, false);
 
   g.fillStyle(0x000000, 0.25);
@@ -886,6 +980,7 @@ function creerMortVivant(scene: Phaser.Scene): void {
 /** Les trois visages du familier du mage : de base, golem, spectre. */
 function creerFamiliers(scene: Phaser.Scene): void {
   const modele = (cle: string, corps: number, oeil: number, trapu: boolean) => {
+    if (scene.textures.exists(cle)) return;
     const g = scene.make.graphics({ x: 0, y: 0 }, false);
     g.fillStyle(0x000000, 0.25);
     g.fillEllipse(6, 14, 11, 4);
@@ -917,6 +1012,7 @@ function creerFamiliers(scene: Phaser.Scene): void {
  * encore voir ce qui se passe (DESIGN.md §4.11).
  */
 function creerProjectile(scene: Phaser.Scene): void {
+  if (scene.textures.exists("projectile")) return;
   const g = scene.make.graphics({ x: 0, y: 0 }, false);
   g.fillStyle(0xfff0a0, 1);
   g.fillCircle(4, 4, 4);
@@ -927,6 +1023,7 @@ function creerProjectile(scene: Phaser.Scene): void {
 }
 
 function creerImpact(scene: Phaser.Scene): void {
+  if (scene.textures.exists("impact")) return;
   const g = scene.make.graphics({ x: 0, y: 0 }, false);
   g.fillStyle(0xffffff, 1);
   g.fillCircle(8, 8, 8);

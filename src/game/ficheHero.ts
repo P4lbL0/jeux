@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { COULEURS_RANG } from "../core/classes";
 import { competenceParId } from "../core/competences";
+import { echellePortrait } from "./art";
 import type { Hero } from "./entities";
 
 /**
@@ -89,9 +90,14 @@ export class FicheHero {
     // Portrait
     cadre.fillStyle(0x2a2433, 1);
     cadre.fillRect(x + 22, y + 66, 64, 88);
-    this.objets.push(
-      this.scene.add.image(x + 54, y + 110, `hero-${hero.classe.id}`).setScale(4).setDepth(2604),
-    );
+    // Le cadre du portrait fait 64x88 : l'echelle se deduit de la texture, elle
+    // n'est pas ecrite en dur. Un `setScale(4)` sur un sprite de 32 px debordait
+    // du double.
+    const portrait = this.scene.add
+      .image(x + 54, y + 110, `hero-${hero.classe.id}`)
+      .setDepth(2604);
+    portrait.setScale(echellePortrait(portrait.height, 72));
+    this.objets.push(portrait);
 
     // Barres
     const bx = x + 100;

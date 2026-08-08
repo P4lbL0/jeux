@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { BootScene } from "./scenes/BootScene";
 import { ChoixClasseScene } from "./scenes/ChoixClasseScene";
 import { ArenaScene } from "./scenes/ArenaScene";
 import { UiScene } from "./scenes/UiScene";
@@ -18,8 +19,10 @@ const config: Phaser.Types.Core.GameConfig = {
     default: "arcade",
     arcade: { debug: false },
   },
+  // BootScene charge les PNG avant tout le monde : les textures Phaser etant
+  // globales, les scenes suivantes les trouvent deja la.
   // UiScene tourne en parallele de l'arene, avec sa propre camera non zoomee.
-  scene: [ChoixClasseScene, ArenaScene, UiScene],
+  scene: [BootScene, ChoixClasseScene, ArenaScene, UiScene],
 };
 
 new Phaser.Game(config);

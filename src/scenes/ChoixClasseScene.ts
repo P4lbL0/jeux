@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { CLASSES, ORDRE_CLASSES, type ClassId } from "../core/classes";
-import { creerTexturesPlaceholder } from "../game/art";
+import { creerTexturesPlaceholder, echellePortrait } from "../game/art";
 
 /**
  * Choix de la classe de depart (DESIGN.md §3, prologue).
@@ -9,6 +9,9 @@ import { creerTexturesPlaceholder } from "../game/art";
  * Pour l'instant il sert surtout a pouvoir comparer les quatre classes en
  * quelques secondes pendant qu'on teste la sensation de jeu.
  */
+/** Hauteur visee pour le portrait d'une carte de classe, en pixels ecran. */
+const HAUTEUR_PORTRAIT = 72;
+
 export class ChoixClasseScene extends Phaser.Scene {
   constructor() {
     super("choix-classe");
@@ -34,10 +37,12 @@ export class ChoixClasseScene extends Phaser.Scene {
     const l = this.scale.width;
     const h = this.scale.height;
 
-    this.add
-      .tileSprite(0, 0, l, h, "herbe")
-      .setOrigin(0)
-      .setAlpha(0.35);
+    // Le monde lui-meme en fond, assombri : c'est le village qu'on s'apprete a
+    // defendre. La cle utilisee ici etait « herbe », qui n'a jamais existe —
+    // l'ecran affichait donc le damier de texture manquante de Phaser. Poser la
+    // carte plutot que la tuile de prairie evite au passage la grille de
+    // repetition : elle fait 1600x1200, elle ne se repete pas a l'ecran.
+    this.add.tileSprite(0, 0, l, h, "carte").setOrigin(0).setAlpha(0.3);
 
     this.add
       .text(l / 2, h * 0.16, "LE PROTECTEUR", {
@@ -115,7 +120,12 @@ export class ChoixClasseScene extends Phaser.Scene {
     fond.lineStyle(2, classe.couleur, 1);
     fond.strokeRoundedRect(x, y, largeur, hauteur, 8);
 
-    this.add.image(x + largeur / 2, y + 44, `hero-${id}`).setScale(4);
+    // Le portrait vise toujours la meme hauteur, que la texture soit le
+    // placeholder de 18 px ou le sprite de 32 px. L'echelle reste **entiere** :
+    // agrandir du pixel-art d'un facteur fractionnaire donne des pixels de
+    // tailles inegales, et ca se voit immediatement.
+    const portrait = this.add.image(x + largeur / 2, y + 44, `hero-${id}`);
+    portrait.setScale(echellePortrait(portrait.height, HAUTEUR_PORTRAIT));
 
     this.add
       .text(x + largeur / 2, y + 84, `${numero}. ${classe.nom}`, {

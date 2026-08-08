@@ -4,6 +4,13 @@ dist
 *.local
 .DS_Store
 
+# Sorties de controle des scripts (planches agrandies, captures) : on les
+# regarde, on ne les commite pas.
+.tmp/
+
+# Cle API PixelLab : jamais dans le repo.
+.env
+
 # Images de reference (WorldBox, moodboards...) : elles restent en local.
 # Ce sont les sprites de quelqu'un d'autre, ils n'ont rien a faire sur GitHub.
 /*.jpg

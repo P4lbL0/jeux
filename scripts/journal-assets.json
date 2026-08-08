@@ -1,0 +1,268 @@
+[
+  {
+    "cle": "hero-guerrier",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "hero-chevalier",
+    "taille": 32,
+    "methode": "bitforge",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "hero-mage",
+    "taille": 32,
+    "methode": "bitforge",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "hero-assassin",
+    "taille": 32,
+    "methode": "bitforge",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "hero-rodeur",
+    "taille": 32,
+    "methode": "bitforge",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "hero-oracle",
+    "taille": 32,
+    "methode": "bitforge",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "hero-necromancien",
+    "taille": 32,
+    "methode": "bitforge",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "hero-guerrier",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "hero-chevalier",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "hero-mage",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "hero-assassin",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "hero-rodeur",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "hero-oracle",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "hero-necromancien",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "ennemi",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "mort-vivant",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "familier",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "familier-golem",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "familier-spectre",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "sol-abysse",
+    "taille": 64,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "sol-mer",
+    "taille": 64,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "sol-haut-fond",
+    "taille": 64,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "sol-sable",
+    "taille": 64,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "sol-herbe",
+    "taille": 64,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "sol-sous-bois",
+    "taille": 64,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "sol-eboulis",
+    "taille": 64,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "sol-roche",
+    "taille": 64,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "arbre-0",
+    "taille": 48,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "arbre-1",
+    "taille": 48,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "arbre-2",
+    "taille": 48,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "arbre-3",
+    "taille": 48,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "arbre-4",
+    "taille": 48,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "rocher",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "mur",
+    "taille": 32,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "maison-bleue",
+    "taille": 48,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "maison-rouge",
+    "taille": 48,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "maison-jaune",
+    "taille": 48,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  },
+  {
+    "cle": "sol-herbe",
+    "taille": 64,
+    "methode": "pixflux",
+    "cout": "1 generation(s)",
+    "date": "2026-08-07"
+  }
+]

@@ -29,7 +29,21 @@ export interface Rectangle {
   hauteur: number;
 }
 
-export const MONDE = { largeur: 1600, hauteur: 1200 };
+export const MONDE = { largeur: 2000, hauteur: 1500 };
+
+/**
+ * De combien le monde s'est agrandi vers le **nord**.
+ *
+ * La mer borde l'ouest et la montagne le sud : ces deux bords sont fixes, on ne
+ * peut donc pas simplement remonter le haut de la carte, le praticable commence
+ * deja a y=16. Ajouter de la place au nord, c'est **descendre le sud** — la
+ * foret, la montagne, le village et les postes glissent tous de la meme
+ * quantite, et l'espace apparait au-dessus.
+ *
+ * Tout ce qui suit est exprime en fonction de cette constante : c'est le seul
+ * nombre a toucher pour agrandir ou reduire a nouveau.
+ */
+const DECALAGE_NORD = 300;
 
 /** Position moyenne de chaque limite de terrain, en pixels */
 export const TERRAIN = {
@@ -38,9 +52,9 @@ export const TERRAIN = {
   /** Largeur moyenne de la plage : c'est le poste du pecheur */
   plage: 62,
   /** Lisiere moyenne de la foret, au sud : c'est le poste du bucheron */
-  foret: 850,
+  foret: 850 + DECALAGE_NORD,
   /** Pied moyen de la montagne, au sud */
-  montagne: 960,
+  montagne: 960 + DECALAGE_NORD,
 };
 
 /**
@@ -150,7 +164,7 @@ export function estTerreFerme(x: number, y: number): boolean {
  * Toujours un cercle : c'est la forme que tout le code de refuge attend, et
  * l'angle protege deja ses deux flancs sans qu'on ait besoin de murs.
  */
-export const VILLAGE = { x: 470, y: 770, rayon: 150 };
+export const VILLAGE = { x: 470, y: 770 + DECALAGE_NORD, rayon: 150 };
 
 export type Front = "nord" | "est";
 
@@ -166,11 +180,11 @@ export interface PosteTravail {
 
 export const POSTES: PosteTravail[] = [
   // Sur la plage, au nord du village : le plus expose au front nord.
-  { id: "plage", nom: "La plage", metier: "pecheur", position: { x: 295, y: 470 } },
+  { id: "plage", nom: "La plage", metier: "pecheur", position: { x: 295, y: 470 + DECALAGE_NORD } },
   // Au pied de la montagne : le mieux abrite des deux fronts.
-  { id: "mine", nom: "La mine", metier: "mineur", position: { x: 760, y: 915 } },
+  { id: "mine", nom: "La mine", metier: "mineur", position: { x: 760, y: 915 + DECALAGE_NORD } },
   // A la lisiere est de la foret : le plus expose au front est.
-  { id: "foret", nom: "La foret", metier: "bucheron", position: { x: 1180, y: 905 } },
+  { id: "foret", nom: "La foret", metier: "bucheron", position: { x: 1180, y: 905 + DECALAGE_NORD } },
 ];
 
 // --------------------------------------------------------------- geometrie
