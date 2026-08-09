@@ -3,8 +3,9 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-08-09 (refonte du village et des villageois : l'église,
-> les traits et les états, le mode d'aménagement)
+> Dernière mise à jour : 2026-08-09 (les habitants gagnent de vraies **statistiques de
+> combat**, l'abri magique disparaît au profit d'une **vraie forteresse**, et les chiffres
+> de l'église sont tranchés)
 
 **Ce fichier est le sommaire.** Le contenu vit dans [`design/`](design/), un fichier par
 section — le document faisait 1800 lignes et n'était plus consultable d'un bloc.

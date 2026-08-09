@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { Rng } from "../core/rng";
 import {
   NOMS_METIER,
   REGLAGES_VILLAGE,
@@ -13,7 +14,8 @@ import {
   type Ressource,
   type Stocks,
 } from "../core/habitants";
-import { POSTES, VILLAGE, type PosteTravail } from "../core/carte";
+import { auPiedDeLEglise, EGLISE, POSTES, type PosteTravail } from "../core/carte";
+import { combatDe, sortDefendre } from "../core/habitants";
 import { calerCorps, ECHELLE_PERSONNAGE } from "./entities";
 
 /**
@@ -34,10 +36,33 @@ export interface ContexteVillage {
   menaceAutour: (x: number, y: number, rayon: number) => { x: number; y: number } | null;
   /** Pour les annonces : elles passent par l'interface, jamais par un texte cree ici */
   annoncer: (message: string) => void;
+  /**
+   * L'eglise tient-elle debout ? C'est **la seule chose qui protege** un
+   * habitant : il n'y a pas d'abri par proximite (§4.22).
+   */
+  egliseDebout: () => boolean;
+  /**
+   * Un defenseur frappe ce qui passe a sa portee.
+   *
+   * Ce fichier ne connait pas les monstres, et il ne doit pas : la scene se
+   * charge de trouver la cible et de lui appliquer les degats.
+   *
+   * @returns vrai s'il a touche quelque chose
+   */
+  frapperMonstre: (x: number, y: number, portee: number, degats: number) => boolean;
 }
 
-/** Ou en est un habitant, cote mouvement. */
-type EtatVillageois = "au-poste" | "en-route" | "fuite" | "abri" | "mort";
+/**
+ * Ou en est un habitant, cote mouvement.
+ *
+ * ⚠️ `abri` a change de sens et il faut le savoir : il ne veut plus dire
+ * « arrive au village, donc sauf » — cet abri-la n'a jamais existe, le code
+ * tuait quand meme. Il veut dire **entre dans l'eglise**, donc reellement hors
+ * d'atteinte, et seulement tant qu'elle tient debout (DESIGN.md §4.22).
+ *
+ * `defend` est le nouveau : un courageux ressorti se poster a ses portes.
+ */
+type EtatVillageois = "au-poste" | "en-route" | "fuite" | "abri" | "defend" | "mort";
 
 /**
  * La teinte de chaque metier.
@@ -76,9 +101,13 @@ export class Villageois extends Phaser.Physics.Arcade.Sprite {
   poste: PosteTravail | null;
   etat: EtatVillageois = "en-route";
 
+  /** Prochain instant ou il peut frapper, quand il defend l'eglise (§4.18) */
+  prochainCoup = 0;
+
   constructor(scene: Phaser.Scene, regles: Habitant, poste: PosteTravail | null) {
-    // Il nait au village : il en part pour aller travailler, il n'y arrive pas.
-    super(scene, VILLAGE.x, VILLAGE.y, "villageois");
+    // Il nait a l'eglise : c'est de la qu'il part travailler, et c'est la qu'il
+    // revient. Tout converge dessus (§4.22).
+    super(scene, EGLISE.x, EGLISE.y, "villageois");
     this.regles = regles;
     this.poste = poste;
 
@@ -107,6 +136,12 @@ export class Village {
 
   private readonly scene: Phaser.Scene;
   private readonly contexte: ContexteVillage;
+  /**
+   * Graine fixe : le courage de depart des trois premiers habitants ne change
+   * pas d'une partie a l'autre. On apprend son village, comme on apprend sa
+   * carte (§4.6).
+   */
+  private readonly rng = new Rng(20260809);
 
   constructor(scene: Phaser.Scene, contexte: ContexteVillage) {
     this.scene = scene;
@@ -122,7 +157,15 @@ export class Village {
     // rien si le poste etait deja tenu.
     const departs = POSTES.filter((poste) => poste.metier !== "fermier");
     departs.forEach((poste, index) => {
-      this.ajouter(creerHabitant(NOMS[index] ?? `Habitant ${index}`, poste.metier), poste);
+      this.ajouter(
+        creerHabitant(
+          NOMS[index] ?? `Habitant ${index}`,
+          poste.metier,
+          "F",
+          this.rng.next(),
+        ),
+        poste,
+      );
     });
   }
 
@@ -217,6 +260,36 @@ export class Village {
     this.contexte.annoncer(`${villageois.nom} part ${poste.nom.toLowerCase()}`);
   }
 
+  /** Combien d'habitants sont en ce moment **dans** l'eglise (§4.22). */
+  get refugies(): number {
+    return this.habitants.filter((v) => v.regles.vivant && v.etat === "abri").length;
+  }
+
+  /** Combien tiennent ses portes. */
+  get defenseurs(): number {
+    return this.habitants.filter((v) => v.regles.vivant && v.etat === "defend").length;
+  }
+
+  /**
+   * L'eglise vient de tomber : tout le monde ressort, au milieu d'eux (§4.22).
+   *
+   * C'est le vrai prix de sa chute, et il faut qu'il se voie a l'instant meme
+   * ou elle s'effondre — pas a la fin de la nuit.
+   */
+  viderLEglise(): void {
+    let sortis = 0;
+    for (const villageois of this.habitants) {
+      if (!villageois.regles.vivant || villageois.etat !== "abri") continue;
+      villageois.enableBody(true, EGLISE.x, EGLISE.y, true, true);
+      villageois.etat = "fuite";
+      sortis++;
+    }
+    if (sortis > 0) {
+      this.contexte.annoncer(`${sortis} habitant${sortis > 1 ? "s" : ""} se retrouve` +
+        `${sortis > 1 ? "nt" : ""} dehors`);
+    }
+  }
+
   /** Ceux qui sont a leur poste et qui travaillent vraiment, par metier. */
   auTravail(metier: Metier): Habitant[] {
     return this.habitants
@@ -273,32 +346,86 @@ export class Village {
     return this.contexte.menaceAutour(villageois.x, villageois.y, 90) !== null;
   }
 
+  /**
+   * Il court vers l'eglise — et il n'est en securite que **dedans**.
+   *
+   * ⚠️ Ce comportement remplace celui du bloc 2, qui declarait l'habitant « a
+   * l'abri » des qu'il touchait le cercle du village. Cet abri-la n'a jamais
+   * protege de rien : `rattraperHabitant` le tuait quand meme. La regle est
+   * maintenant ecrite comme elle se joue (§4.18, §4.22) — ce qui protege, c'est
+   * un batiment, et un batiment ca tombe.
+   */
   private rentrer(villageois: Villageois, monstre: { x: number; y: number } | null): void {
-    const distance = Phaser.Math.Distance.Between(
-      villageois.x,
-      villageois.y,
-      VILLAGE.x,
-      VILLAGE.y,
-    );
+    const arrive = auPiedDeLEglise(villageois.x, villageois.y);
 
-    if (distance <= VILLAGE.rayon - 20) {
-      // Arrive au village, il est a l'abri (§4.18).
-      villageois.etat = "abri";
-      villageois.setVelocity(0, 0);
+    if (arrive && this.contexte.egliseDebout()) {
+      // Un courageux ressort se poster aux portes plutot que de se terrer. Ce
+      // n'est pas un ordre du joueur : c'est ce qu'il est (§4.22).
+      if (monstre && sortDefendre(villageois.regles)) {
+        this.defendre(villageois, monstre);
+        return;
+      }
+      this.entrerDansLEglise(villageois);
       return;
     }
 
-    // Pendant sa fuite, il est vulnerable : c'est la seule fenetre ou on peut le
-    // perdre, et elle ne s'ouvre que si le joueur a laisse ce flanc sans
-    // personne.
+    // Pas d'eglise, ou pas encore arrive : il court, et il est vulnerable. C'est
+    // la fenetre ou on le perd, et elle ne s'ouvre que si le joueur a laisse ce
+    // flanc sans personne.
+    this.sortirDeLEglise(villageois);
     villageois.etat = monstre ? "fuite" : "en-route";
     const vitesse = monstre
       ? REGLAGES_VILLAGE.vitesseFuite
       : REGLAGES_VILLAGE.vitesseTravail * 1.6;
-    this.fuirVers(villageois, VILLAGE.x, VILLAGE.y, vitesse, monstre);
+    this.fuirVers(villageois, EGLISE.x, EGLISE.y, vitesse, monstre);
+  }
+
+  /**
+   * Il entre dans le batiment : plus de sprite, plus de corps, plus de prise.
+   *
+   * C'est volontairement radical. Une zone de securite invisible se contourne
+   * mal et se debogue encore plus mal ; « il est dedans ou il est dehors » ne
+   * laisse aucune place au doute, ni pour le joueur ni pour le code.
+   */
+  private entrerDansLEglise(villageois: Villageois): void {
+    if (villageois.etat === "abri") return;
+
+    villageois.etat = "abri";
+    villageois.setVelocity(0, 0);
+    villageois.disableBody(true, true);
+  }
+
+  /** Il ressort. Appele des qu'il a autre chose a faire — ou si l'eglise tombe. */
+  private sortirDeLEglise(villageois: Villageois): void {
+    if (villageois.etat !== "abri") return;
+    villageois.enableBody(true, EGLISE.x, EGLISE.y, true, true);
+  }
+
+  /**
+   * Il tient les portes (§4.22).
+   *
+   * Il frappe pour de bon, avec le bloc de combat du §4.18 — mais ses chiffres
+   * sont derisoires. Ce qu'il gagne au joueur, c'est du temps, et des coups qui
+   * ne partent pas dans l'eglise.
+   */
+  private defendre(villageois: Villageois, monstre: { x: number; y: number }): void {
+    this.sortirDeLEglise(villageois);
+    villageois.etat = "defend";
+    villageois.setVelocity(0, 0);
+    villageois.setFlipX(monstre.x < villageois.x);
+
+    const combat = combatDe(villageois.regles);
+    const maintenant = this.scene.time.now;
+    if (maintenant < villageois.prochainCoup) return;
+
+    // Un horodatage verifie dans la boucle, jamais une minuterie par coup : le
+    // §4.17 est formel, et il y aura trente habitants.
+    villageois.prochainCoup = maintenant + combat.recharge;
+    this.contexte.frapperMonstre(villageois.x, villageois.y, combat.portee, combat.degats);
   }
 
   private allerTravailler(villageois: Villageois, delta: number): void {
+    this.sortirDeLEglise(villageois);
     const poste = villageois.poste!;
     const distance = Phaser.Math.Distance.Between(
       villageois.x,
@@ -381,6 +508,33 @@ export class Village {
   }
 
   // ---------------------------------------------------------------- mort
+
+  /**
+   * Un monstre le touche : il meurt, **sauf s'il defend l'eglise**.
+   *
+   * C'est la reponse a une question laissee ouverte au §6 (« un habitant qui
+   * defend l'eglise peut-il y mourir ? »), et elle etait obligatoire : un
+   * defenseur touche le monstre par definition, donc la vieille regle du
+   * contact mortel faisait de « sortir defendre » un suicide pur. Un habitant
+   * qui fuit meurt au contact, comme au bloc 2 ; un habitant qui tient les
+   * portes **encaisse** sur ses points de vie et meurt quand ils tombent a zero.
+   *
+   * @returns vrai s'il vient de mourir
+   */
+  encaisserOuTuer(villageois: Villageois, degats: number): boolean {
+    if (!villageois.regles.vivant) return false;
+
+    if (villageois.etat !== "defend") {
+      this.tuer(villageois);
+      return true;
+    }
+
+    villageois.regles.pv -= degats;
+    if (villageois.regles.pv > 0) return false;
+
+    this.tuer(villageois);
+    return true;
+  }
 
   /**
    * Un monstre l'a rattrape.

@@ -142,6 +142,77 @@ export interface Habitant {
   vivant: boolean;
   /** Faux quand il a faim : il ne produit plus tant qu'il n'a pas mange */
   rassasie: boolean;
+  /**
+   * Son cran, entre 0 et 1 : c'est lui qui decide s'il sort defendre l'eglise
+   * ou s'il reste au fond (§4.22).
+   *
+   * Tire a sa naissance et jamais modifie ici. Au bloc 5 il deviendra la
+   * consequence de ses **traits** (courageux, peureux, hante...) — on garde le
+   * meme champ, le systeme de traits n'aura qu'a l'ecrire (§4.23).
+   */
+  courage: number;
+  /** Ce qu'il lui reste de vie quand il se bat ; plein tant qu'il travaille */
+  pv: number;
+}
+
+/**
+ * Ce qu'un habitant vaut au combat (DESIGN.md §4.18).
+ *
+ * ⚠️ **Ce bloc annule la vieille regle « pas de statistiques de combat ».** Le
+ * §4.18 explique pourquoi on la paie : les futurs heros sortent du village, et
+ * un habitant sans rien de mesurable deviendrait heros par magie.
+ *
+ * Les chiffres sont **derisoires**, et c'est le garde-fou principal : dix
+ * miliciens ne tiennent pas une nuit. Ils ralentissent, ils grignotent, ils
+ * gagnent des secondes.
+ */
+export interface CombatHabitant {
+  pvMax: number;
+  degats: number;
+  /** En pixels : de quoi frapper ce qui le touche, pas de quoi tenir un front */
+  portee: number;
+  /** Millisecondes entre deux coups */
+  recharge: number;
+}
+
+/**
+ * La table de reglages du combat civil. Volontairement separee de
+ * `REGLAGES_VILLAGE` : ce sont deux equilibrages differents, on ne veut pas
+ * qu'un reglage de production touche par accident a la defense.
+ */
+export const REGLAGES_COMBAT_CIVIL = {
+  /** Un habitant de rang F, niveau 1 */
+  pvDeBase: 30,
+  degatsDeBase: 3,
+  portee: 34,
+  recharge: 1400,
+
+  /** Ce que chaque niveau ajoute, en part de la valeur de base */
+  gainParNiveau: 0.06,
+  /** Ce que chaque rang multiplie */
+  multiplicateurParRang: 1.3,
+};
+
+/**
+ * Ce que cet habitant vaut au combat, une fois son rang et son niveau appliques.
+ *
+ * Meme forme que `cadence()` — le rang multiplie, le niveau ajoute — pour qu'il
+ * n'y ait qu'une seule courbe a comprendre dans tout le village.
+ */
+export function combatDe(habitant: Habitant): CombatHabitant {
+  const r = REGLAGES_COMBAT_CIVIL;
+  const rang = ORDRE_RANGS.indexOf(habitant.rang);
+  const facteur =
+    (1 + (habitant.niveau - 1) * r.gainParNiveau) * Math.pow(r.multiplicateurParRang, rang);
+
+  return {
+    pvMax: Math.round(r.pvDeBase * facteur),
+    degats: r.degatsDeBase * facteur,
+    portee: r.portee,
+    // Le rang le rend plus fort, jamais plus rapide : une cadence qui monte
+    // aussi ferait exploser la courbe en la multipliant deux fois.
+    recharge: r.recharge,
+  };
 }
 
 let prochainId = 1;
@@ -151,8 +222,17 @@ export function reinitialiserIdentifiants(): void {
   prochainId = 1;
 }
 
-export function creerHabitant(nom: string, metier: Metier, rang: Rang = "F"): Habitant {
-  return {
+/**
+ * @param courage entre 0 et 1 ; c'est l'appelant qui le tire, pour que ce
+ *   fichier reste pur et que la meme graine redonne le meme village
+ */
+export function creerHabitant(
+  nom: string,
+  metier: Metier,
+  rang: Rang = "F",
+  courage = 0.5,
+): Habitant {
+  const habitant: Habitant = {
     id: prochainId++,
     nom,
     metier,
@@ -162,7 +242,26 @@ export function creerHabitant(nom: string, metier: Metier, rang: Rang = "F"): Ha
     posture: "prudent",
     vivant: true,
     rassasie: true,
+    courage,
+    pv: 0,
   };
+  habitant.pv = combatDe(habitant).pvMax;
+  return habitant;
+}
+
+/**
+ * Sort-il defendre l'eglise, ou reste-t-il au fond ? (DESIGN.md §4.22)
+ *
+ * Le joueur ne commande rien de tout ca : c'est ce que l'habitant **est** qui
+ * decide. Un affame ou un blesse ne sort jamais — se battre le tuerait, et le
+ * §4.18 refuse une mort qui ne vienne pas d'un arbitrage du joueur.
+ */
+export const SEUIL_COURAGE = 0.6;
+
+export function sortDefendre(habitant: Habitant): boolean {
+  if (!habitant.vivant || !habitant.rassasie) return false;
+  if (habitant.pv < combatDe(habitant).pvMax * 0.5) return false;
+  return habitant.courage >= SEUIL_COURAGE;
 }
 
 /** Le plafond de niveau accorde par un rang (meme principe qu'au §4.1). */

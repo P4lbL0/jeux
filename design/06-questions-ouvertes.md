@@ -6,31 +6,39 @@
 
 À trancher plus tard, sans bloquer le code actuel :
 
-- [ ] **Combien de défaites avant que le héros bascule ?** Un nombre fixe, ou une jauge
-      de corruption qui monte plus ou moins vite selon la façon dont on a perdu ?
-oui 
-- [ ] **Que perd exactement le héros à chaque défaite ?** Des niveaux, son rang, son
-      équipement, ses compétences ? C'est ce qui décide si enchaîner les défaites reste
-      jouable ou devient désespéré.
-- [ ] **Que devient l'ancien héros une fois devenu antagoniste ?** Il revient une seule
-      fois, ou il hante toutes les parties suivantes ? Peut-on le vaincre définitivement,
-      voire le récupérer ?
+- [ ] **Combien de défaites avant que le héros bascule ?** 
+on vas revoir ce systeme plus tard 
+- [ ] **Que perd exactement le héros à chaque défaite ?** 
+on vas voir plus tard 
+- [ ] **Que devient l'ancien héros une fois devenu antagoniste ?** 
+on vas voir plus tard 
 - [ ] La corruption se voit-elle sur le sprite du héros au fil des défaites ?
 - [ ] Quels **matériaux** existe-t-il, et sont-ils spécifiques au rang visé ?
+des coeur de bete de plsu ou moins haut niv les bosse en font tomber plus et de plus haute qualiter 
 - [ ] Bornes de zoom minimum et maximum
+pas compris 
+- [ ] **Y a-t-il des dégâts physiques et des dégâts magiques ?** 
+non une seule stat 
 - [ ] **Rage du guerrier** : +1% de vitesse d'attaque par *point de vie* manquant, ou par
       *pourcentage* de vie manquante ? C'est actuellement le pourcentage (donc +100% au
       maximum) ; le premier deviendrait démesuré à mesure que la vie max monte.
+      yes on garde le pourcentage 
 - [ ] **Trait de l'assassin** : « il ne se fait pas cibler en priorité si un tank est
-      autour mais a moins de PV que la moyenne » — la seconde partie reste à préciser.
+      autour mais a moins de PV que la moyenne » — il a debuf de pv max 
 - [ ] Statistiques chiffrées et attaque automatique de chacune des 4 classes
+on verra apres 
 - [ ] Niveau maximum de chaque rang au-delà du F (F = 10)
+on fais x 2 
 - [ ] Liste des compétences et de leurs raretés
 - [ ] Ultime de chaque classe
 - [ ] Comment recrute-t-on un héros ? Il se présente, on l'achète, on le trouve ?
 - [ ] Liste des défenses entre la baliste et le canon laser
 - [ ] Coût du totem d'immortalité (sa consommation à l'usage est tranchée, §4.3)
 - [ ] Peut-on soigner un héros blessé rentré à l'église, et à quel prix ?
+- [ ] **Combien de niveaux a l'église, et que coûte chacun ?** Les quatre axes sont écrits
+      (§4.22), leur découpage en paliers ne l'est pas.
+- [ ] **La liste des traits et des états** (§4.23), et ce que chacun décale exactement.
+      Un trait ne doit jamais valoir plus qu'un seuil ou un délai.
 - [ ] Les **prix du port** : combien vaut le bois, le minerai, le poisson, et à quelle
       fréquence un navire accoste (§4.18) ?
 - [ ] Combien de fous faut-il dans le village pour qu'ils **forment un groupe**, et que
@@ -41,11 +49,25 @@ oui
 - [ ] Les **seuils de satisfaction** exigés par chaque niveau d'église (§4.22).
 - [ ] Combien de **pièces de portrait** faut-il pour que deux habitants ne se ressemblent
       jamais (§4.23) ?
-- [ ] Combien de temps met l'église à se relever, et avec combien de bois ?
 - [ ] Un habitant qui défend l'église peut-il y mourir, ou seulement être blessé ?
+- [ ] **Combien vaut un habitant au combat** — PV, dégâts, portée, cadence — au rang F et
+      niveau 1, et de combien le rang les multiplie (§4.18) ? Les valeurs de départ posées
+      au bloc 4 sont volontairement dérisoires, il faudra les régler en jouant.
+- [ ] Ce que coûte **l'entraînement** d'un habitant, et combien de temps il ne produit pas
+      pendant (§4.18).
+- [ ] Combien de **miliciens** avant qu'une milice change une nuit — et le seuil à partir
+      duquel elle remplace le joueur au lieu de l'aider (§4.18).
+- [ ] À quelles conditions un habitant **devient héros**, et quelle classe il obtient
+      (§4.18, jalon 9).
+- [ ] Les **coûts des niveaux 2, 3 et 4 de l'église** en matériaux et en population, et les
+      seuils d'argent et de satisfaction qui viendront avec les blocs 5 et 6 (§4.22).
+- [ ] Les paliers d'amélioration du **mur** (bois → fer → pierre) : PV et coût de chacun ;
+      les PV de la **porte** ; de combien une **douve** ralentit (§4.20).
 - [ ] La limite absolue de population — celle qui n'existe que pour le §4.17. 60 ? 100 ?
 - [ ] Les chemins qui s'usent : au bout de combien de passages, et ils s'effacent en
       combien de jours ? (§4.24)
+- [ ] **30 minutes de jour et 15 de nuit, est-ce le bon chiffre ?** C'est la question du
+      bloc 2, et elle ne se tranche qu'en jouant. Les durées vivent dans une seule table.
 - [ ] **Le blé et le poisson se comportent-ils vraiment différemment ?** S'ils finissent
       par se valoir, il faut les fusionner en une seule nourriture (§4.18).
 - [ ] Combien de temps un habitant met-il à grandir avant de pouvoir travailler ?
@@ -184,3 +206,28 @@ oui
   satisfaction — et non un prix (§4.22)
 - ✅ **Pas de dégâts physiques et magiques séparés** : une seule statistique (§4.2)
 - ✅ Le rythme reste à **30 minutes de jour et 15 de nuit** (§4.19)
+- ✅ **Il n'y a aucun abri magique.** Un habitant **entre dans l'église** et n'est protégé
+  que tant qu'elle tient debout ; se tenir à côté ne protège de rien. Ça corrige une
+  phrase du §4.18 qui promettait une zone sûre — le code, lui, tuait déjà (§4.18, §4.22)
+- ✅ La vraie défense est **celle qu'on bâtit** : murs améliorables au **fer**, **porte**
+  cassable, **douves**, douves **remplies d'eau** près de la mer, et **ponts-levis** —
+  codés au **bloc 7** avec le mode d'aménagement (§4.20, §4.24)
+- ✅ Le prix de la **palissade ne change pas** (12 bois, 120 PV) : on ne la rend pas moins
+  chère, on la rend **améliorable** (§4.20)
+- ✅ L'église : **1200 PV** au niveau 1 (+600 par niveau), **rayon de soin de 90 px**
+  (+30 par niveau), relèvement à **120 bois et une journée entière** (§4.22)
+- ✅ Les quatre conditions d'un niveau d'église sont **écrites en entier dès le bloc 4**,
+  l'argent et la satisfaction **neutralisés** jusqu'aux blocs 6 et 5 (§4.22)
+- ✅ **Les habitants ont de vraies statistiques de combat** — PV, dégâts, portée, cadence —
+  faibles et montant avec le rang et le niveau. Ça annule frontalement la règle « pas de
+  statistiques de combat » écrite au §4.18, au §4.20 et au §4.22 : les trois passages sont
+  réécrits. La raison qui l'emporte : **les futurs héros sortent du village**, et un
+  habitant sans rien de mesurable deviendrait héros par magie (§4.18)
+- ✅ Trois garde-fous tiennent la digue à la place : **aucune compétence, aucune évolution,
+  aucun point à distribuer** ; **dix miliciens ne remplacent pas un héros** ; **se battre,
+  c'est ne pas produire** (§4.18)
+- ✅ On peut **entraîner** un habitant, lui donner le métier de **milicien** qui patrouille
+  les rues, et le faire **passer héros** — trois systèmes qui ont leur **propre bloc**, le
+  bloc 9 du jalon 5 (§4.18, §5)
+- ✅ Un villageois en **tour de guet tire vraiment**, avec ses chiffres de villageois
+  (§4.20)

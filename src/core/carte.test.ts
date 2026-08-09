@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   AMPLITUDE,
+  auPiedDeLEglise,
   dansLeVillage,
+  distanceALEglise,
+  EGLISE,
   estPraticable,
   estTerreFerme,
   frontsDeLaVague,
@@ -119,6 +122,40 @@ describe("Carte — le village", () => {
   it("reconnait l'interieur du village", () => {
     expect(dansLeVillage(VILLAGE.x, VILLAGE.y)).toBe(true);
     expect(dansLeVillage(VILLAGE.x + VILLAGE.rayon + 5, VILLAGE.y)).toBe(false);
+  });
+});
+
+describe("Carte — l'eglise", () => {
+  it("est posee sur un terrain praticable et ferme", () => {
+    expect(estPraticable(EGLISE.x, EGLISE.y)).toBe(true);
+    expect(estTerreFerme(EGLISE.x, EGLISE.y)).toBe(true);
+  });
+
+  it("est au centre du village, et pas ailleurs", () => {
+    // Ce n'est pas de l'esthetique : `piloter()` renvoie un heros en repli vers
+    // le **centre de la cite**, et c'est la qu'il doit trouver le soin. Deplacer
+    // l'eglise sans toucher a l'IA casserait le repli des 20% (§4.3).
+    expect(EGLISE.x).toBe(VILLAGE.x);
+    expect(EGLISE.y).toBe(VILLAGE.y);
+  });
+
+  it("n'accueille qu'a son pied, pas dans tout le village", () => {
+    // Le §4.22 est formel : il n'y a pas d'abri par proximite. Se tenir dans le
+    // village ne protege de rien, il faut toucher le batiment.
+    expect(auPiedDeLEglise(EGLISE.x, EGLISE.y)).toBe(true);
+    expect(auPiedDeLEglise(EGLISE.x + EGLISE.emprise, EGLISE.y)).toBe(false);
+    expect(auPiedDeLEglise(EGLISE.x + VILLAGE.rayon - 10, EGLISE.y)).toBe(false);
+  });
+
+  it("laisse la place aux maisons, qui sont posees plus loin", () => {
+    // Les maisons de `construireVillage` sont a 0,55 fois le rayon au plus
+    // pres : l'emprise de l'eglise ne doit pas mordre dessus.
+    expect(EGLISE.emprise / 2).toBeLessThan(VILLAGE.rayon * 0.55);
+  });
+
+  it("mesure la distance depuis son parvis", () => {
+    expect(distanceALEglise(EGLISE.x, EGLISE.y)).toBe(0);
+    expect(distanceALEglise(EGLISE.x + 100, EGLISE.y)).toBeCloseTo(100);
   });
 });
 

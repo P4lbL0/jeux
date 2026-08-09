@@ -48,6 +48,7 @@ import {
 } from "../core/ordres";
 import { Affinites } from "../core/affinites";
 import {
+  EGLISE,
   frontsDeLaVague,
   MONDE,
   NOMS_FRONT,
@@ -60,6 +61,15 @@ import {
   type Front,
   type Terrain,
 } from "../core/carte";
+import { BatimentEglise } from "../game/eglise";
+import {
+  CONDITIONS,
+  RELEVEMENT,
+  lireCout,
+  type BlocageMontee,
+  type EtatEglise,
+  type NiveauEglise,
+} from "../core/eglise";
 import {
   Cycle,
   REGLAGES_CYCLE,
@@ -102,7 +112,8 @@ import type { GroupeAffiche } from "../game/ficheHero";
  * l'appeler CITE — c'est le meme refuge, il a juste demenage.
  */
 const CITE = VILLAGE;
-const REGENERATION = 9;
+// La regeneration n'est plus une constante de scene : elle appartient a
+// l'eglise et monte avec elle (`PALIERS[n].soinParSeconde`, §4.22).
 const PORTEE_CORPS_A_CORPS = 90;
 
 /**
@@ -141,6 +152,19 @@ export interface EtatVillage {
   habitants: Habitant[];
   stocks: Stocks;
   joursDeVivres: number;
+  /** L'eglise, telle que l'interface la lit (DESIGN.md §4.22) */
+  eglise: {
+    niveau: NiveauEglise;
+    etat: EtatEglise;
+    ratioPv: number;
+    partRelevement: number;
+    /** Combien d'habitants sont dedans en ce moment */
+    refugies: number;
+    /** Combien tiennent ses portes */
+    defenseurs: number;
+    /** Ce qui empeche le niveau suivant, vide si rien */
+    manque: BlocageMontee[];
+  };
 }
 
 /**
@@ -217,6 +241,35 @@ const ZOOM_MAX = 3.4;
  */
 const LISSAGE_DIRECTION = 0.18;
 
+/**
+ * Pourquoi l'eglise refuse de monter, ecrit pour un humain (DESIGN.md §4.22).
+ *
+ * Quatre conditions dont on ne saurait pas laquelle bloque seraient
+ * injouables : le refus doit toujours nommer ce qui manque, et le chiffre avec.
+ *
+ * @param niveauVise le niveau qu'on essaie d'atteindre
+ */
+function lireBlocages(manque: BlocageMontee[], niveauVise: 2 | 3 | 4): string {
+  const requis = CONDITIONS[niveauVise];
+  const mots = manque.map((cause) => {
+    switch (cause) {
+      case "materiaux":
+        return lireCout(requis.materiaux);
+      case "population":
+        return `${requis.population} habitants`;
+      case "argent":
+        return `${requis.argent} pieces`;
+      case "satisfaction":
+        return `${requis.satisfaction}% de satisfaction`;
+      case "a-terre":
+        return "qu'elle soit relevee";
+      default:
+        return "rien, elle est au maximum";
+    }
+  });
+  return mots.join(", ");
+}
+
 export class ArenaScene extends Phaser.Scene {
   private rng!: Rng;
   private heros: Hero[] = [];
@@ -278,6 +331,15 @@ export class ArenaScene extends Phaser.Scene {
   cycle = new Cycle();
   /** Les habitants, leurs postes et les stocks (DESIGN.md §4.18) */
   village!: Village;
+  /**
+   * L'eglise : refuge, seul lieu de soin, et cap des monstres (DESIGN.md §4.22).
+   *
+   * Elle remplace le cercle `CITE` dans ces trois roles. `CITE` ne decrit plus
+   * que l'etendue du bati — et c'est encore lui qui sert d'ancre par defaut aux
+   * ordres, ce qui est correct : une ancre est un point de rassemblement, pas
+   * un refuge.
+   */
+  eglise!: BatimentEglise;
   /** Ce qu'il reste a faire arriver de l'effectif de la nuit en cours */
   private resteDeLaNuit = 0;
   /** Instant de la prochaine horde de jour, et de celle qu'on vient d'annoncer */
@@ -367,6 +429,18 @@ export class ArenaScene extends Phaser.Scene {
       habitants: this.village.habitants.map((v) => v.regles),
       stocks: this.village.stocks,
       joursDeVivres: this.village.joursDeVivres,
+      eglise: {
+        niveau: this.eglise.niveau,
+        etat: this.eglise.regles.etat,
+        ratioPv: this.eglise.regles.ratioPv,
+        partRelevement: this.eglise.regles.partRelevement,
+        refugies: this.village.refugies,
+        defenseurs: this.village.defenseurs,
+        manque: this.eglise.regles.peutMonter({
+          stocks: this.village.stocks,
+          population: this.village.population,
+        }).manque,
+      },
     };
   }
 
@@ -503,9 +577,22 @@ export class ArenaScene extends Phaser.Scene {
    * fabriquerait des calques serait exactement ce piege.
    */
   private construireVillageVivant(): void {
+    // L'eglise **avant** les habitants : ils naissent a son pied et leur premier
+    // reflexe est d'y rentrer, elle doit donc deja exister (§4.22).
+    this.eglise = new BatimentEglise(this, {
+      annoncer: (message) => this.events.emit("annonce", message),
+      effondrement: (x, y) => {
+        poufMort(this, x, y, 0x8a7f6d);
+        secousse(this, "fort");
+        this.village.viderLEglise();
+      },
+    });
+
     this.village = new Village(this, {
       menaceAutour: (x, y, rayon) => this.ennemiLePlusProche(x, y, rayon),
       annoncer: (message) => this.events.emit("annonce", message),
+      egliseDebout: () => this.eglise.fonctionne,
+      frapperMonstre: (x, y, portee, degats) => this.frapperPourLeVillage(x, y, portee, degats),
     });
 
     // Un monstre qui rattrape un habitant le tue : c'est la seule fenetre ou on
@@ -528,6 +615,13 @@ export class ArenaScene extends Phaser.Scene {
     );
     this.physics.add.collider(this.equipe, this.constructions.groupe);
     this.physics.add.collider(this.village.groupe, this.constructions.groupe);
+
+    // Les monstres butent sur l'eglise et la frappent : c'est leur cap, c'est ce
+    // qu'ils viennent detruire (§4.22).
+    this.physics.add.collider(this.ennemis, this.eglise.sprite, (e) =>
+      this.cognerEglise(e as Ennemi),
+    );
+    this.physics.add.collider(this.equipe, this.eglise.sprite);
 
     this.fantome = this.add
       .image(0, 0, "mur")
@@ -938,6 +1032,10 @@ export class ArenaScene extends Phaser.Scene {
       [K.H, () => this.basculerConstruction("tour")],
       [K.J, () => this.basculerConstruction("champ")],
       [K.T, () => this.basculerTour()],
+      // L'eglise : une seule touche pour les deux gestes qu'on peut lui faire —
+      // la monter d'un niveau, ou relancer son chantier quand elle est a terre.
+      // Ce sont deux actions exclusives, jamais disponibles en meme temps.
+      [K.Y, () => this.oeuvrerALEglise()],
     ];
     for (const [code, action] of ordres) {
       clavier.addKey(code).on("down", () => {
@@ -1037,6 +1135,7 @@ export class ArenaScene extends Phaser.Scene {
     this.gererCapacitesAuto();
     this.gererCapacites();
     this.majCycle(delta);
+    this.eglise.majorer(delta, this.time.now);
     this.village.majorer(delta);
     this.recolterALaMain(delta);
     this.majFantome();
@@ -1345,15 +1444,38 @@ export class ArenaScene extends Phaser.Scene {
     this.effetCercle(x, y, 34, 0x9ee8a0);
   }
 
+  /**
+   * L'etat de chaque heros, et **le seul endroit du jeu ou l'on se soigne**.
+   *
+   * ⚠️ Ce n'est plus le cercle du village qui soigne, c'est **l'eglise** —
+   * 90 px au niveau 1 contre 150 px avant, et **zero quand elle est a terre**
+   * (§4.22). Trois consequences a garder en tete :
+   *
+   * - se soigner veut dire rentrer sur la place, plus trainer au bord ;
+   * - l'etat `cite` signifie desormais « dans le rayon de l'eglise ». C'est ce
+   *   que `piloter()` attend pour arreter un repli, et l'eglise etant au centre
+   *   exact de la cite, un heros qui rentre y arrive toujours ;
+   * - **eglise a terre = plus aucun soin**, donc un heros IA en repli reste en
+   *   repli, hors du combat, jusqu'a ce qu'elle se releve. C'est lourd, c'est
+   *   voulu, et c'est ecrit noir sur blanc au §4.22.
+   */
   private majEtats(delta: number): void {
+    // Calcules une fois par image et non par heros : le §4.17 est formel.
+    const rayonSoin = this.eglise.rayonSoin;
+    const soinParSeconde = this.eglise.fonctionne
+      ? this.eglise.regles.palier.soinParSeconde
+      : 0;
+
     for (const hero of this.heros) {
       if (hero.etat === "mort") continue;
 
-      const dansCite = Phaser.Math.Distance.Between(hero.x, hero.y, CITE.x, CITE.y) <= CITE.rayon;
+      const dansCite =
+        rayonSoin > 0 &&
+        Phaser.Math.Distance.Between(hero.x, hero.y, EGLISE.x, EGLISE.y) <= rayonSoin;
 
       if (dansCite) {
         hero.etat = "cite";
-        hero.soigner((REGENERATION * delta) / 1000);
+        hero.soigner((soinParSeconde * delta) / 1000);
       } else if (hero.estIncarne) {
         // Reprendre un heros en fuite le remet au combat : c'est le joueur qui
         // decide de faire demi-tour, et c'est comme ca qu'on perd un heros.
@@ -1581,7 +1703,9 @@ export class ArenaScene extends Phaser.Scene {
     // Repousse : son impulsion a la priorite sur sa volonte.
     if (maintenant < e.reculJusqua) return;
 
-    const cible = this.cibleDe(e) ?? CITE;
+    // Faute de heros a portee de vue, il marche sur l'eglise : c'est son cap,
+    // et c'est ce qui donne enfin une ligne a tenir (§4.22).
+    const cible = this.cibleDe(e) ?? EGLISE;
     const angle = Phaser.Math.Angle.Between(e.x, e.y, cible.x, cible.y);
     orienter(e, cible.x - e.x, SEUIL_REGARD_PIXELS);
 
@@ -1666,10 +1790,15 @@ export class ArenaScene extends Phaser.Scene {
    * habitants sans rien faire**. Se cacher etait la meilleure defense possible.
    *
    * Un heros n'est donc une cible que s'il est **a portee de vue**. Au-dela, le
-   * monstre continue vers le village et mange ce qu'il croise en chemin : un
+   * monstre continue vers **l'eglise** et mange ce qu'il croise en chemin : un
    * pecheur sur sa plage, une palissade, un champ. Se planquer devient
    * exactement ce que le design promettait — le moyen le plus rapide de tout
    * perdre.
+   *
+   * Le cap est desormais l'eglise et non le centre abstrait du village (§4.22).
+   * Ca ne change presque rien geometriquement — elle est posee au centre — mais
+   * ca change tout pour le joueur : il y a maintenant **un batiment** entre eux
+   * et lui, avec des points de vie, qu'il peut voir tomber.
    */
   private cibleDe(e: Ennemi): { x: number; y: number } | null {
     // Une invocation provocatrice passe avant tout le reste.
@@ -2070,11 +2199,102 @@ export class ArenaScene extends Phaser.Scene {
     else this.constructions.detruire(construction);
   }
 
-  /** Un monstre a rattrape un habitant : il le tue (DESIGN.md §4.18). */
+  /**
+   * La touche Y : monter l'eglise, ou relancer son chantier (DESIGN.md §4.22).
+   *
+   * Une seule touche pour deux gestes exclusifs — elle est debout ou elle est a
+   * terre, jamais les deux. Le refus **dit toujours ce qui manque** : quatre
+   * conditions dont on ne saurait pas laquelle bloque seraient injouables.
+   */
+  private oeuvrerALEglise(): void {
+    if (!this.eglise.fonctionne) {
+      if (this.eglise.regles.etat === "relevement") {
+        const part = Math.round(this.eglise.regles.partRelevement * 100);
+        this.events.emit("annonce", `Le chantier avance — ${part}%`);
+        return;
+      }
+      if (!this.eglise.lancerRelevement(this.village.stocks)) {
+        this.events.emit(
+          "annonce",
+          `Il faut ${lireCout(RELEVEMENT.cout)} pour relever l'eglise`,
+        );
+      }
+      return;
+    }
+
+    const contexte = { stocks: this.village.stocks, population: this.village.population };
+    const verdict = this.eglise.regles.peutMonter(contexte);
+
+    if (!verdict.possible) {
+      const vise = (this.eglise.niveau + 1) as 2 | 3 | 4;
+      this.events.emit("annonce", `Eglise : il manque ${lireBlocages(verdict.manque, vise)}`);
+      return;
+    }
+
+    this.eglise.regles.monter(contexte);
+    this.eglise.monterDUnNiveau();
+    secousse(this, "leger");
+  }
+
+  /**
+   * Les monstres cognent l'eglise (DESIGN.md §4.22).
+   *
+   * Meme forme que `cognerConstruction` : la cadence du monstre sert de garde,
+   * donc rien de nouveau ne tourne par image.
+   */
+  private cognerEglise(e: Ennemi): void {
+    if (!e.active || this.termine || this.enPause) return;
+    if (!this.eglise.fonctionne) return;
+    if (!e.peutFrapper(this.time.now)) return;
+
+    e.marquerCoup(this.time.now);
+    declencher(e.pose, e, "attaque", this.time.now, this.eglise.sprite);
+    eclatImpact(this, this.eglise.sprite.x, this.eglise.sprite.y, 0xbfae8a);
+    this.eglise.encaisser(e.degats, this.time.now);
+  }
+
+  /**
+   * Un defenseur civil frappe (DESIGN.md §4.18).
+   *
+   * Le village ne connait pas les monstres, et il ne doit pas : il demande, la
+   * scene trouve la cible et applique les degats.
+   *
+   * @returns vrai s'il a touche quelque chose
+   */
+  private frapperPourLeVillage(
+    x: number,
+    y: number,
+    portee: number,
+    degats: number,
+  ): boolean {
+    const cible = this.ennemiLePlusProche(x, y, portee);
+    if (!cible) return false;
+
+    // Pas d'auteur : un habitant ne gagne pas d'experience de heros, ne
+    // declenche aucun vol de vie et ne remplit aucune jauge d'ultime. C'est ce
+    // qui l'empeche de deriver vers le second jeu que le §4.18 refuse.
+    cible.pv -= degats;
+    cible.flashJusqua = this.time.now + 70;
+    eclatImpact(this, cible.x, cible.y - 4, cible.archetype.couleurImpact, 2);
+    if (cible.pv <= 0) this.marquerLaMort(cible);
+    return true;
+  }
+
+  /**
+   * Un monstre a touche un habitant.
+   *
+   * Il meurt — **sauf s'il tient les portes de l'eglise**, auquel cas il
+   * encaisse sur ses points de vie (§4.18, §4.22). Sans cette nuance, sortir
+   * defendre serait un suicide pur et le courage ne servirait a rien.
+   */
   private rattraperHabitant(villageois: Villageois, e: Ennemi): void {
     if (!e.active || !villageois.regles.vivant || this.termine || this.enPause) return;
 
-    this.village.tuer(villageois);
+    if (!this.village.encaisserOuTuer(villageois, e.degats)) {
+      eclatImpact(this, villageois.x, villageois.y - 4, 0xd8c48a, 2);
+      return;
+    }
+
     poufMort(this, villageois.x, villageois.y, 0xd8c48a);
     secousse(this, "fort");
 

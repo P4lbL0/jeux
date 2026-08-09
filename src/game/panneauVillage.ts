@@ -27,6 +27,41 @@ import type { EtatVillage } from "../scenes/ArenaScene";
 /** Nombre maximum d'habitants listes dans le panneau. */
 const LIGNES = 12;
 
+/** Ce qui manque pour monter l'eglise, en un mot chacun. */
+const NOMS_BLOCAGE: Record<string, string> = {
+  materiaux: "materiaux",
+  population: "habitants",
+  argent: "argent",
+  satisfaction: "satisfaction",
+  "a-terre": "elle est a terre",
+  "niveau-max": "rien",
+};
+
+/**
+ * L'etat de l'eglise en une ligne (DESIGN.md §4.22).
+ *
+ * Elle a quatre roles et le joueur doit pouvoir les surveiller d'un coup d'oeil :
+ * a quel niveau elle est, si elle tient, qui est dedans, et ce qui bloque le
+ * niveau suivant.
+ */
+function lireEglise(etat: EtatVillage): string {
+  const e = etat.eglise;
+
+  if (e.etat === "ruine") return "EGLISE A TERRE — plus de soins ni de refuge · Y : relever";
+  if (e.etat === "relevement") {
+    return `EGLISE en chantier — ${Math.round(e.partRelevement * 100)}% · toujours aucun soin`;
+  }
+
+  const sante = `${Math.round(e.ratioPv * 100)}%`;
+  const monde = `${e.refugies} dedans, ${e.defenseurs} aux portes`;
+  const suite =
+    e.manque.length === 0
+      ? "Y : monter d'un niveau"
+      : `manque ${e.manque.map((c) => NOMS_BLOCAGE[c] ?? c).join(", ")}`;
+
+  return `EGLISE niveau ${e.niveau} — ${sante} · ${monde} · ${suite}`;
+}
+
 export class PanneauVillage {
   /** Le seul affichage permanent : la population et l'heure */
   private compteur: Phaser.GameObjects.Text;
@@ -134,7 +169,7 @@ export class PanneauVillage {
     this.titre.setPosition(x + 12, y + 10);
     this.stocks.setPosition(x + 12, y + 30);
     this.aide.setPosition(x + 12, y + 52 + LIGNES * 16 + 6);
-    this.aide.setText("Clic : posture  ·  clic droit : poste  ·  B : cloche");
+    this.aide.setText(`${lireEglise(etat)}\nClic : posture  ·  clic droit : poste  ·  B : cloche  ·  Y : eglise`);
 
     const vivres = etat.joursDeVivres;
     this.titre.setText(

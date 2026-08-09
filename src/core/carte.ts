@@ -166,6 +166,24 @@ export function estTerreFerme(x: number, y: number): boolean {
  */
 export const VILLAGE = { x: 470, y: 770 + DECALAGE_NORD, rayon: 150 };
 
+/**
+ * L'eglise, au centre du village (DESIGN.md §4.22).
+ *
+ * **C'est elle le refuge et le cap des monstres, plus le cercle `VILLAGE`.**
+ * Celui-ci ne decrit plus qu'une chose : l'etendue du bati et du sol de place.
+ * Tout ce qui converge — les habitants qui fuient, les heros qui rentrent
+ * soigner, les monstres — converge sur ce point-ci.
+ *
+ * Elle est posee au centre exact du village pour que le repli des heros IA
+ * continue de fonctionner sans y toucher : `piloter()` les envoie vers le
+ * centre de la cite, et c'est la qu'ils trouvent le soin.
+ *
+ * `emprise` est son occupation au sol, en pixels : le sprite monte bien plus
+ * haut (jusqu'a 96 px au niveau 4) mais son corps ne grandit jamais, sinon un
+ * batiment ameliore ne tiendrait plus a l'endroit ou on l'a pose (§4.24).
+ */
+export const EGLISE = { x: VILLAGE.x, y: VILLAGE.y, emprise: 48 };
+
 export type Front = "nord" | "est";
 
 export const NOMS_FRONT: Record<Front, string> = { nord: "au NORD", est: "a l'EST" };
@@ -202,8 +220,32 @@ export function estPraticable(x: number, y: number): boolean {
   );
 }
 
+/**
+ * Est-on dans l'etendue batie du village ?
+ *
+ * ⚠️ **Ce n'est plus une zone de securite, et ca ne l'a jamais vraiment ete.**
+ * Le §4.18 promettait qu'un habitant arrive au village etait « a l'abri » ;
+ * le code, lui, l'a toujours tue. La regle est desormais ecrite comme elle se
+ * joue : ce qui protege, c'est **d'entrer dans l'eglise**, et rien d'autre
+ * (§4.22). Cette fonction ne sert donc qu'a savoir ou s'arrete le bati.
+ */
 export function dansLeVillage(x: number, y: number): boolean {
   return Math.hypot(x - VILLAGE.x, y - VILLAGE.y) <= VILLAGE.rayon;
+}
+
+/** Distance au parvis de l'eglise — le point vers lequel tout converge. */
+export function distanceALEglise(x: number, y: number): number {
+  return Math.hypot(x - EGLISE.x, y - EGLISE.y);
+}
+
+/**
+ * Est-on assez pres pour entrer dans l'eglise ?
+ *
+ * Genereux d'une demi-emprise : on entre en touchant le batiment, pas en
+ * atteignant un pixel precis.
+ */
+export function auPiedDeLEglise(x: number, y: number): boolean {
+  return distanceALEglise(x, y) <= EGLISE.emprise * 0.75;
 }
 
 // ------------------------------------------------------------------ fronts
