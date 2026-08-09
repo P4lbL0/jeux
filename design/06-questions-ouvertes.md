@@ -8,6 +8,7 @@
 
 - [ ] **Combien de défaites avant que le héros bascule ?** Un nombre fixe, ou une jauge
       de corruption qui monte plus ou moins vite selon la façon dont on a perdu ?
+oui 
 - [ ] **Que perd exactement le héros à chaque défaite ?** Des niveaux, son rang, son
       équipement, ses compétences ? C'est ce qui décide si enchaîner les défaites reste
       jouable ou devient désespéré.
@@ -17,10 +18,6 @@
 - [ ] La corruption se voit-elle sur le sprite du héros au fil des défaites ?
 - [ ] Quels **matériaux** existe-t-il, et sont-ils spécifiques au rang visé ?
 - [ ] Bornes de zoom minimum et maximum
-- [ ] **Y a-t-il des dégâts physiques et des dégâts magiques ?** Les compétences parlent
-      d'« attaque physique » et d'« attaque magique ». Tant que les monstres n'ont pas de
-      résistances séparées, la distinction ne change rien — pour l'instant c'est une
-      seule statistique de dégâts. À trancher avant d'écrire les monstres.
 - [ ] **Rage du guerrier** : +1% de vitesse d'attaque par *point de vie* manquant, ou par
       *pourcentage* de vie manquante ? C'est actuellement le pourcentage (donc +100% au
       maximum) ; le premier deviendrait démesuré à mesure que la vie max monte.
@@ -34,19 +31,21 @@
 - [ ] Liste des défenses entre la baliste et le canon laser
 - [ ] Coût du totem d'immortalité (sa consommation à l'usage est tranchée, §4.3)
 - [ ] Peut-on soigner un héros blessé rentré à l'église, et à quel prix ?
-- [ ] **Combien de niveaux a l'église, et que coûte chacun ?** Les quatre axes sont écrits
-      (§4.22), leur découpage en paliers ne l'est pas.
-- [ ] **La liste des traits et des états** (§4.23), et ce que chacun décale exactement.
-      Un trait ne doit jamais valoir plus qu'un seuil ou un délai.
-- [ ] **Quels indices trahissent un fou à la porte**, et de combien ils déplacent la
-      probabilité. C'est tout l'équilibrage du bloc 4 (§4.18).
+- [ ] Les **prix du port** : combien vaut le bois, le minerai, le poisson, et à quelle
+      fréquence un navire accoste (§4.18) ?
+- [ ] Combien de fous faut-il dans le village pour qu'ils **forment un groupe**, et que
+      fait un groupe exactement (§4.18) ?
+- [ ] La **liste complète des questions** posables à la porte, et ce que chacune révèle.
+- [ ] À quelle vitesse la **jauge de stress** se remplit et se vide, et de combien le rang
+      la ralentit (§4.23).
+- [ ] Les **seuils de satisfaction** exigés par chaque niveau d'église (§4.22).
+- [ ] Combien de **pièces de portrait** faut-il pour que deux habitants ne se ressemblent
+      jamais (§4.23) ?
 - [ ] Combien de temps met l'église à se relever, et avec combien de bois ?
 - [ ] Un habitant qui défend l'église peut-il y mourir, ou seulement être blessé ?
 - [ ] La limite absolue de population — celle qui n'existe que pour le §4.17. 60 ? 100 ?
 - [ ] Les chemins qui s'usent : au bout de combien de passages, et ils s'effacent en
       combien de jours ? (§4.24)
-- [ ] **30 minutes de jour et 15 de nuit, est-ce le bon chiffre ?** C'est la question du
-      bloc 2, et elle ne se tranche qu'en jouant. Les durées vivent dans une seule table.
 - [ ] **Le blé et le poisson se comportent-ils vraiment différemment ?** S'ils finissent
       par se valoir, il faut les fusionner en une seule nourriture (§4.18).
 - [ ] Combien de temps un habitant met-il à grandir avant de pouvoir travailler ?
@@ -153,3 +152,35 @@
   (§4.10)
 - ✅ Un menu d'**options** : volumes séparés, touches remappables, pause **Échap** — les
   curseurs d'abord, les sons ensuite (§4.10)
+- ✅ **Le stress à la Darkest Dungeon** : une jauge pour tout le monde, une rupture tirée
+  au sort à 100 %, la mort à 200 % (§4.23)
+- ✅ Les **civils craquent aussi**, mais leurs ruptures sont civiles : ils ne frappent
+  jamais personne (§4.23)
+- ✅ Les **traits sont illimités**, faibles, et **le plus souvent mauvais** — l'expérience
+  use plus qu'elle ne renforce (§4.23)
+- ✅ Un trait s'obtient par **exploit**, jamais par tirage : tuer 200 monstres, survivre à
+  une nuit sous 20 %, voir mourir trois habitants (§4.23)
+- ✅ Un état non soigné tue en **5 à 7 jours**, en trois paliers annoncés (§4.23)
+- ✅ Les **portraits sont assemblés par morceaux en code**, pour qu'ils puissent changer
+  avec l'état du personnage (§4.23)
+- ✅ Une **satisfaction du village**, somme des humeurs, des morts récents, du confort et
+  des décorations — et c'est elle qui débloque les niveaux d'église (§4.22, §4.23)
+- ✅ Le **port et le commerce maritime** : on vend son surplus, on gagne de l'argent, et la
+  mer amène du monde — dont des fous (§4.18)
+- ✅ Les arrivées dépendent de la **réputation** et du **commerce**, jamais du hasard seul
+  (§4.18)
+- ✅ **Six indices**, dont trois montrés par arrivant ; un innocent en montre 0 à 1, un fou
+  2 à 3 (§4.18)
+- ✅ Les fous **forment des groupes** quand on en laisse entrer plusieurs : le risque
+  devient exponentiel, pas additif (§4.18)
+- ✅ La porte se joue sur une **fiche d'observation** — portrait, observations, questions à
+  poser — et non sur un moteur de dialogue (§4.10)
+- ✅ **N'importe qui peut recevoir n'importe quelle tâche**, héros et habitants confondus,
+  par sélection puis **menu d'ordres** (§4.4)
+- ✅ Un héros au travail produit **beaucoup plus vite**, mais **seulement le jour** et **ça
+  le fatigue** (§4.4)
+- ✅ L'église est **debout au niveau 1** dès la première minute (§4.22)
+- ✅ Un niveau d'église exige **quatre conditions** — argent, matériaux, population,
+  satisfaction — et non un prix (§4.22)
+- ✅ **Pas de dégâts physiques et magiques séparés** : une seule statistique (§4.2)
+- ✅ Le rythme reste à **30 minutes de jour et 15 de nuit** (§4.19)

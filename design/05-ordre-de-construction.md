@@ -14,7 +14,7 @@ incertain d'abord. À chaque jalon, le jeu doit être **jouable** — moche, mai
 | **2** | ✅ XP, montée de niveau, pause et choix d'amélioration | La boucle de combat tourne |
 | **3** | ✅ Équipe, IA, règle des 20%, cité, switch, barre d'équipe, mort définitive | Le cœur du jeu est là |
 | **4** | ✅ Ordres, postures et formations, expérience de groupe (§4.16) | La couche tactique existe |
-| **5** | Le village vivant, en huit blocs (voir ci-dessous) | Les deux moitiés du jeu sont reliées |
+| **5** | Le village vivant, en neuf blocs (voir ci-dessous) | Les deux moitiés du jeu sont reliées |
 | **6** | Le ciel : pluie, orages, incendies, météores, carte modifiable (§4.21) | Le monde a une humeur |
 | **7** | Défenses à placer, de la baliste au canon laser | La tower-defense existe |
 | **8** | Restauration du village, améliorations cumulables, montée en puissance infinie | La partie longue existe |
@@ -35,17 +35,25 @@ On le livre donc en **blocs jouables**, un par un.
 | **1** ✅ | La carte, les flancs fermés, les fronts (§4.6) | La géographie tient |
 | **2** ✅ | Le cycle jour/nuit, les hordes, les habitants, les métiers, la récolte à deux vitesses, la faim, la pause hors focus | **Le rythme** : 30/15 est-il le bon chiffre ? |
 | **3** ✅ | La grille modifiable, les murs, les tours occupées, le rayon de vue qui ferme le camping, les ordres civils, les champs | Défendre un lieu est-il intéressant ? |
-| **4** | Les arrivées aux portes, les naissances, les survivants à escorter, les traitres (§4.18) | Le village vit-il tout seul ? |
-| **5** | **L'église** (§4.22) : refuge, soins, purge, cap des monstres, ses niveaux, sa destruction et sa reconstruction | Y a-t-il enfin une ligne à tenir ? |
-| **6** | **Les traits, les humeurs et les états** (§4.23), la fiche unifiée, le renommage | Est-ce qu'on s'attache à ses gens ? |
+| **4** | **L'église** (§4.22) : refuge, soins, purge, cap des monstres, ses quatre niveaux et leurs quatre conditions, sa destruction et sa reconstruction | Y a-t-il enfin une ligne à tenir ? |
+| **5** | **Les traits, le stress et les états** (§4.23), les portraits assemblés, la fiche unifiée, le renommage | Est-ce qu'on s'attache à ses gens ? |
+| **6** | **Les arrivées** (§4.18) : fiche d'observation, les six indices, les fous et leurs groupes, les naissances, les survivants — et **le port et le commerce maritime** | Le village vit-il tout seul ? |
 | **7** | **Le mode d'aménagement** (§4.24) : édition en pause, construction libre, déplacement gratuit, tout se casse, le village en ruines, le sol et les chemins | Dessiner son village est-il un plaisir ou une corvée ? |
-| **8** | Le confort : options, pause Échap, touches remappables (§4.10) | — |
+| **8** | **Les ordres pour tous** (§4.4) : n'importe qui fait n'importe quoi, menu d'ordres, héros au travail | Commander vingt personnes est-il agréable ? |
+| **9** | Le confort : options, pause Échap, touches remappables (§4.10) | — |
 
-**L'ordre est délibéré, et il n'est pas celui du risque.** Le bloc 4 passe devant l'église
-alors que l'église est plus importante, parce qu'il était déjà entièrement écrit et que
-les arrivants sont ce qui donnera de la matière aux traits du bloc 6 — un village de trois
-personnes ne teste rien. Le confort passe en dernier alors qu'il aiderait à tester : c'est
-un choix assumé, on continue à tester à la main d'ici là.
+> ⚠️ **Cet ordre a changé, et pas par goût — par dépendance.** La version précédente
+> mettait les arrivées en premier parce qu'elles étaient déjà écrites. Elles ne peuvent
+> plus : la fiche d'observation a besoin des **portraits**, les six indices ont besoin des
+> **traits** (un pyromane est un indice à lui seul), et « il refuse d'entrer dans
+> l'église » a besoin de **l'église**. Les coder d'abord voudrait dire les recoder après.
+>
+> L'église passe donc en tête, ce qui tombe bien : c'est le système le plus important du
+> jalon, et celui qui touche le code le plus fragile (`dansLeVillage`, le refuge, les
+> soins, le ciblage des monstres). Le plus risqué d'abord, comme le reste du document.
+
+Le confort reste en dernier alors qu'il aiderait à tester : c'est un choix assumé, on
+continue à tester à la main d'ici là.
 
 Ce qui change par rapport à la version précédente de ce paragraphe : **les maisons
 deviennent destructibles**, au bloc 7 et non plus au jalon 8. Le joueur les place

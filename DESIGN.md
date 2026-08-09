@@ -64,7 +64,7 @@ Détail complet : [§1 Pitch](design/01-pitch.md).
 | **4.19** | [Le cycle jour/nuit](design/4.19-le-cycle-jour-nuit.md) |
 | **4.20** | [Les constructions : ce qui tient, ce qui tire](design/4.20-les-constructions-ce-qui-tient-ce-qui-tire.md) |
 | **4.22** | [**L'église : le cœur du village**](design/4.22-l-eglise-le-coeur-du-village.md) |
-| **4.23** | [**Les traits, les humeurs et les états**](design/4.23-les-traits-les-humeurs-et-les-etats.md) |
+| **4.23** | [**Les traits, le stress et les états**](design/4.23-les-traits-les-humeurs-et-les-etats.md) |
 | **4.24** | [**Le village qu'on aménage**](design/4.24-le-village-qu-on-amenage.md) |
 
 **Le reste**

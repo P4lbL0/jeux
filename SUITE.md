@@ -2,8 +2,12 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-08-09 (après la **refonte du design du village et des
-> villageois** — aucun code écrit depuis le bloc 3).
+> Dernière mise à jour : 2026-08-09 (après la **refonte complète du design du village, des
+> villageois, de l'église, du stress et du commerce** — aucun code écrit depuis le bloc 3,
+> sauf le sprite de l'église).
+>
+> **Le prochain morceau est le bloc 4 du jalon 5 : l'église.** Tout est écrit dans
+> `design/4.22-l-eglise-le-coeur-du-village.md`.
 
 ---
 
@@ -196,56 +200,111 @@ Touches ajoutées : **`B`** la cloche (tout le monde rentre), **`F`** le tableau
 
 ### Tout de suite
 
-1. **Juger le rythme en jouant.** C'est *la* question du bloc 2 : 30 minutes de jour et
-   15 de nuit, est-ce jouable ? Et l'effectif de 30 monstres pour la nuit 1, réparti sur
-   ~10 minutes, ne fait qu'un monstre toutes les 20 secondes — sur le papier c'est très
-   calme. Tout se règle dans `REGLAGES_CYCLE`.
+1. **Coder le bloc 4 : l'église.** C'est le prochain morceau, et le design est complet
+   (§4.22). Commence par me dire ce que tu comptes toucher avant d'écrire.
+
+   ⚠️ Le rythme 30/15 est **confirmé, on n'y touche pas** — mais il reste jamais testé, et
+   une journée dure 45 minutes réelles. Pour voir les systèmes lents (naissances, niveaux
+   d'église, stress qui s'accumule), il faudra tricher dans la console comme décrit
+   plus haut (`arene.cycle.ecoule = arene.cycle.duree - 30`).
 2. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
    parce qu'à 32 px, 3 px disloquent le personnage. Amplitudes en haut de
    `scripts/animer-sprites.ts`.
 3. ✅ **Le `feedback.md` a été traité** (session du 8-9 août). Tout est tranché et écrit
    dans `DESIGN.md` : appétit des héros, totem, fous, humeurs, renommage, options.
 
-### ⚠️ Le design du village a été entièrement refondu le 2026-08-09
+### ⚠️ Le design du village a été entièrement refondu les 8 et 9 août 2026
 
-**Aucune ligne de code n'a encore été écrite pour ça.** Le `DESIGN.md` est à jour, le code
-ne l'est pas — c'est le plus gros écart du projet à ce jour. Ce qui a changé :
+**Aucune ligne de code n'a encore été écrite pour ça** — sauf le sprite de l'église. Le
+design est à jour, le code ne l'est pas : c'est **le plus gros écart du projet à ce jour**.
+
+Ce qui a changé, et il y en a beaucoup :
 
 - **L'église devient le cœur du jeu** (§4.22, section neuve) : refuge des civils, **seul**
-  lieu de soin, lieu de purge des états, origine de l'Oracle, et **cap des monstres**. Le
-  cercle `VILLAGE` de `carte.ts` n'est plus le refuge.
-- **Les habitants ont des traits, des humeurs et des états** (§4.23, section neuve), avec
-  une fiche cliquable. **Ça annule la vieille règle du §4.18** qui interdisait le second
-  écran de personnage — le §4.18 a été réécrit pour le dire.
+  lieu de soin, lieu de purge des états, origine de l'Oracle, et **cap des monstres** — ils
+  marchent vers elle, les héros les en détournent dans leur rayon de vue. Le cercle
+  `VILLAGE` de `carte.ts` n'est plus le refuge. Elle est **debout au niveau 1** dès le
+  départ, elle monte en **quatre niveaux** qui exigent chacun **quatre conditions à la
+  fois** (argent, matériaux, population, satisfaction), et si elle tombe **ce n'est pas une
+  défaite** : elle se relève, mais tout s'effondre en attendant.
+- **Traits, stress et états** (§4.23, section neuve, la plus grosse). Les traits sont
+  **illimités, faibles, et le plus souvent mauvais** — l'expérience use plus qu'elle ne
+  renforce. Ils s'obtiennent **par exploit**, jamais par tirage. Et **tout le monde a une
+  jauge de stress à la Darkest Dungeon** : à 100 % il craque (paranoïa, terreur, rage,
+  abattement, ou rarement il se transcende), à 200 % le cœur lâche. Les civils craquent
+  aussi mais **ne frappent jamais personne**. Un état non soigné tue en **5 à 7 jours**, en
+  trois paliers annoncés.
+- **Ça annule la vieille règle du §4.18** qui interdisait le second écran de personnage.
+  Le §4.18 a été réécrit pour le dire au lieu de le taire.
 - **Le joueur aménage son village** à la Clash of Clans (§4.24, section neuve) : mode
-  édition en pause, construction libre partout, déplacement gratuit, **tout ce qui est
-  bâti se casse** (maisons comprises — ça remonte du jalon 8 au jalon 5), village qui
-  **démarre en ruines**.
-- **Le fou passe à l'acte sur un tirage caché** : ça contredit sciemment « une perte vient
-  toujours d'un arbitrage », c'est assumé et payé par trois contreparties (§4.18).
+  édition **en pause**, construction libre partout, déplacement **gratuit et instantané**,
+  **tout ce qui est bâti se casse** (maisons comprises — ça remonte du jalon 8 au jalon 5),
+  village qui **démarre en ruines**.
+- **Le port et le commerce maritime** (§4.18) : un bâtiment sur la plage, donc jamais
+  attaquable. On vend son surplus contre de l'**argent**, et les navires **amènent du
+  monde**. C'est ce qui donne enfin un usage à l'argent du §4.8 et une raison de produire
+  au-delà de ses besoins.
+- **Les arrivées dépendent de la réputation et du commerce**, jamais du hasard seul. Chaque
+  arrivant montre **3 indices sur 6** ; un innocent en montre 0 à 1, un fou 2 à 3. Le
+  passage à l'acte reste un **tirage caché** — ça contredit sciemment « une perte vient
+  toujours d'un arbitrage », c'est assumé et payé par trois contreparties. Et **les fous
+  forment des groupes** : le risque devient exponentiel, pas additif.
+- **La porte se joue sur une fiche d'observation** (§4.10) : portrait, observations,
+  questions à poser, et c'est **le portrait qui trahit le mensonge** (regard fuyant) plutôt
+  qu'une ligne de texte. Pas de moteur de dialogue — les questions sont des données.
+- **Les portraits sont assemblés par morceaux en code** (§4.23), pour qu'ils changent avec
+  l'état du personnage. La population n'a pas de plafond, donc un portrait par personne doit
+  coûter zéro.
+- **N'importe qui peut recevoir n'importe quelle tâche** (§4.4), héros et habitants
+  confondus, par sélection puis **menu d'ordres**. Un héros au travail produit beaucoup plus
+  vite, **mais seulement le jour et ça le fatigue**.
+- **Une satisfaction du village** (§4.23) : moyenne des humeurs + morts récents + confort +
+  décorations. C'est elle qui débloque les niveaux d'église, et la boucle se referme.
 - Totem **consommé à l'usage** (§4.3). Héros nourris par **ration forfaitaire** (§4.18).
-  **Pas de plafond dur** de population. **Fiche unique** héros/habitants et menu
-  d'**options** (§4.10).
+  **Pas de plafond dur** de population. **Fiche unique** héros/habitants avec renommage, et
+  menu d'**options** (§4.10). **Pas de dégâts physiques/magiques séparés.** Rythme **30/15
+  inchangé**.
 
-> **La règle de travail qui va avec** : sa dernière décision prime sur `DESIGN.md`, même
-> quand elle contredit frontalement une règle défendue ailleurs. On signale la
-> contradiction une fois, avec ce qu'elle coûte, puis on réécrit le paragraphe périmé
-> plutôt que de le laisser mentir.
+> **La règle de travail qui va avec** : sa dernière décision prime sur le design, même
+> quand elle contredit frontalement une règle défendue ailleurs — « ça change tout le
+> temps », ce sont ses mots. On signale la contradiction **une fois**, avec ce qu'elle
+> coûte, puis on **réécrit le paragraphe périmé** plutôt que de le laisser mentir.
 
-### Jalon 5 — le village *(blocs 1, 2 et 3 faits, 4 à 8 à faire)*
+### ⚠️ Le périmètre a triplé en deux jours, et il faut le dire
 
-L'ordre est fixé au §5 de `DESIGN.md` :
+Le jalon 5 est passé de 3 blocs à 9. Un survivors-like porte maintenant : gestion de
+village, économie à 4 ressources + argent, commerce maritime, traits, stress à la Darkest
+Dungeon, portraits procéduraux, aménagement à la Clash of Clans, et un système d'ordres
+pour trente personnes. **Chaque morceau est bon ; l'ensemble est un très gros jeu.**
+
+Ça ne bloque rien — c'est son projet, il en décide, et il a été prévenu. Mais quand un bloc
+dérape, le bon réflexe est de **livrer la version minimale qui se joue** et de le dire, pas
+d'étendre encore.
+
+### Jalon 5 — le village *(blocs 1, 2 et 3 faits, 4 à 9 à faire)*
+
+L'ordre est fixé au §5 du design, et **il a été réordonné le 9 août pour cause de
+dépendances** :
 
 | Bloc | Contenu |
 |---|---|
-| **4** | Les arrivées aux portes (avec des **fous**), les naissances, les survivants à escorter |
-| **5** | **L'église** : refuge, soins, purge, cap des monstres, niveaux, destruction et reconstruction |
-| **6** | **Traits, humeurs et états**, fiche unifiée, renommage |
+| **4** | **L'église** : refuge, soins, purge, cap des monstres, ses 4 niveaux et leurs 4 conditions, destruction et reconstruction |
+| **5** | **Traits, stress et états**, portraits assemblés, fiche unifiée, renommage |
+| **6** | **Les arrivées** : fiche d'observation, les 6 indices, les fous et leurs groupes, naissances, survivants, **le port et le commerce** |
 | **7** | **Mode d'aménagement** : édition en pause, construction libre, tout se casse, village en ruines, sol et chemins |
-| **8** | Confort : options, pause Échap, touches remappables |
+| **8** | **Les ordres pour tous** : n'importe qui fait n'importe quoi, menu d'ordres, héros au travail |
+| **9** | Confort : options, pause Échap, touches remappables |
 
-Le bloc 4 passe devant l'église **exprès** : il était déjà écrit, et les arrivants
-donneront de la matière aux traits du bloc 6 — un village de trois personnes ne teste rien.
+**Pourquoi cet ordre et pas celui d'avant.** Les arrivées étaient prévues en premier parce
+qu'elles étaient déjà écrites. Elles ne peuvent plus : la fiche d'observation a besoin des
+**portraits**, les six indices ont besoin des **traits** (un pyromane est un indice à lui
+seul), et « il refuse d'entrer dans l'église » a besoin de **l'église**. Les coder d'abord
+voudrait dire les recoder après.
+
+L'église passe donc en tête — ce qui tombe bien, c'est le système le plus important du
+jalon et celui qui touche le code le plus fragile : `dansLeVillage`, le refuge des
+habitants (`village.ts`), les soins des héros (`majEtats` dans `ArenaScene.ts`) et le
+ciblage des monstres. **C'est là qu'il y a un vrai risque de régression.**
 
 ### ComfyUI est installé en local (2026-08-09)
 
@@ -347,13 +406,22 @@ brancher.
 
 ## Questions encore ouvertes
 
-Listées au §6 de `DESIGN.md`. Les plus importantes :
+Listées au §6 (`design/06-questions-ouvertes.md`). Celles qui bloquent les prochains
+blocs :
 
-- Y a-t-il des dégâts **physiques** et **magiques** séparés ? (aujourd'hui une seule
-  statistique)
-- Combien de défaites avant que le héros de départ bascule en antagoniste ?
-- Que perd-il exactement à chaque défaite ?
-- Comment recrute-t-on un héros ?
+- **Les seuils de satisfaction** exigés par chaque niveau d'église, et le coût de chacun
+  en argent et en matériaux (bloc 4).
+- **La vitesse de la jauge de stress** — combien de temps pour la remplir, pour la vider,
+  et de combien le rang la ralentit (bloc 5).
+- **Combien de pièces de portrait** pour que deux habitants ne se ressemblent jamais
+  (bloc 5).
+- **Les prix du port** et la fréquence des navires ; **combien de fous forment un groupe**
+  et ce qu'un groupe fait exactement (bloc 6).
+
+Et les vieilles, toujours ouvertes : combien de défaites avant que le héros bascule en
+antagoniste, ce qu'il perd à chaque défaite, comment on recrute un héros.
+
+**Ne les invente pas — pose-les en questions à choix**, c'est comme ça qu'il travaille.
 
 ## Pour lancer
 
