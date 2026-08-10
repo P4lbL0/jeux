@@ -81,13 +81,31 @@ describe("La porte — la fiche d'observation", () => {
     }
   });
 
-  it("tient les bornes du §4.18 : 0 a 1 pour un innocent, 2 a 3 pour un fou", () => {
+  it("tient les bornes du §4.18 : 0 a 2 pour un innocent, 1 a 3 pour un fou", () => {
     for (const arrivant of echantillon(600)) {
       const compte = alarmantes(arrivant);
-      if (arrivant.folie === 0) expect(compte).toBeLessThanOrEqual(1);
-      else expect(compte).toBeGreaterThanOrEqual(2);
+      if (arrivant.folie === 0) expect(compte).toBeLessThanOrEqual(2);
+      else expect(compte).toBeGreaterThanOrEqual(1);
       expect(compte).toBeLessThanOrEqual(3);
     }
+  });
+
+  it("laisse le doute sur un et deux signaux, et ne tranche qu'aux extremites", () => {
+    // Le coeur du systeme : compter les lignes ne doit **pas** suffire. Sans
+    // recouvrement, la porte cesse d'etre une decision au bout de deux parties.
+    const lot = echantillon(3000, 21);
+    const partDeFous = (compte: number) => {
+      const groupe = lot.filter((a) => alarmantes(a) === compte);
+      return groupe.filter((a) => a.folie > 0).length / groupe.length;
+    };
+
+    expect(partDeFous(0)).toBe(0); // zero signal innocente
+    expect(partDeFous(3)).toBe(1); // trois signaux accusent
+    // Entre les deux, on doute vraiment — et deux signaux inquietent plus qu'un.
+    expect(partDeFous(1)).toBeGreaterThan(0.05);
+    expect(partDeFous(1)).toBeLessThan(0.35);
+    expect(partDeFous(2)).toBeGreaterThan(partDeFous(1));
+    expect(partDeFous(2)).toBeLessThan(0.7);
   });
 
   it("laisse deux ou trois fous sur dix arrivants", () => {

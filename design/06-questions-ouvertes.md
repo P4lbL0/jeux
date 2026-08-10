@@ -142,6 +142,14 @@ on fais x 2
 - ✅ **Trois lignes d'observation, toujours trois**, chaque axe ayant une version alarmante
   **et une rassurante**. Ça tranche une contradiction interne du §4.18, qui promettait
   « trois indices montrés » et « 0 à 1 pour un innocent » dans la même page (§4.18, §4.10)
+- ✅ **Les fourchettes de signaux se recouvrent** — innocent 0 à 2, fou 1 à 3 — et c'est une
+  correction venue du jeu. Sans recouvrement, compter les lignes suffisait à trancher dès
+  qu'on avait appris les six phrases alarmantes, ce que le §4.18 interdit explicitement.
+  Zéro innocente et trois accusent ; tout le doute vit entre les deux (§4.18)
+- ✅ **Le premier visiteur est offert, dès le premier matin.** Au rythme de croisière la
+  première porte se serait ouverte après deux heures de jeu, et on peut apprendre un jeu
+  pendant deux heures sans jamais croiser un de ses systèmes. Le rythme reprend dès la
+  deuxième arrivée (§4.18)
 - ✅ **Il frappe 1 à 2 journées après son arrivée**, jamais le jour même ; le voleur part
   avec les stocks, **le saboteur et le meurtrier restent et ne sont jamais démasqués**, et
   recommencent 4 à 8 journées plus tard. C'est ce qui fait exister les groupes (§4.18)

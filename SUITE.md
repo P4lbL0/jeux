@@ -10,10 +10,9 @@
 > qu'on relève, les navires, la vente plafonnée, l'**argent** — et les survivants qu'on
 > va chercher. Tout est écrit dans `design/4.18-les-habitants.md`.
 >
-> ⚠️ **Une question de réglage attend une réponse avant le 6b** : les lignes
-> d'observation distinguent aujourd'hui un fou d'un innocent **sans aucun recouvrement**
-> (0-1 contre 2-3), donc les compter suffit à trancher une fois qu'on a appris les six
-> phrases alarmantes. Voir « Ce que jouer a trouvé » plus bas.
+> Jouer a trouvé un défaut de conception dans la foulée — les fourchettes d'indices ne se
+> recouvraient pas, donc les compter suffisait — et il a été **corrigé le soir même**.
+> Voir « Ce que jouer a trouvé » plus bas.
 
 ---
 
@@ -336,20 +335,30 @@ débloque avant tout.
 un village de six. Ça ne casse rien à la compilation et ça casse tout au jeu — « Merlin
 est mort », lequel ? Un arrivant ne reprend plus un prénom déjà porté.
 
-### Ce que jouer a trouvé, et qui n'est pas corrigé
+### Ce que jouer a trouvé, et corrigé dans la foulée
 
-⚠️ **Les lignes d'observation sont un classificateur parfait, et le §4.18 voulait
-l'inverse.** Un innocent en montre 0 ou 1 d'alarmantes, un fou 2 ou 3 : **il n'y a aucun
-recouvrement**. Le doute ne tient donc que tant que le joueur n'a pas appris les six
-phrases alarmantes — après deux ou trois parties, il compte, et il ne se trompe plus
-jamais. Or le §4.18 écrit noir sur blanc : « un arrivant qui accumule trois signaux est
-bien plus souvent un fou qu'un innocent — **mais il peut être innocent, et l'inverse
-aussi** ».
+⚠️ **Les lignes d'observation étaient un classificateur parfait, et le §4.18 voulait
+l'inverse.** Avec 0-1 pour un innocent et 2-3 pour un fou, **aucun recouvrement** : compter
+les lignes suffisait à trancher dès qu'on avait appris les six phrases alarmantes. Deux
+parties. Or le §4.18 écrit noir sur blanc « il peut être innocent, et l'inverse aussi ».
 
-La correction tient en quatre chiffres, dans `alarmantesParDegre` (`core/arrivants.ts`) :
-faire **se recouvrir** les fourchettes (innocent 0-2, fou 1-3). Ce n'est pas fait parce
-que les bornes actuelles sont écrites explicitement dans le design — **c'est à Angelos de
-trancher.**
+Tranché le soir même : **les fourchettes se recouvrent** — innocent 0 à 2, fou 1 à 3.
+Mesuré en jeu sur 2000 arrivants :
+
+| Signaux | Part des arrivants | Part de fous |
+|---|---|---|
+| 0 | 30 % | **0 %** — il innocente |
+| 1 | 39 % | 17 % — ça inquiète sans accuser |
+| 2 | 25 % | 40 % — vraie hésitation |
+| 3 | 6 % | **100 %** — il accuse |
+
+**64 % des arrivants tombent dans la zone où compter ne suffit plus.** Les deux verdicts
+nets restent aux extrémités, et c'est voulu : sans eux, lire ne servirait à rien non plus.
+
+Et **le premier visiteur est offert**, dès le premier matin : au rythme de croisière la
+première porte se serait ouverte après deux heures de jeu. Il ne frappe pas à la seconde de
+l'aube — celle-ci porte déjà le repas, les états et la sauvegarde — mais **dans la
+matinée** (4 % de la journée). Le rythme normal reprend dès la deuxième arrivée.
 
 ### La sauvegarde et le compte The Circle (fait le 10 août 2026, §4.28)
 
@@ -414,14 +423,12 @@ n'ont jamais été vus de bout en bout. Le refus d'identifiants et la panne rés
 
 ### Tout de suite
 
-1. **Trancher le recouvrement des indices** (voir « Ce que jouer a trouvé ») — quatre
-   chiffres, et c'est ce qui décide si la porte garde son doute une fois apprise.
-2. **Coder le bloc 6b : le port et le commerce** (§4.18). Le port est **debout en ruine
+1. **Coder le bloc 6b : le port et le commerce** (§4.18). Le port est **debout en ruine
    dès la première minute** et se relève comme l'église : le chantier existe déjà, il n'y
    a pas de touche de construction à inventer (le bloc 7 la défaisait). L'argent est une
    **cinquième ressource**, `Stocks` n'en porte que quatre aujourd'hui — et
    `ContexteMontee.argent` n'attend que ça pour que la 4ᵉ condition de l'église morde.
-3. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
+2. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
    parce qu'à 32 px, 3 px disloquent le personnage. Amplitudes en haut de
    `scripts/animer-sprites.ts`.
 4. **Régler le stress sur une vraie partie.** Il n'a jamais tourné plus de deux minutes
@@ -703,14 +710,12 @@ blocs :
 - **Combien de pièces de portrait** pour que deux habitants ne se ressemblent jamais
   (bloc 5).
 - **Les prix du port** et la fréquence des navires (bloc 6b).
-- **Le recouvrement des fourchettes d'indices** — aujourd'hui 0-1 contre 2-3, donc aucun
-  doute une fois qu'on a appris à lire. Quatre chiffres dans `alarmantesParDegre`.
 - **La répartition des trois degrés de folie** (45 / 30 / 25 : voleur, saboteur,
   meurtrier), la **part volée** (35 %) et le **coût d'un mort récent pour la rumeur**
   (8 points, mémoire de 8 journées) : premiers jets du bloc 6a, jamais joués longtemps.
-- **Le premier arrivant se présente au jour 3 ou 4**, soit environ deux heures réelles de
-  jeu — conséquence directe de « un tous les 2 à 3 jours » avec des journées de 45
-  minutes. À trancher : est-ce le bon rythme, ou faut-il un premier visiteur offert ?
+- **Le rythme de croisière des arrivées** : le premier visiteur est offert, mais le
+  deuxième arrive au jour 3 ou 4, soit deux heures réelles plus tard. Jamais joué en
+  continu — à revoir quand une vraie partie longue aura tourné.
 
 Et les vieilles, toujours ouvertes : combien de défaites avant que le héros bascule en
 antagoniste, ce qu'il perd à chaque défaite, comment on recrute un héros.

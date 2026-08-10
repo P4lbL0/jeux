@@ -687,9 +687,13 @@ export class ArenaScene extends Phaser.Scene {
       this.reprise = null;
     } else {
       this.events.emit("annonce", "Jour 1 — le village se reveille");
-      // La rumeur part des le premier matin : sans ca, la premiere arrivee
-      // attendrait une aube de plus que le rythme annonce (§4.18).
-      this.planifierLaProchaineArrivee();
+      // ⚠️ **Le premier visiteur est offert**, des le premier matin (decision du
+      // 10 aout 2026). Au rythme de croisiere — un tous les 2 a 3 jours, et une
+      // journee dure 45 minutes reelles — la premiere porte se serait ouverte
+      // apres deux heures de jeu. On peut apprendre un jeu pendant deux heures
+      // sans jamais rencontrer un de ses systemes : c'est ce qu'on evite ici.
+      // Le rythme, lui, ne bouge pas : il reprend des la deuxieme arrivee.
+      this.prochaineArriveeJournee = 1;
       this.enregistrer();
     }
 
@@ -3820,6 +3824,7 @@ export class ArenaScene extends Phaser.Scene {
     if (bascule === "crepuscule") this.tomberLaNuit();
     else if (bascule === "aube") this.leverLeJour();
 
+    this.regarderLaPorte();
     this.teinterLeCiel();
   }
 
@@ -3872,10 +3877,11 @@ export class ArenaScene extends Phaser.Scene {
     // ou la breche, sans jamais voir qui l'a fait — un coupable nomme serait un
     // probleme resolu. La nuit qui s'acheve est celle de la journee precedente.
     this.reglerLaNuitDesFous(this.cycle.jour - 1);
-    // La sauvegarde d'abord, la porte ensuite : elle met le jeu en pause, et
-    // enregistrer une partie en pause enregistrerait un instant qui n'existe pas.
+    // Plus personne ne venait : on redemande une fois par jour, la reputation a
+    // pu remonter. Une seule fois, jamais par image — c'est un tirage, et le
+    // rejouer chaque image consommerait la graine (§4.6).
+    if (this.prochaineArriveeJournee === null) this.planifierLaProchaineArrivee();
     this.enregistrer();
-    this.regarderLaPorte();
   }
 
   // ------------------------------------------------------------- la porte
@@ -3888,14 +3894,16 @@ export class ArenaScene extends Phaser.Scene {
    * la rumeur. Un village qui souffre se vide et n'attire plus rien.
    */
   private regarderLaPorte(): void {
-    if (this.termine || this.enPause) return;
-
-    if (this.prochaineArriveeJournee === null) {
-      // Plus personne ne venait : on redemande, la reputation a pu remonter.
-      this.planifierLaProchaineArrivee();
-      return;
-    }
+    if (this.prochaineArriveeJournee === null) return;
+    if (this.termine || this.enPause || this.saisieEnCours) return;
     if (this.cycle.jour < this.prochaineArriveeJournee) return;
+
+    // On ne frappe pas a la porte en pleine nuit, et pas non plus a la seconde
+    // ou le soleil se leve : l'aube fait deja le repas, les etats, les exploits
+    // et la sauvegarde. Il se presente **dans la matinee**, une minute plus
+    // tard — assez pour qu'on voie son village avant qu'on vienne lui demander
+    // de le partager.
+    if (this.cycle.phase !== "jour" || this.cycle.part < 0.04) return;
 
     // Les noms deja portes partent avec : deux homonymes dans un village de six
     // rendent chaque annonce ambigue (vu en jouant, §4.18).

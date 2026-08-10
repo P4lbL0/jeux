@@ -53,16 +53,23 @@ export const REGLAGES_ARRIVEES = {
   /**
    * Combien des trois lignes sont alarmantes, par degre de folie.
    *
-   * Le §4.18 verrouille les bornes — 0 a 1 pour un innocent, 2 a 3 pour un fou —
-   * et le degre ne fait que **pencher** a l'interieur de sa borne. Un meurtrier
-   * montre plus souvent trois signaux, jamais quatre ; un voleur en montre deux,
-   * mais il lui arrive d'en montrer trois.
+   * ⚠️ **Les fourchettes se recouvrent, et c'est tout le systeme** (decision du
+   * 10 aout 2026 au soir, prise en jouant). La version precedente donnait 0 a 1
+   * a un innocent et 2 a 3 a un fou : **aucun recouvrement**, donc compter les
+   * lignes suffisait a trancher des qu'on avait appris les six phrases
+   * alarmantes. Le §4.18 promet exactement l'inverse — « il peut etre innocent,
+   * et l'inverse aussi ».
+   *
+   * Un innocent en montre donc **0 a 2**, un fou **1 a 3**, et le degre ne fait
+   * que pencher : un meurtrier montre bien plus souvent trois signaux. Restent
+   * deux verdicts nets aux extremites — **0 innocente, 3 accuse** — et c'est
+   * voulu : sans eux, lire ne servirait a rien non plus.
    */
   alarmantesParDegre: [
-    [55, 45, 0, 0], // innocent : 0 ou 1
-    [0, 0, 80, 20], // voleur
-    [0, 0, 60, 40], // saboteur
-    [0, 0, 35, 65], // meurtrier
+    [40, 40, 20, 0], // innocent : 0 a 2
+    [0, 40, 45, 15], // voleur
+    [0, 25, 50, 25], // saboteur
+    [0, 15, 45, 40], // meurtrier
   ] as const,
 
   /**
