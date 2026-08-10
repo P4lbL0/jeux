@@ -4,6 +4,7 @@ import { Hud } from "../game/hud";
 import { PanneauCapacites } from "../game/panneauCapacites";
 import { ChoixCompetence } from "../game/choixCompetence";
 import { FichePersonne } from "../game/fichePersonne";
+import type { Arrivant } from "../core/arrivants";
 import { PanneauOrdres } from "../game/panneauOrdres";
 import { PanneauVillage } from "../game/panneauVillage";
 import type { Hero } from "../game/entities";
@@ -99,6 +100,7 @@ export class UiScene extends Phaser.Scene {
     evenements.on("fin-de-partie", this.afficherFin, this);
     evenements.on("annonce", this.annoncer, this);
     evenements.on("basculer-village", this.basculerVillage, this);
+    evenements.on("arrivant", this.ouvrirLaPorte, this);
     // Sans ce nettoyage, les ecouteurs s'empileraient a chaque nouvelle partie.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       evenements.off("choix", this.ouvrirChoix, this);
@@ -106,6 +108,7 @@ export class UiScene extends Phaser.Scene {
       evenements.off("fin-de-partie", this.afficherFin, this);
       evenements.off("annonce", this.annoncer, this);
       evenements.off("basculer-village", this.basculerVillage, this);
+      evenements.off("arrivant", this.ouvrirLaPorte, this);
     });
   }
 
@@ -132,6 +135,26 @@ export class UiScene extends Phaser.Scene {
       hero,
       groupe: this.arene.groupeDe(hero),
       surIncarner: () => this.arene.events.emit("changer-hero", index),
+    });
+  }
+
+  /**
+   * La meme fiche encore, en mode observation (DESIGN.md §4.10).
+   *
+   * **C'est le troisieme mode de l'unique fiche**, pas un panneau de plus : le
+   * portrait, les statistiques et les traits sont dessines par exactement le
+   * meme code que pour un heros ou un habitant. Le §4.10 refuse les interfaces
+   * en double, et celle-ci aurait duplique les trois quarts de la fiche.
+   *
+   * Le jeu est deja en pause quand on arrive ici : la scene s'en charge avant
+   * d'emettre, comme pour le choix de competence.
+   */
+  private ouvrirLaPorte(arrivant: Arrivant): void {
+    this.fiche.afficher({
+      genre: "arrivant",
+      arrivant,
+      surAccepter: () => this.arene.events.emit("porte", true),
+      surRefuser: () => this.arene.events.emit("porte", false),
     });
   }
 

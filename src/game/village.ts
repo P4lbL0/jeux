@@ -4,6 +4,7 @@ import {
   NOMS_METIER,
   REGLAGES_VILLAGE,
   creerHabitant,
+  habitantDe,
   joursDeVivres,
   nourrir,
   stocksVides,
@@ -252,6 +253,47 @@ export class Village {
     this.habitants.push(villageois);
     this.groupe.add(villageois);
     return villageois;
+  }
+
+  /**
+   * On lui a ouvert la porte (DESIGN.md §4.18).
+   *
+   * Il garde **sa** personne : le visage, les traits et le nom que le joueur a
+   * regardes a la porte sont ceux qui entrent. Il prend le poste de son metier
+   * s'il en existe un ; sinon il reste au village, ce qui est deja le cas de la
+   * moitie des metiers (forgeron, charpentier, guetteur).
+   *
+   * ⚠️ Rien ici ne sait s'il est fou. C'est volontaire : le degre de folie vit
+   * dans `core/arrivants.ts`, dans une liste que le village n'a jamais en main
+   * (§4.18). Un habitant accepte est un habitant, point.
+   */
+  accueillir(personne: Personne, metier: Metier): Villageois {
+    const poste = POSTES.find((p) => p.metier === metier) ?? null;
+    const villageois = this.ajouter(habitantDe(personne, metier), poste);
+    // Il arrive de la route, pas de l'eglise : sans ca il apparaitrait au centre
+    // du village comme s'il y avait toujours ete.
+    villageois.setPosition(poste?.position.x ?? EGLISE.x, poste?.position.y ?? EGLISE.y);
+    this.recalculerSatisfaction();
+    return villageois;
+  }
+
+  /** Un habitant par son identifiant — c'est par la que les fous designent. */
+  parId(id: number): Villageois | null {
+    return this.habitants.find((v) => v.regles.id === id) ?? null;
+  }
+
+  /**
+   * Il quitte le village de lui-meme : c'est ce que fait un voleur (§4.18).
+   *
+   * Ce n'est **pas** une mort — ni deuil, ni memoire des morts, ni satisfaction
+   * en berne. Le village constate un depart, et il ne sait meme pas que c'en
+   * etait un.
+   */
+  retirer(villageois: Villageois): void {
+    const index = this.habitants.indexOf(villageois);
+    if (index >= 0) this.habitants.splice(index, 1);
+    villageois.destroy();
+    this.recalculerSatisfaction();
   }
 
   /** Les habitants encore en vie. C'est la condition de defaite (§4.18). */

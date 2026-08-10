@@ -86,7 +86,7 @@ import { Grille } from "../core/grille";
 import { CONSTRUCTIONS, coutLisible, type TypeConstruction } from "../core/constructions";
 import { Constructions, PORTEE_OCCUPATION, type Construction } from "../game/constructions";
 import { Champs, REGLAGES_CHAMPS, type Champ } from "../game/champs";
-import { NOMS_POSTURE_CIVILE } from "../core/habitants";
+import { NOMS_METIER, NOMS_POSTURE_CIVILE, RESSOURCES } from "../core/habitants";
 import {
   EFFETS_RUPTURE,
   NOMS_RUPTURE,
@@ -103,6 +103,19 @@ import {
   voirMourir,
 } from "../core/personne";
 import type { Habitant, PostureCivile, Ressource, Stocks } from "../core/habitants";
+import {
+  accueillir as suivreSiFou,
+  actesDeLaNuit,
+  creerArrivant,
+  prochaineArrivee,
+  REGLAGES_ARRIVEES,
+  replanifier,
+  reputation,
+  victimeDe,
+  type Acte,
+  type Arrivant,
+  type Fou,
+} from "../core/arrivants";
 import type { Phase } from "../core/cycle";
 import { Commandement } from "../game/commandement";
 import {
@@ -367,6 +380,19 @@ export class ArenaScene extends Phaser.Scene {
 
   /** L'horloge de la partie : jour, nuit, numero de journee (DESIGN.md §4.19) */
   cycle = new Cycle();
+
+  /**
+   * La porte (DESIGN.md §4.18, bloc 6a).
+   *
+   * ⚠️ **`fous` est la seule chose du jeu que le joueur ne doit jamais voir.**
+   * Elle ne passe ni par l'habitant, ni par sa fiche, ni par le tableau du
+   * village : au matin il y a un mort ou une breche, et rien ne dit qui.
+   */
+  private readonly fous: Fou[] = [];
+  /** La journee ou quelqu'un se presentera, ou null quand plus personne ne vient */
+  private prochaineArriveeJournee: number | null = null;
+  /** Celui qui attend pendant que le jeu est en pause */
+  private arrivantALaPorte: Arrivant | null = null;
   /** Les habitants, leurs postes et les stocks (DESIGN.md §4.18) */
   village!: Village;
   /**
@@ -639,12 +665,14 @@ export class ArenaScene extends Phaser.Scene {
     this.events.on("posture-habitant", this.tournerPostureCivile, this);
     this.events.on("poste-habitant", this.tournerPosteCivil, this);
     this.events.on("saisie-clavier", (enCours: boolean) => (this.saisieEnCours = enCours), this);
+    this.events.on("porte", this.repondreALaPorte, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.events.off("choix-fait", this.resoudreChoix, this);
       this.events.off("changer-hero", this.changerHero, this);
       this.events.off("selectionner", this.selectionnerDepuisUi, this);
       this.events.off("posture-habitant", this.tournerPostureCivile, this);
       this.events.off("poste-habitant", this.tournerPosteCivil, this);
+      this.events.off("porte", this.repondreALaPorte, this);
     });
 
     this.debut = this.time.now;
@@ -659,6 +687,9 @@ export class ArenaScene extends Phaser.Scene {
       this.reprise = null;
     } else {
       this.events.emit("annonce", "Jour 1 — le village se reveille");
+      // La rumeur part des le premier matin : sans ca, la premiere arrivee
+      // attendrait une aube de plus que le rythme annonce (§4.18).
+      this.planifierLaProchaineArrivee();
       this.enregistrer();
     }
 
@@ -676,6 +707,8 @@ export class ArenaScene extends Phaser.Scene {
       eglise: this.eglise,
       constructions: this.constructions,
       champs: this.champs,
+      fous: this.fous,
+      prochaineArrivee: this.prochaineArriveeJournee,
       heros: this.heros,
       indexIncarne: this.indexIncarne,
       kills: this.kills,
@@ -692,6 +725,8 @@ export class ArenaScene extends Phaser.Scene {
     // pont a repose.
     this.rng = monde.rng;
     this.kills = monde.kills;
+    // `fous` est modifie sur place ; celui-ci est un nombre, il faut le relire.
+    this.prochaineArriveeJournee = monde.prochaineArrivee;
     this.dureeJouee = sauvegarde.dureeJouee;
     this.debut = this.time.now;
 
@@ -2907,9 +2942,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private terminerChoix(): void {
-    this.decalerLeTemps(this.time.now - this.debutPause);
-    this.physics.resume();
-    this.enPause = false;
+    this.reprendreLeJeu();
     if (this.hero.choixEnAttente > 0) this.ouvrirChoix();
   }
 
@@ -3835,8 +3868,178 @@ export class ArenaScene extends Phaser.Scene {
     this.passerLaJourneeDesHeros();
     this.programmerHorde();
     this.events.emit("annonce", `Jour ${this.cycle.jour} — le soleil se leve`);
-    // La nuit est finie : c'est le moment-cle par excellence (§4.28).
+    // ⚠️ **Au matin**, pas dans la nuit. Le §4.18 veut qu'on **decouvre** le mort
+    // ou la breche, sans jamais voir qui l'a fait — un coupable nomme serait un
+    // probleme resolu. La nuit qui s'acheve est celle de la journee precedente.
+    this.reglerLaNuitDesFous(this.cycle.jour - 1);
+    // La sauvegarde d'abord, la porte ensuite : elle met le jeu en pause, et
+    // enregistrer une partie en pause enregistrerait un instant qui n'existe pas.
     this.enregistrer();
+    this.regarderLaPorte();
+  }
+
+  // ------------------------------------------------------------- la porte
+
+  /**
+   * Quelqu'un se presente-t-il ce matin ? (DESIGN.md §4.18)
+   *
+   * Le rythme ne vient pas du hasard mais de **ce que vaut le village** : la
+   * reputation, c'est la satisfaction moins ce que les morts recents coutent a
+   * la rumeur. Un village qui souffre se vide et n'attire plus rien.
+   */
+  private regarderLaPorte(): void {
+    if (this.termine || this.enPause) return;
+
+    if (this.prochaineArriveeJournee === null) {
+      // Plus personne ne venait : on redemande, la reputation a pu remonter.
+      this.planifierLaProchaineArrivee();
+      return;
+    }
+    if (this.cycle.jour < this.prochaineArriveeJournee) return;
+
+    // Les noms deja portes partent avec : deux homonymes dans un village de six
+    // rendent chaque annonce ambigue (vu en jouant, §4.18).
+    this.arrivantALaPorte = creerArrivant(
+      this.rng,
+      this.cycle.jour,
+      this.village.habitants.map((v) => v.nom),
+    );
+    this.enPause = true;
+    this.debutPause = this.time.now;
+    this.physics.pause();
+    this.effacerDestination();
+    this.events.emit("arrivant", this.arrivantALaPorte);
+  }
+
+  private planifierLaProchaineArrivee(): void {
+    this.prochaineArriveeJournee = prochaineArrivee(
+      reputation(this.village.satisfaction, this.village.memoireDesMorts, this.cycle.jour),
+      this.cycle.jour,
+      this.rng,
+    );
+  }
+
+  /**
+   * Le joueur a tranche.
+   *
+   * **Refuser ne coute rien d'autre que le bras qu'on n'aura pas** (§4.18) : pas
+   * de malus de reputation. La prudence se paie deja d'elle-meme — une
+   * production en moins, et une population qui n'atteint pas les six habitants
+   * du niveau 2 de l'eglise.
+   */
+  private repondreALaPorte(accepte: boolean): void {
+    const arrivant = this.arrivantALaPorte;
+    this.arrivantALaPorte = null;
+
+    if (arrivant !== null) {
+      if (accepte) {
+        const villageois = this.village.accueillir(arrivant.personne, arrivant.metierPretendu);
+        const fou = suivreSiFou(arrivant, villageois.regles.id, this.cycle.jour, this.rng);
+        if (fou !== null) this.fous.push(fou);
+        this.events.emit(
+          "annonce",
+          `${arrivant.personne.nom} entre au village — ${NOMS_METIER[arrivant.metierPretendu].toLowerCase()}`,
+        );
+      } else {
+        this.events.emit("annonce", `${arrivant.personne.nom} repart sur la route`);
+      }
+    }
+
+    this.planifierLaProchaineArrivee();
+    this.reprendreLeJeu();
+  }
+
+  /**
+   * Ce que la nuit a produit (DESIGN.md §4.18).
+   *
+   * Tout le tri est dans `core/arrivants.ts`, y compris la regle du groupe :
+   * ici on ne fait qu'appliquer. C'est ce qui permet de tester « a trois, ils
+   * frappent la meme nuit » sans lancer une partie de trois heures.
+   */
+  private reglerLaNuitDesFous(journee: number): void {
+    if (journee < 1) return;
+
+    const actes = actesDeLaNuit(this.fous, journee);
+    if (actes.length === 0) return;
+
+    if (actes.length >= REGLAGES_ARRIVEES.taillePourUnGroupe) {
+      this.events.emit("annonce", "Cette nuit, plusieurs mains ont travaille ensemble");
+    }
+
+    for (const { fou, acte } of actes) {
+      this.executerLActe(fou, acte);
+      // Le voleur part avec les stocks ; les autres restent, et personne ne
+      // saura jamais que c'etaient eux.
+      if (!replanifier(fou, journee, this.rng)) this.oublierLeFou(fou);
+    }
+  }
+
+  private executerLActe(fou: Fou, acte: Acte): void {
+    if (acte === "vol") return this.acteDeVol(fou);
+    if (acte === "breche") return this.acteDeSabotage();
+    if (acte === "meurtre") return this.acteDeMeurtre(fou);
+    // L'incendie appartient au degre 3 mais attend les incendies du jalon 6
+    // (§4.21) : rien ne le tire encore, et ce retour le dit au lieu de le taire.
+  }
+
+  private acteDeVol(fou: Fou): void {
+    const voleur = this.village.parId(fou.id);
+    let emporte = 0;
+    for (const ressource of RESSOURCES) {
+      const part = Math.floor(this.village.stocks[ressource] * REGLAGES_ARRIVEES.partVolee);
+      this.village.stocks[ressource] -= part;
+      emporte += part;
+    }
+
+    if (voleur !== null) this.village.retirer(voleur);
+    this.events.emit(
+      "annonce",
+      emporte > 0
+        ? `Les reserves ont ete videes dans la nuit — ${emporte} de perdu`
+        : "Quelqu'un est parti dans la nuit",
+    );
+  }
+
+  private acteDeSabotage(): void {
+    // Un mur, jamais une tour : ouvrir une breche, c'est ouvrir un passage
+    // (§4.18). Faire tomber une tour ferait tomber son occupant, donc tuerait —
+    // ce qui est l'acte du degre au-dessus.
+    const murs = this.constructions.toutes.filter((c) => !c.def.occupable);
+    if (murs.length === 0) {
+      this.events.emit("annonce", "Des outils ont disparu dans la nuit");
+      return;
+    }
+
+    const mur = this.rng.pick(murs);
+    poufMort(this, mur.x, mur.y, 0x9a8b74);
+    this.constructions.detruire(mur);
+    this.events.emit("annonce", "Une breche a ete ouverte dans la palissade");
+  }
+
+  private acteDeMeurtre(fou: Fou): void {
+    const candidats = this.village.vivants.map((v) => v.regles.id);
+    const cible = victimeDe(fou, candidats, this.fous, this.rng);
+    if (cible === null) return;
+
+    const victime = this.village.parId(cible);
+    if (victime === null) return;
+
+    // `tuer` annonce deja la mort, fait le deuil et met la satisfaction a jour.
+    // On n'ajoute qu'une chose : que personne ne sait ce qui s'est passe.
+    this.village.tuer(victime);
+    this.events.emit("annonce", "On l'a trouve au matin. Personne n'a rien entendu");
+  }
+
+  private oublierLeFou(fou: Fou): void {
+    const index = this.fous.indexOf(fou);
+    if (index >= 0) this.fous.splice(index, 1);
+  }
+
+  /** Rend la main au jeu apres une pause commandee par un panneau. */
+  private reprendreLeJeu(): void {
+    this.decalerLeTemps(this.time.now - this.debutPause);
+    this.physics.resume();
+    this.enPause = false;
   }
 
   /**

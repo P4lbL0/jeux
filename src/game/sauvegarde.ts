@@ -16,6 +16,7 @@ import { CONSTRUCTIONS } from "../core/constructions";
 import { POSTES } from "../core/carte";
 import { competenceParId } from "../core/competences";
 import { Cycle } from "../core/cycle";
+import type { Fou } from "../core/arrivants";
 import { reserverIdentifiants, stocksVides, type Habitant } from "../core/habitants";
 import { Rng } from "../core/rng";
 import {
@@ -55,6 +56,13 @@ export interface PartieEnCours {
   eglise: BatimentEglise;
   constructions: Constructions;
   champs: Champs;
+  /**
+   * Les fous acceptes. Modifie **sur place** a la reprise, comme `heros` : la
+   * scene tient cette meme reference (§4.18).
+   */
+  fous: Fou[];
+  /** La journee de la prochaine arrivee, ou null. Relu par la scene a la reprise */
+  prochaineArrivee: number | null;
   /** Modifie **sur place** a la reprise : d'autres objets tiennent la reference */
   heros: Hero[];
   indexIncarne: number;
@@ -92,6 +100,12 @@ export function capturer(partie: PartieEnCours, maintenant: number): Sauvegarde 
       // plus a rien, et c'est ce qui fait grossir une sauvegarde pour rien.
       .filter((villageois) => villageois.regles.vivant)
       .map((villageois) => capturerHabitant(villageois.regles, villageois.poste?.id ?? null, maintenant)),
+    // Ceux dont on ne garde le secret que parce qu'ils sont encore la : un fou
+    // dont l'habitant est mort ou parti ne sert plus a rien (§4.18).
+    fous: partie.fous
+      .filter((fou) => partie.village.parId(fou.id)?.regles.vivant === true)
+      .map((fou) => ({ ...fou })),
+    prochaineArrivee: partie.prochaineArrivee,
     heros: partie.heros.map((hero) => capturerHeros(hero, maintenant)),
     incarne: partie.indexIncarne,
     eglise: {
@@ -186,6 +200,13 @@ export function appliquer(
 
   reprendreLesHabitants(sauvegarde, partie, maintenant);
   reprendreLesHeros(sauvegarde, partie, maintenant);
+
+  // Sur place, comme les heros : la scene tient cette liste. Une sauvegarde
+  // d'avant le bloc 6a n'a pas le champ, et « pas de champ » veut dire
+  // « personne » — ce qui etait exactement vrai a l'epoque.
+  partie.fous.length = 0;
+  partie.fous.push(...(sauvegarde.fous ?? []).map((fou) => ({ ...fou })));
+  partie.prochaineArrivee = sauvegarde.prochaineArrivee ?? null;
 
   partie.eglise.reprendre(
     sauvegarde.eglise.niveau,

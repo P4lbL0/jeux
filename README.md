@@ -124,7 +124,28 @@ plafond, visible dans la fiche de heros).
   des monstres, elle monte en quatre niveaux et elle peut tomber.
 - *bloc 5* — les **traits, le stress et les etats**, les sequelles, les trois
   statistiques, les portraits assembles, la fiche unifiee et le renommage.
-- *bloc 6, a faire* — les arrivees aux portes, les naissances, les fous, le port.
+- *bloc 6a* — la **porte** : qui se presente, la fiche d'observation, les six
+  indices, les questions, et les **trois degres de folie**.
+- *bloc 6b, a faire* — le port, les navires, l'argent, les survivants.
+
+### La porte (§4.18, §4.10)
+
+Un inconnu se presente tous les deux ou trois jours — plus souvent si le
+village a bonne reputation, plus du tout s'il se meurt. Le jeu se met en
+**pause** et sa fiche s'ouvre : c'est **la fiche unifiee dans un troisieme
+mode**, pas une interface de plus.
+
+- **Trois lignes d'observation**, toujours trois, et chaque axe a deux
+  versions — une alarmante, une rassurante. Un innocent en montre 0 a 1
+  d'alarmantes, un fou 2 a 3.
+- **Quatre questions**, tirees d'une banque de vingt. On peut toutes les
+  poser. **La reponse n'est jamais tiree au sort** : elle tombe de ce que la
+  personne est. Le meme homme, a la meme question, repond toujours pareil.
+- **La folie a trois degres** : le voleur vide les stocks et disparait, le
+  saboteur ouvre une breche, le meurtrier tue dans la nuit. Aucun des deux
+  derniers n'est jamais **demasque** — et a trois, ils frappent **la meme
+  nuit**.
+- **Refuser ne coute que le bras qu'on n'aura pas.** Pas de malus.
 
 ### Le cycle jour/nuit (§4.19)
 
@@ -228,6 +249,8 @@ src/
     carte.ts         terrain, flancs fermes et fronts (fonction pure, testee)
     cycle.ts         le jour, la nuit, les effectifs et les hordes (testee)
     habitants.ts     metiers, cadence, progression et faim (testee)
+    arrivants.ts     la porte : indices, questions, degres de folie,
+                     reputation et la nuit des fous (testee)
     grille.ts        la carte modifiable, cuite depuis carte.ts (testee)
     constructions.ts murs et tours : couts, points de vie (testee)
     eglise.ts        niveaux, conditions, chute et relevement (testee)

@@ -264,6 +264,19 @@ export function creerHabitant(
   rang: Rang = "F",
   rng?: Rng,
 ): Habitant {
+  return habitantDe(creerPersonne(nom, rng ?? grainePourLesTests()), metier, rang);
+}
+
+/**
+ * Un habitant bati autour d'une personne **qui existe deja**.
+ *
+ * C'est la porte d'entree des arrivants (§4.18) : celui qui attend a la porte a
+ * deja un visage, des traits et un nom, et le joueur les a regardes avant de
+ * dire oui. Lui en fabriquer d'autres en le faisant entrer trahirait la seule
+ * chose que la fiche d'observation promet — que c'est bien **lui** qu'on
+ * accepte.
+ */
+export function habitantDe(personne: Personne, metier: Metier, rang: Rang = "F"): Habitant {
   const habitant: Habitant = {
     id: prochainId++,
     metier,
@@ -274,7 +287,7 @@ export function creerHabitant(
     vivant: true,
     rassasie: true,
     pv: 0,
-    personne: creerPersonne(nom, rng ?? grainePourLesTests()),
+    personne,
   };
   habitant.pv = combatDe(habitant).pvMax;
   return habitant;

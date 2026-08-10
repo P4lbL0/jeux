@@ -38,7 +38,8 @@ On le livre donc en **blocs jouables**, un par un.
 | **3** ✅ | La grille modifiable, les murs, les tours occupées, le rayon de vue qui ferme le camping, les ordres civils, les champs | Défendre un lieu est-il intéressant ? |
 | **4** ✅ | **L'église** (§4.22) : on y entre, soins, purge, cap des monstres, ses quatre niveaux et leurs quatre conditions, sa destruction et sa reconstruction — plus le **bloc de combat** de l'habitant, sans lequel personne ne peut défendre ses portes (§4.18) | Y a-t-il enfin une ligne à tenir ? |
 | **5** ✅ | **Les traits, le stress et les états** (§4.23), les **séquelles**, les trois statistiques, les portraits assemblés, la fiche unifiée, le renommage | Est-ce qu'on s'attache à ses gens ? |
-| **6** | **Les arrivées** (§4.18) : fiche d'observation, les six indices, les fous et leurs groupes, les naissances, les survivants — et **le port et le commerce maritime** | Le village vit-il tout seul ? |
+| **6a** | **La porte** (§4.18, §4.10) : les arrivants, la fiche d'observation, les six indices en deux versions, la banque de questions, les **trois degrés de folie** et les groupes, la réputation | Ouvrir sa porte est-il un vrai dilemme ? |
+| **6b** | **Le port** (§4.18) : le port en ruine qu'on relève, les navires, la vente plafonnée, l'**argent** — et les survivants qu'on va chercher | Produire au-delà de ses besoins a-t-il enfin un sens ? |
 | **7** | **Le mode d'aménagement** (§4.24) : édition en pause, construction libre, déplacement gratuit, tout se casse, le village en ruines, le sol et les chemins — et **la forteresse** du §4.20 : murs améliorables au fer, porte cassable, douves, douves en eau, pont-levis | Dessiner son village est-il un plaisir ou une corvée ? |
 | **8** | **Les ordres pour tous** (§4.4) : n'importe qui fait n'importe quoi, menu d'ordres, héros au travail | Commander vingt personnes est-il agréable ? |
 | **9** | **Le village armé** (§4.18) : l'entraînement au combat, le métier de **milicien** qui patrouille les rues, et le passage **villageois → héros** | Une milice change-t-elle vraiment une nuit ? |
@@ -55,6 +56,15 @@ On le livre donc en **blocs jouables**, un par un.
 > est écrit en entier au §4.26 et au §4.27, avec ses garde-fous de performance, et attend
 > son tour. Les blocs 11 et 12 sont les deux seuls du jalon dont l'absence ne casse rien —
 > sans eux le jeu tourne, il est juste plus froid.
+
+> **Le bloc 6 se livre en deux, le 10 août 2026 au soir.** Il portait trois systèmes
+> indépendants — la porte, la démographie, le commerce — et quatre chiffres non tranchés.
+> Un bloc qu'on ne peut ni finir ni juger est exactement ce que ce §5 interdit. **6a la
+> porte, 6b le port** : chacun se joue seul, et 6a suffit déjà à débloquer l'église, dont
+> le niveau 2 exige six habitants qu'aucun système ne pouvait fournir jusqu'ici.
+>
+> **Les naissances sortent du bloc 6 et passent après le bloc 7** : elles exigent « un toit
+> libre », et les toits n'existent qu'avec le mode d'aménagement (§4.24, §4.18).
 
 > ⚠️ **Cet ordre a changé, et pas par goût — par dépendance.** La version précédente
 > mettait les arrivées en premier parce qu'elles étaient déjà écrites. Elles ne peuvent

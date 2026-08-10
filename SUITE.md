@@ -2,17 +2,18 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-08-10 (**la sauvegarde existe**, en local et en copie sur
-> le compte The Circle — §4.28, codé, testé et joué. Avant ça, le bloc 5 : traits,
-> stress, états, séquelles, statistiques, portraits, fiche unifiée et renommage).
-> **282 tests verts.**
+> Dernière mise à jour : 2026-08-10, au soir (**le bloc 6a est fait** : la porte, la fiche
+> d'observation, les six indices, la banque de questions, les trois degrés de folie et
+> leurs groupes — codé, testé et joué). **315 tests verts.**
 >
-> **Le prochain morceau est le bloc 6 du jalon 5 : les arrivées et le port.**
-> Tout est écrit dans `design/4.18-les-habitants.md` et `design/4.10-interface.md`.
+> **Le prochain morceau est le bloc 6b : le port et le commerce.** Le port en ruine
+> qu'on relève, les navires, la vente plafonnée, l'**argent** — et les survivants qu'on
+> va chercher. Tout est écrit dans `design/4.18-les-habitants.md`.
 >
-> Le bloc 6 a maintenant tout ce qui lui manquait : les **portraits** (la fiche
-> d'observation en a besoin), les **traits** (un pyromane est un indice à lui seul), et
-> l'**église** (« il refuse d'y entrer »). C'est exactement pour ça qu'il passait après.
+> ⚠️ **Une question de réglage attend une réponse avant le 6b** : les lignes
+> d'observation distinguent aujourd'hui un fou d'un innocent **sans aucun recouvrement**
+> (0-1 contre 2-3), donc les compter suffit à trancher une fois qu'on a appris les six
+> phrases alarmantes. Voir « Ce que jouer a trouvé » plus bas.
 
 ---
 
@@ -285,6 +286,71 @@ Et une correction de design venue du jeu : **les héros ont un prénom**. La fic
 tirent maintenant dans la même liste (`PRENOMS`), ce qui prépare le passage
 villageois → héros du bloc 9.
 
+### Le bloc 6a — la porte (fait le 10 août 2026, au soir)
+
+**Le village peut enfin grandir.** Jusqu'ici `creerHabitant` n'était appelé qu'une fois,
+dans le constructeur du village : la population ne pouvait que baisser, et la condition
+« 6 habitants » du niveau 2 de l'église était **inatteignable**. C'est ce que ce bloc
+débloque avant tout.
+
+- **`src/core/arrivants.ts`** — pur et testé (33 tests). Une table `REGLAGES_ARRIVEES`
+  porte tout : rythme, part de fous, degrés, délais, part volée, seuils de réputation.
+- **Trois degrés de folie** (§4.18) : le **voleur** vide les stocks et disparaît, le
+  **saboteur** ouvre une brèche dans la palissade, le **meurtrier** tue dans la nuit.
+  L'**incendie** est écrit et attaché au degré 3, mais rien ne le tire : il attend les
+  incendies du jalon 6 (§4.21), exactement comme `argent` attendait le port.
+- **Trois lignes d'observation, toujours trois**, et chaque axe a **deux versions** — une
+  alarmante, une rassurante. Ça tranche une contradiction interne du §4.18, qui promettait
+  « trois indices montrés » **et** « un innocent en montre 0 à 1 » dans la même page.
+- **20 questions dans la banque, 4 tirées** par arrivant, toutes posables. **La réponse
+  n'est jamais tirée au sort** : elle tombe de l'axe sur lequel il ment. Le même homme, à
+  la même question, répond toujours pareil — c'est ce qui rend la lecture apprenable.
+- **Il n'est jamais démasqué.** Le saboteur et le meurtrier restent au village et
+  recommencent 4 à 8 journées plus tard. **À trois fous installés, ils frappent tous la
+  même nuit**, chacun son acte : le risque devient exponentiel sans un comportement de
+  plus à écrire.
+- **La réputation n'est pas une jauge de plus** : c'est la satisfaction moins les morts
+  récents, avec une mémoire plus longue (8 journées contre 3). Elle pilote le délai entre
+  deux arrivants — 1 journée au-dessus de 80, 2 à 3 autour de 50, plus personne sous 25.
+- **La fiche d'observation est un mode de plus de la fiche unifiée**, pas une interface
+  neuve : `SujetFiche` a un troisième cas, et le portrait, les statistiques et les traits
+  sont dessinés par exactement le même code.
+- **La sauvegarde retient les fous** (champ optionnel, pas de montée de version). Sans
+  ça, recharger effacerait le meurtrier qu'on vient d'accepter — la seule décision du
+  bloc s'annulerait d'un rafraîchissement, contre la règle ironman du §4.28.
+
+**Ce qui a été vérifié en jouant** (Playwright, aucune erreur console) :
+
+| Vérifié | Résultat |
+|---|---|
+| La porte s'ouvre à l'aube | Le jeu se met en pause, la fiche s'affiche, le portrait est là |
+| Les quatre questions | Cliquées une à une, réponses affichées, jamais deux fois la même |
+| Accepter | Population 3 → 6, et l'arrivant garde **sa** personne : visage, traits, nom |
+| Le voleur | Parti dans la nuit, retiré du village, stocks amputés |
+| Le saboteur | 3 palissades → 2, la brèche est visible |
+| Le meurtrier | 5 habitants → 4, et l'annonce ne dit pas qui a fait le coup |
+| La récidive | Les deux survivants se reprogramment à +4 et +7 journées |
+| L'ironman | Tancrède le meurtrier survit au rechargement, degré et échéance intacts |
+
+⚠️ **Un bug trouvé en jouant** : trois arrivées d'affilée ont donné **deux Merlin** dans
+un village de six. Ça ne casse rien à la compilation et ça casse tout au jeu — « Merlin
+est mort », lequel ? Un arrivant ne reprend plus un prénom déjà porté.
+
+### Ce que jouer a trouvé, et qui n'est pas corrigé
+
+⚠️ **Les lignes d'observation sont un classificateur parfait, et le §4.18 voulait
+l'inverse.** Un innocent en montre 0 ou 1 d'alarmantes, un fou 2 ou 3 : **il n'y a aucun
+recouvrement**. Le doute ne tient donc que tant que le joueur n'a pas appris les six
+phrases alarmantes — après deux ou trois parties, il compte, et il ne se trompe plus
+jamais. Or le §4.18 écrit noir sur blanc : « un arrivant qui accumule trois signaux est
+bien plus souvent un fou qu'un innocent — **mais il peut être innocent, et l'inverse
+aussi** ».
+
+La correction tient en quatre chiffres, dans `alarmantesParDegre` (`core/arrivants.ts`) :
+faire **se recouvrir** les fourchettes (innocent 0-2, fou 1-3). Ce n'est pas fait parce
+que les bornes actuelles sont écrites explicitement dans le design — **c'est à Angelos de
+trancher.**
+
 ### La sauvegarde et le compte The Circle (fait le 10 août 2026, §4.28)
 
 **Rafraîchir la page n'est plus une nouvelle partie.** La sauvegarde vit dans le
@@ -348,15 +414,19 @@ n'ont jamais été vus de bout en bout. Le refus d'identifiants et la panne rés
 
 ### Tout de suite
 
-1. **Coder le bloc 6 : les arrivées et le port** (§4.18, §4.10). La fiche d'observation est
-   un **mode de plus de la fiche unifiée**, pas une interface neuve — `SujetFiche` est une
-   union, il n'y a qu'un cas à ajouter.
-2. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
+1. **Trancher le recouvrement des indices** (voir « Ce que jouer a trouvé ») — quatre
+   chiffres, et c'est ce qui décide si la porte garde son doute une fois apprise.
+2. **Coder le bloc 6b : le port et le commerce** (§4.18). Le port est **debout en ruine
+   dès la première minute** et se relève comme l'église : le chantier existe déjà, il n'y
+   a pas de touche de construction à inventer (le bloc 7 la défaisait). L'argent est une
+   **cinquième ressource**, `Stocks` n'en porte que quatre aujourd'hui — et
+   `ContexteMontee.argent` n'attend que ça pour que la 4ᵉ condition de l'église morde.
+3. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
    parce qu'à 32 px, 3 px disloquent le personnage. Amplitudes en haut de
    `scripts/animer-sprites.ts`.
-3. **Régler le stress sur une vraie partie.** Il n'a jamais tourné plus de deux minutes
+4. **Régler le stress sur une vraie partie.** Il n'a jamais tourné plus de deux minutes
    d'affilée, et personne n'a encore craqué en conditions réelles.
-3. ✅ **Le `feedback.md` a été traité** (session du 8-9 août). Tout est tranché et écrit
+5. ✅ **Le `feedback.md` a été traité** (session du 8-9 août). Tout est tranché et écrit
    dans `DESIGN.md` : appétit des héros, totem, fous, humeurs, renommage, options.
 
 ### ⚠️ Le design du village a été entièrement refondu les 8 et 9 août 2026
@@ -490,7 +560,8 @@ dépendances** :
 |---|---|
 | **4** ✅ | **L'église** : on y entre, soins, cap des monstres, ses 4 niveaux et leurs 4 conditions, destruction et relèvement, bloc de combat civil |
 | **5** ✅ | **Traits, stress et états**, séquelles, 3 statistiques, portraits assemblés, fiche unifiée, renommage, satisfaction |
-| **6** | **Les arrivées** : fiche d'observation, les 6 indices, les fous et leurs groupes, naissances, survivants, **le port et le commerce** |
+| **6a** ✅ | **La porte** : fiche d'observation, les 6 indices en deux versions, la banque de questions, les 3 degrés de folie et leurs groupes, la réputation |
+| **6b** | **Le port** : le port en ruine qu'on relève, les navires, la vente plafonnée, l'**argent**, et les survivants qu'on va chercher |
 | **7** | **Mode d'aménagement** : édition en pause, construction libre, tout se casse, village en ruines, sol et chemins — et **la forteresse** : murs au fer, porte, douves, eau, pont-levis |
 | **8** | **Les ordres pour tous** : n'importe qui fait n'importe quoi, menu d'ordres, héros au travail |
 | **9** | **Le village armé** : entraînement au combat, métier de milicien, passage villageois → héros |
@@ -631,8 +702,15 @@ blocs :
   et de combien le rang la ralentit (bloc 5).
 - **Combien de pièces de portrait** pour que deux habitants ne se ressemblent jamais
   (bloc 5).
-- **Les prix du port** et la fréquence des navires ; **combien de fous forment un groupe**
-  et ce qu'un groupe fait exactement (bloc 6).
+- **Les prix du port** et la fréquence des navires (bloc 6b).
+- **Le recouvrement des fourchettes d'indices** — aujourd'hui 0-1 contre 2-3, donc aucun
+  doute une fois qu'on a appris à lire. Quatre chiffres dans `alarmantesParDegre`.
+- **La répartition des trois degrés de folie** (45 / 30 / 25 : voleur, saboteur,
+  meurtrier), la **part volée** (35 %) et le **coût d'un mort récent pour la rumeur**
+  (8 points, mémoire de 8 journées) : premiers jets du bloc 6a, jamais joués longtemps.
+- **Le premier arrivant se présente au jour 3 ou 4**, soit environ deux heures réelles de
+  jeu — conséquence directe de « un tous les 2 à 3 jours » avec des journées de 45
+  minutes. À trancher : est-ce le bon rythme, ou faut-il un premier visiteur offert ?
 
 Et les vieilles, toujours ouvertes : combien de défaites avant que le héros bascule en
 antagoniste, ce qu'il perd à chaque défaite, comment on recrute un héros.

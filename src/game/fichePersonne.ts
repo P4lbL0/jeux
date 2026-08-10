@@ -10,6 +10,7 @@ import {
   plafondDeNiveau,
 } from "../core/habitants";
 import { EFFETS_RUPTURE, NOMS_RUPTURE, REGLAGES_STRESS, type Personne } from "../core/personne";
+import { poser, reponseA, traitsVisibles, type Arrivant } from "../core/arrivants";
 import { sequelleParId, traitParId } from "../core/traits";
 import { portraitDe, TAILLE_PORTRAIT } from "./portraits";
 import type { Hero } from "./entities";
@@ -56,11 +57,27 @@ export interface GroupeAffiche {
  */
 export type SujetFiche =
   | { genre: "hero"; hero: Hero; groupe: GroupeAffiche; surIncarner: () => void }
-  | { genre: "habitant"; villageois: Villageois };
+  | { genre: "habitant"; villageois: Villageois }
+  /**
+   * La fiche d'observation, a la porte (§4.10, §4.18).
+   *
+   * **C'est un mode de plus, pas une interface neuve** : l'identite, les
+   * statistiques et les traits sont exactement les memes objets, dessines par
+   * le meme code. Seules trois choses changent — les observations, les
+   * questions, et deux boutons au lieu d'un.
+   */
+  | {
+      genre: "arrivant";
+      arrivant: Arrivant;
+      surAccepter: () => void;
+      surRefuser: () => void;
+    };
 
 /** La personne derriere le sujet, quel qu'il soit. */
 function personneDe(sujet: SujetFiche): Personne {
-  return sujet.genre === "hero" ? sujet.hero.personne : sujet.villageois.personne;
+  if (sujet.genre === "hero") return sujet.hero.personne;
+  if (sujet.genre === "arrivant") return sujet.arrivant.personne;
+  return sujet.villageois.personne;
 }
 
 const COULEURS = {
@@ -116,7 +133,12 @@ export class FichePersonne {
     const x = Math.round(this.scene.scale.width / 2 - LARGEUR / 2);
     const y = Math.max(10, Math.round(this.scene.scale.height / 2 - hauteur / 2));
 
-    const accent = sujet.genre === "hero" ? sujet.hero.classe.couleur : 0x9ad17f;
+    const accent =
+      sujet.genre === "hero"
+        ? sujet.hero.classe.couleur
+        : sujet.genre === "arrivant"
+          ? 0xd8a86a
+          : 0x9ad17f;
 
     const voile = this.scene.add.graphics().setDepth(2600);
     voile.fillStyle(0x0d0b12, 0.62);
@@ -135,13 +157,19 @@ export class FichePersonne {
 
     let curseur = this.identite(cadre, sujet, personne, x, y, accent);
     curseur = this.statistiques(cadre, personne, x, curseur);
-    curseur = this.moral(cadre, personne, x, curseur);
-    curseur = this.traits(cadre, personne, x, curseur);
+    // Un inconnu n'a ni stress ni etat a montrer : sa jauge est a zero et sa
+    // liste est vide. Afficher un moral vide serait du bruit sur la seule fiche
+    // qu'on lit vraiment ligne a ligne.
+    if (sujet.genre !== "arrivant") curseur = this.moral(cadre, personne, x, curseur);
+    curseur = this.traits(cadre, personne, x, curseur, sujet);
 
     if (sujet.genre === "hero") {
       curseur = this.combat(cadre, sujet.hero, x, curseur);
       curseur = this.equipe(cadre, sujet.groupe, x, curseur);
       curseur = this.competences(cadre, sujet.hero, x, curseur);
+    } else if (sujet.genre === "arrivant") {
+      curseur = this.observations(cadre, sujet.arrivant, x, curseur);
+      curseur = this.interrogatoire(cadre, sujet, x, curseur);
     } else {
       curseur = this.metier(cadre, sujet.villageois, x, curseur);
     }
@@ -161,7 +189,9 @@ export class FichePersonne {
     accent: number,
   ): number {
     const vivant =
-      sujet.genre === "hero" ? sujet.hero.etat !== "mort" : sujet.villageois.regles.vivant;
+      sujet.genre === "hero"
+        ? sujet.hero.etat !== "mort"
+        : sujet.genre === "arrivant" || sujet.villageois.regles.vivant;
 
     // Le portrait est **assemble** (§4.23) : il change avec la personne, donc
     // il se redemande a chaque ouverture plutot que d'etre garde en champ.
@@ -179,20 +209,36 @@ export class FichePersonne {
     const gauche = x + 20 + TAILLE_PORTRAIT.largeur * echelle + 16;
 
     this.champ = this.texte(gauche, y + 20, personne.nom, 20, COULEURS.texte);
-    // Cliquer le nom le renomme. Le §4.18 le veut a deux endroits, la fiche et
-    // le tableau — c'est celui-ci qui porte le code, l'autre l'ouvre.
-    this.zone(gauche, y + 18, LARGEUR - (gauche - x) - 30, 26, 2606, () => this.commencerLaSaisie());
+    // ⚠️ **On ne renomme pas a la porte** (§4.18) : « pas au moment de son
+    // arrivee, on ne coupe pas le jeu pour demander un prenom a quelqu'un qui
+    // n'a encore rien vecu ». Le renommage vient apres, quand celui-la est
+    // devenu quelqu'un — donc la zone cliquable n'existe pas ici.
+    if (sujet.genre !== "arrivant") {
+      this.zone(gauche, y + 18, LARGEUR - (gauche - x) - 30, 26, 2606, () =>
+        this.commencerLaSaisie(),
+      );
+    }
 
     const sous =
       sujet.genre === "hero"
         ? `${sujet.hero.classe.nom}  ·  niveau ${sujet.hero.niveau}`
-        : `${NOMS_METIER[sujet.villageois.regles.metier]}  ·  rang ${
-            sujet.villageois.regles.rang
-          }  ·  niveau ${sujet.villageois.regles.niveau}/${plafondDeNiveau(
-            sujet.villageois.regles.rang,
-          )}`;
+        : sujet.genre === "arrivant"
+          ? `il dit etre ${NOMS_METIER[sujet.arrivant.metierPretendu]}`
+          : `${NOMS_METIER[sujet.villageois.regles.metier]}  ·  rang ${
+              sujet.villageois.regles.rang
+            }  ·  niveau ${sujet.villageois.regles.niveau}/${plafondDeNiveau(
+              sujet.villageois.regles.rang,
+            )}`;
     this.texte(gauche, y + 46, sous, 12, COULEURS.attenue);
-    this.texte(gauche, y + 64, "clic sur le nom pour renommer", 9, COULEURS.discret);
+    this.texte(
+      gauche,
+      y + 64,
+      sujet.genre === "arrivant"
+        ? "il attend a la porte"
+        : "clic sur le nom pour renommer",
+      9,
+      COULEURS.discret,
+    );
 
     // La barre de vie, commune elle aussi : un habitant en a une depuis le
     // bloc 4 (§4.18).
@@ -203,6 +249,12 @@ export class FichePersonne {
       this.texte(gauche, y + 98, `${Math.ceil(h.pv)} / ${h.pvMax} PV`, 11, COULEURS.texte);
       this.barre(cadre, gauche, y + 116, bl, 6, h.xp / h.xpRequise, 0x5ec8f0);
       this.texte(gauche, y + 126, `${Math.floor(h.xp)} / ${h.xpRequise} XP  ·  ${h.kills} elimines`, 10, "#8fd4f0");
+    } else if (sujet.genre === "arrivant") {
+      // Pas de barre de vie : il n'est pas encore quelqu'un du village, et lui
+      // en donner une repondrait a la seule question qu'on ne doit pas trancher
+      // ici — ce qu'il vaut. On regarde un visage, pas des chiffres de combat.
+      this.texte(gauche, y + 86, "Un inconnu se presente a la porte.", 12, COULEURS.attenue);
+      this.texte(gauche, y + 106, "Trois choses se remarquent. Le reste se demande.", 10, COULEURS.discret);
     } else {
       const regles = sujet.villageois.regles;
       const pvMax = combatDe(regles).pvMax;
@@ -316,15 +368,27 @@ export class FichePersonne {
     personne: Personne,
     x: number,
     y: number,
+    sujet: SujetFiche,
   ): number {
-    this.texte(x + 20, y, "CE QU'IL EST DEVENU", 11, COULEURS.discret);
+    const aLaPorte = sujet.genre === "arrivant";
+    this.texte(
+      x + 20,
+      y,
+      aLaPorte ? "CE QU'ON LUI VOIT" : "CE QU'IL EST DEVENU",
+      11,
+      COULEURS.discret,
+    );
 
     const lignes: [string, string, string][] = [];
     for (const id of personne.sequelles) {
       const def = sequelleParId(id);
       if (def) lignes.push([def.nom, def.resume, COULEURS.mauvais]);
     }
-    for (const id of personne.traits) {
+    // A la porte on ne montre que ce qui se lit sur quelqu'un qu'on regarde
+    // deux minutes (§4.10). Tout deballer ferait de la fiche un dossier, et le
+    // doute — qui est le contenu du systeme — disparaitrait.
+    const portes = aLaPorte ? traitsVisibles(sujet.arrivant) : personne.traits;
+    for (const id of portes) {
       const def = traitParId(id);
       if (!def) continue;
       const couleur =
@@ -333,7 +397,13 @@ export class FichePersonne {
     }
 
     if (lignes.length === 0) {
-      this.texte(x + 20, y + 20, "Rien encore. Il n'a rien vecu.", 11, COULEURS.discret);
+      this.texte(
+        x + 20,
+        y + 20,
+        aLaPorte ? "Rien qui se remarque." : "Rien encore. Il n'a rien vecu.",
+        11,
+        COULEURS.discret,
+      );
       return y + 44;
     }
 
@@ -468,12 +538,100 @@ export class FichePersonne {
     return y + 20 + entrees.length * 18 + 10;
   }
 
+  /**
+   * Les trois lignes d'observation (§4.10, §4.18).
+   *
+   * ⚠️ **Aucune couleur ne dit laquelle est alarmante**, et c'est un choix, pas
+   * un oubli. Marquer les mauvaises en rouge reviendrait a les compter pour le
+   * joueur : il regarderait trois pastilles au lieu de lire trois phrases, et le
+   * §4.18 demande exactement l'inverse — « les indices se lisent vraiment ».
+   */
+  private observations(
+    cadre: Phaser.GameObjects.Graphics,
+    arrivant: Arrivant,
+    x: number,
+    y: number,
+  ): number {
+    this.texte(x + 20, y, "CE QU'ON OBSERVE", 11, COULEURS.discret);
+
+    arrivant.observations.forEach((ligne, i) => {
+      const cy = y + 20 + i * 22;
+      cadre.fillStyle(COULEURS.case, 0.9);
+      cadre.fillRoundedRect(x + 20, cy, LARGEUR - 40, 19, 4);
+      this.texte(x + 28, cy + 4, ligne.texte, 11, COULEURS.attenue);
+    });
+
+    return y + 20 + arrivant.observations.length * 22 + 10;
+  }
+
+  /**
+   * Les questions, et ce qu'il repond (§4.10).
+   *
+   * Les questions sont **tirees**, les reponses ne le sont **jamais** : le meme
+   * homme, a la meme question, repond toujours la meme chose. On peut toutes les
+   * poser — la rarete vient du tirage, pas d'un quota.
+   */
+  private interrogatoire(
+    cadre: Phaser.GameObjects.Graphics,
+    sujet: Extract<SujetFiche, { genre: "arrivant" }>,
+    x: number,
+    y: number,
+  ): number {
+    const { arrivant } = sujet;
+    this.texte(x + 20, y, "CE QU'ON LUI DEMANDE", 11, COULEURS.discret);
+
+    let cy = y + 20;
+    for (const question of arrivant.questions) {
+      const posee = arrivant.posees.includes(question.cle);
+
+      cadre.fillStyle(COULEURS.case, posee ? 0.5 : 0.9);
+      cadre.fillRoundedRect(x + 20, cy, LARGEUR - 40, 19, 4);
+      this.texte(x + 28, cy + 4, `« ${question.texte} »`, 11, posee ? COULEURS.discret : COULEURS.texte);
+      if (!posee) {
+        // Redessiner la fiche entiere plutot que d'inserer une ligne : elle se
+        // dimensionne sur son contenu, et sa hauteur change avec la reponse.
+        this.zone(x + 20, cy, LARGEUR - 40, 19, 2606, () => {
+          poser(arrivant, question.cle);
+          this.afficher(sujet);
+        });
+      }
+      cy += 21;
+
+      if (!posee) continue;
+
+      const reponse = reponseA(arrivant, question);
+      this.texte(x + 36, cy, `— ${reponse.texte}`, 10, COULEURS.attenue);
+      cy += 16;
+      // Le tell est ici, et il ne dit jamais « il ment » : il dit ce qu'on voit.
+      if (reponse.trahi) {
+        this.texte(x + 36, cy, "Son regard se derobe une seconde.", 10, COULEURS.mixte);
+        cy += 16;
+      }
+    }
+
+    return cy + 8;
+  }
+
   private boutons(
     cadre: Phaser.GameObjects.Graphics,
     sujet: SujetFiche,
     x: number,
     y: number,
   ): void {
+    if (sujet.genre === "arrivant") {
+      this.bouton(cadre, x + 20, y, 200, 30, "OUVRIR LA PORTE", 0x7ee0a0, () => {
+        const action = sujet.surAccepter;
+        this.fermer();
+        action();
+      });
+      this.bouton(cadre, x + LARGEUR - 220, y, 200, 30, "LE RENVOYER", 0xff8a7a, () => {
+        const action = sujet.surRefuser;
+        this.fermer();
+        action();
+      });
+      return;
+    }
+
     if (sujet.genre === "hero" && !sujet.hero.estIncarne && sujet.hero.etat !== "mort") {
       this.bouton(cadre, x + 20, y, 180, 30, "INCARNER", 0xf0c419, () => {
         const action = sujet.surIncarner;
@@ -494,9 +652,25 @@ export class FichePersonne {
   private hauteurVoulue(sujet: SujetFiche, personne: Personne): number {
     let h = 18 + TAILLE_PORTRAIT.hauteur * 4 + 24; // identite
     h += 20 + 3 * 22 + 10; // statistiques
-    h += 38 + (personne.rupture ? 18 : 0) + personne.etats.length * 15 + 8; // moral
-    const marques = personne.traits.length + personne.sequelles.length;
+    if (sujet.genre !== "arrivant") {
+      h += 38 + (personne.rupture ? 18 : 0) + personne.etats.length * 15 + 8; // moral
+    }
+    const marques =
+      sujet.genre === "arrivant"
+        ? traitsVisibles(sujet.arrivant).length
+        : personne.traits.length + personne.sequelles.length;
     h += 20 + Math.max(1, marques) * 16 + 10;
+
+    if (sujet.genre === "arrivant") {
+      h += 20 + sujet.arrivant.observations.length * 22 + 10;
+      // Une question posee prend sa reponse en plus, et son tell le cas echeant.
+      h += 20 + sujet.arrivant.questions.length * 21 + 8;
+      for (const question of sujet.arrivant.questions) {
+        if (!sujet.arrivant.posees.includes(question.cle)) continue;
+        h += 16 + (reponseA(sujet.arrivant, question).trahi ? 16 : 0);
+      }
+      return h + 52;
+    }
 
     if (sujet.genre === "hero") {
       h += 20 + 4 * 19 + 10; // combat

@@ -22,6 +22,7 @@ import type { ClassId, EtatHero, Rang } from "./classes";
 import type { Phase } from "./cycle";
 import type { EtatEglise, NiveauEglise } from "./eglise";
 import type { TypeConstruction } from "./constructions";
+import type { Fou } from "./arrivants";
 import type { EtatSubi } from "./etats";
 import type { Metier, PostureCivile, Stocks } from "./habitants";
 import type { Exploits, Personne, Rupture, Stats } from "./personne";
@@ -172,6 +173,21 @@ export interface Sauvegarde {
    */
   morts: number[];
   habitants: EtatHabitant[];
+  /**
+   * Ceux qu'on a laisses entrer et qui preparent quelque chose (§4.18).
+   *
+   * ⚠️ **C'est ce qui protege la porte de la regle ironman.** Sans ce champ,
+   * recharger effacerait le meurtrier qu'on vient d'accepter : la seule
+   * decision du bloc 6a s'annulerait d'un rafraichissement, exactement comme la
+   * mort d'un heros s'annulerait sans le §4.28.
+   *
+   * **Optionnel** : une partie enregistree avant le bloc 6a n'a pas ce champ, et
+   * son absence veut dire « personne » — ce qui est exactement vrai. Rien a
+   * deviner, donc rien a versionner.
+   */
+  fous?: Fou[];
+  /** La journee ou quelqu'un se presentera, ou null quand plus personne ne vient */
+  prochaineArrivee?: number | null;
   heros: EtatHeros[];
   /** L'index du heros incarne dans `heros` */
   incarne: number;

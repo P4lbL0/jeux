@@ -120,6 +120,45 @@ on fais x 2
       combien d'XP en plus (§4.23) ?
 - [ ] Combien d'**initiatives** par nuit au maximum avant que ça devienne du bruit (§4.27) ?
 
+### Le 10 août 2026, au soir — la porte et le port
+
+- ✅ **Le bloc 6 se livre en deux** : **6a la porte**, **6b le port**. Trois systèmes
+  indépendants dans un seul bloc, c'était un bloc injugeable (§5)
+- ✅ **Les naissances passent après le bloc 7** : elles exigent un toit libre, et les toits
+  n'existent qu'avec le mode d'aménagement (§4.18, §4.24)
+- ✅ **Un arrivant toutes les 2 à 3 journées** à réputation moyenne — presque un par jour
+  au-dessus de 80, plus personne sous 25 (§4.18)
+- ✅ La **réputation** n'est **pas une jauge de plus** : c'est la satisfaction du village
+  moins les morts récents. Une deuxième jauge aurait mesuré la même chose (§4.18, §4.23)
+- ✅ **Refuser ne coûte que le bras qu'on n'aura pas** : aucun malus de réputation. La
+  prudence est déjà payante à sa façon, la punir deux fois serait injuste (§4.18)
+- ✅ **Sur dix arrivants, deux ou trois sont fous.** Assez pour qu'un village qui dit oui à
+  tout en héberge trois, assez peu pour qu'accepter reste le bon réflexe (§4.18)
+- ✅ **La folie a trois degrés** — le voleur, le saboteur, le meurtrier — et c'est le degré
+  qui décide de l'acte. **Le feu appartient au degré 3** et s'allumera au jalon 6, quand
+  les incendies existeront (§4.18, §4.21)
+- ✅ **Les indices penchent avec le degré, sans jamais le dire** : plus il est fou, plus il
+  tend à montrer trois signaux plutôt que deux (§4.18)
+- ✅ **Trois lignes d'observation, toujours trois**, chaque axe ayant une version alarmante
+  **et une rassurante**. Ça tranche une contradiction interne du §4.18, qui promettait
+  « trois indices montrés » et « 0 à 1 pour un innocent » dans la même page (§4.18, §4.10)
+- ✅ **Il frappe 1 à 2 journées après son arrivée**, jamais le jour même ; le voleur part
+  avec les stocks, **le saboteur et le meurtrier restent et ne sont jamais démasqués**, et
+  recommencent 4 à 8 journées plus tard. C'est ce qui fait exister les groupes (§4.18)
+- ✅ **Un groupe de trois frappe la même nuit, chacun son acte** : le risque devient
+  exponentiel sans qu'aucun comportement neuf ne soit à écrire (§4.18)
+- ✅ **Les questions de la porte sont tirées au sort ; les réponses ne le sont jamais** —
+  elles sont déterminées par la personne. Quatre questions tirées d'une grande banque, et
+  on peut toutes les poser (§4.10)
+- ✅ **Le port est debout en ruine dès la première minute** et se relève comme l'église,
+  plutôt que d'inventer une touche de construction que le bloc 7 défera (§4.18, §4.22)
+- ✅ **La vente au port est à sens unique et plafonnée par visite.** C'est la seule
+  conversion du jeu, et elle **annule** la moitié d'une règle du §4.8 et du §4.18 (« ni en
+  argent ») — les deux paragraphes sont réécrits. Les quatre ressources récoltées, elles,
+  restent inconvertibles entre elles (§4.8, §4.18)
+- ✅ **Le §4.8 ne fait plus venir l'argent du « bilan de fin de vague »** : il n'y a plus de
+  vagues depuis le bloc 2, le jeu compte en journées (§4.8, §4.19)
+
 ## Tranché récemment
 
 - ✅ Garde-fou de la permadeath → **la règle des 20% + le totem d'immortalité** (§4.3)
