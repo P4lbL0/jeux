@@ -13,6 +13,18 @@ export class Rng {
     this.etat = graine >>> 0;
   }
 
+  /**
+   * L'etat interne, tel quel.
+   *
+   * Il sert a la sauvegarde (§4.28) : `new Rng(rng.instantane)` reprend la
+   * suite **exacte** du tirage, puisque le constructeur ne fait rien d'autre
+   * que poser cet etat. Sans lui, reprendre une partie rejouerait la meme
+   * sequence depuis le debut.
+   */
+  get instantane(): number {
+    return this.etat;
+  }
+
   /** Flottant dans [0, 1) */
   next(): number {
     // mulberry32 : court, rapide, de qualite suffisante pour un jeu.

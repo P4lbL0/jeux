@@ -23,6 +23,26 @@ npm test        # lance les tests de la logique de jeu
 npm run build   # verifie les types et construit la version finale
 ```
 
+### La sauvegarde et le compte (§4.28)
+
+La partie s'enregistre **sur cet appareil**, dans le `localStorage`, sur trois
+emplacements. Ca marche sans compte, sans reseau, sans rien configurer.
+
+Un compte **The Circle** est optionnel : il ajoute une copie de la sauvegarde en ligne,
+pour retrouver sa partie sur une autre machine. Pour l'activer, deux variables dans un
+`.env` a la racine (voir [.env.example](.env.example)) :
+
+```
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+```
+
+Sans ces variables, le jeu se lance exactement pareil et n'affiche simplement pas
+l'ecran de connexion. **La cle anon uniquement** — le code refuse toute autre cle.
+
+⚠️ **Regle ironman** : on ecrase la sauvegarde aux moments-cles, mort comprise. Fermer
+l'onglet apres avoir perdu un heros ne le ramene pas.
+
 ## Commandes en jeu
 
 | Touche | Action |
@@ -215,6 +235,13 @@ src/
     traits.ts        traits, sequelles et leur agregat (testee)
     etats.ts         maladie, hemorragie, infection, lethargie (testee)
     satisfaction.ts  le moral du village, qui debloque l'eglise (testee)
+    sauvegarde.ts    la forme d'une partie enregistree, et l'arbitrage
+                     local/cloud — fonction pure, testee (§4.28)
+  en-ligne/  le seul dossier qui connait le reseau. Retirable en entier
+    client.ts          le client Supabase, et le refus de toute cle non-anon
+    compte.ts          connexion au compte The Circle (pas d'inscription ici)
+    sauvegardeCloud.ts la copie cloud : upsert, repos de 60 s, effacement
+    parties.ts         les parties terminees (score falsifiable, c'est dit)
   game/      ce qui vit a l'ecran
     art.ts             textures placeholder generees par code
     entities.ts        heros, ennemis et invocations
@@ -229,7 +256,9 @@ src/
     choixCompetence.ts ecran de montee de niveau
     fichePersonne.ts   LA fiche : heros et habitants, et le renommage
     portraits.ts       portraits assembles par morceaux, en onze couches
+    sauvegarde.ts      le pont : capture de la partie, reprise, localStorage
   scenes/    les ecrans du jeu
+    MenuScene.ts         les trois emplacements, et le compte
     ChoixClasseScene.ts  choix de la classe de depart
     ArenaScene.ts        le combat
     UiScene.ts           l'interface, dans sa propre couche

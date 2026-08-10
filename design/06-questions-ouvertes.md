@@ -84,8 +84,11 @@ on fais x 2
       par se valoir, il faut les fusionner en une seule nourriture (§4.18).
 - [ ] Combien de temps un habitant met-il à grandir avant de pouvoir travailler ?
 - [ ] La cloche de rappel a-t-elle un coût, ou peut-on la sonner en boucle ?
-- [ ] La sauvegarde : elle passera par **Supabase**, pas par `localStorage`. Tant qu'elle
-      n'existe pas, rafraîchir la page est une nouvelle partie — et c'est assumé.
+- ✅ **La sauvegarde** — tranchée le 10 août 2026, et **dans l'autre sens que ce qui était
+      écrit ici**. La ligne disait « elle passera par Supabase, pas par `localStorage` ».
+      C'est l'inverse : le `localStorage` est la sauvegarde, Supabase en est une **copie**.
+      Une sauvegarde qui a besoin du réseau disparaît avec le réseau. **Trois
+      emplacements**, règle **ironman** (on écrase, mort comprise), tout est au §4.28.
 
 ### Ouvertes depuis le 10 août 2026
 

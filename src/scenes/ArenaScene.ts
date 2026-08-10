@@ -105,6 +105,17 @@ import {
 import type { Habitant, PostureCivile, Ressource, Stocks } from "../core/habitants";
 import type { Phase } from "../core/cycle";
 import { Commandement } from "../game/commandement";
+import {
+  appliquer,
+  capturer,
+  ecrireEnLocal,
+  effacerEnLocal,
+  nouvelleIdentitePartie,
+  type PartieEnCours,
+} from "../game/sauvegarde";
+import type { Emplacement, Sauvegarde } from "../core/sauvegarde";
+import { effacer as effacerCloud, envoyer } from "../en-ligne/sauvegardeCloud";
+import { enregistrerPartie } from "../en-ligne/parties";
 import type { EtatEquipe } from "../game/hud";
 import type { EtatOrdres } from "../game/panneauOrdres";
 import type { GroupeAffiche } from "../game/fichePersonne";
@@ -409,12 +420,31 @@ export class ArenaScene extends Phaser.Scene {
   private competenceEnEvolution: CompetenceDef | null = null;
   private optionsEvolution: EvolutionDef[] = [];
 
+  // ------------------------------------------------------------ la sauvegarde
+
+  /** L'emplacement joue, de 1 a 3 (DESIGN.md §4.28) */
+  private emplacement: Emplacement = 1;
+  /** La partie a reprendre, posee par `init` et consommee par `create` */
+  private reprise: Sauvegarde | null = null;
+  private identitePartie = "";
+  private revision = 0;
+  /** Millisecondes de jeu cumulees, sessions precedentes comprises */
+  private dureeJouee = 0;
+
   constructor() {
     super("arena");
   }
 
-  init(data: { classe?: ClassId }): void {
+  init(data: { classe?: ClassId; emplacement?: Emplacement; reprise?: Sauvegarde }): void {
     this.registry.set("classe", data.classe ?? "guerrier");
+    this.emplacement = data.emplacement ?? 1;
+    this.reprise = data.reprise ?? null;
+    // Une partie neuve prend une identite neuve ; une partie reprise garde la
+    // sienne, et c'est elle qui permet de reconnaitre la meme lignee d'un
+    // appareil a l'autre (§4.28).
+    this.identitePartie = data.reprise?.partie ?? nouvelleIdentitePartie();
+    this.revision = data.reprise?.revision ?? 0;
+    this.dureeJouee = data.reprise?.dureeJouee ?? 0;
     this.heros = [];
     this.indexIncarne = 0;
     this.kills = 0;
@@ -620,7 +650,106 @@ export class ArenaScene extends Phaser.Scene {
     this.debut = this.time.now;
     this.prochaineApparition = this.time.now + 1200;
     this.programmerHorde();
-    this.events.emit("annonce", "Jour 1 — le village se reveille");
+
+    // La reprise vient **apres** que tout a ete monte normalement : le monde
+    // neuf est construit, puis remplace piece par piece (§4.28). Un second
+    // chemin de construction aurait diverge du premier des le bloc suivant.
+    if (this.reprise) {
+      this.reprendreLaPartie(this.reprise);
+      this.reprise = null;
+    } else {
+      this.events.emit("annonce", "Jour 1 — le village se reveille");
+      this.enregistrer();
+    }
+
+    this.surveillerLaFermeture();
+  }
+
+  /** Le monde vivant, tel que la sauvegarde le voit (§4.28). */
+  private get partieEnCours(): PartieEnCours {
+    return {
+      scene: this,
+      equipe: this.equipe,
+      rng: this.rng,
+      cycle: this.cycle,
+      village: this.village,
+      eglise: this.eglise,
+      constructions: this.constructions,
+      champs: this.champs,
+      heros: this.heros,
+      indexIncarne: this.indexIncarne,
+      kills: this.kills,
+      dureeJouee: this.dureeJouee + (this.time.now - this.debut),
+      partie: this.identitePartie,
+      revision: this.revision,
+    };
+  }
+
+  private reprendreLaPartie(sauvegarde: Sauvegarde): void {
+    const monde = this.partieEnCours;
+    this.indexIncarne = appliquer(sauvegarde, monde, this.time.now);
+    // `appliquer` remplace le tirage et l'equipe : la scene reprend ce que le
+    // pont a repose.
+    this.rng = monde.rng;
+    this.kills = monde.kills;
+    this.dureeJouee = sauvegarde.dureeJouee;
+    this.debut = this.time.now;
+
+    const incarne = this.heros[this.indexIncarne];
+    if (incarne) {
+      incarne.estIncarne = true;
+      this.cameras.main.startFollow(incarne, true, 0.12, 0.12);
+    }
+    this.commandement = new Commandement(this.heros);
+    this.teinterLeCiel();
+    if (this.cycle.phase === "nuit") {
+      // La nuit reprend la ou elle en etait : l'effectif restant se recompose a
+      // partir du cycle, il ne se stocke pas monstre par monstre.
+      this.resteDeLaNuit = effectifDeLaNuit(this.cycle.nuit);
+      this.village.tomberLaNuit();
+      this.fronts = frontsDeLaVague(this.cycle.nuit, this.rng.next());
+      this.partPremierFront = repartition(this.fronts, this.rng.next());
+    }
+
+    const moment = this.cycle.phase === "nuit" ? "Nuit" : "Jour";
+    this.events.emit("annonce", `${moment} ${this.cycle.jour} — la partie reprend`);
+  }
+
+  /**
+   * La page qu'on quitte (§4.28).
+   *
+   * `visibilitychange` et non `unload` : c'est le seul evenement que les
+   * navigateurs mobiles emettent de facon fiable quand on change d'onglet ou
+   * qu'on verrouille l'ecran, et `unload` ne se declenche parfois jamais.
+   */
+  private surveillerLaFermeture(): void {
+    const partant = () => {
+      if (document.visibilityState === "hidden") this.enregistrer(true);
+    };
+    document.addEventListener("visibilitychange", partant);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
+      document.removeEventListener("visibilitychange", partant),
+    );
+  }
+
+  /**
+   * On enregistre (§4.28).
+   *
+   * Le local d'abord, toujours, et sans condition : c'est lui la sauvegarde.
+   * Le cloud ensuite, si un compte est connecte, et **au plus une fois par
+   * minute** — le dernier etat gagne, rien n'est mis en file. Aucun `await`
+   * ici : le jeu ne s'arrete pas pour attendre le reseau.
+   *
+   * ⚠️ **Regle ironman** : on ecrase, toujours, mort comprise. Fermer l'onglet
+   * apres avoir perdu un heros ne le ramene pas (§4.3).
+   */
+  private enregistrer(force = false): void {
+    if (!this.village) return;
+
+    this.revision += 1;
+    const sauvegarde = capturer(this.partieEnCours, this.time.now);
+    ecrireEnLocal(this.emplacement, sauvegarde);
+    void envoyer(this.emplacement, sauvegarde, force);
   }
 
   /**
@@ -3694,6 +3823,8 @@ export class ArenaScene extends Phaser.Scene {
 
     const ou = this.fronts.map((f) => NOMS_FRONT[f]).join(" et ");
     this.events.emit("annonce", `Nuit ${nuit} — ils arrivent ${ou}`);
+    // Un moment qui compte, et le dernier calme avant longtemps (§4.28).
+    this.enregistrer();
   }
 
   private leverLeJour(): void {
@@ -3704,6 +3835,8 @@ export class ArenaScene extends Phaser.Scene {
     this.passerLaJourneeDesHeros();
     this.programmerHorde();
     this.events.emit("annonce", `Jour ${this.cycle.jour} — le soleil se leve`);
+    // La nuit est finie : c'est le moment-cle par excellence (§4.28).
+    this.enregistrer();
   }
 
   /**
@@ -4056,6 +4189,11 @@ export class ArenaScene extends Phaser.Scene {
     this.heros[suivant]!.estIncarne = true;
     this.cameras.main.startFollow(this.heros[suivant]!, true, 0.12, 0.12);
     this.events.emit("hero-incarne", this.heros[suivant]!);
+
+    // ⚠️ **La regle ironman** (§4.28) : on enregistre la mort tout de suite.
+    // Fermer l'onglet apres avoir perdu un heros ne le ramene pas — c'est ce
+    // qui protege la mort definitive du §4.3, et ce n'est pas negociable.
+    this.enregistrer();
   }
 
   /**
@@ -4092,6 +4230,20 @@ export class ArenaScene extends Phaser.Scene {
     this.effacerDestination();
     const resume = this.resume;
     this.events.emit("fin-de-partie", resume.secondes, resume.kills);
+
+    // La partie est finie : l'emplacement se libere des deux cotes, et la
+    // partie part au classement (§4.28).
+    //
+    // ⚠️ **La copie cloud aussi.** L'oublier laisserait, au prochain
+    // chargement, la proposition de reprendre exactement la partie qu'on vient
+    // de perdre — la regle ironman se contournerait en changeant de machine.
+    effacerEnLocal(this.emplacement);
+    void effacerCloud(this.emplacement);
+    void enregistrerPartie({
+      jours: this.cycle.jour,
+      classe: (this.registry.get("classe") as ClassId) ?? "guerrier",
+      dureeSecondes: (this.dureeJouee + (this.time.now - this.debut)) / 1000,
+    });
   }
 
   // --------------------------------------------------------------- effets

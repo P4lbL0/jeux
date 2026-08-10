@@ -282,6 +282,26 @@ export class Eglise {
     this.pv += gain;
     return true;
   }
+
+  /**
+   * L'avancement du chantier, en millisecondes (§4.28).
+   *
+   * Il est prive parce que rien, en jeu, n'a de raison de l'ecrire — sauf la
+   * sauvegarde, qui doit reprendre un relevement la ou il en etait plutot que
+   * de le faire recommencer une journee entiere.
+   */
+  get chantier(): number {
+    return this.avancement;
+  }
+
+  /** Reprend l'etat d'une sauvegarde. **Aucun autre appelant que la reprise.** */
+  reprendre(niveau: NiveauEglise, etat: EtatEglise, pv: number, chantier: number): void {
+    this.niveau = niveau;
+    this.etat = etat;
+    this.pv = Math.max(0, Math.min(pv, this.pvMax));
+    this.avancement = chantier;
+    this.refugies = 0;
+  }
 }
 
 // ------------------------------------------------------------------ paiement

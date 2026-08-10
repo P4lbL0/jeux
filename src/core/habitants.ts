@@ -244,6 +244,17 @@ export function reinitialiserIdentifiants(): void {
 }
 
 /**
+ * Repositionne le compteur au-dessus d'une sauvegarde rechargee (§4.28).
+ *
+ * Sans ca, le premier arrivant d'une partie reprise porterait l'identifiant 1 —
+ * deja pris par un habitant du depart — et les deux se confondraient partout ou
+ * le code compare des identifiants.
+ */
+export function reserverIdentifiants(dernierId: number): void {
+  prochainId = Math.max(prochainId, dernierId + 1);
+}
+
+/**
  * @param rng seede par l'appelant : une meme graine redonne le meme village,
  *   statistiques, traits et portraits compris (§4.6)
  */

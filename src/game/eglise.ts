@@ -123,6 +123,18 @@ export class BatimentEglise {
     this.echos.annoncer(`L'eglise s'eleve — niveau ${this.regles.niveau}`);
   }
 
+  /**
+   * Elle reprend l'etat d'une sauvegarde (§4.28).
+   *
+   * Comme `monterDUnNiveau`, mais sans l'annonce : reprendre une partie n'est
+   * pas un evenement du village, et le joueur n'a pas a lire « l'eglise
+   * s'eleve » a chaque chargement.
+   */
+  reprendre(...etat: Parameters<Eglise["reprendre"]>): void {
+    this.regles.reprendre(...etat);
+    this.redessiner();
+  }
+
   lancerRelevement(stocks: Parameters<Eglise["lancerRelevement"]>[0]): boolean {
     if (!this.regles.lancerRelevement(stocks)) return false;
     this.echos.annoncer("Le chantier de l'eglise commence — une journee de travail");

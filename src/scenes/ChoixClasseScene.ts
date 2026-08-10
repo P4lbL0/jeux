@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { CLASSES, ORDRE_CLASSES, type ClassId } from "../core/classes";
 import { creerTexturesPlaceholder, echellePortrait } from "../game/art";
+import type { Emplacement } from "../core/sauvegarde";
 
 /**
  * Choix de la classe de depart (DESIGN.md §3, prologue).
@@ -13,8 +14,15 @@ import { creerTexturesPlaceholder, echellePortrait } from "../game/art";
 const HAUTEUR_PORTRAIT = 72;
 
 export class ChoixClasseScene extends Phaser.Scene {
+  /** L'emplacement choisi a l'ecran de depart (DESIGN.md §4.28) */
+  private emplacement: Emplacement = 1;
+
   constructor() {
     super("choix-classe");
+  }
+
+  init(data: { emplacement?: Emplacement }): void {
+    this.emplacement = data.emplacement ?? 1;
   }
 
   create(): void {
@@ -188,7 +196,7 @@ export class ChoixClasseScene extends Phaser.Scene {
   }
 
   private lancer(classe: ClassId): void {
-    this.scene.start("arena", { classe });
+    this.scene.start("arena", { classe, emplacement: this.emplacement });
   }
 }
 

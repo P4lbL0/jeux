@@ -2,9 +2,10 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-08-10 (**le bloc 5 est fait : traits, stress, états,
-> séquelles, statistiques, portraits, fiche unifiée et renommage — codés, testés et
-> joués**). **259 tests verts.**
+> Dernière mise à jour : 2026-08-10 (**la sauvegarde existe**, en local et en copie sur
+> le compte The Circle — §4.28, codé, testé et joué. Avant ça, le bloc 5 : traits,
+> stress, états, séquelles, statistiques, portraits, fiche unifiée et renommage).
+> **282 tests verts.**
 >
 > **Le prochain morceau est le bloc 6 du jalon 5 : les arrivées et le port.**
 > Tout est écrit dans `design/4.18-les-habitants.md` et `design/4.10-interface.md`.
@@ -68,8 +69,11 @@ quatre habitants au lieu de trois. Playwright est déclaré en `devDependencies`
 La recette qui marche :
 
 1. `npx vite --port 5199 --strictPort` en tâche de fond.
-2. Un script Node qui lance Chromium, va sur `http://localhost:5199/`, attend ~3 s,
-   appuie sur **`Digit1`** pour choisir une classe et démarrer.
+2. Un script Node qui lance Chromium, va sur `http://localhost:5199/`, attend ~3 s, puis
+   appuie sur **`Digit1` deux fois** : la première choisit l'emplacement de sauvegarde
+   (l'écran de départ, §4.28), la seconde la classe. Attendre ~1 s entre les deux.
+   ⚠️ Chaque contexte Playwright a son propre `localStorage` : les trois emplacements
+   sont vides à chaque lancement, sauf si on garde le même contexte.
 3. **Appuyer sur `Digit1` régulièrement** : le menu de choix de compétence met le jeu en
    pause et le fige tant qu'on ne choisit pas. Sans ça la partie s'arrête à ~45 s et on
    croit à un bug.
@@ -89,7 +93,7 @@ ne prouve rien sur un événement bref — il faut échantillonner dans la duré
 
 **Jalons 0 à 4 terminés**, et les **blocs 1 à 5 du jalon 5** (voir §5 de `DESIGN.md`) :
 
-- Vite + TypeScript + Phaser 3, tests avec Vitest. **259 tests verts.**
+- Vite + TypeScript + Phaser 3, tests avec Vitest. **282 tests verts.**
 - Sept classes jouables, attaque automatique, traits de classe, ultimes.
 - Une équipe : un héros incarné, les autres joués par l'IA.
 - **La règle des 20%** — le cœur du jeu : l'IA se replie à 20% de vie et ne perd jamais
@@ -280,6 +284,55 @@ Et une correction de design venue du jeu : **les héros ont un prénom**. La fic
 « Guerrier » en titre et « Guerrier · niveau 1 » juste en dessous. Héros et habitants
 tirent maintenant dans la même liste (`PRENOMS`), ce qui prépare le passage
 villageois → héros du bloc 9.
+
+### La sauvegarde et le compte The Circle (fait le 10 août 2026, §4.28)
+
+**Rafraîchir la page n'est plus une nouvelle partie.** La sauvegarde vit dans le
+`localStorage`, sur **trois emplacements**, et une copie optionnelle part sur la base
+Supabase de **The Circle** quand un compte est connecté.
+
+- **`src/core/sauvegarde.ts`** — pur et testé (23 tests). Il décrit la forme d'une
+  partie, sait l'écrire, la relire, et **comparer** deux copies. `comparer` ne choisit
+  pas : il décrit. Le seul écrasement automatique du jeu est celui d'un cloud
+  **strictement en retard sur la même lignée** ; tout le reste passe par une question au
+  joueur, avec une phrase de chaque côté.
+- **Un état, jamais un journal.** `mods` (l'agrégat des traits) n'est pas enregistré, il
+  se refait ; les monstres vivants non plus, la nuit se recompose depuis le cycle. Une
+  partie de jour 15 avec du bâti pèse **6,7 Ko** — le plafond de la base est à 256 Ko.
+- **`src/game/sauvegarde.ts`** — le pont. Il capture depuis une interface de quinze
+  champs, pas depuis la scène : `ArenaScene` fait 4200 lignes et n'a rien à faire là. La
+  reprise **rejoue les compétences palier par palier** au lieu de recopier `bonus` — un
+  bonus recopié aurait dérivé au premier rééquilibrage.
+- **`src/en-ligne/`** — le seul dossier qui connaît le réseau, **retirable en entier**.
+  Le client refuse toute clé qui n'est pas `anon` (le rôle est lu dans le jeton). Upsert
+  sur `(profile_id, slot)`, **60 s minimum entre deux envois**, aucun `await` réseau sur
+  le chemin de démarrage, aucune erreur réseau en popup.
+- **`src/scenes/MenuScene.ts`** — les trois emplacements, le compte, et l'écran
+  d'arbitrage. Pas d'inscription dans le jeu : un lien vers `the-circle.pro`.
+- **⚠️ Règle ironman** (tranchée le 10 août) : on écrase aux moments-clés, **mort
+  comprise**. C'est ce qui protège la mort définitive du §4.3 — sans ça, fermer un
+  onglet annulerait la perte d'un héros.
+
+**Ce qui a été vérifié en jouant** (Playwright, aucune erreur console) :
+
+| Vérifié | Résultat |
+|---|---|
+| Aller-retour complet | Jour 15, stocks, 7 héros, habitants, palissade, tour, 3 champs et leur maturité : tout revient à l'identique |
+| L'ironman | Un héros mort avant la sauvegarde est **toujours mort** après rechargement |
+| Un habitant marqué | Nom, rang, niveau, stress 88, maladie palier 1 : intacts, `mods` refait |
+| Supabase injoignable | Le menu s'affiche, la partie se lance, tourne à **44 FPS**, s'enregistre et se reprend |
+| Identifiants refusés | Le vrai serveur répond, et le message est « Adresse ou mot de passe refusé » |
+| Réseau coupé à la connexion | « Serveur injoignable. Tu peux jouer hors ligne » — et on joue immédiatement derrière |
+
+⚠️ **Un bug trouvé en jouant, invisible à la compilation** : `MenuScene` affichait le
+damier de texture manquante de Phaser, parce qu'elle utilisait `carte` sans appeler
+`creerTexturesPlaceholder`. **C'est exactement le piège déjà rencontré à l'écran de
+choix de classe** — les textures dessinées au code ne sont pas chargées par le boot, il
+faut les demander dans chaque scène qui s'en sert.
+
+⚠️ **Ce qui reste à faire tester par Angelos** : je n'ai pas de compte The Circle, donc
+la connexion réussie, la reprise **sur une autre machine** et le conflit local/cloud
+n'ont jamais été vus de bout en bout. Le refus d'identifiants et la panne réseau, si.
 
 ### Ce que la mesure a donné
 
@@ -540,12 +593,17 @@ brancher.
   mesuré en jeu, un habitant qui tient les portes face à des monstres de milieu de partie
   tombe en deux ou trois coups. Un défenseur se replie sous 50 % de vie, mais un gros coup
   saute par-dessus cette soupape. C'est une **valeur de départ à régler en jouant** (§6).
-- **La sauvegarde n'existe pas, et c'est assumé** : rafraîchir la page est une nouvelle
-  partie. Elle passera par **Supabase**, pas par `localStorage`.
+- ✅ **La sauvegarde existe depuis le 10 août 2026** — et **dans l'autre sens que ce qui
+  était écrit ici**. Ce paragraphe disait « elle passera par Supabase, pas par
+  `localStorage` » : c'est l'inverse. Le `localStorage` **est** la sauvegarde, Supabase
+  en est une copie. Une sauvegarde qui a besoin du réseau disparaît avec le réseau
+  (§4.28).
 - **Combinaison possiblement cassée** : `Écho` + `Capacités affinées` + `Danse des
   ombres` pourrait permettre d'enchaîner les capacités sans fin. Jamais vérifié en jeu.
-- **Pas de sauvegarde** (aucun `localStorage` dans le code). Prévu avec export/import de
-  fichier dès qu'il y aura une vraie progression à perdre.
+- **L'export/import de fichier n'existe pas**, et c'est volontaire : la règle ironman
+  (§4.28) refuse le rechargement silencieux. Une sortie de secours, si elle arrive un
+  jour, sera un export **explicite** — le joueur qui triche le fait sciemment, il ne
+  trébuche pas dessus.
 - **Le kamikaze ne blesse que les héros**, pas les invocations. Choix de simplicité, à
   revoir si ça se voit.
 - **Le martyre (Chevalier Sacré) ne déclenche pas `tomber()`** si le martyr incarné
@@ -586,7 +644,7 @@ antagoniste, ce qu'il perd à chaque défaite, comment on recrute un héros.
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (195)
+npx vitest run   # les tests (282)
 npm run build    # vérifie les types et construit
 
 npx tsx scripts/animer-sprites.ts --planche   # régénère les planches d'animation

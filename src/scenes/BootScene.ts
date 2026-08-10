@@ -34,7 +34,9 @@ export class BootScene extends Phaser.Scene {
       `[boot] ${ASSETS.length} sprite(s), ${ANIMATIONS.length} planche(s), ` +
         `${sequences} animation(s)`,
     );
-    this.scene.start("choix-classe");
+    // L'ecran de depart avant le choix de classe : c'est lui qui dit s'il y a
+    // une partie a reprendre (DESIGN.md §4.28).
+    this.scene.start("menu");
   }
 
   /**

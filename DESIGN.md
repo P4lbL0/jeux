@@ -3,10 +3,10 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-08-10 (trois sections neuves — le **système de builds**
-> (§4.25), la **mémoire du village** (§4.26) et la **vie autonome** (§4.27) — une
-> cinquième couche de personnage, les **séquelles**, la liste des **défenses** enfin
-> tranchée, et deux classes de plus)
+> Dernière mise à jour : 2026-08-10 (une section neuve, **la sauvegarde et le compte**
+> (§4.28) — la sauvegarde locale devient la référence et le cloud une copie, trois
+> emplacements, règle ironman ; elle **annule** la décision « la sauvegarde passera par
+> Supabase, pas par `localStorage` »)
 
 **Ce fichier est le sommaire.** Le contenu vit dans [`design/`](design/), un fichier par
 section — le document faisait 1800 lignes et n'était plus consultable d'un bloc.
@@ -85,6 +85,7 @@ Détail complet : [§1 Pitch](design/01-pitch.md).
 | **4.12** | [Défaite, corruption et antagoniste](design/4.12-defaite-corruption-et-antagoniste.md) |
 | **4.17** | [Tenir la fluidité](design/4.17-tenir-la-fluidite.md) |
 | **4.21** | [Le ciel : la météo et les catastrophes](design/4.21-le-ciel-la-meteo-et-les-catastrophes.md) |
+| **4.28** | [**La sauvegarde et le compte**](design/4.28-la-sauvegarde-et-le-compte.md) |
 
 ### Le plan
 

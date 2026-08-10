@@ -259,6 +259,37 @@ export class Village {
     return this.habitants.filter((v) => v.regles.vivant);
   }
 
+  /**
+   * Le village se vide, puis la sauvegarde le repeuple (§4.28).
+   *
+   * Le constructeur pose toujours les trois habitants du depart : c'est ce qu'il
+   * faut pour une partie neuve, et c'est exactement ce qu'il ne faut pas pour
+   * une partie reprise. Les effacer ici coute moins cher que de dupliquer la
+   * construction du village en deux chemins qui divergeraient un jour.
+   */
+  vider(): void {
+    for (const villageois of this.habitants) villageois.destroy();
+    this.habitants.length = 0;
+    this.journeesDesMorts.length = 0;
+  }
+
+  /**
+   * On reprend la partie a cette journee-la (§4.28).
+   *
+   * La memoire des morts revient avec : sans elle, une nuit desastreuse serait
+   * oubliee par la satisfaction au premier rechargement.
+   */
+  reprendre(journee: number, journeesDesMorts: number[]): void {
+    this.journee = journee;
+    this.journeesDesMorts.push(...journeesDesMorts);
+    this.recalculerSatisfaction();
+  }
+
+  /** La memoire des morts, pour la sauvegarde. */
+  get memoireDesMorts(): number[] {
+    return [...this.journeesDesMorts];
+  }
+
   get population(): number {
     return this.vivants.length;
   }
