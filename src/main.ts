@@ -25,5 +25,4 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, ChoixClasseScene, ArenaScene, UiScene],
 };
 
-// TEMPORAIRE — a retirer : sonde pour la partie jouee au Playwright.
-(window as unknown as { __jeu: Phaser.Game }).__jeu = new Phaser.Game(config);
+new Phaser.Game(config);

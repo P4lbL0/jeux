@@ -618,9 +618,15 @@ export class ArenaScene extends Phaser.Scene {
 
     // Les monstres butent sur l'eglise et la frappent : c'est leur cap, c'est ce
     // qu'ils viennent detruire (§4.22).
-    this.physics.add.collider(this.ennemis, this.eglise.sprite, (e) =>
-      this.cognerEglise(e as Ennemi),
-    );
+    //
+    // ⚠️ On ne suppose **pas** l'ordre des deux arguments. Phaser le decide
+    // selon la nature des operandes — groupe contre objet unique, il donne
+    // l'objet en premier — et le supposer coutait une exception par contact,
+    // trouvee en jouant et invisible a la compilation.
+    this.physics.add.collider(this.ennemis, this.eglise.sprite, (a, b) => {
+      const monstre = a === this.eglise.sprite ? b : a;
+      this.cognerEglise(monstre as Ennemi);
+    });
     this.physics.add.collider(this.equipe, this.eglise.sprite);
 
     this.fantome = this.add
@@ -2276,7 +2282,20 @@ export class ArenaScene extends Phaser.Scene {
     cible.pv -= degats;
     cible.flashJusqua = this.time.now + 70;
     eclatImpact(this, cible.x, cible.y - 4, cible.archetype.couleurImpact, 2);
-    if (cible.pv <= 0) this.marquerLaMort(cible);
+    if (cible.pv > 0) return true;
+
+    // ⚠️ `marquerLaMort` ne fait que **le visuel** : il faut detruire le sprite
+    // soi-meme. Une premiere version s'arretait a l'effet, et un monstre tue par
+    // un civil continuait a marcher et a frapper avec des points de vie
+    // negatifs. Trouve en jouant.
+    const mortX = cible.x;
+    const mortY = cible.y;
+    this.kills += 1;
+    this.marquerLaMort(cible);
+    cible.destroy();
+    // Le cadavre se releve pour le Necromancien comme n'importe quel autre : le
+    // §4.14 ne demande pas que ce soit un heros qui ait porte le coup.
+    this.tenterRelevement(mortX, mortY);
     return true;
   }
 

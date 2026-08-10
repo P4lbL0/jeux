@@ -412,6 +412,19 @@ export class Village {
     this.sortirDeLEglise(villageois);
     villageois.etat = "defend";
     villageois.setVelocity(0, 0);
+
+    // Il se place **sur le parvis, du cote de la menace**, et pas au milieu du
+    // batiment. Sans ca les trois defenseurs se superposaient au centre exact
+    // de l'eglise, donc dessines dedans — vu en jouant.
+    //
+    // L'ecart lateral vient de son identifiant : deux habitants ne tiennent
+    // jamais le meme pas de porte, et la place de chacun ne change pas d'une
+    // image a l'autre.
+    const vers = Math.atan2(monstre.y - EGLISE.y, monstre.x - EGLISE.x);
+    const ecart = ((villageois.regles.id % 3) - 1) * 0.5;
+    const angle = vers + ecart;
+    const rayon = EGLISE.emprise * 0.62;
+    villageois.setPosition(EGLISE.x + Math.cos(angle) * rayon, EGLISE.y + Math.sin(angle) * rayon);
     villageois.setFlipX(monstre.x < villageois.x);
 
     const combat = combatDe(villageois.regles);

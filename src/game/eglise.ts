@@ -28,6 +28,15 @@ export class BatimentEglise {
   /** Les regles pures. Tout ce qui se decide se decide la-dedans. */
   readonly regles = new Eglise();
 
+  /**
+   * ⚠️ **Statique, et il faut le dire.** Une premiere version l'avait creee avec
+   * `physics.add.image` puis passee en statique avec `physics.add.existing` :
+   * Phaser ne remplace pas un corps deja pose, l'eglise gardait donc un corps
+   * **dynamique** et les monstres la **poussaient**. Elle avait derive de 190 px
+   * vers le nord en quelques secondes, pendant que le refuge et le cap, eux,
+   * restaient sur la constante `EGLISE` — le batiment et sa fonction n'etaient
+   * plus au meme endroit. Trouve en jouant ; la compilation n'y voyait rien.
+   */
   readonly sprite: Phaser.Physics.Arcade.Image;
 
   /** Eclair blanc quand elle encaisse, pilote par horodatage (§4.17) */
@@ -44,9 +53,7 @@ export class BatimentEglise {
     // masquer un monstre qui arrive.
     this.halo = scene.add.graphics().setDepth(-500);
 
-    this.sprite = scene.physics.add.image(EGLISE.x, EGLISE.y, "eglise-1");
-    scene.physics.add.existing(this.sprite, true);
-    this.callerLeCorps();
+    this.sprite = scene.physics.add.staticImage(EGLISE.x, EGLISE.y, "eglise-1");
     this.redessiner();
   }
 
@@ -140,6 +147,10 @@ export class BatimentEglise {
     this.sprite.setOrigin(0.5, 1 - (EGLISE.emprise * 0.3) / this.sprite.height);
     this.sprite.setDepth(EGLISE.y + 4);
     this.sprite.setAlpha(aTerre ? 0.55 : 1);
+
+    // Apres le changement de texture : un corps statique ne suit pas tout seul
+    // une origine ni une taille qui changent.
+    this.callerLeCorps();
 
     this.halo.clear();
     if (aTerre) return;
