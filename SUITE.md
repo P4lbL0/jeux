@@ -2,12 +2,11 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-08-09 (après la **refonte complète du design du village, des
-> villageois, de l'église, du stress et du commerce** — aucun code écrit depuis le bloc 3,
-> sauf le sprite de l'église).
+> Dernière mise à jour : 2026-08-10 (**le bloc 4 est fait : l'église est codée, testée et
+> jouée**). 195 tests verts.
 >
-> **Le prochain morceau est le bloc 4 du jalon 5 : l'église.** Tout est écrit dans
-> `design/4.22-l-eglise-le-coeur-du-village.md`.
+> **Le prochain morceau est le bloc 5 du jalon 5 : les traits, le stress et les états.**
+> Tout est écrit dans `design/4.23-les-traits-les-humeurs-et-les-etats.md`.
 
 ---
 
@@ -83,9 +82,9 @@ ne prouve rien sur un événement bref — il faut échantillonner dans la duré
 
 ## Ce qui est déjà fait
 
-**Jalons 0 à 4 terminés**, et les **blocs 1, 2 et 3 du jalon 5** (voir §5 de `DESIGN.md`) :
+**Jalons 0 à 4 terminés**, et les **blocs 1, 2, 3 et 4 du jalon 5** (voir §5 de `DESIGN.md`) :
 
-- Vite + TypeScript + Phaser 3, tests avec Vitest. **155 tests verts.**
+- Vite + TypeScript + Phaser 3, tests avec Vitest. **195 tests verts.**
 - Sept classes jouables, attaque automatique, traits de classe, ultimes.
 - Une équipe : un héros incarné, les autres joués par l'IA.
 - **La règle des 20%** — le cœur du jeu : l'IA se replie à 20% de vie et ne perd jamais
@@ -196,12 +195,50 @@ Touches ajoutées : **`B`** la cloche (tout le monde rentre), **`F`** le tableau
 - Conséquence sur le cœur : `PRODUCTION.fermier` vaut `null` et `cadence()` ne regarde
   plus ce que le métier récolte — sinon le fermier comptait deux fois.
 
+### Le bloc 4 — l'église (fait le 10 août 2026)
+
+- **`src/core/eglise.ts`** — pur et testé (25 tests). Une table `PALIERS` porte les quatre
+  niveaux, une table `CONDITIONS` porte leurs quatre conditions. C'est le seul endroit à
+  toucher pour re-régler l'église.
+- **Les chiffres tranchés** : **1200 PV** (+600 par niveau), **rayon de soin de 90 px**
+  (+30 par niveau, contre 150 px pour l'ancien cercle du village), relèvement à **120 bois
+  et une journée entière**.
+- **L'argent et la satisfaction sont neutralisés, pas oubliés.** Les quatre conditions sont
+  écrites en entier ; `ContexteMontee.argent` et `.satisfaction` sont **optionnels**, et
+  `undefined` veut dire « ce système n'existe pas encore », surtout pas « zéro ». Les blocs
+  5 et 6 n'auront que deux champs à remplir.
+- **Le refuge a changé de nature** : un habitant **entre dans le bâtiment** (sprite caché,
+  corps désactivé) et n'est protégé que tant qu'elle tient. L'ancien « arrivé au village
+  donc à l'abri » n'a jamais protégé de rien — `rattraperHabitant` tuait quand même.
+- **Les soins ne viennent plus que d'elle**, et **zéro quand elle est à terre**. Conséquence
+  assumée : un héros IA en repli reste en repli, hors du combat, jusqu'à ce qu'elle se
+  relève.
+- **Les monstres ont l'église pour cap** (`cibleDe(e) ?? EGLISE`) et la frappent.
+- **Les habitants ont un bloc de combat** (§4.18) — PV, dégâts, portée, cadence, dérisoires.
+  Un courageux ressort tenir les portes ; un défenseur **encaisse** au lieu de mourir au
+  contact, sinon sortir défendre serait un suicide pur.
+- Touche **`Y`** : monter l'église d'un niveau, ou relancer son chantier. Le refus dit
+  toujours ce qui manque.
+
+⚠️ **Trois bugs trouvés en jouant, aucun visible à la compilation** — c'est le meilleur
+argument pour continuer à jouer chaque bloc :
+
+1. `physics.add.image` crée un corps **dynamique**, et `physics.add.existing(sprite, true)`
+   **ne remplace pas** un corps déjà posé. L'église avait donc un corps dynamique et les
+   monstres la **poussaient** : 190 px de dérive en quelques secondes, pendant que le refuge
+   et le cap restaient sur la constante `EGLISE`. Utiliser `staticImage`.
+2. **Phaser inverse les arguments du collider** quand on fait se rencontrer un groupe et un
+   objet unique. Ne jamais supposer l'ordre : tester lequel des deux est lequel.
+3. `marquerLaMort` **n'est que le visuel** — il faut détruire le sprite soi-même, sinon le
+   monstre survit avec des points de vie négatifs.
+
 ## Ce qui reste à faire
 
 ### Tout de suite
 
-1. **Coder le bloc 4 : l'église.** C'est le prochain morceau, et le design est complet
-   (§4.22). Commence par me dire ce que tu comptes toucher avant d'écrire.
+1. **Coder le bloc 5 : les traits, le stress et les états** (§4.23). Le point d'accroche
+   existe déjà : `Habitant.courage` sera écrit par les traits, et l'église porte déjà la
+   purge en attente.
 
    ⚠️ Le rythme 30/15 est **confirmé, on n'y touche pas** — mais il reste jamais testé, et
    une journée dure 45 minutes réelles. Pour voir les systèmes lents (naissances, niveaux
@@ -215,8 +252,23 @@ Touches ajoutées : **`B`** la cloche (tout le monde rentre), **`F`** le tableau
 
 ### ⚠️ Le design du village a été entièrement refondu les 8 et 9 août 2026
 
-**Aucune ligne de code n'a encore été écrite pour ça** — sauf le sprite de l'église. Le
-design est à jour, le code ne l'est pas : c'est **le plus gros écart du projet à ce jour**.
+**Le bloc 4 (l'église) est maintenant codé** ; tout le reste de cette refonte attend
+toujours son code. L'écart s'est réduit, il n'a pas disparu.
+
+**Deux décisions du 10 août annulent des règles défendues ailleurs**, et les paragraphes
+périmés ont été réécrits plutôt que laissés en place :
+
+- **Il n'y a aucun abri magique.** Un habitant entre dans l'église et n'est protégé que tant
+  qu'elle tient debout ; se tenir à côté ne protège de rien. La vraie défense est **celle
+  qu'on bâtit** — murs améliorables au fer, porte cassable, douves, douves en eau,
+  ponts-levis. Tout ça est écrit au §4.20 et **codé au bloc 7**, avec le mode d'aménagement.
+- **Les habitants ont de vraies statistiques de combat** (§4.18). Ça annule frontalement la
+  règle « pas de statistiques de combat », qui était écrite au §4.18, au §4.20 **et** au
+  §4.22. La raison qui l'emporte : **les futurs héros sortent du village**, donc un habitant
+  sans rien de mesurable deviendrait héros par magie. Trois garde-fous tiennent la digue :
+  aucune compétence ni évolution ni point à distribuer, dix miliciens ne remplacent pas un
+  héros, et se battre empêche de produire. L'entraînement, les **miliciens** qui patrouillent
+  les rues et le passage **villageois → héros** ont leur propre bloc (le bloc 9).
 
 Ce qui a changé, et il y en a beaucoup :
 
@@ -288,12 +340,13 @@ dépendances** :
 
 | Bloc | Contenu |
 |---|---|
-| **4** | **L'église** : refuge, soins, purge, cap des monstres, ses 4 niveaux et leurs 4 conditions, destruction et reconstruction |
+| **4** ✅ | **L'église** : on y entre, soins, cap des monstres, ses 4 niveaux et leurs 4 conditions, destruction et relèvement, bloc de combat civil |
 | **5** | **Traits, stress et états**, portraits assemblés, fiche unifiée, renommage |
 | **6** | **Les arrivées** : fiche d'observation, les 6 indices, les fous et leurs groupes, naissances, survivants, **le port et le commerce** |
-| **7** | **Mode d'aménagement** : édition en pause, construction libre, tout se casse, village en ruines, sol et chemins |
+| **7** | **Mode d'aménagement** : édition en pause, construction libre, tout se casse, village en ruines, sol et chemins — et **la forteresse** : murs au fer, porte, douves, eau, pont-levis |
 | **8** | **Les ordres pour tous** : n'importe qui fait n'importe quoi, menu d'ordres, héros au travail |
-| **9** | Confort : options, pause Échap, touches remappables |
+| **9** | **Le village armé** : entraînement au combat, métier de milicien, passage villageois → héros |
+| **10** | Confort : options, pause Échap, touches remappables |
 
 **Pourquoi cet ordre et pas celui d'avant.** Les arrivées étaient prévues en premier parce
 qu'elles étaient déjà écrites. Elles ne peuvent plus : la fiche d'observation a besoin des
@@ -385,10 +438,13 @@ brancher.
   tout ce qui apparaît a un plafond, la difficulté monte par la force et non par le
   nombre, aucun objet Texte créé en plein combat, aucune minuterie par coup encaissé,
   rien qui trie une liste par entité et par image.
-- **La cité est toujours un abri total** : on s'y soigne et rien n'empêche d'y camper
-  (`majEtats`, `ArenaScene.ts`). Le trou n'est **qu'à moitié fermé** : les habitants
-  peuvent maintenant mourir pendant qu'on campe, et perdre le dernier finit la partie —
-  mais les monstres ne s'en prennent toujours pas aux bâtiments. C'est le bloc 3.
+- ✅ **La cité n'est plus un abri total.** Le bloc 4 a fermé ce trou : on ne se soigne que
+  dans les 90 px autour de l'église, et pas du tout quand elle est à terre. Les monstres
+  s'en prennent aux bâtiments — elle est leur cap.
+- **Les défenseurs civils meurent vite, et le chiffre n'est pas réglé.** 30 PV au rang F :
+  mesuré en jeu, un habitant qui tient les portes face à des monstres de milieu de partie
+  tombe en deux ou trois coups. Un défenseur se replie sous 50 % de vie, mais un gros coup
+  saute par-dessus cette soupape. C'est une **valeur de départ à régler en jouant** (§6).
 - **La sauvegarde n'existe pas, et c'est assumé** : rafraîchir la page est une nouvelle
   partie. Elle passera par **Supabase**, pas par `localStorage`.
 - **Combinaison possiblement cassée** : `Écho` + `Capacités affinées` + `Danse des
@@ -409,8 +465,15 @@ brancher.
 Listées au §6 (`design/06-questions-ouvertes.md`). Celles qui bloquent les prochains
 blocs :
 
-- **Les seuils de satisfaction** exigés par chaque niveau d'église, et le coût de chacun
-  en argent et en matériaux (bloc 4).
+- **Combien vaut un habitant au combat** (bloc 4, à régler en jouant). Les valeurs posées
+  sont volontairement dérisoires — 30 PV, 3 dégâts, 34 px de portée, 1,4 s de recharge au
+  rang F — et **mesurées trop fragiles** : un défenseur tombe en deux ou trois coups face à
+  des monstres de milieu de partie.
+- **Les coûts des niveaux 2, 3 et 4 de l'église** en matériaux et en population : les
+  chiffres en place (120 bois / 6 habitants, 260 / 12, 500 / 20) sont des premiers jets
+  jamais joués jusque-là.
+- **Les seuils de satisfaction et d'argent** de chaque niveau d'église : écrits, mais
+  neutralisés tant que les blocs 5 et 6 ne les alimentent pas.
 - **La vitesse de la jauge de stress** — combien de temps pour la remplir, pour la vider,
   et de combien le rang la ralentit (bloc 5).
 - **Combien de pièces de portrait** pour que deux habitants ne se ressemblent jamais
@@ -428,7 +491,7 @@ antagoniste, ce qu'il perd à chaque défaite, comment on recrute un héros.
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (105)
+npx vitest run   # les tests (195)
 npm run build    # vérifie les types et construit
 
 npx tsx scripts/animer-sprites.ts --planche   # régénère les planches d'animation
