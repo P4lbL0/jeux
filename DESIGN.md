@@ -3,9 +3,10 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-08-09 (les habitants gagnent de vraies **statistiques de
-> combat**, l'abri magique disparaît au profit d'une **vraie forteresse**, et les chiffres
-> de l'église sont tranchés)
+> Dernière mise à jour : 2026-08-10 (trois sections neuves — le **système de builds**
+> (§4.25), la **mémoire du village** (§4.26) et la **vie autonome** (§4.27) — une
+> cinquième couche de personnage, les **séquelles**, la liste des **défenses** enfin
+> tranchée, et deux classes de plus)
 
 **Ce fichier est le sommaire.** Le contenu vit dans [`design/`](design/), un fichier par
 section — le document faisait 1800 lignes et n'était plus consultable d'un bloc.
@@ -55,6 +56,7 @@ Détail complet : [§1 Pitch](design/01-pitch.md).
 | **4.14** | [Le Nécromancien](design/4.14-le-necromancien.md) |
 | **4.15** | [L'effectif : dix dehors, le reste en garnison](design/4.15-l-effectif-dix-dehors-le-reste-en-garnison.md) |
 | **4.16** | [Formations et expérience de groupe](design/4.16-formations-et-experience-de-groupe.md) |
+| **4.25** | [**Tags, fusions et synergies — le système de builds**](design/4.25-tags-fusions-et-synergies.md) |
 
 **Le village**
 
@@ -67,6 +69,8 @@ Détail complet : [§1 Pitch](design/01-pitch.md).
 | **4.22** | [**L'église : le cœur du village**](design/4.22-l-eglise-le-coeur-du-village.md) |
 | **4.23** | [**Les traits, le stress et les états**](design/4.23-les-traits-les-humeurs-et-les-etats.md) |
 | **4.24** | [**Le village qu'on aménage**](design/4.24-le-village-qu-on-amenage.md) |
+| **4.26** | [**Les relations, les souvenirs et la mémoire du village**](design/4.26-les-relations-les-souvenirs-et-la-memoire-du-village.md) |
+| **4.27** | [**La vie autonome**](design/4.27-la-vie-autonome.md) |
 
 **Le reste**
 
@@ -101,10 +105,13 @@ Détail complet : [§1 Pitch](design/01-pitch.md).
 - **Pour savoir quoi coder ensuite** : [§5](design/05-ordre-de-construction.md).
 - **Avant d'ajouter quoi que ce soit à l'écran** :
   [§4.17](design/4.17-tenir-la-fluidite.md). Ses cinq règles ne se négocient pas.
-- **Les trois sections les plus récentes**, et celles que le code ne connaît pas encore :
-  [§4.22 l'église](design/4.22-l-eglise-le-coeur-du-village.md),
+- **Les sections les plus récentes**, et celles que le code ne connaît pas encore :
   [§4.23 les traits et les états](design/4.23-les-traits-les-humeurs-et-les-etats.md),
-  [§4.24 le village qu'on aménage](design/4.24-le-village-qu-on-amenage.md).
+  [§4.24 le village qu'on aménage](design/4.24-le-village-qu-on-amenage.md),
+  [§4.25 tags, fusions et synergies](design/4.25-tags-fusions-et-synergies.md),
+  [§4.26 la mémoire du village](design/4.26-les-relations-les-souvenirs-et-la-memoire-du-village.md),
+  [§4.27 la vie autonome](design/4.27-la-vie-autonome.md).
+  (Le §4.22, l'église, est **codé** depuis le 10 août.)
 
 ## Comment on tient ce document
 

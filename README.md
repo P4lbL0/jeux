@@ -91,7 +91,7 @@ les mort-vivants du Necromancien, et l'**experience de groupe** : deux heros qui
 se battent cote a cote apprennent a travailler ensemble (+10% de degats au
 plafond, visible dans la fiche de heros).
 
-**Jalon 5, en cours** — le village vivant, en quatre blocs.
+**Jalon 5, en cours** — le village vivant, en douze blocs.
 
 - *bloc 1* — la carte, les flancs fermes, les fronts.
 - *bloc 2* — le **cycle jour/nuit** (30 min de jour, 15 de nuit), les hordes qui
@@ -100,7 +100,11 @@ plafond, visible dans la fiche de heros).
 - *bloc 3* — la carte en **grille modifiable**, les murs et les tours qu'on
   batit et qui cedent, le **rayon de vue** qui ferme enfin le camping, les
   ordres civils, et les **champs de ble** qu'on seme et qu'une horde ruine.
-- *bloc 4, a faire* — les arrivees aux portes, les naissances, les traitres.
+- *bloc 4* — l'**eglise** : on y entre, elle soigne, elle purge, elle est le cap
+  des monstres, elle monte en quatre niveaux et elle peut tomber.
+- *bloc 5* — les **traits, le stress et les etats**, les sequelles, les trois
+  statistiques, les portraits assembles, la fiche unifiee et le renommage.
+- *bloc 6, a faire* — les arrivees aux portes, les naissances, les fous, le port.
 
 ### Le cycle jour/nuit (§4.19)
 
@@ -122,7 +126,34 @@ endroit a toucher pour changer le rythme du jeu.
 | `T` | Monter dans une tour a portee, ou en descendre |
 
 Dans le tableau du village, **cliquer** un habitant change sa posture, **clic
-droit** l'envoie a un autre poste.
+droit** l'envoie a un autre poste, **Maj + clic** ouvre sa fiche.
+
+### Les traits, le stress et les etats (§4.23)
+
+Heros et habitants partagent **un seul systeme** : trois statistiques en
+pourcentage (Force, Courage, Intelligence), des **traits** illimites et le plus
+souvent mauvais, une **jauge de stress** qui ne fait rien jusqu'a la rupture, et
+des **etats** qui tuent en 5 a 7 journees si on ne les soigne pas.
+
+- **Un trait vaut peu** — 2 a 5 %, un seuil decale. Ils se gagnent par
+  **exploit**, jamais par tirage : tuer 200 monstres, voir mourir trois
+  habitants, passer dix nuits dehors.
+- **Une sequelle est enorme et definitive**, et elle ne s'obtient qu'en survivant
+  au stade *Mourant*. Soigner quelqu'un in extremis le sauve **et** l'abime.
+- **A 100 % de stress il craque** (paranoia, terreur, rage, abattement, ou
+  rarement il se transcende). **A 200 % le coeur lache.** Un civil qui craque ne
+  frappe jamais personne — au pire il lache son poste.
+- **La satisfaction du village** tombe de tout ca, et c'est **elle qui debloque
+  les niveaux d'eglise**. La boucle se referme.
+
+Tous les chiffres vivent dans **une seule table**, `REGLAGES_STRESS` en haut de
+[src/core/personne.ts](src/core/personne.ts).
+
+**Une seule fiche** pour les deux populations
+([fichePersonne.ts](src/game/fichePersonne.ts)) : portrait assemble, nom
+modifiable, statistiques, traits, etats — puis les competences pour un heros, le
+metier pour un habitant. Cliquer le nom le **renomme** (les touches du jeu sont
+coupees pendant la saisie).
 
 ### Les constructions (§4.20)
 
@@ -179,6 +210,11 @@ src/
     habitants.ts     metiers, cadence, progression et faim (testee)
     grille.ts        la carte modifiable, cuite depuis carte.ts (testee)
     constructions.ts murs et tours : couts, points de vie (testee)
+    eglise.ts        niveaux, conditions, chute et relevement (testee)
+    personne.ts      ce qu'un heros et un habitant ont en commun (testee)
+    traits.ts        traits, sequelles et leur agregat (testee)
+    etats.ts         maladie, hemorragie, infection, lethargie (testee)
+    satisfaction.ts  le moral du village, qui debloque l'eglise (testee)
   game/      ce qui vit a l'ecran
     art.ts             textures placeholder generees par code
     entities.ts        heros, ennemis et invocations
@@ -191,7 +227,8 @@ src/
     panneauCapacites.ts panneau des capacites, en bas a gauche
     panneauOrdres.ts   qui obeit, et a quoi
     choixCompetence.ts ecran de montee de niveau
-    ficheHero.ts       fiche detaillee d'un heros
+    fichePersonne.ts   LA fiche : heros et habitants, et le renommage
+    portraits.ts       portraits assembles par morceaux, en onze couches
   scenes/    les ecrans du jeu
     ChoixClasseScene.ts  choix de la classe de depart
     ArenaScene.ts        le combat

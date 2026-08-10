@@ -2,11 +2,16 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-08-10 (**le bloc 4 est fait : l'église est codée, testée et
-> jouée**). 195 tests verts.
+> Dernière mise à jour : 2026-08-10 (**le bloc 5 est fait : traits, stress, états,
+> séquelles, statistiques, portraits, fiche unifiée et renommage — codés, testés et
+> joués**). **259 tests verts.**
 >
-> **Le prochain morceau est le bloc 5 du jalon 5 : les traits, le stress et les états.**
-> Tout est écrit dans `design/4.23-les-traits-les-humeurs-et-les-etats.md`.
+> **Le prochain morceau est le bloc 6 du jalon 5 : les arrivées et le port.**
+> Tout est écrit dans `design/4.18-les-habitants.md` et `design/4.10-interface.md`.
+>
+> Le bloc 6 a maintenant tout ce qui lui manquait : les **portraits** (la fiche
+> d'observation en a besoin), les **traits** (un pyromane est un indice à lui seul), et
+> l'**église** (« il refuse d'y entrer »). C'est exactement pour ça qu'il passait après.
 
 ---
 
@@ -82,9 +87,9 @@ ne prouve rien sur un événement bref — il faut échantillonner dans la duré
 
 ## Ce qui est déjà fait
 
-**Jalons 0 à 4 terminés**, et les **blocs 1, 2, 3 et 4 du jalon 5** (voir §5 de `DESIGN.md`) :
+**Jalons 0 à 4 terminés**, et les **blocs 1 à 5 du jalon 5** (voir §5 de `DESIGN.md`) :
 
-- Vite + TypeScript + Phaser 3, tests avec Vitest. **195 tests verts.**
+- Vite + TypeScript + Phaser 3, tests avec Vitest. **259 tests verts.**
 - Sept classes jouables, attaque automatique, traits de classe, ultimes.
 - Une équipe : un héros incarné, les autres joués par l'IA.
 - **La règle des 20%** — le cœur du jeu : l'IA se replie à 20% de vie et ne perd jamais
@@ -232,21 +237,72 @@ argument pour continuer à jouer chaque bloc :
 3. `marquerLaMort` **n'est que le visuel** — il faut détruire le sprite soi-même, sinon le
    monstre survit avec des points de vie négatifs.
 
-## Ce qui reste à faire
+### Le bloc 5 — les traits, le stress et les états (fait le 10 août 2026)
+
+**Héros et habitants partagent enfin un seul système.** C'est le vrai résultat du bloc :
+`core/personne.ts` porte ce qu'ils ont en commun, et les deux populations le lisent.
+
+- **`src/core/traits.ts`** — 15 traits de naissance, 11 d'exploit, 5 séquelles, et
+  **l'agrégat**. Les traits sont stockés **par identifiant numérique** (l'index dans
+  `TRAITS`) et leurs effets sont fusionnés **une seule fois** quand quelque chose change.
+  Porter trente traits ne coûte pas une multiplication de plus qu'en porter zéro.
+  ⚠️ Un test vérifie que l'index n'a pas bougé : réordonner la table changerait les traits
+  de tout un village sans qu'aucun type ne bronche.
+- **`src/core/etats.ts`** — maladie et blessure en 3 paliers sur 6 journées, **hémorragie
+  qui tue en une journée**, **infection fongique contagieuse**, léthargie. Le stade
+  *Mourant* est **la seule source de séquelles du jeu**.
+- **`src/core/personne.ts`** — les 3 statistiques **en pourcentage**, le stress, la
+  rupture, les compteurs d'exploits. Une seule table, `REGLAGES_STRESS`.
+- **`src/core/satisfaction.ts`** — et **elle est branchée** : `ContexteMontee.satisfaction`
+  est rempli, donc la 3ᵉ des 4 conditions de l'église mord pour de bon. Seul `argent` reste
+  `undefined` — il vient du port, au bloc 6. La boucle du §4.23 est refermée.
+- **`src/game/portraits.ts`** — **onze couches**, plus de dix millions de combinaisons,
+  plus une couche d'état (pâleur, cernes, balafre, regard fuyant). Cache **plafonné à 96
+  textures**, le plus ancien détruit.
+- **`src/game/fichePersonne.ts`** — **une seule fiche** pour les deux populations, et
+  `ficheHero.ts` a été supprimé. Renommage au clic sur le nom, avec les touches du jeu
+  coupées pendant la saisie.
+
+⚠️ **Trois bugs trouvés en jouant, aucun visible à la compilation** — le même score qu'au
+bloc 4, et le même argument :
+
+1. **En JavaScript, `^` rend un entier *signé*.** Le mélangeur de graine des portraits
+   finissait négatif une fois sur deux, `x % longueur` aussi, et `banque[-3]` vaut
+   `undefined` : **la fiche plantait à l'ouverture**. TypeScript ne voit rien, le type est
+   `number` dans les deux cas. Il faut un `>>> 0` final.
+2. **La barbe était dessinée après la bouche**, donc elle la recouvrait entièrement. Un
+   visage sans bouche ne peut plus rien exprimer, ce qui vide de son sens toute la couche
+   d'état. L'ordre de dessin est du contenu, pas du détail.
+3. **Cliquer un nom puis taper donnait « AubinBertrand ».** La première frappe doit
+   remplacer — c'est la convention de tout champ qu'on ouvre sur un contenu déjà là.
+
+Et une correction de design venue du jeu : **les héros ont un prénom**. La fiche affichait
+« Guerrier » en titre et « Guerrier · niveau 1 » juste en dessous. Héros et habitants
+tirent maintenant dans la même liste (`PRENOMS`), ce qui prépare le passage
+villageois → héros du bloc 9.
+
+### Ce que la mesure a donné
+
+- **Le stress monte deux fois moins vite que visé.** Une nuit dehors sans se faire toucher
+  ne rend que **5 à 8 points** ; ce sont les **coups encaissés** (1,5 chacun) qui dominent.
+  Ça veut dire que ce qui use, c'est de se battre, pas de veiller — pas forcément un
+  défaut, mais ce n'est pas ce qui était visé. Reste au §6.
+- **La satisfaction tourne à 50-51** pour un village calme dès le premier jour, donc le
+  seuil de 40 du niveau 2 est atteignable. Vérifié en jeu : avec une satisfaction de 5,
+  l'église renvoie bien `satisfaction` dans ce qui manque ; avec la vraie, non.
+- **Les boucles de moral ne coûtent rien de mesurable** : 38 FPS avec, 36 sans — dans le
+  bruit. Les deux tournent par **battements de 500 ms**, gardés par horodatage.
 
 ### Tout de suite
 
-1. **Coder le bloc 5 : les traits, le stress et les états** (§4.23). Le point d'accroche
-   existe déjà : `Habitant.courage` sera écrit par les traits, et l'église porte déjà la
-   purge en attente.
-
-   ⚠️ Le rythme 30/15 est **confirmé, on n'y touche pas** — mais il reste jamais testé, et
-   une journée dure 45 minutes réelles. Pour voir les systèmes lents (naissances, niveaux
-   d'église, stress qui s'accumule), il faudra tricher dans la console comme décrit
-   plus haut (`arene.cycle.ecoule = arene.cycle.duree - 30`).
+1. **Coder le bloc 6 : les arrivées et le port** (§4.18, §4.10). La fiche d'observation est
+   un **mode de plus de la fiche unifiée**, pas une interface neuve — `SujetFiche` est une
+   union, il n'y a qu'un cas à ajouter.
 2. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
    parce qu'à 32 px, 3 px disloquent le personnage. Amplitudes en haut de
    `scripts/animer-sprites.ts`.
+3. **Régler le stress sur une vraie partie.** Il n'a jamais tourné plus de deux minutes
+   d'affilée, et personne n'a encore craqué en conditions réelles.
 3. ✅ **Le `feedback.md` a été traité** (session du 8-9 août). Tout est tranché et écrit
    dans `DESIGN.md` : appétit des héros, totem, fous, humeurs, renommage, options.
 
@@ -317,6 +373,45 @@ Ce qui a changé, et il y en a beaucoup :
   menu d'**options** (§4.10). **Pas de dégâts physiques/magiques séparés.** Rythme **30/15
   inchangé**.
 
+### ⚠️ Deuxième vague de design, le soir du 10 août 2026
+
+Deux paquets de notes brutes traînaient depuis des jours — 750 lignes à la fin du §4.23 et
+le fichier `COMPETENCES_MAGIC_SURVIVAL_LE_PROTECTEUR.md` en entier. **Tout a été dépouillé
+et transformé en design.** Trois sections neuves, et aucune ligne de code écrite pour
+l'instant :
+
+- **§4.25 — tags, fusions et synergies.** L'échelle qui verrouille tout (palier → évolution
+  → fusion → synergie → mythique), les **tags** (⚠️ un élément est un tag, **jamais** un
+  type de dégâts — le §4.2 tient), **aucune limite d'emplacements** mais une fusion en
+  **consomme deux**, **26 fusions** dont 4 secrètes, 3 synergies, et **les traits qui
+  pondèrent la pioche** (un Pyromane voit le FEU ×3). Plus quatre familles hors combat :
+  sociales, de groupe, de formation, et **du village** (« TOUT LE MONDE AU MUR »).
+- **§4.26 — la mémoire du village.** Les **relations** (système *séparé* de l'affinité du
+  §4.16 : l'affinité est militaire, la relation est sociale), les souvenirs bornés à huit
+  entrées, ce qu'une mort produit, l'**héritage immatériel** (l'équipement est reporté), et
+  les **légendes assemblées à partir de gabarits** — jamais générées librement.
+- **§4.27 — la vie autonome.** La journée qu'on enchaîne sans ordre, et des **initiatives
+  rares** déclenchées quand un trait fort rencontre une situation extrême. On ne fait
+  **pas** la simulation complète à la WorldBox — 90 % de l'effet pour 10 % du coût.
+
+Et dans les sections existantes :
+
+- **§4.23** : une **cinquième couche**, la **séquelle** (survivre au stade *Mourant* laisse
+  un handicap lourd et ineffaçable — le meilleur dilemme du document) ; 8 traits de plus ;
+  trois états hors rythme dont l'**hémorragie qui tue en une journée** et l'**infection
+  fongique contagieuse** ; et **trois statistiques** — Force, Courage, **Intelligence**
+  (bâtir moins cher, monter plus vite).
+- **§4.7** : la liste des défenses est enfin tranchée, en quatre familles. **Ce qui tire
+  est au §4.7, ce qui bloque reste au §4.20** — le doublon murs/portes/douves est supprimé.
+- **§4.1** : deux classes très rares de plus, le **Voidwalker** et le **Bastion** (immobile
+  seulement pendant son ultime, sinon il attaquerait le pilier « bouger est amusant »).
+- **§4.12** : un héros peut désormais basculer en antagoniste **pendant** la partie, via le
+  stress et les séquelles — et c'est annoncé plusieurs fois avant.
+- **§4.18** : la **banque**, et les **pillards humains qui attaquent de jour**. Jalon 8.
+- **§5** : le jalon 5 passe à **douze blocs**, et un **jalon 6.5** neuf porte les builds.
+
+**Non tranché**, laissé au §6 : la double spécialisation (Guerrier + Gardien → Templier).
+
 > **La règle de travail qui va avec** : sa dernière décision prime sur le design, même
 > quand elle contredit frontalement une règle défendue ailleurs — « ça change tout le
 > temps », ce sont ses mots. On signale la contradiction **une fois**, avec ce qu'elle
@@ -333,7 +428,7 @@ pour trente personnes. **Chaque morceau est bon ; l'ensemble est un très gros j
 dérape, le bon réflexe est de **livrer la version minimale qui se joue** et de le dire, pas
 d'étendre encore.
 
-### Jalon 5 — le village *(blocs 1, 2 et 3 faits, 4 à 9 à faire)*
+### Jalon 5 — le village *(blocs 1 à 5 faits, 6 à 12 à faire)*
 
 L'ordre est fixé au §5 du design, et **il a été réordonné le 9 août pour cause de
 dépendances** :
@@ -341,7 +436,7 @@ dépendances** :
 | Bloc | Contenu |
 |---|---|
 | **4** ✅ | **L'église** : on y entre, soins, cap des monstres, ses 4 niveaux et leurs 4 conditions, destruction et relèvement, bloc de combat civil |
-| **5** | **Traits, stress et états**, portraits assemblés, fiche unifiée, renommage |
+| **5** ✅ | **Traits, stress et états**, séquelles, 3 statistiques, portraits assemblés, fiche unifiée, renommage, satisfaction |
 | **6** | **Les arrivées** : fiche d'observation, les 6 indices, les fous et leurs groupes, naissances, survivants, **le port et le commerce** |
 | **7** | **Mode d'aménagement** : édition en pause, construction libre, tout se casse, village en ruines, sol et chemins — et **la forteresse** : murs au fer, porte, douves, eau, pont-levis |
 | **8** | **Les ordres pour tous** : n'importe qui fait n'importe quoi, menu d'ordres, héros au travail |

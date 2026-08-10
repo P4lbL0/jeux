@@ -2,16 +2,27 @@
  * Les habitants et l'economie du village (DESIGN.md §4.18).
  *
  * Un habitant a un **metier**, un **rang** et un **niveau** — et rang et niveau
- * ne font qu'une seule chose : la **cadence de production**. Pas de statistique
- * de combat, pas d'arbre de competences, pas de second ecran de personnage. Le
- * §4.18 explique pourquoi on se l'interdit : un habitant qui aurait un vrai
- * build, ce serait un deuxieme jeu de collection a cote de celui des heros.
+ * ne font qu'une seule chose : la **cadence de production**. Ce qui le rend
+ * unique n'est pas ici : ses trois statistiques, ses traits, son stress et ses
+ * etats vivent dans `personne.ts`, **partages avec les heros** (§4.23).
+ *
+ * ⚠️ **Deux vieilles regles de ce fichier sont mortes**, et il vaut mieux le
+ * dire que le taire :
+ *
+ * - « pas de statistiques de combat » est tombee au bloc 4 (voir `combatDe`) ;
+ * - « pas de second ecran de personnage » est tombee au bloc 5 : la fiche est
+ *   desormais unique et commune aux deux populations (§4.10). La raison qui
+ *   l'emporte est la meme dans les deux cas — **les futurs heros sortent du
+ *   village** (§4.18, jalon 9), donc un habitant sans rien de mesurable
+ *   deviendrait heros par magie.
  *
  * Ce fichier ne connait pas Phaser. Il ne sait meme pas ou sont les postes : il
  * ne fait que produire, manger et compter.
  */
 
 import { ORDRE_RANGS, type Rang } from "./classes";
+import { creerPersonne, type Personne } from "./personne";
+import { Rng } from "./rng";
 
 export type Metier =
   | "pecheur"
@@ -131,7 +142,6 @@ export const REGLAGES_VILLAGE = {
  */
 export interface Habitant {
   id: number;
-  nom: string;
   metier: Metier;
   rang: Rang;
   /** Niveau dans le metier ; il monte tout seul en travaillant (§4.18) */
@@ -142,17 +152,22 @@ export interface Habitant {
   vivant: boolean;
   /** Faux quand il a faim : il ne produit plus tant qu'il n'a pas mange */
   rassasie: boolean;
-  /**
-   * Son cran, entre 0 et 1 : c'est lui qui decide s'il sort defendre l'eglise
-   * ou s'il reste au fond (§4.22).
-   *
-   * Tire a sa naissance et jamais modifie ici. Au bloc 5 il deviendra la
-   * consequence de ses **traits** (courageux, peureux, hante...) — on garde le
-   * meme champ, le systeme de traits n'aura qu'a l'ecrire (§4.23).
-   */
-  courage: number;
   /** Ce qu'il lui reste de vie quand il se bat ; plein tant qu'il travaille */
   pv: number;
+  /**
+   * Ce qu'il a de commun avec un heros : ses trois statistiques, ses traits,
+   * ses sequelles, son stress et ses etats (§4.23).
+   *
+   * ⚠️ **Son nom vit la-dedans, plus ici.** Le renommage est commun aux deux
+   * populations (§4.18) ; le dupliquer aurait garanti qu'un des deux champs
+   * finisse perime. `habitant.nom` reste lisible via le getter `nomDe`.
+   */
+  personne: Personne;
+}
+
+/** Son nom, la ou il vit vraiment. Un raccourci, pas une copie. */
+export function nomDe(habitant: Habitant): string {
+  return habitant.personne.nom;
 }
 
 /**
@@ -205,9 +220,15 @@ export function combatDe(habitant: Habitant): CombatHabitant {
   const facteur =
     (1 + (habitant.niveau - 1) * r.gainParNiveau) * Math.pow(r.multiplicateurParRang, rang);
 
+  // La Force et l'agregat des traits, sequelles et etats entrent ici et nulle
+  // part ailleurs (§4.23). L'agregat est deja calcule : on ne parcourt aucune
+  // liste de traits.
+  const { mods, stats } = habitant.personne;
+  const force = 0.7 + stats.force / 100;
+
   return {
-    pvMax: Math.round(r.pvDeBase * facteur),
-    degats: r.degatsDeBase * facteur,
+    pvMax: Math.max(1, Math.round(r.pvDeBase * facteur * mods.pvMax)),
+    degats: r.degatsDeBase * facteur * force * mods.degats,
     portee: r.portee,
     // Le rang le rend plus fort, jamais plus rapide : une cadence qui monte
     // aussi ferait exploser la courbe en la multipliant deux fois.
@@ -223,18 +244,17 @@ export function reinitialiserIdentifiants(): void {
 }
 
 /**
- * @param courage entre 0 et 1 ; c'est l'appelant qui le tire, pour que ce
- *   fichier reste pur et que la meme graine redonne le meme village
+ * @param rng seede par l'appelant : une meme graine redonne le meme village,
+ *   statistiques, traits et portraits compris (§4.6)
  */
 export function creerHabitant(
   nom: string,
   metier: Metier,
   rang: Rang = "F",
-  courage = 0.5,
+  rng?: Rng,
 ): Habitant {
   const habitant: Habitant = {
     id: prochainId++,
-    nom,
     metier,
     rang,
     niveau: 1,
@@ -242,26 +262,45 @@ export function creerHabitant(
     posture: "prudent",
     vivant: true,
     rassasie: true,
-    courage,
     pv: 0,
+    personne: creerPersonne(nom, rng ?? grainePourLesTests()),
   };
   habitant.pv = combatDe(habitant).pvMax;
   return habitant;
 }
 
 /**
+ * Une graine par defaut, pour les tests et pour un appel qui n'en fournit pas.
+ *
+ * Elle avance a chaque appel : deux habitants crees sans graine explicite ne
+ * doivent pas etre des jumeaux, sinon un test qui compare deux personnes ne
+ * verifie plus rien.
+ */
+let graineParDefaut = 20260810;
+function grainePourLesTests(): Rng {
+  return new Rng(graineParDefaut++);
+}
+
+/**
  * Sort-il defendre l'eglise, ou reste-t-il au fond ? (DESIGN.md §4.22)
  *
  * Le joueur ne commande rien de tout ca : c'est ce que l'habitant **est** qui
- * decide. Un affame ou un blesse ne sort jamais — se battre le tuerait, et le
- * §4.18 refuse une mort qui ne vienne pas d'un arbitrage du joueur.
+ * decide. Un affame, un blesse ou quelqu'un qui a craque ne sort jamais — se
+ * battre le tuerait, et le §4.18 refuse une mort qui ne vienne pas d'un
+ * arbitrage du joueur.
+ *
+ * ⚠️ Le seuil est passe de `0,6` a `60` sans changer une seule decision : le
+ * Courage est desormais un **pourcentage** comme les deux autres statistiques
+ * (§4.23), pour qu'on puisse comparer deux fiches d'un coup d'oeil.
  */
-export const SEUIL_COURAGE = 0.6;
+export const SEUIL_COURAGE = 60;
 
 export function sortDefendre(habitant: Habitant): boolean {
   if (!habitant.vivant || !habitant.rassasie) return false;
   if (habitant.pv < combatDe(habitant).pvMax * 0.5) return false;
-  return habitant.courage >= SEUIL_COURAGE;
+  // Celui qui craque ne tient pas une porte, quel que soit son cran.
+  if (habitant.personne.rupture !== null) return false;
+  return habitant.personne.stats.courage >= SEUIL_COURAGE;
 }
 
 /** Le plafond de niveau accorde par un rang (meme principe qu'au §4.1). */
@@ -279,12 +318,21 @@ export function plafondDeNiveau(rang: Rang): number {
 export function cadence(habitant: Habitant): number {
   if (!habitant.vivant || !habitant.rassasie) return 0;
 
+  const { personne } = habitant;
+  // Un abattu ne fait plus rien, un transcende travaille comme jamais (§4.23).
+  // Les autres ruptures sortent l'habitant de son poste, elles ne sont donc pas
+  // traitees ici : c'est `village.ts` qui l'en retire.
+  if (personne.rupture === "abattement") return 0;
+  const elan = personne.rupture === "transcendance" ? 1.6 : 1;
+
   const { productionDeBase, gainParNiveau, multiplicateurParRang } = REGLAGES_VILLAGE;
   const rang = ORDRE_RANGS.indexOf(habitant.rang);
   return (
     productionDeBase *
     (1 + (habitant.niveau - 1) * gainParNiveau) *
-    Math.pow(multiplicateurParRang, rang)
+    Math.pow(multiplicateurParRang, rang) *
+    personne.mods.cadence *
+    elan
   );
 }
 
@@ -321,7 +369,11 @@ function faireMonter(habitant: Habitant, minutes: number): void {
   const plafond = plafondDeNiveau(habitant.rang);
   if (habitant.niveau >= plafond) return;
 
-  habitant.progression += minutes * REGLAGES_VILLAGE.niveauxParMinute;
+  // C'est le second usage de l'Intelligence, celui qui l'empeche d'etre une
+  // ligne morte sur trente fiches : elle monte plus vite (§4.23).
+  const { mods, stats } = habitant.personne;
+  const vivacite = mods.monteeNiveau * (0.75 + stats.intelligence / 200);
+  habitant.progression += minutes * REGLAGES_VILLAGE.niveauxParMinute * vivacite;
   while (habitant.progression >= 1 && habitant.niveau < plafond) {
     habitant.progression -= 1;
     habitant.niveau += 1;
@@ -354,7 +406,8 @@ export function nourrir(habitants: Habitant[], stocks: Stocks): number {
   for (const habitant of habitants) {
     if (!habitant.vivant) continue;
 
-    let reste = REGLAGES_VILLAGE.appetit;
+    // Le Gourmand mange deux fois plus — et manger le calme d'autant (§4.23).
+    let reste = REGLAGES_VILLAGE.appetit * habitant.personne.mods.appetit;
     for (const ressource of ["poisson", "ble"] as const) {
       const pris = Math.min(stocks[ressource], reste);
       stocks[ressource] -= pris;
@@ -376,7 +429,11 @@ export function nourritureDisponible(stocks: Stocks): number {
 
 /** Combien de jours le stock actuel peut encore nourrir tout le monde. */
 export function joursDeVivres(habitants: Habitant[], stocks: Stocks): number {
-  const bouches = habitants.filter((h) => h.vivant).length;
-  if (bouches === 0) return Infinity;
-  return nourritureDisponible(stocks) / (bouches * REGLAGES_VILLAGE.appetit);
+  // On compte les rations, pas les tetes : un Gourmand en mange deux, et le
+  // joueur doit le voir dans le chiffre qu'il surveille (§4.23).
+  const rations = habitants
+    .filter((h) => h.vivant)
+    .reduce((total, h) => total + h.personne.mods.appetit, 0);
+  if (rations === 0) return Infinity;
+  return nourritureDisponible(stocks) / (rations * REGLAGES_VILLAGE.appetit);
 }

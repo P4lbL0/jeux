@@ -10,6 +10,7 @@ import {
   type EvolutionDef,
 } from "../core/competences";
 import { ARBRES, creerTexturesPlaceholder } from "../game/art";
+import { oublierLesPortraits } from "../game/portraits";
 import {
   Double,
   Ennemi,
@@ -67,6 +68,7 @@ import {
   RELEVEMENT,
   lireCout,
   type BlocageMontee,
+  type ContexteMontee,
   type EtatEglise,
   type NiveauEglise,
 } from "../core/eglise";
@@ -85,12 +87,27 @@ import { CONSTRUCTIONS, coutLisible, type TypeConstruction } from "../core/const
 import { Constructions, PORTEE_OCCUPATION, type Construction } from "../game/constructions";
 import { Champs, REGLAGES_CHAMPS, type Champ } from "../game/champs";
 import { NOMS_POSTURE_CIVILE } from "../core/habitants";
+import {
+  EFFETS_RUPTURE,
+  NOMS_RUPTURE,
+  REGLAGES_STRESS,
+  avancerLaJournee,
+  coeurLache,
+  contracterEtat,
+  descendreStress,
+  monterStress,
+  resistanceAuStress,
+  stressDesEtatsDe,
+  verifierExploits,
+  verifierRupture,
+  voirMourir,
+} from "../core/personne";
 import type { Habitant, PostureCivile, Ressource, Stocks } from "../core/habitants";
 import type { Phase } from "../core/cycle";
 import { Commandement } from "../game/commandement";
 import type { EtatEquipe } from "../game/hud";
 import type { EtatOrdres } from "../game/panneauOrdres";
-import type { GroupeAffiche } from "../game/ficheHero";
+import type { GroupeAffiche } from "../game/fichePersonne";
 
 /**
  * L'arene : combat, equipe, IA, progression.
@@ -152,6 +169,13 @@ export interface EtatVillage {
   habitants: Habitant[];
   stocks: Stocks;
   joursDeVivres: number;
+  /**
+   * La satisfaction du village, de 0 a 100 (DESIGN.md §4.23).
+   *
+   * Elle n'est pas decorative : c'est **elle qui debloque les niveaux
+   * d'eglise**, et c'est ce qui referme la boucle du village.
+   */
+  satisfaction: number;
   /** L'eglise, telle que l'interface la lit (DESIGN.md §4.22) */
   eglise: {
     niveau: NiveauEglise;
@@ -280,6 +304,9 @@ export class ArenaScene extends Phaser.Scene {
   /** Experience de groupe : combattre ensemble rend plus fort (DESIGN.md §4.16) */
   affinites = new Affinites();
   private prochainTickAffinites = 0;
+  /** Le moral avance par battements, jamais par image (DESIGN.md §4.23) */
+  private prochainBattementMoral = 0;
+  private static readonly PERIODE_MORAL = 500;
   private equipe!: Phaser.Physics.Arcade.Group;
   private ennemis!: Phaser.Physics.Arcade.Group;
   private projectiles!: Phaser.Physics.Arcade.Group;
@@ -366,6 +393,15 @@ export class ArenaScene extends Phaser.Scene {
   private tourDuHero: Construction | null = null;
 
   private enPause = false;
+  /**
+   * Vrai pendant qu'on renomme quelqu'un dans la fiche (DESIGN.md §4.18).
+   *
+   * ⚠️ Sans lui, taper un nom **joue** : « Bertrand » sonne la cloche (B),
+   * ouvre le tableau du village (F) et bâtit une palissade (G). Le jeu continue
+   * de tourner pendant la saisie — c'est voulu, on ne met pas la partie en
+   * pause pour un prenom — mais il n'ecoute plus les touches.
+   */
+  private saisieEnCours = false;
   /** Vrai quand la pause vient de la fenetre, pas du menu de choix */
   private pauseHorsFocus = false;
   private debutPause = 0;
@@ -429,6 +465,7 @@ export class ArenaScene extends Phaser.Scene {
       habitants: this.village.habitants.map((v) => v.regles),
       stocks: this.village.stocks,
       joursDeVivres: this.village.joursDeVivres,
+      satisfaction: this.village.satisfaction,
       eglise: {
         niveau: this.eglise.niveau,
         etat: this.eglise.regles.etat,
@@ -436,11 +473,24 @@ export class ArenaScene extends Phaser.Scene {
         partRelevement: this.eglise.regles.partRelevement,
         refugies: this.village.refugies,
         defenseurs: this.village.defenseurs,
-        manque: this.eglise.regles.peutMonter({
-          stocks: this.village.stocks,
-          population: this.village.population,
-        }).manque,
+        manque: this.eglise.regles.peutMonter(this.contexteMontee).manque,
       },
+    };
+  }
+
+  /**
+   * Ce que l'eglise a besoin de savoir du village pour monter (§4.22).
+   *
+   * ⚠️ **La satisfaction n'est plus neutralisee** : le bloc 5 la remplit, donc
+   * la troisieme des quatre conditions mord pour de bon. Seul `argent` reste
+   * absent — il vient du port, au bloc 6 — et `undefined` veut toujours dire
+   * « ce systeme n'existe pas encore », surtout pas « zero ».
+   */
+  private get contexteMontee(): ContexteMontee {
+    return {
+      stocks: this.village.stocks,
+      population: this.village.population,
+      satisfaction: this.village.satisfaction,
     };
   }
 
@@ -503,6 +553,9 @@ export class ArenaScene extends Phaser.Scene {
     console.log(`[arene] graine = ${graine}`);
 
     creerTexturesPlaceholder(this);
+    // Les visages de la partie precedente n'ont plus personne derriere eux :
+    // les garder ferait grossir l'atlas a chaque `R` (§4.17).
+    oublierLesPortraits(this);
     // Les emetteurs de particules sont crees une fois pour toute la partie :
     // il y a jusqu'a MAX_ENNEMIS combattants, on n'en fabrique pas un par coup.
     preparerEffets(this);
@@ -555,6 +608,7 @@ export class ArenaScene extends Phaser.Scene {
     this.events.on("selectionner", this.selectionnerDepuisUi, this);
     this.events.on("posture-habitant", this.tournerPostureCivile, this);
     this.events.on("poste-habitant", this.tournerPosteCivil, this);
+    this.events.on("saisie-clavier", (enCours: boolean) => (this.saisieEnCours = enCours), this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.events.off("choix-fait", this.resoudreChoix, this);
       this.events.off("changer-hero", this.changerHero, this);
@@ -592,6 +646,8 @@ export class ArenaScene extends Phaser.Scene {
       menaceAutour: (x, y, rayon) => this.ennemiLePlusProche(x, y, rayon),
       annoncer: (message) => this.events.emit("annonce", message),
       egliseDebout: () => this.eglise.fonctionne,
+      niveauEglise: () => this.eglise.niveau,
+      litsEglise: () => this.eglise.regles.palier.lits,
       frapperMonstre: (x, y, portee, degats) => this.frapperPourLeVillage(x, y, portee, degats),
     });
 
@@ -1045,7 +1101,7 @@ export class ArenaScene extends Phaser.Scene {
     ];
     for (const [code, action] of ordres) {
       clavier.addKey(code).on("down", () => {
-        if (this.termine || this.enPause) return;
+        if (this.termine || this.enPause || this.saisieEnCours) return;
         action();
       });
     }
@@ -1472,6 +1528,8 @@ export class ArenaScene extends Phaser.Scene {
       ? this.eglise.regles.palier.soinParSeconde
       : 0;
 
+    this.majMoralDesHeros();
+
     for (const hero of this.heros) {
       if (hero.etat === "mort") continue;
 
@@ -1496,6 +1554,88 @@ export class ArenaScene extends Phaser.Scene {
 
       hero.setAlpha(hero.estInvisible ? 0.35 : hero.etat === "repli" ? 0.75 : 1);
     }
+  }
+
+  /**
+   * Le moral des heros (DESIGN.md §4.23).
+   *
+   * **Les deux populations partagent le meme systeme** : c'est le pendant de
+   * `village.majorerLeMoral()`, avec les memes reglages et le meme battement de
+   * 500 ms. Ce qui change, c'est ce qui fait monter la jauge — un heros est
+   * dehors la nuit par metier, pas par accident.
+   */
+  private majMoralDesHeros(): void {
+    const maintenant = this.time.now;
+    if (maintenant < this.prochainBattementMoral) return;
+
+    const periode = ArenaScene.PERIODE_MORAL;
+    this.prochainBattementMoral = maintenant + periode;
+    const minutes = periode / 60_000;
+
+    // Une fois par battement, pas une fois par heros (§4.17, regle 5).
+    const nuit = this.cycle.phase === "nuit";
+    const apaisement = this.eglise.fonctionne
+      ? REGLAGES_STRESS.multiplicateurEglise * (0.8 + this.eglise.niveau * 0.2)
+      : 0;
+    const rayonSoin = this.eglise.rayonSoin;
+
+    for (const hero of this.heros) {
+      if (hero.etat === "mort") continue;
+      const { personne } = hero;
+
+      const aLEglise =
+        rayonSoin > 0 &&
+        Phaser.Math.Distance.Between(hero.x, hero.y, EGLISE.x, EGLISE.y) <= rayonSoin;
+
+      if (aLEglise) {
+        descendreStress(personne, REGLAGES_STRESS.reposAuVillage * apaisement * personne.mods.soinEglise * minutes);
+      } else {
+        let montee = stressDesEtatsDe(personne);
+        if (nuit && !personne.mods.ignoreStressNuit) montee += REGLAGES_STRESS.dehorsLaNuit;
+        if (this.ennemiLePlusProche(hero.x, hero.y, RAYON_DE_VUE)) {
+          montee += REGLAGES_STRESS.menaceEnVue;
+        }
+        if (montee > 0) {
+          // Un heros n'a pas de rang : c'est son niveau et son courage qui
+          // ralentissent la jauge. Un veteran tient bien plus longtemps.
+          monterStress(personne, montee * minutes * resistanceAuStress(0, hero.niveau, personne.stats));
+        }
+      }
+
+      this.verifierLaRuptureDuHero(hero, maintenant);
+    }
+  }
+
+  /**
+   * Un heros craque (DESIGN.md §4.23).
+   *
+   * ⚠️ **Seuls les heros deviennent dangereux** : la rage fait frapper les
+   * allies. C'est assume, et c'est justement pour ca que les civils, eux, ne
+   * frappent jamais personne — avec vingt habitants, la meme regle
+   * declencherait une spirale de meurtres internes qu'aucun joueur ne peut
+   * arreter.
+   *
+   * Les effets passent par `hero.personne.rupture`, que les getters de
+   * `entities.ts` et l'IA lisent : rien n'est cable en dur ici.
+   */
+  private verifierLaRuptureDuHero(hero: Hero, maintenant: number): void {
+    const { personne } = hero;
+
+    if (coeurLache(personne)) {
+      this.events.emit("annonce", `${personne.nom} s'effondre — son coeur a lache`);
+      this.tomber(hero);
+      return;
+    }
+
+    const rupture = verifierRupture(personne, maintenant, this.rng);
+    if (!rupture) return;
+
+    this.events.emit(
+      "annonce",
+      `${personne.nom} craque — ${NOMS_RUPTURE[rupture]} : ${EFFETS_RUPTURE[rupture].hero}`,
+    );
+    this.flotter(hero.x, hero.y - 28, NOMS_RUPTURE[rupture], "#ff5a4a");
+    secousse(this, "leger");
   }
 
   /**
@@ -1582,6 +1722,13 @@ export class ArenaScene extends Phaser.Scene {
     if (hero.estEnRecul) return;
 
     if (hero.estImmobilise) {
+      hero.setVelocity(0, 0);
+      return;
+    }
+
+    // On renomme quelqu'un : les lettres vont au champ, pas aux jambes. Le
+    // heros s'arrete, il ne se fige pas — la partie, elle, continue (§4.18).
+    if (this.saisieEnCours) {
       hero.setVelocity(0, 0);
       return;
     }
@@ -2228,7 +2375,7 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
 
-    const contexte = { stocks: this.village.stocks, population: this.village.population };
+    const contexte = this.contexteMontee;
     const verdict = this.eglise.regles.peutMonter(contexte);
 
     if (!verdict.possible) {
@@ -3553,9 +3700,41 @@ export class ArenaScene extends Phaser.Scene {
     // Ce qui restait de l'effectif ne poursuit pas la journee : la nuit est
     // finie, ceux qui sont encore debout finissent la leur.
     this.resteDeLaNuit = 0;
-    this.village.seLever();
+    this.village.seLever(this.cycle.jour);
+    this.passerLaJourneeDesHeros();
     this.programmerHorde();
     this.events.emit("annonce", `Jour ${this.cycle.jour} — le soleil se leve`);
+  }
+
+  /**
+   * Une journee de plus pour les heros (DESIGN.md §4.23).
+   *
+   * C'est le seul endroit ou le temps **long** avance de leur cote : les etats
+   * se comptent en journees, pas en millisecondes. Le village a exactement la
+   * meme methode, et c'est bien un seul systeme pour deux populations.
+   */
+  private passerLaJourneeDesHeros(): void {
+    for (const hero of this.heros) {
+      if (hero.etat === "mort") continue;
+      const { personne } = hero;
+
+      // Une nuit dehors se compte a l'aube, pas pendant : sinon un heros qui
+      // rentre a l'eglise dix fois compterait dix nuits (§4.23).
+      personne.exploits.nuitsDehors += 1;
+      if (hero.estCritique) personne.exploits.nuitSousLeSeuil = true;
+      personne.exploits.kills = hero.kills;
+
+      for (const evenement of avancerLaJournee(personne, 1)) {
+        if (evenement.quoi === "mort") {
+          this.events.emit("annonce", `${personne.nom} n'a pas survecu — ${evenement.nom}`);
+          this.tomber(hero);
+          break;
+        }
+        this.events.emit("annonce", `${personne.nom} : ${evenement.nom}`);
+      }
+
+      this.annoncerLesExploits(hero);
+    }
   }
 
   /**
@@ -3773,6 +3952,18 @@ export class ArenaScene extends Phaser.Scene {
       this.flotter(hero.x, hero.y - 18, `-${degats}`, "#ff6b5a");
       secousse(this, "leger");
     }
+
+    // Encaisser use, et parfois ca ouvre une plaie (DESIGN.md §4.23).
+    monterStress(hero.personne, REGLAGES_STRESS.parCoupEncaisse);
+    if (
+      degats >= hero.pvMax * 0.12 &&
+      this.rng.chance(0.15 * hero.personne.mods.contagion) &&
+      contracterEtat(hero.personne, "hemorragie")
+    ) {
+      this.events.emit("annonce", `${hero.personne.nom} saigne — il lui reste une journee`);
+      this.flotter(hero.x, hero.y - 34, "HEMORRAGIE", "#ff5a4a");
+    }
+
     if (hero.pv <= 0) this.tomber(hero);
   }
 
@@ -3854,6 +4045,7 @@ export class ArenaScene extends Phaser.Scene {
     secousse(this, "fort");
     this.flotter(hero.x, hero.y - 30, `${hero.classe.nom} est tombe`, "#ff6b5a");
     this.events.emit("hero-tombe", hero);
+    this.faireLeDeuil(hero);
 
     const suivant = this.heros.findIndex((h) => h.etat !== "mort");
     if (suivant === -1) {
@@ -3864,6 +4056,31 @@ export class ArenaScene extends Phaser.Scene {
     this.heros[suivant]!.estIncarne = true;
     this.cameras.main.startFollow(this.heros[suivant]!, true, 0.12, 0.12);
     this.events.emit("hero-incarne", this.heros[suivant]!);
+  }
+
+  /**
+   * La mort d'un heros se paie chez tout le monde (DESIGN.md §4.23).
+   *
+   * Le village a la meme fonction, et c'est voulu : ce sont deux populations
+   * qui partagent un systeme, pas deux systemes qui se ressemblent. Ce qui les
+   * separe, c'est seulement qui est dans la liste.
+   */
+  private faireLeDeuil(mort: Hero): void {
+    for (const temoin of this.heros) {
+      if (temoin === mort || temoin.etat === "mort") continue;
+      const distance = Phaser.Math.Distance.Between(temoin.x, temoin.y, mort.x, mort.y);
+      if (distance > REGLAGES_STRESS.rayonDuDeuil) continue;
+      voirMourir(temoin.personne);
+      this.annoncerLesExploits(temoin);
+    }
+    this.village.temoinsDeLaMort(mort.x, mort.y);
+  }
+
+  /** Un trait gagne se dit : sinon le joueur ne saurait jamais qu'il l'a fait. */
+  private annoncerLesExploits(hero: Hero): void {
+    for (const cle of verifierExploits(hero.personne)) {
+      this.events.emit("annonce", `${hero.personne.nom} devient ${cle}`);
+    }
   }
 
   private finDePartie(): void {

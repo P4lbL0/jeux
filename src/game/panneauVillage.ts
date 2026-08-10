@@ -6,7 +6,31 @@ import {
   RESSOURCES,
   plafondDeNiveau,
 } from "../core/habitants";
+import { lireEtat, pireEtat } from "../core/etats";
+import { NOMS_RUPTURE, REGLAGES_STRESS } from "../core/personne";
+import { lireSatisfaction } from "../core/satisfaction";
 import type { EtatVillage } from "../scenes/ArenaScene";
+
+/**
+ * La jauge de stress en quatre caracteres.
+ *
+ * Pas de barre graphique : le §4.23 interdit une barre au-dessus des tetes, et
+ * dans un tableau monospace une jauge en texte se lit aussi vite et ne coute
+ * aucun objet de plus. Elle reste vide tant que rien ne se passe — c'est ce qui
+ * fait qu'on la remarque quand elle se remplit.
+ */
+function jauge(stress: number): string {
+  const crans = Math.min(4, Math.round((stress / REGLAGES_STRESS.rupture) * 4));
+  return `[${"|".repeat(crans)}${" ".repeat(4 - crans)}]`;
+}
+
+/** Rouge quand il craque, orange quand il a faim ou qu'il monte, sinon neutre. */
+function couleurDeLigne(rassasie: boolean, stress: number, enAlerte: boolean): string {
+  if (enAlerte) return "#ff5a4a";
+  if (!rassasie) return "#ff8a5a";
+  if (stress >= REGLAGES_STRESS.seuilVisible) return "#ffd98a";
+  return "#c8c2d4";
+}
 
 /**
  * Le village, en deux morceaux (DESIGN.md §4.18).
@@ -81,6 +105,7 @@ export class PanneauVillage {
     private scene: Phaser.Scene,
     private changerPosture: (index: number) => void,
     private changerPoste: (index: number) => void,
+    private ouvrirFiche: (index: number) => void,
   ) {
     this.compteur = scene.add
       .text(0, 0, "", { fontFamily: "monospace", fontSize: "13px", color: "#f2e9d8" })
@@ -107,7 +132,12 @@ export class PanneauVillage {
         if (!this.ouvert) return;
         // Clic gauche : sa posture. Clic droit : son poste. Le §4.18 dit que le
         // joueur decide **qui fait quoi** — c'est la, et nulle part ailleurs.
-        if (p.rightButtonDown()) this.changerPoste(i);
+        //
+        // Maj + clic ouvre sa fiche. Meme convention que la barre de heros, ou
+        // Maj + clic droit selectionne toute une classe (§4.4) : la touche Maj
+        // veut dire « la version etendue de ce geste ».
+        if (p.event.shiftKey) this.ouvrirFiche(i);
+        else if (p.rightButtonDown()) this.changerPoste(i);
         else this.changerPosture(i);
       });
       this.lignes.push(ligne);
@@ -169,13 +199,16 @@ export class PanneauVillage {
     this.titre.setPosition(x + 12, y + 10);
     this.stocks.setPosition(x + 12, y + 30);
     this.aide.setPosition(x + 12, y + 52 + LIGNES * 16 + 6);
-    this.aide.setText(`${lireEglise(etat)}\nClic : posture  ·  clic droit : poste  ·  B : cloche  ·  Y : eglise`);
+    this.aide.setText(
+      `${lireEglise(etat)}\n` +
+        `Clic : posture  ·  clic droit : poste  ·  Maj+clic : sa fiche  ·  B : cloche  ·  Y : eglise`,
+    );
 
     const vivres = etat.joursDeVivres;
     this.titre.setText(
       `LE VILLAGE — ${etat.population} habitants  ·  ${
         Number.isFinite(vivres) ? `${vivres.toFixed(1)} j de vivres` : "personne a nourrir"
-      }`,
+      }  ·  ${etat.satisfaction}% — ${lireSatisfaction(etat.satisfaction)}`,
     );
     // Sous deux jours de vivres, la production va s'arreter : c'est la seule
     // contrainte du §4.18, elle doit se voir avant de mordre.
@@ -189,18 +222,29 @@ export class PanneauVillage {
       const ligne = this.lignes[index]!;
       ligne.setPosition(x + 12, y + 52 + index * 16).setVisible(true);
 
+      const { personne } = habitant;
       if (!habitant.vivant) {
-        ligne.setText(`${habitant.nom} — mort`);
+        ligne.setText(`${personne.nom} — mort`);
         ligne.setColor("#6b6478");
         return;
       }
 
+      // Ce qui va mal passe **devant** le metier : c'est ce que le joueur
+      // cherche quand il ouvre ce tableau (§4.23).
+      const pire = pireEtat(personne.etats);
+      const alerte = personne.rupture
+        ? NOMS_RUPTURE[personne.rupture]
+        : pire
+          ? lireEtat(pire).toUpperCase()
+          : "";
+
       const plafond = plafondDeNiveau(habitant.rang);
       ligne.setText(
-        `${habitant.nom.padEnd(10)} ${NOMS_METIER[habitant.metier].padEnd(12)} ` +
-          `${habitant.rang} niv ${habitant.niveau}/${plafond}  ${NOMS_POSTURE_CIVILE[habitant.posture]}`,
+        `${personne.nom.padEnd(10)} ${NOMS_METIER[habitant.metier].padEnd(12)} ` +
+          `${habitant.rang} niv ${habitant.niveau}/${plafond}  ` +
+          `${jauge(personne.stress)} ${(alerte || NOMS_POSTURE_CIVILE[habitant.posture]).padEnd(18)}`,
       );
-      ligne.setColor(habitant.rassasie ? "#c8c2d4" : "#ff8a5a");
+      ligne.setColor(couleurDeLigne(habitant.rassasie, personne.stress, alerte !== ""));
     });
   }
 }

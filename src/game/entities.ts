@@ -12,6 +12,8 @@ import {
   type EvolutionDef,
 } from "../core/competences";
 import type { Ordre, Point } from "../core/ordres";
+import { PRENOMS, creerPersonne, type Personne } from "../core/personne";
+import { Rng } from "../core/rng";
 import { nouvellePose } from "./poses";
 import { ARCHETYPE_DEFAUT, type Archetype } from "./ennemis";
 
@@ -233,11 +235,24 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   /** Prefixe de ses planches d'animation (voir `poses.ts`) */
   readonly familleSprite: string;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, classe: ClasseDef) {
+  /**
+   * Ce qu'il a de commun avec un habitant : trois statistiques, des traits, des
+   * sequelles, une jauge de stress et des etats (DESIGN.md §4.23).
+   *
+   * **Les deux populations partagent le meme systeme**, et c'est tout le point
+   * du bloc 5. Les getters ci-dessous lisent `personne.mods`, qui est un
+   * agregat deja calcule : porter trente traits ne coute pas une multiplication
+   * de plus qu'en porter zero (§4.17).
+   */
+  readonly personne: Personne;
+
+  constructor(scene: Phaser.Scene, x: number, y: number, classe: ClasseDef, rng?: Rng) {
     super(scene, x, y, `hero-${classe.id}`);
     this.familleSprite = `hero-${classe.id}`;
     this.classe = classe;
     this.pv = classe.pvMax;
+    const graine = rng ?? new Rng(Date.now() + prochainIdentifiant);
+    this.personne = creerPersonne(graine.pick(PRENOMS), graine);
     if (classe.id === "assassin") this.bonus.discretion = true;
 
     scene.add.existing(this);
@@ -273,7 +288,13 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       this.pvGagnesProvocation;
     return Math.max(
       1,
-      Math.round(base * this.bonus.multiplicateurGlobal * this.bonus.multiplicateurPv),
+      Math.round(
+        base *
+          this.bonus.multiplicateurGlobal *
+          this.bonus.multiplicateurPv *
+          // Un poumon perce coute 30 % de vie maximale, definitivement (§4.23).
+          this.personne.mods.pvMax,
+      ),
     );
   }
 
@@ -284,10 +305,13 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       this.bonusCite *
       (1 + this.alliesAbsents * this.bonus.dernierDebout) *
       (1 + this.bonusGroupe);
+    // La Force et les traits entrent ici, et faiblement : un trait vaut 2 a 5 %,
+    // jamais un doublement (§4.23).
+    const lui = this.personne.mods.degats * (0.85 + this.personne.stats.force / 200) * this.elanDeRupture;
     return Math.max(
       1,
       Math.round(
-        base * this.bonus.multiplicateurGlobal * this.bonus.multiplicateurDegats * contexte,
+        base * this.bonus.multiplicateurGlobal * this.bonus.multiplicateurDegats * contexte * lui,
       ),
     );
   }
@@ -297,8 +321,24 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       (this.classe.vitesse + this.bonus.vitesse) *
       this.bonus.multiplicateurGlobal *
       this.multiplicateurVitesse *
-      this.bonusCite
+      this.bonusCite *
+      // Une jambe brisee coute 25 % de vitesse, un Vif en rend 8 %.
+      this.personne.mods.vitesse
     );
+  }
+
+  /**
+   * Ce que sa rupture fait a sa puissance (DESIGN.md §4.23).
+   *
+   * La transcendance est **rare et forte** : c'est le seul cote lumineux de la
+   * jauge, et il faut qu'il se voie. L'abattement, lui, ne met pas les degats a
+   * zero — un heros qui ne fait plus rien du tout serait une mort deguisee, et
+   * le §4.3 refuse qu'un heros meure autrement que par une decision du joueur.
+   */
+  private get elanDeRupture(): number {
+    if (this.personne.rupture === "transcendance") return 1.5;
+    if (this.personne.rupture === "abattement") return 0.5;
+    return 1;
   }
 
   /** Premiere attaque sur une cible jamais touchee : la Marque de sang. */
@@ -335,12 +375,18 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   /** Plafonnee : une esquive de 100% rendrait le heros invincible. */
   get esquive(): number {
-    return Math.min(0.6, this.classe.esquive + this.bonus.esquive + this.esquiveTemporaire);
+    return Math.min(
+      0.6,
+      this.classe.esquive + this.bonus.esquive + this.esquiveTemporaire + this.personne.mods.esquive,
+    );
   }
 
   get critChance(): number {
+    // Une main mutilee interdit le critique, et rien ne peut le lui rendre :
+    // c'est une sequelle, pas un malus (§4.23).
+    if (!this.personne.mods.peutCritiquer) return 0;
     const base = this.classe.trait === "critique" ? 0.25 : 0;
-    return Math.min(0.85, base + this.bonus.critChance);
+    return Math.min(0.85, base + this.bonus.critChance + this.personne.mods.critique);
   }
 
   get critMultiplicateur(): number {
@@ -361,9 +407,20 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     return this.pv / this.pvMax;
   }
 
-  /** Sous ce seuil, le changement de heros est verrouille (DESIGN.md §4.3) */
+  /**
+   * Sous ce seuil, le changement de heros est verrouille (DESIGN.md §4.3).
+   *
+   * ⚠️ Les traits **decalent** ce seuil — un Courageux decroche a 15 %, un
+   * Peureux a 30 % — mais aucun ne le supprime. Le plancher a 5 % et le plafond
+   * a 50 % sont la pour ca : **l'IA ne perd jamais un heros**, et c'est la regle
+   * qui tient tout le jeu.
+   */
+  get seuilDeRepli(): number {
+    return Phaser.Math.Clamp(SEUIL_CRITIQUE + this.personne.mods.seuilRepli, 0.05, 0.5);
+  }
+
   get estCritique(): boolean {
-    return this.ratioPv <= SEUIL_CRITIQUE;
+    return this.ratioPv <= this.seuilDeRepli;
   }
 
   get estVivant(): boolean {

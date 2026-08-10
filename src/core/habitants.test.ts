@@ -220,21 +220,30 @@ describe("Un habitant au combat", () => {
   });
 });
 
+/**
+ * Le cran est desormais un **pourcentage** porte par `personne.stats.courage`
+ * (§4.23), et non plus un flottant 0→1 passe au constructeur. Ces tests l'ecrivent
+ * donc apres coup — ce qu'on verifie, c'est la decision, pas la plomberie.
+ */
+function avecCourage(nom: string, courage: number) {
+  const h = creerHabitant(nom, "mineur");
+  h.personne.stats.courage = courage;
+  return h;
+}
+
 describe("Sortir defendre l'eglise", () => {
   it("le courageux sort, le peureux reste au fond", () => {
-    const brave = creerHabitant("Merlin", "mineur", "F", 1);
-    const peureux = creerHabitant("Nine", "mineur", "F", 0);
-    expect(sortDefendre(brave)).toBe(true);
-    expect(sortDefendre(peureux)).toBe(false);
+    expect(sortDefendre(avecCourage("Merlin", 100))).toBe(true);
+    expect(sortDefendre(avecCourage("Nine", 0))).toBe(false);
   });
 
   it("se decide au seuil, et pas ailleurs", () => {
-    expect(sortDefendre(creerHabitant("A", "mineur", "F", SEUIL_COURAGE))).toBe(true);
-    expect(sortDefendre(creerHabitant("B", "mineur", "F", SEUIL_COURAGE - 0.01))).toBe(false);
+    expect(sortDefendre(avecCourage("A", SEUIL_COURAGE))).toBe(true);
+    expect(sortDefendre(avecCourage("B", SEUIL_COURAGE - 1))).toBe(false);
   });
 
   it("ne sort pas s'il a faim", () => {
-    const h = creerHabitant("Merlin", "mineur", "F", 1);
+    const h = avecCourage("Merlin", 100);
     h.rassasie = false;
     expect(sortDefendre(h)).toBe(false);
   });
@@ -242,14 +251,21 @@ describe("Sortir defendre l'eglise", () => {
   it("ne sort pas s'il est deja bien amoche", () => {
     // Le §4.18 refuse une mort qui ne vienne pas d'un arbitrage du joueur :
     // renvoyer un blesse au combat en serait une.
-    const h = creerHabitant("Merlin", "mineur", "F", 1);
+    const h = avecCourage("Merlin", 100);
     h.pv = combatDe(h).pvMax * 0.4;
     expect(sortDefendre(h)).toBe(false);
   });
 
   it("ne fait jamais sortir un mort", () => {
-    const h = creerHabitant("Merlin", "mineur", "F", 1);
+    const h = avecCourage("Merlin", 100);
     h.vivant = false;
+    expect(sortDefendre(h)).toBe(false);
+  });
+
+  /** Celui qui craque ne tient pas une porte, quel que soit son cran (§4.23). */
+  it("ne sort pas quand il vient de craquer", () => {
+    const h = avecCourage("Merlin", 100);
+    h.personne.rupture = "terreur";
     expect(sortDefendre(h)).toBe(false);
   });
 });

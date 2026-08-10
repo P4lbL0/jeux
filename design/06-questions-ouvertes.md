@@ -32,7 +32,6 @@ on fais x 2
 - [ ] Liste des compétences et de leurs raretés
 - [ ] Ultime de chaque classe
 - [ ] Comment recrute-t-on un héros ? Il se présente, on l'achète, on le trouve ?
-- [ ] Liste des défenses entre la baliste et le canon laser
 - [ ] Coût du totem d'immortalité (sa consommation à l'usage est tranchée, §4.3)
 - [ ] Peut-on soigner un héros blessé rentré à l'église, et à quel prix ?
 - [ ] **Combien de niveaux a l'église, et que coûte chacun ?** Les quatre axes sont écrits
@@ -45,10 +44,23 @@ on fais x 2
       fait un groupe exactement (§4.18) ?
 - [ ] La **liste complète des questions** posables à la porte, et ce que chacune révèle.
 - [ ] À quelle vitesse la **jauge de stress** se remplit et se vide, et de combien le rang
-      la ralentit (§4.23).
-- [ ] Les **seuils de satisfaction** exigés par chaque niveau d'église (§4.22).
-- [ ] Combien de **pièces de portrait** faut-il pour que deux habitants ne se ressemblent
-      jamais (§4.23) ?
+      la ralentit (§4.23). — *Calibré au bloc 5 pour six mauvaises nuits, table
+      `REGLAGES_STRESS`. **Mesuré en jeu : une nuit dehors sans se faire toucher ne rend
+      que 5 à 8 points**, donc ce sont les coups encaissés qui dominent. Reste à trancher
+      sur une partie entière.*
+- [ ] Les **seuils de satisfaction** exigés par chaque niveau d'église (§4.22). — *40 / 55 /
+      70 sont en place et **branchés** depuis le bloc 5. Mesuré : un village calme, nourri
+      et sans mort récent tourne autour de 50-51 dès le premier jour, donc le niveau 2 est
+      atteignable. Les seuils 55 et 70 n'ont jamais été joués.*
+- [x] Combien de **pièces de portrait** faut-il pour que deux habitants ne se ressemblent
+      jamais (§4.23) ? — **Réglé** : onze couches, plus de dix millions de combinaisons. La
+      vraie contrainte n'était pas le nombre de pièces mais le nombre de **textures
+      vivantes**, plafonné à 96.
+- [ ] Combien de temps dure une **rupture**, et le stress doit-il redescendre à 75 % après
+      (§4.23) ? Les deux valeurs en place — 2 minutes réelles et 75 % — sont des premiers
+      jets posés au bloc 5.
+- [ ] Combien de temps l'église met à **purger un état**, et combien de lits il faut
+      (§4.22). 20 secondes par lit au bloc 5, jamais joué avec une file d'attente.
 - [ ] Un habitant qui défend l'église peut-il y mourir, ou seulement être blessé ?
 - [ ] **Combien vaut un habitant au combat** — PV, dégâts, portée, cadence — au rang F et
       niveau 1, et de combien le rang les multiplie (§4.18) ? Les valeurs de départ posées
@@ -74,6 +86,36 @@ on fais x 2
 - [ ] La cloche de rappel a-t-elle un coût, ou peut-on la sonner en boucle ?
 - [ ] La sauvegarde : elle passera par **Supabase**, pas par `localStorage`. Tant qu'elle
       n'existe pas, rafraîchir la page est une nouvelle partie — et c'est assumé.
+
+### Ouvertes depuis le 10 août 2026
+
+- [ ] **La double spécialisation** (Guerrier + Gardien → Templier, Mage + Chronomancien →
+      Archimage temporel, Rôdeur + Ingénieur → Chasseur mécanique, Nécromancien + Blood
+      Knight → Seigneur de sang). **Non tranchée** : Gardien, Chronomancien, Ingénieur et
+      Blood Knight n'existent nulle part dans le document. Trois issues possibles — des
+      voies qu'on ne recrute pas, de vraies classes en plus, ou l'abandon parce que les
+      fusions du §4.25 font déjà le travail de différenciation.
+- [ ] **Le mot « totem » désigne deux choses différentes** : le totem d'immortalité
+      (§4.3) et le totem de guerre (§4.7). Il faut en renommer un avant de coder.
+- [ ] Le système de **charges** qu'exige la compétence *Réserve* (§4.13) — à coder, ou à
+      couper.
+- [ ] Combien de compétences un héros porte-t-il **en pratique** avant que le panneau de
+      capacités devienne illisible ? Il n'y a pas de limite d'emplacements (§4.25), mais il
+      y a une limite de clavier.
+- [ ] À quel palier exactement une **fusion** se propose, et peut-on la refuser
+      définitivement ou revient-elle à chaque niveau ?
+- [ ] Combien de **séquelles** différentes faut-il, et à quelle fréquence un sauvetage in
+      extremis en donne une — toujours, ou parfois (§4.23) ?
+- [ ] Le seuil de **relation** au-delà duquel une compétence de groupe s'active (§4.25,
+      §4.26), et la vitesse à laquelle une relation se gagne et s'oublie.
+- [ ] Combien de **ruptures de stress** avant qu'un héros bascule en antagoniste (§4.12),
+      et combien d'annonces avant que ça arrive.
+- [ ] Le rechargement des **défenses catastrophiques** en nombre de nuits (§4.7).
+- [ ] À quelle fréquence les **pillards** attaquent, et à partir de quelle richesse du
+      village ils s'intéressent à lui (§4.18).
+- [ ] Que fait exactement l'**Intelligence** en chiffres : combien de matériaux économisés,
+      combien d'XP en plus (§4.23) ?
+- [ ] Combien d'**initiatives** par nuit au maximum avant que ça devienne du bruit (§4.27) ?
 
 ## Tranché récemment
 
@@ -231,3 +273,85 @@ on fais x 2
   bloc 9 du jalon 5 (§4.18, §5)
 - ✅ Un villageois en **tour de guet tire vraiment**, avec ses chiffres de villageois
   (§4.20)
+
+### Le 10 août 2026 — les traits, les builds et la mémoire
+
+- ✅ Une **cinquième couche** : la **séquelle**. Survivre au stade *Mourant* laisse un
+  handicap lourd, ineffaçable et jamais tiré au sort. C'est la seule chose du jeu qui
+  échappe à la règle « un trait vaut 2 à 5 % », et elle produit le meilleur dilemme du
+  document : le garder, ou l'envoyer mourir héroïquement (§4.23)
+- ✅ **Cinq traits de naissance et trois traits d'exploit de plus** — Nyctalope, Gourmand,
+  Hémophile, Kleptomane, Sang-Froid, Boucher, Déraciné, Légende locale (§4.23)
+- ✅ **Trois états qui ne suivent pas le rythme des 5 à 7 jours** : l'**hémorragie** tue en
+  **une journée**, l'**infection fongique** est **contagieuse** entre voisins de travail,
+  la **léthargie** précède la famine. L'hémorragie contredit sciemment le principe « la
+  mort est lente pour rester un arbitrage » — c'est le contraste qui la rend lisible : la
+  maladie est une gestion, l'hémorragie est une urgence (§4.23)
+- ✅ **Trois statistiques visibles** : Force, Courage, **Intelligence**. Les deux premières
+  existent déjà dans le code sous d'autres noms ; l'Intelligence est neuve et sert à
+  **bâtir plus vite pour moins de matériaux** et à monter de niveau plus vite (§4.23)
+- ✅ Les **relations** sont un système **séparé** de l'affinité du §4.16 : l'affinité est
+  militaire et se gagne en combattant, la relation est sociale et se gagne en vivant
+  ensemble. Deux héros peuvent avoir une affinité maximale et se détester (§4.26)
+- ✅ **Une mort produit des conséquences** : Veuve, Vengeance, pic de stress, tombe,
+  satisfaction en berne, et un **héritage** (§4.26)
+- ✅ L'héritage est **immatériel** : une compétence, un trait, une réputation, une tombe.
+  **L'équipement est explicitement reporté** à un jalon ultérieur — il n'y a pas
+  d'inventaire dans ce jeu pour l'instant (§4.26)
+- ✅ La **mémoire du village** : des événements **typés** (massacre, victoire, famine,
+  sacrifice, première fois) avec lieu, date et acteurs, dont le récit est **assemblé à
+  partir de gabarits** — jamais généré librement. Ils modifient la satisfaction et les
+  arrivées quelques jours, puis s'estompent dans les archives (§4.26)
+- ✅ **La règle qui gouverne tout ça** : *tout événement important doit laisser une trace
+  sur au moins un personnage, une relation, un bâtiment ou le village* (§4.26)
+- ✅ **La vie autonome** : sans ordre, chacun enchaîne sa journée, et une **initiative** se
+  déclenche quand un trait fort rencontre une situation extrême — rare, et toujours
+  annoncée. Un ordre explicite l'emporte toujours (§4.27)
+- ✅ On **ne fait pas** la simulation complète à la WorldBox : la journée autonome et les
+  initiatives rares donnent 90 % de l'effet pour 10 % du coût. On approfondira seulement si
+  le résultat paraît creux en jeu (§4.27)
+- ✅ Les **tags** deviennent le socle du système de compétences — et **un élément est un
+  tag, jamais un type de dégâts**. Les monstres n'ont aucune résistance élémentaire : la
+  décision « une seule statistique de dégâts » du §4.2 tient intégralement (§4.25)
+- ✅ **Aucune limite d'emplacements** de compétences. Le coût d'une **fusion**, c'est de
+  perdre les **deux** compétences investies pour en obtenir une (§4.25)
+- ✅ **26 fusions** retenues : 9 sur les compétences existantes, 10 élémentaires, 3
+  négatives, 4 **secrètes** jamais affichées. Et **on crée les six bases manquantes** —
+  Boule de feu, Vent, Eau, Nature, Bouclier, Téléportation — pour que les fusions
+  élémentaires soient codables (§4.13, §4.25)
+- ✅ Les bases élémentaires sont **ouvertes à toutes les classes mais pondérées** : le Mage
+  les voit beaucoup plus souvent qu'un Guerrier, sans que rien ne soit verrouillé (§4.13)
+- ✅ **Les traits pondèrent la pioche de compétences** : un Pyromane voit le FEU trois fois
+  plus souvent. Une pondération, jamais un arbre fermé — les compétences deviennent la
+  conséquence de la vie du personnage sans qu'aucune règle ne l'y oblige (§4.25)
+- ✅ **Les 12 compétences statistiques** (Vigueur, Hâte, Célérité…) sont acceptées **aux
+  rangs F et E uniquement**. C'est la seule exception à « une compétence crée un
+  comportement », et elle est payée : sans elles, les passives de build n'ont rien à
+  amplifier (§4.13)
+- ✅ **Quatre familles de compétences hors combat** : sociales, de groupe (activées par les
+  relations), de formation, et **du village** — dont la mythique « **TOUT LE MONDE AU
+  MUR** ». C'est la première fois que le Protecteur a des pouvoirs de fonction (§4.25)
+- ✅ **Deux classes très rares de plus** : le **Voidwalker** (néant, gravité, portail,
+  singularité ; ultime *Effondrement*) et le **Bastion** (il bâtit ; ultime *ICI, PERSONNE
+  NE PASSE*). Au **jalon 9** (§4.1)
+- ✅ Le Bastion n'est **immobile que pendant son ultime** — une classe lente en permanence
+  attaquerait le pilier « bouger est amusant » dans un jeu où le déplacement est la seule
+  chose que le joueur contrôle (§4.1)
+- ✅ **Un héros peut basculer en antagoniste pendant la partie**, pas seulement entre deux
+  parties : le stress répété, les séquelles et les fusions maudites y mènent. Il revient
+  avec ses vraies compétences, et **c'est annoncé plusieurs fois avant** (§4.12, §4.23)
+- ✅ **La liste des défenses est tranchée** (§4.7) : quatre familles — statiques,
+  tactiques, vivantes, catastrophiques. **Ce qui tire est au §4.7, ce qui bloque reste au
+  §4.20** : murs, portes, douves, ponts-levis et tours n'y sont pas
+- ✅ Les défenses **vivantes** (golem, gardien, arbre ancien, statue sacrée, esprit
+  protecteur) et **catastrophiques** (canon orbital, rayon divin, portail, météore, arme
+  nucléaire magique) sont **permanentes** — mais les catastrophiques se rechargent en
+  **nuits** et l'arme nucléaire détruit aussi ce que le joueur a bâti (§4.7)
+- ✅ La **banque** : l'argent du port se stocke, se vole, et donne enfin un deuxième lieu à
+  défendre qui n'est pas l'église (§4.18)
+- ✅ **Les monstres ne sont plus la seule menace** : des **pillards** puis des **bandes
+  armées** humaines attaquent **de jour** et visent les stocks. C'est la façon la moins
+  chère de rendre le jour incertain sans toucher au cycle 30/15 verrouillé. Jalon 8 (§4.18)
+- ✅ **Le jalon 5 passe de dix à douze blocs** : la mémoire du village (bloc 11) et la vie
+  autonome (bloc 12) sortent du bloc 5, qui était devenu injugeable. Et un **jalon 6.5**
+  neuf porte tout le système de builds (§5)

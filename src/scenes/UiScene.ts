@@ -3,7 +3,7 @@ import type { Proposition } from "../core/competences";
 import { Hud } from "../game/hud";
 import { PanneauCapacites } from "../game/panneauCapacites";
 import { ChoixCompetence } from "../game/choixCompetence";
-import { FicheHero } from "../game/ficheHero";
+import { FichePersonne } from "../game/fichePersonne";
 import { PanneauOrdres } from "../game/panneauOrdres";
 import { PanneauVillage } from "../game/panneauVillage";
 import type { Hero } from "../game/entities";
@@ -28,7 +28,7 @@ export class UiScene extends Phaser.Scene {
   private hud!: Hud;
   private capacites!: PanneauCapacites;
   private choix!: ChoixCompetence;
-  private fiche!: FicheHero;
+  private fiche!: FichePersonne;
   private ordres!: PanneauOrdres;
   private village!: PanneauVillage;
   private stats!: Phaser.GameObjects.Text;
@@ -56,12 +56,19 @@ export class UiScene extends Phaser.Scene {
     );
     this.capacites = new PanneauCapacites(this, equipe.heros[equipe.indexIncarne]!);
     this.choix = new ChoixCompetence(this);
-    this.fiche = new FicheHero(this);
+    // Le renommage capte le clavier : sans ce relais, taper « Bertrand »
+    // sonnerait la cloche et batirait deux palissades (§4.18).
+    this.fiche = new FichePersonne(this, (enCours) =>
+      this.arene.events.emit("saisie-clavier", enCours),
+    );
     this.ordres = new PanneauOrdres(this, 12, 12 + 62 + 10);
     this.village = new PanneauVillage(
       this,
       (index) => this.arene.events.emit("posture-habitant", index),
       (index) => this.arene.events.emit("poste-habitant", index),
+      // Maj + clic sur une ligne ouvre la fiche de cet habitant : c'est le
+      // deuxieme chemin que le §4.18 exige pour le renommage.
+      (index) => this.ouvrirFicheHabitant(index),
     );
 
     this.stats = this.add
@@ -120,11 +127,19 @@ export class UiScene extends Phaser.Scene {
   private ouvrirFiche(index: number): void {
     const hero = this.arene.etatEquipe.heros[index];
     if (!hero) return;
-    this.fiche.afficher(
+    this.fiche.afficher({
+      genre: "hero",
       hero,
-      () => this.arene.events.emit("changer-hero", index),
-      this.arene.groupeDe(hero),
-    );
+      groupe: this.arene.groupeDe(hero),
+      surIncarner: () => this.arene.events.emit("changer-hero", index),
+    });
+  }
+
+  /** La meme fiche, pour un habitant (DESIGN.md §4.10). */
+  private ouvrirFicheHabitant(index: number): void {
+    const villageois = this.arene.village.habitants[index];
+    if (!villageois) return;
+    this.fiche.afficher({ genre: "habitant", villageois });
   }
 
   /** Le panneau des capacites suit toujours le heros incarne. */

@@ -1,5 +1,21 @@
 # Le Protecteur — Nouvelles compétences inspirées de Magic Survival
 
+> ## ⚠️ Ce fichier est une **source brute**, pas du design en vigueur.
+>
+> Il a été **entièrement dépouillé le 10 août 2026**. Ce qu'on garde et ce qu'on code vit
+> désormais dans les sections numérotées, seules valables en cas de contradiction :
+>
+> | Ce qu'il y a ici | Où c'est devenu du design |
+> |---|---|
+> | Les 30 compétences neuves (§4 à §8) et les bases élémentaires | [§4.13 Compétences](4.13-competences.md) |
+> | Les tags (§9), les 26 fusions (§10 à §13), l'évolution au niveau max (§14), les synergies (§15), l'architecture (§16) et la règle verrouillée (§19) | [§4.25 Tags, fusions et synergies](4.25-tags-fusions-et-synergies.md) |
+> | La liste des défenses (ajout de fin de fichier) | [§4.7 Défenses](4.07-defenses.md) |
+> | Le Voidwalker et le Bastion | [§4.1 Classes et rangs](4.01-classes-et-rangs.md) |
+> | La double spécialisation | **Non tranchée** — [§6](06-questions-ouvertes.md) |
+>
+> On le conserve tel quel pour garder la trace du raisonnement d'origine. **Ne pas y écrire
+> de nouvelles décisions** : elles seraient perdues.
+
 ## 0. Base analysée
 
 J'ai regardé le dépôt `P4lbL0/jeux`, en particulier :
@@ -1008,3 +1024,133 @@ C'est cette progression qui, à mon avis, va donner au système la profondeur qu
 J'ai utilisé le wiki communautaire de Magic Survival comme **source d'inspiration mécanique**, pas pour recopier ses textes ou ses listes dans ton jeu. Le wiki décrit notamment les catégories de magie offensive/passive, les évolutions, les compétences et les fusions. citeturn0search0turn0search2
 
 Le point intéressant pour ton projet est surtout que Magic Survival est construit autour du choix des magies pendant la progression, avec des évolutions/fusions qui transforment les builds. citeturn0search4
+
+
+
+Ton §4.7 dit actuellement que les défenses vont de la baliste au canon laser, mais la liste reste à définir.
+
+Je ferais une distinction :
+
+Défenses statiques
+Mur
+Porte
+Douves
+Tour
+Baliste
+Catapulte
+Canon
+Canon laser
+Défenses tactiques
+Mine
+Piège
+Barrière magique
+Totem
+Projecteur
+Générateur
+Défenses vivantes
+Golem
+Gardien
+Arbre ancien
+Statue sacrée
+Esprit protecteur
+Défenses catastrophiques
+Canon orbital
+Rayon divin
+Portail
+Météore défensif
+Arme nucléaire magique
+
+Et là ton village devient presque un deuxième personnage.
+
+nvl classe : 🌑 9. Voidwalker
+
+Classe extrêmement rare.
+
+Pouvoir :
+
+néant / espace / gravité.
+
+Compétences :
+
+Blink
+Gravité
+Portail
+Singularité
+Distorsion
+
+Ultime :
+
+Effondrement
+
+Toutes les entités d'une zone sont attirées au centre puis explosent.
+
+
+
+🧱 LE BASTION
+
+Classe ultra rare.
+
+Ce n'est même presque plus un héros.
+
+Son gameplay consiste à transformer le terrain.
+
+Il pose :
+
+murs ;
+boucliers ;
+barricades ;
+champs de protection ;
+tourelles.
+
+Et son ultime :
+
+« ICI, PERSONNE NE PASSE »
+
+Pendant X secondes :
+
+les murs du village et tt ce qu'il la construit sont indestructible 
+
+Mais le Bastion ne peut presque plus bouger.
+
+Ça donnerait enfin une classe qui joue avec le village, pas simplement dans l'arène.
+
+
+13. Et je ferais quelque chose d'encore plus cool avec les classes
+
+Ne pas limiter les personnages à leur classe.
+
+Un héros peut progressivement développer une seconde spécialisation.
+
+Exemple :
+
+Guerrier
+    ↓
+Guerrier + Gardien
+    ↓
+Templier
+
+ou
+
+Mage
+    ↓
+Mage + Chronomancien
+    ↓
+Archimage temporel
+
+ou
+
+Rôdeur
+    ↓
+Rôdeur + Ingénieur
+    ↓
+Chasseur mécanique
+
+ou
+
+Nécromancien
+    ↓
+Nécromancien + Blood Knight
+    ↓
+Seigneur de sang
+
+Mais je garderais ça très tard dans la progression.

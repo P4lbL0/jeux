@@ -16,6 +16,28 @@ import {
 } from "../core/habitants";
 import { auPiedDeLEglise, EGLISE, POSTES, type PosteTravail } from "../core/carte";
 import { combatDe, sortDefendre } from "../core/habitants";
+import {
+  EFFETS_RUPTURE,
+  NOMS_RUPTURE,
+  PRENOMS,
+  REGLAGES_STRESS,
+  avancerLaJournee,
+  coeurLache,
+  contracterEtat,
+  descendreStress,
+  monterStress,
+  resistanceAuStress,
+  soignerEtat,
+  stressDesEtatsDe,
+  verifierExploits,
+  verifierRupture,
+  voirMourir,
+  type Personne,
+} from "../core/personne";
+import { ETATS, lireEtat, pireEtat } from "../core/etats";
+import { SEQUELLES, idTrait } from "../core/traits";
+import { ORDRE_RANGS } from "../core/classes";
+import { mortsRecents, satisfactionDuVillage } from "../core/satisfaction";
 import { calerCorps, ECHELLE_PERSONNAGE } from "./entities";
 
 /**
@@ -41,6 +63,10 @@ export interface ContexteVillage {
    * habitant : il n'y a pas d'abri par proximite (§4.22).
    */
   egliseDebout: () => boolean;
+  /** Son niveau : elle calme d'autant plus qu'elle est haute (§4.23) */
+  niveauEglise: () => number;
+  /** Combien de blesses elle traite a la fois — le champ `lits` du §4.22 */
+  litsEglise: () => number;
   /**
    * Un defenseur frappe ce qui passe a sa portee.
    *
@@ -80,11 +106,45 @@ const TEINTES_METIER: Record<Metier, number> = {
   guetteur: 0xb9a6e8,
 };
 
-/** Les noms qu'on tire pour les habitants. Ils comptent : on les perd. */
-const NOMS = [
-  "Aubin", "Nine", "Gaspard", "Ombeline", "Merlin", "Sidonie", "Aldric",
-  "Perrine", "Ysoret", "Colin", "Maelis", "Thibaut", "Enora", "Firmin",
-];
+/**
+ * Le Bavard, resolu une fois au chargement.
+ *
+ * Les traits se comparent par identifiant numerique, jamais par texte (§4.23) —
+ * et ce `idTrait()` ne doit surtout pas se retrouver dans une boucle.
+ */
+const TRAIT_BAVARD = idTrait("bavard");
+
+/**
+ * Combien de temps un lit met a purger un etat, en millisecondes.
+ *
+ * Vingt secondes : assez pour qu'on voie la file d'attente se former quand six
+ * habitants rentrent malades, assez peu pour qu'une journee de 30 minutes en
+ * soigne largement plus que ce qu'une nuit produit. C'est un premier jet, a
+ * regler en jouant (§6).
+ */
+const DELAI_SOIN = 20_000;
+
+/**
+ * A quelle distance l'infection passe d'un travailleur a l'autre, en pixels.
+ *
+ * Assez court pour qu'ecarter deux postes suffise a s'en proteger — sinon la
+ * decision que le §4.23 veut creer n'existerait pas.
+ */
+const RAYON_CONTAGION = 70;
+
+/** Le pire palier d'un habitant, pour faire passer les mourants en premier. */
+function palierDe(villageois: Villageois): number {
+  return pireEtat(villageois.regles.personne.etats)?.palier ?? -1;
+}
+
+/**
+ * Les noms qu'on tire. Ils comptent : on les perd.
+ *
+ * La liste est **commune aux heros et aux habitants** (`core/personne.ts`) : un
+ * villageois qui devient heros au jalon 9 ne doit pas changer de prenom en
+ * route.
+ */
+const NOMS = PRENOMS;
 
 /**
  * Un habitant a l'ecran.
@@ -119,7 +179,12 @@ export class Villageois extends Phaser.Physics.Arcade.Sprite {
   }
 
   get nom(): string {
-    return this.regles.nom;
+    return this.regles.personne.nom;
+  }
+
+  /** Sa couche commune avec les heros : stats, traits, stress, etats (§4.23). */
+  get personne(): Personne {
+    return this.regles.personne;
   }
 }
 
@@ -133,6 +198,24 @@ export class Village {
   private clocheJusqua = 0;
   /** Vrai la nuit : les "prudents" ne ressortent pas tant qu'il fait noir */
   private nuit = false;
+
+  /**
+   * Le moral avance par **battements**, jamais par image (§4.23).
+   *
+   * Un stress qui monte avec 500 ms de retard, personne ne le voit ; trente
+   * personnes reveillees soixante fois par seconde, tout le monde le sent.
+   */
+  private prochainBattement = 0;
+  private static readonly PERIODE_MORAL = 500;
+  /** Instant du prochain soin possible a l'eglise */
+  private prochainSoin = 0;
+
+  /** La journee de chaque mort, pour que la satisfaction s'en souvienne (§4.23) */
+  private readonly journeesDesMorts: number[] = [];
+  /** La journee en cours, tenue par la scene a chaque aube */
+  private journee = 1;
+  /** Le dernier chiffre calcule, pour ne pas le refaire a chaque image */
+  private satisfactionCourante = 50;
 
   private readonly scene: Phaser.Scene;
   private readonly contexte: ContexteVillage;
@@ -158,12 +241,7 @@ export class Village {
     const departs = POSTES.filter((poste) => poste.metier !== "fermier");
     departs.forEach((poste, index) => {
       this.ajouter(
-        creerHabitant(
-          NOMS[index] ?? `Habitant ${index}`,
-          poste.metier,
-          "F",
-          this.rng.next(),
-        ),
+        creerHabitant(NOMS[index] ?? `Habitant ${index}`, poste.metier, "F", this.rng),
         poste,
       );
     });
@@ -215,12 +293,19 @@ export class Village {
   }
 
   /**
-   * L'aube : on mange, et ceux qui n'ont rien eu cessent de travailler.
+   * L'aube : on mange, les etats s'aggravent, et une journee de plus a passe.
    *
+   * C'est le seul endroit ou le temps **long** avance (§4.23) : les etats se
+   * comptent en journees, pas en millisecondes, et les melanger a toujours fini
+   * en bug.
+   *
+   * @param journee le numero de la journee qui commence
    * @returns le nombre d'habitants qui ont eu faim
    */
-  seLever(): number {
+  seLever(journee = this.journee + 1): number {
     this.nuit = false;
+    this.journee = journee;
+
     const affames = nourrir(
       this.habitants.map((v) => v.regles),
       this.stocks,
@@ -234,7 +319,54 @@ export class Village {
         `${affames} habitant${affames > 1 ? "s ont" : " a"} faim — allez pecher vous-meme`,
       );
     }
+
+    for (const villageois of [...this.habitants]) {
+      if (!villageois.regles.vivant) continue;
+      this.passerLaJournee(villageois);
+    }
+
+    this.recalculerSatisfaction();
     return affames;
+  }
+
+  /**
+   * Une journee de plus pour un habitant : repas, etats, exploits.
+   *
+   * L'ordre compte. On nourrit d'abord (c'est ce qui calme), on aggrave
+   * ensuite (c'est ce qui tue), on verifie les exploits en dernier — sinon un
+   * mourant gagnerait un trait dans la meme image que sa mort.
+   */
+  private passerLaJournee(villageois: Villageois): void {
+    const { personne } = villageois.regles;
+
+    if (villageois.regles.rassasie) {
+      descendreStress(personne, REGLAGES_STRESS.parRepas);
+      // La lethargie est le seul etat qui se soigne tout seul : elle vient du
+      // ventre vide, elle repart avec le ventre plein (§4.23).
+      const index = personne.etats.findIndex((e) => e.cle === "lethargie");
+      if (index >= 0) personne.etats.splice(index, 1);
+    } else if (this.stocks.poisson + this.stocks.ble <= 0) {
+      // Le palier **avant** la famine mortelle : il ne produit plus rien et
+      // s'assoit par terre. Il ne meurt toujours pas de faim (§4.18).
+      if (contracterEtat(personne, "lethargie")) {
+        this.contexte.annoncer(`${villageois.nom} n'a plus la force de travailler`);
+      }
+    }
+
+    for (const evenement of avancerLaJournee(personne, 1)) {
+      if (evenement.quoi === "mort") {
+        this.contexte.annoncer(`${villageois.nom} n'a pas survecu — ${evenement.nom}`);
+        this.tuer(villageois);
+        return;
+      }
+      this.contexte.annoncer(`${villageois.nom} : ${evenement.nom}`);
+    }
+
+    // Trente journees au meme poste font un Routinier (§4.23).
+    personne.exploits.journeesAuPoste += 1;
+    for (const cle of verifierExploits(personne)) {
+      this.contexte.annoncer(`${villageois.nom} devient ${cle}`);
+    }
   }
 
   /** Ce que le joueur ramasse lui-meme, a la main (§4.18). */
@@ -311,6 +443,209 @@ export class Village {
       if (!villageois.regles.vivant) continue;
       this.majorerUn(villageois, delta, rappel);
     }
+
+    this.majorerLeMoral();
+  }
+
+  /**
+   * Le moral de tout le monde, par battements de 500 ms.
+   *
+   * ⚠️ **C'est le respect du §4.17 qui dicte cette forme.** Cinq couches sur
+   * trente personnes a soixante images par seconde, c'est exactement le genre de
+   * chose qui fait ramer un jeu si on l'ecrit naivement. Ici : un horodatage,
+   * une passe, et l'agregat de chacun est deja calcule — rien n'est recalcule.
+   */
+  private majorerLeMoral(): void {
+    const maintenant = this.scene.time.now;
+    if (maintenant < this.prochainBattement) return;
+
+    const periode = Village.PERIODE_MORAL;
+    this.prochainBattement = maintenant + periode;
+    const minutes = periode / 60_000;
+
+    // Ce qui est commun a toute la passe se calcule une fois, jamais par
+    // habitant (§4.17, regle 5).
+    const eglise = this.contexte.egliseDebout();
+    const apaisement = eglise
+      ? REGLAGES_STRESS.multiplicateurEglise * (0.8 + this.contexte.niveauEglise() * 0.2)
+      : 0;
+    const rayonnement = this.rayonnementDuVoisinage();
+
+    for (const villageois of this.habitants) {
+      if (!villageois.regles.vivant) continue;
+      this.majorerLeMoralDUn(villageois, minutes, apaisement, rayonnement, maintenant);
+    }
+
+    if (eglise) this.tenirLInfirmerie(maintenant);
+    this.propagerLInfection();
+  }
+
+  /**
+   * L'infection fongique se transmet a qui travaille a cote (DESIGN.md §4.23).
+   *
+   * **C'est le premier etat contagieux du jeu**, et il transforme le placement
+   * des postes en decision : mettre quatre bucherons cote a cote devient un
+   * pari. C'est aussi la premiere raison mecanique de **separer** ses gens au
+   * lieu de les entasser.
+   *
+   * La boucle n'est quadratique qu'en apparence : elle sort tout de suite s'il
+   * n'y a aucun infecte, ce qui est le cas la quasi-totalite de la partie.
+   */
+  private propagerLInfection(): void {
+    const porteurs = this.habitants.filter(
+      (v) => v.regles.vivant && v.regles.personne.etats.some((e) => ETATS[e.cle].contagieux),
+    );
+    if (porteurs.length === 0) return;
+
+    for (const porteur of porteurs) {
+      for (const voisin of this.habitants) {
+        if (voisin === porteur || !voisin.regles.vivant) continue;
+        if (voisin.etat !== "au-poste" && porteur.etat !== "au-poste") continue;
+        if (Phaser.Math.Distance.Between(porteur.x, porteur.y, voisin.x, voisin.y) > RAYON_CONTAGION) {
+          continue;
+        }
+        // Un Maladif attrape deux fois plus vite ; par battement de 500 ms, ca
+        // laisse une bonne minute de voisinage avant qu'il ne prenne.
+        if (!this.rng.chance(0.012 * voisin.regles.personne.mods.contagion)) continue;
+        if (contracterEtat(voisin.regles.personne, "infection")) {
+          this.contexte.annoncer(`${voisin.nom} a attrape l'infection de ${porteur.nom}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * L'eglise purge les etats de ceux qui sont dedans (DESIGN.md §4.22).
+   *
+   * ⚠️ **Elle ne soigne pas tout le monde d'un coup**, et c'est ce qui rend le
+   * niveau d'eglise utile : elle a des **lits**, et un lit traite une personne
+   * a la fois. Le champ `lits` etait pose au bloc 4 en attendant precisement ce
+   * branchement.
+   *
+   * Le rythme passe par un horodatage verifie dans la boucle, jamais par une
+   * minuterie (§4.17, regle 4).
+   */
+  private tenirLInfirmerie(maintenant: number): void {
+    if (maintenant < this.prochainSoin) return;
+    this.prochainSoin = maintenant + DELAI_SOIN;
+
+    // On soigne d'abord le plus atteint : c'est aussi celui qui repartira avec
+    // une sequelle, et c'est tout l'interet de la decision.
+    const lits = this.contexte.litsEglise();
+    const patients = this.habitants
+      .filter((v) => v.regles.vivant && v.etat === "abri" && v.regles.personne.etats.length > 0)
+      .sort((a, b) => palierDe(b) - palierDe(a))
+      .slice(0, lits);
+
+    for (const patient of patients) this.soignerALEglise(patient);
+  }
+
+  private majorerLeMoralDUn(
+    villageois: Villageois,
+    minutes: number,
+    apaisement: number,
+    rayonnement: number,
+    maintenant: number,
+  ): void {
+    const { regles } = villageois;
+    const { personne } = regles;
+    const r = REGLAGES_STRESS;
+
+    // --- ce qui monte
+    let montee = rayonnement + stressDesEtatsDe(personne);
+    if (!regles.rassasie) montee += r.faim;
+
+    const abrite = villageois.etat === "abri";
+    if (!abrite) {
+      if (this.nuit && !personne.mods.ignoreStressNuit) montee += r.dehorsLaNuit;
+      if (this.contexte.menaceAutour(villageois.x, villageois.y, REGLAGES_VILLAGE.distanceDeFuite)) {
+        montee += r.menaceEnVue;
+      }
+      // Celui qu'on n'arrete jamais monte : il faut faire tourner les equipes
+      // plutot qu'exploiter les trois meilleurs (§4.23).
+      if (villageois.etat === "au-poste") montee += r.travailSansRepos;
+    }
+
+    if (montee > 0) {
+      const resistance = resistanceAuStress(
+        ORDRE_RANGS.indexOf(regles.rang),
+        regles.niveau,
+        personne.stats,
+      );
+      monterStress(personne, montee * minutes * resistance);
+    }
+
+    // --- ce qui descend : le repos au village, et l'eglise par-dessus
+    const auRepos = abrite || (villageois.etat !== "au-poste" && villageois.etat !== "defend");
+    if (auRepos && !this.nuit) {
+      const rendu = r.reposAuVillage * (abrite ? apaisement * personne.mods.soinEglise : 1);
+      descendreStress(personne, rendu * minutes);
+    }
+
+    this.verifierLaRupture(villageois, maintenant);
+  }
+
+  /**
+   * Ce que les voisins font au stress de tout le monde, en points par minute.
+   *
+   * Un seul chiffre pour tout le village, et c'est volontaire : le §4.23 veut
+   * qu'un Boucher use les civils et qu'une Legende locale les calme, pas qu'on
+   * calcule trente distances trente fois. Le jour ou ca devra etre local, ce
+   * sera au bloc 11 avec les relations (§4.26).
+   */
+  private rayonnementDuVoisinage(): number {
+    let total = 0;
+    for (const villageois of this.habitants) {
+      if (!villageois.regles.vivant) continue;
+      const { personne } = villageois.regles;
+      if (personne.mods.stressVoisins === 0) continue;
+
+      // Le Bavard remonte les siens quand il va bien et les use quand il va
+      // mal : c'est le seul trait dont le signe depend de son porteur.
+      const bavard = personne.traits.includes(TRAIT_BAVARD);
+      const signe = bavard && personne.stress < REGLAGES_STRESS.seuilVisible ? -1 : 1;
+      total += personne.mods.stressVoisins * signe;
+
+      // Une dispute use ses voisins tant qu'elle dure (§4.23).
+      if (personne.rupture === "rage") total += 0.4;
+    }
+    return total;
+  }
+
+  /**
+   * Il craque, ou son coeur lache.
+   *
+   * **Un villageois qui craque ne frappe jamais personne** — au pire il lache
+   * son poste. Avec vingt habitants, l'autre regle declencherait une spirale de
+   * meurtres internes qu'aucun joueur ne peut arreter (§4.23).
+   */
+  private verifierLaRupture(villageois: Villageois, maintenant: number): void {
+    const { personne } = villageois.regles;
+
+    if (coeurLache(personne)) {
+      this.contexte.annoncer(`${villageois.nom} s'effondre — son coeur a lache`);
+      this.tuer(villageois);
+      return;
+    }
+
+    const rupture = verifierRupture(personne, maintenant, this.rng);
+    if (!rupture) return;
+
+    this.contexte.annoncer(
+      `${villageois.nom} craque — ${NOMS_RUPTURE[rupture]} : ${EFFETS_RUPTURE[rupture].civil}`,
+    );
+  }
+
+  /**
+   * A-t-il lache son poste ?
+   *
+   * Deux ruptures sur cinq le font rentrer, et c'est le maximum de ce qu'un
+   * civil peut faire de dangereux : il prive le village de sa production, il ne
+   * prive personne de sa vie.
+   */
+  private aLacheSonPoste(villageois: Villageois): boolean {
+    const { rupture } = villageois.regles.personne;
+    return rupture === "paranoia" || rupture === "terreur";
   }
 
   private majorerUn(villageois: Villageois, delta: number, rappel: boolean): void {
@@ -327,6 +662,10 @@ export class Village {
       rappel ||
       posture === "abri" ||
       villageois.poste === null ||
+      // Celui qui a craque ne va pas travailler : la paranoia refuse de sortir,
+      // la terreur lache son poste et se terre (§4.23). L'abattement, lui, le
+      // laisse sur place a ne rien faire — c'est `cadence()` qui l'annule.
+      this.aLacheSonPoste(villageois) ||
       // Un "prudent" lache son poste des qu'un monstre est en vue, et il ne
       // ressort pas de la nuit. Un "au travail" ne part que si on lui tombe
       // dessus : c'est le pari du joueur, pas celui de l'habitant (§4.18).
@@ -542,6 +881,16 @@ export class Village {
       return true;
     }
 
+    const { personne } = villageois.regles;
+    monterStress(personne, REGLAGES_STRESS.parCoupEncaisse);
+
+    // Un coup encaisse peut ouvrir une plaie qui ne se referme pas toute
+    // seule. Elle ne vient que du combat, donc le joueur sait toujours d'ou
+    // elle sort — c'est ce qui autorise qu'elle tue en une journee (§4.23).
+    if (this.rng.chance(0.2 * personne.mods.contagion) && contracterEtat(personne, "hemorragie")) {
+      this.contexte.annoncer(`${villageois.nom} saigne — il lui reste une journee`);
+    }
+
     villageois.regles.pv -= degats;
     if (villageois.regles.pv > 0) return false;
 
@@ -568,5 +917,121 @@ export class Village {
     this.contexte.annoncer(
       `${villageois.nom}, ${NOMS_METIER[villageois.regles.metier].toLowerCase()}, est mort`,
     );
+
+    this.journeesDesMorts.push(this.journee);
+    this.faireLeDeuil(villageois);
+    this.recalculerSatisfaction();
+  }
+
+  /**
+   * Ceux qui etaient la le paient (DESIGN.md §4.23).
+   *
+   * C'est le gros pic de la jauge, celui qui fait qu'**une mauvaise nuit se
+   * paie pendant des jours** : trois morts vues, et le survivant devient Hante
+   * pour le reste de la partie.
+   *
+   * Le rayon est genereux — on ne veut pas qu'un habitant a quarante pixels de
+   * la scene fasse comme s'il n'avait rien vu — mais il existe : le village
+   * entier ne doit pas s'effondrer parce qu'un pecheur est tombe a l'autre bout
+   * de la carte.
+   */
+  private faireLeDeuil(mort: Villageois): void {
+    this.temoinsDeLaMort(mort.x, mort.y, mort);
+  }
+
+  /**
+   * Les habitants qui ont vu quelqu'un tomber a cet endroit le paient.
+   *
+   * Publique parce que **la mort d'un heros compte aussi** : le village n'a pas
+   * a savoir si c'etait un des siens, seulement qu'il l'a vu.
+   */
+  temoinsDeLaMort(x: number, y: number, exclu?: Villageois): void {
+    for (const temoin of this.habitants) {
+      if (temoin === exclu || !temoin.regles.vivant) continue;
+      // Celui qui est enferme dans l'eglise n'a rien vu, et c'est une raison de
+      // plus d'y envoyer ses gens.
+      if (temoin.etat === "abri") continue;
+      const distance = Phaser.Math.Distance.Between(temoin.x, temoin.y, x, y);
+      if (distance > REGLAGES_STRESS.rayonDuDeuil) continue;
+
+      voirMourir(temoin.regles.personne);
+      for (const cle of verifierExploits(temoin.regles.personne)) {
+        this.contexte.annoncer(`${temoin.nom} devient ${cle}`);
+      }
+    }
+  }
+
+  // -------------------------------------------------------- la satisfaction
+
+  /**
+   * La satisfaction du village, de 0 a 100 (DESIGN.md §4.23).
+   *
+   * **C'est elle qui debloque les niveaux d'eglise**, et c'est ce qui referme
+   * enfin la boucle : l'eglise fait baisser le stress, le stress bas remonte les
+   * humeurs, les humeurs remontent la satisfaction, et la satisfaction debloque
+   * le niveau d'eglise suivant.
+   *
+   * Elle est **mise en cache** : on la recalcule a l'aube et a chaque mort, pas
+   * a chaque image. Rien de ce qui la compose ne bouge plus vite que ca.
+   */
+  get satisfaction(): number {
+    return this.satisfactionCourante;
+  }
+
+  recalculerSatisfaction(): void {
+    const vivants = this.vivants;
+    this.satisfactionCourante = satisfactionDuVillage({
+      stress: vivants.map((v) => v.regles.personne.stress),
+      affames: vivants.filter((v) => !v.regles.rassasie).length,
+      malades: vivants.filter((v) => v.regles.personne.etats.length > 0).length,
+      mortsRecents: mortsRecents(this.journeesDesMorts, this.journee),
+      joursDeVivres: this.joursDeVivres,
+      niveauEglise: this.contexte.niveauEglise(),
+      egliseDebout: this.contexte.egliseDebout(),
+      // Les decorations arrivent avec le mode d'amenagement, au bloc 7 (§4.24).
+      // Le point d'accroche est pose : il n'y aura rien a recoder ici.
+      decorations: 0,
+    });
+  }
+
+  /**
+   * L'eglise le soigne : elle purge un etat, et elle calme (§4.22).
+   *
+   * ⚠️ Soigner quelqu'un au stade **Mourant** le sauve *et* l'abime pour
+   * toujours. C'est la seule source de sequelles du jeu, et le joueur sait qu'il
+   * joue avec le feu : le palier est annonce a chaque aggravation.
+   *
+   * @returns vrai s'il a soigne quelque chose
+   */
+  soignerALEglise(villageois: Villageois): boolean {
+    const { personne } = villageois.regles;
+    const pire = pireEtat(personne.etats);
+    if (!pire) return false;
+
+    const etaitMourant = pire.palier === 2;
+    const sequelle = soignerEtat(personne, pire.cle, this.rng);
+    villageois.regles.pv = combatDe(villageois.regles).pvMax;
+
+    if (etaitMourant && sequelle !== null) {
+      this.contexte.annoncer(
+        `${villageois.nom} survit — mais il en garde : ${SEQUELLES[sequelle]!.nom}`,
+      );
+    } else {
+      this.contexte.annoncer(`${villageois.nom} est soigne — ${ETATS[pire.cle].nom}`);
+    }
+    return true;
+  }
+
+  /**
+   * Ce que l'interface lit de chaque habitant, pour le tableau et la fiche.
+   *
+   * Un seul endroit qui sait aplatir une personne en lignes lisibles : sinon le
+   * tableau et la fiche divergeraient au premier changement.
+   */
+  lireEtatDe(villageois: Villageois): string {
+    const { personne } = villageois.regles;
+    if (personne.rupture) return NOMS_RUPTURE[personne.rupture];
+    const pire = pireEtat(personne.etats);
+    return pire ? lireEtat(pire) : "";
   }
 }
