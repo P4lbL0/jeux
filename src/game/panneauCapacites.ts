@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import type { Hero } from "./entities";
+import { C, T, cadre, creux, espacer, teindre, texte, type Plaque } from "./ui/chrome";
 
 /**
  * Panneau des capacites, en bas a gauche.
@@ -11,12 +12,17 @@ import type { Hero } from "./entities";
  *
  * Le panneau se reconstruit tout seul quand la liste change — apprendre une
  * competence active, ou changer de heros.
+ *
+ * ⚠️ **Son fond etait a 85 % et son accent etait `#f0c419`** — l'un des trois
+ * dores du jeu. Il est maintenant opaque et en laiton, comme tout ce qui se
+ * clique (§4.10). L'icone n'est plus teintee par la couleur de la classe :
+ * celle-ci a quitte l'interface et ne vit plus que sur le sprite dans le monde.
  */
 
 const LARGEUR = 302;
 const HAUTEUR = 58;
-const ESPACE = 6;
-const MARGE_BASSE = 46;
+const ESPACE = 5;
+const MARGE_BASSE = 62;
 const TAILLE_ICONE = 40;
 
 /** Libelle de la touche associee a chaque emplacement */
@@ -64,22 +70,19 @@ export class PanneauCapacites {
           .image(0, 0, capacite.icone)
           .setDisplaySize(TAILLE_ICONE, TAILLE_ICONE)
           .setDepth(1001),
-        nom: this.texte(capacite.nom.toUpperCase(), 13, "#f2e9d8"),
-        description: this.texte(capacite.description, 10, "#c8bfae").setWordWrapWidth(196),
-        touche: this.texte(TOUCHES_CAPACITES[i] ?? "?", 11, "#8a8397").setOrigin(1, 0),
+        nom: this.texte(12, T.os).setText(espacer(capacite.nom.toUpperCase())),
+        description: this.texte(10, T.osMat)
+          .setText(capacite.description)
+          .setWordWrapWidth(196),
+        touche: this.texte(11, T.laiton)
+          .setText(TOUCHES_CAPACITES[i] ?? "?")
+          .setOrigin(1, 0),
       });
     });
   }
 
-  private texte(contenu: string, taille: number, couleur: string): Phaser.GameObjects.Text {
-    return this.scene.add
-      .text(0, 0, contenu, {
-        fontFamily: "monospace",
-        fontSize: `${taille}px`,
-        color: couleur,
-        lineSpacing: 2,
-      })
-      .setDepth(1003);
+  private texte(taille: number, couleur: string): Phaser.GameObjects.Text {
+    return texte(this.scene, 0, 0, taille, couleur).setDepth(1003);
   }
 
   detruire(): void {
@@ -103,7 +106,6 @@ export class PanneauCapacites {
     this.voiles.clear();
 
     const bas = this.scene.scale.height - MARGE_BASSE;
-    const couleurClasse = this.hero.classe.couleur;
 
     capacites.forEach((capacite, i) => {
       const entree = this.entrees[i];
@@ -113,44 +115,47 @@ export class PanneauCapacites {
       const y = bas - HAUTEUR - i * (HAUTEUR + ESPACE);
       const charge = this.hero.chargeCapacite(capacite);
       const pret = charge === 0;
+      const plaque: Plaque = { x, y, largeur: LARGEUR, hauteur: HAUTEUR };
+
+      cadre(this.cadres, plaque, pret);
 
       // Battement lent quand la capacite est disponible : ca attire l'oeil sans
       // clignoter agressivement en plein combat.
-      const battement = pret ? 0.75 + 0.25 * Math.sin(this.scene.time.now / 260) : 0;
-      const bordure = capacite.automatique ? 0x7ee0a0 : 0xf0c419;
-
-      this.cadres.fillStyle(0x1b1720, 0.85);
-      this.cadres.fillRoundedRect(x, y, LARGEUR, HAUTEUR, 8);
-      this.cadres.lineStyle(pret ? 3 : 2, pret ? bordure : 0x4a4152, pret ? battement : 1);
-      this.cadres.strokeRoundedRect(x, y, LARGEUR, HAUTEUR, 8);
+      if (pret) {
+        const battement = 0.28 + 0.22 * Math.sin(this.scene.time.now / 260);
+        this.cadres.lineStyle(1, C.laiton, battement);
+        this.cadres.strokeRect(x + 1.5, y + 1.5, LARGEUR - 3, HAUTEUR - 3);
+      }
 
       const ix = x + 9;
       const iy = y + (HAUTEUR - TAILLE_ICONE) / 2;
-      this.cadres.fillStyle(0x2a2433, 1);
-      this.cadres.fillRoundedRect(ix, iy, TAILLE_ICONE, TAILLE_ICONE, 5);
+      creux(this.cadres, { x: ix, y: iy, largeur: TAILLE_ICONE, hauteur: TAILLE_ICONE });
 
       entree.icone.setPosition(ix + TAILLE_ICONE / 2, iy + TAILLE_ICONE / 2);
-      entree.icone.setTint(pret ? couleurClasse : 0x5a5368);
+      // L'icone garde ses couleurs quand la capacite est prete, et vire a l'os
+      // mat quand elle recharge. La teinte de classe a disparu : sept couleurs
+      // vives dans un coin de l'ecran, c'etait le huitieme systeme de couleur
+      // du jeu (§4.10).
+      entree.icone.setTint(pret ? C.os : 0x5b5147);
       entree.icone.setScale(
         (TAILLE_ICONE / 32) * (pret ? 1 + 0.04 * Math.sin(this.scene.time.now / 260) : 1),
       );
 
       // Le rechargement se vide par le haut : l'icone "se remplit" en remontant.
       if (!pret) {
-        this.voiles.fillStyle(0x0d0b12, 0.72);
+        this.voiles.fillStyle(C.fer, 0.78);
         this.voiles.fillRect(ix, iy, TAILLE_ICONE, TAILLE_ICONE * charge);
       }
 
       const tx = x + 58;
-      entree.nom.setPosition(tx, y + 7).setColor(pret ? "#f0c419" : "#8a8397");
-      entree.description.setPosition(tx, y + 25);
+      entree.nom.setPosition(tx, y + 8);
+      teindre(entree.nom, pret ? T.os : T.osMat);
+      entree.description.setPosition(tx, y + 26);
 
       const restant = Math.ceil((charge * capacite.rechargement) / 1000);
       const libelle = capacite.automatique ? "AUTO" : (TOUCHES_CAPACITES[i] ?? "?");
-      entree.touche
-        .setPosition(x + LARGEUR - 12, y + 8)
-        .setColor(pret ? "#f2e9d8" : "#5a5368")
-        .setText(pret ? libelle : `${restant}s`);
+      entree.touche.setPosition(x + LARGEUR - 11, y + 8).setText(pret ? libelle : `${restant}s`);
+      teindre(entree.touche, pret ? T.laiton : T.osMat);
     });
   }
 }

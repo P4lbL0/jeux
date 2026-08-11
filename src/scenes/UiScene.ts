@@ -10,6 +10,7 @@ import { PanneauVillage } from "../game/panneauVillage";
 import { PanneauPort } from "../game/panneauPort";
 import type { Hero } from "../game/entities";
 import { BoiteJournal } from "../game/journal";
+import { PanneauEtat } from "../game/ui/panneauEtat";
 import type { ArenaScene } from "./ArenaScene";
 
 /**
@@ -35,7 +36,7 @@ export class UiScene extends Phaser.Scene {
   private ordres!: PanneauOrdres;
   private village!: PanneauVillage;
   private port!: PanneauPort;
-  private stats!: Phaser.GameObjects.Text;
+  private etat!: PanneauEtat;
   private boiteJournal!: BoiteJournal;
 
   constructor() {
@@ -79,17 +80,16 @@ export class UiScene extends Phaser.Scene {
       this.arene.events.emit("vendre", ressource, quantite),
     );
 
-    this.stats = this.add
-      .text(0, 0, "", {
-        fontFamily: "monospace",
-        fontSize: "12px",
-        color: "#f2e9d8",
-        align: "right",
-      })
-      .setOrigin(1, 0)
-      .setDepth(1003);
+    // Le compteur du haut-droite : jour, population, survie et elimines. Il
+    // remplace deux textes sans fond qui se marchaient dessus au meme coin.
+    this.etat = new PanneauEtat(this);
 
     this.boiteJournal = new BoiteJournal(this);
+
+    // « ? » deplie la ligne des touches (§4.10). L'arene garde la main sur la
+    // touche parce que c'est elle qui sait si une saisie est en cours — taper
+    // un nom ne doit pas ouvrir l'aide.
+    this.arene.events.on("basculer-aide", this.basculerAide, this);
 
     const evenements = this.arene.events;
     evenements.on("choix", this.ouvrirChoix, this);
@@ -106,7 +106,12 @@ export class UiScene extends Phaser.Scene {
       evenements.off("basculer-village", this.basculerVillage, this);
       evenements.off("arrivant", this.ouvrirLaPorte, this);
       evenements.off("basculer-port", this.basculerPort, this);
+      evenements.off("basculer-aide", this.basculerAide, this);
     });
+  }
+
+  private basculerAide(): void {
+    this.hud.basculerAide();
   }
 
   private basculerVillage(): void {
@@ -190,11 +195,9 @@ export class UiScene extends Phaser.Scene {
     this.hud.rafraichir(this.arene.etatEquipe);
     this.ordres.rafraichir(this.arene.etatOrdres);
     this.capacites.rafraichir();
-    this.village.rafraichir(this.arene.etatVillage, this.time.now);
+    this.village.rafraichir(this.arene.etatVillage);
     this.port.rafraichir(this.arene.etatPort);
-    const resume = this.arene.resume;
-    this.stats.setPosition(this.scale.width - 16, 16);
-    this.stats.setText(`Survie : ${resume.secondes}s\nElimines : ${resume.kills}`);
+    this.etat.rafraichir(this.arene.etatVillage, this.arene.resume, this.time.now);
 
     this.boiteJournal.rafraichir(this.arene.journal);
   }

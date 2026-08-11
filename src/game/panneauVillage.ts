@@ -87,8 +87,6 @@ function lireEglise(etat: EtatVillage): string {
 }
 
 export class PanneauVillage {
-  /** Le seul affichage permanent : la population et l'heure */
-  private compteur: Phaser.GameObjects.Text;
   private cadre: Phaser.GameObjects.Rectangle;
   private titre: Phaser.GameObjects.Text;
   private stocks: Phaser.GameObjects.Text;
@@ -107,11 +105,6 @@ export class PanneauVillage {
     private changerPoste: (index: number) => void,
     private ouvrirFiche: (index: number) => void,
   ) {
-    this.compteur = scene.add
-      .text(0, 0, "", { fontFamily: "monospace", fontSize: "13px", color: "#f2e9d8" })
-      .setOrigin(1, 0)
-      .setDepth(1003);
-
     this.cadre = scene.add
       .rectangle(0, 0, 330, 42 + LIGNES * 16 + 46, 0x1b1720, 0.92)
       .setOrigin(0)
@@ -155,34 +148,14 @@ export class PanneauVillage {
     this.ouvert = !this.ouvert;
   }
 
-  rafraichir(etat: EtatVillage, maintenant: number): void {
-    this.majCompteur(etat, maintenant);
-    this.majPanneau(etat);
-  }
-
   /**
-   * La ligne permanente.
-   *
-   * Elle dit trois choses et pas une de plus : combien d'habitants sont vivants,
-   * ou on en est dans la journee, et si quelqu'un est en train de courir.
+   * Le compteur permanent — jour, population, survie — a quitte ce fichier pour
+   * `ui/panneauEtat.ts` : il etait pose a nu sur l'herbe, et il faisait paire
+   * avec celui d'`UiScene` au meme coin de l'ecran. Les deux forment maintenant
+   * une seule plaque opaque (§4.10).
    */
-  private majCompteur(etat: EtatVillage, maintenant: number): void {
-    const minutes = Math.ceil(etat.restant / 60_000);
-    const moment = etat.phase === "jour" ? `Jour ${etat.jour}` : `Nuit ${etat.jour}`;
-    const icone = etat.phase === "jour" ? "*" : "(";
-
-    this.compteur.setPosition(this.scene.scale.width - 16, 52);
-    this.compteur.setText(
-      `${icone} ${moment} — ${minutes} min\n${etat.population} habitant${etat.population > 1 ? "s" : ""}`,
-    );
-    this.compteur.setAlign("right");
-
-    // Quelqu'un court : le clignotement est la seule alerte de l'ecran, il faut
-    // qu'elle soit impossible a manquer.
-    if (etat.population === 0) this.compteur.setColor("#ff5a4a");
-    else if (etat.enFuite) {
-      this.compteur.setColor(Math.floor(maintenant / 220) % 2 === 0 ? "#ff5a4a" : "#ffd98a");
-    } else this.compteur.setColor("#f2e9d8");
+  rafraichir(etat: EtatVillage): void {
+    this.majPanneau(etat);
   }
 
   private majPanneau(etat: EtatVillage): void {

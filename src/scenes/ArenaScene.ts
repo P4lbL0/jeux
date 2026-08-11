@@ -1338,6 +1338,14 @@ export class ArenaScene extends Phaser.Scene {
       });
     }
 
+    // « ? » deplie la ligne des touches (§4.10). On l'ecoute par son caractere
+    // et non par un code : le « ? » demande Maj sur AZERTY comme sur QWERTY, et
+    // ce n'est pas la meme touche physique des deux cotes.
+    clavier.on("keydown", (e: KeyboardEvent) => {
+      if (this.termine || this.saisieEnCours) return;
+      if (e.key === "?") this.events.emit("basculer-aide");
+    });
+
     clavier.addKey(K.R).on("down", () => {
       if (!this.termine) return;
       this.scene.stop("ui");
