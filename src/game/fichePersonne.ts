@@ -13,6 +13,18 @@ import { EFFETS_RUPTURE, NOMS_RUPTURE, REGLAGES_STRESS, type Personne } from "..
 import { poser, reponseA, traitsVisibles, type Arrivant } from "../core/arrivants";
 import { sequelleParId, traitParId } from "../core/traits";
 import { portraitDe, TAILLE_PORTRAIT } from "./portraits";
+import {
+  C,
+  T,
+  HAUTEUR_TITRE,
+  barreDeTitre,
+  cadre as plaqueDeFer,
+  creux,
+  espacer,
+  jauge as jaugeChrome,
+  yTitre,
+  type Plaque,
+} from "./ui/chrome";
 import type { Hero } from "./entities";
 import type { Villageois } from "./village";
 
@@ -36,6 +48,16 @@ import type { Villageois } from "./village";
  */
 
 const LARGEUR = 560;
+
+/**
+ * A la porte, la fiche s'elargit : le portrait a gauche, ce qu'il repond au
+ * milieu, les questions a droite (§4.10). En une seule colonne, il fallait
+ * descendre chercher la reponse a la question qu'on venait de cliquer, et le
+ * visage — qui est ce qui trahit — sortait du champ de vision.
+ */
+const LARGEUR_PORTE = 880;
+/** Largeur de la colonne des questions, et de celle des reponses. */
+const COLONNE_PORTE = 250;
 
 /** Un lien d'affinite tel qu'il s'affiche : un nom et une force de 0 a 1. */
 export interface LienAffiche {
@@ -80,15 +102,18 @@ function personneDe(sujet: SujetFiche): Personne {
   return sujet.villageois.personne;
 }
 
+/**
+ * ⚠️ Ce fichier avait sa propre palette — huit couleurs a lui, dont un dore de
+ * plus. Elle a disparu : tout vient de `ui/chrome.ts` (§4.10). Les noms restent
+ * pour que les cent lignes qui suivent se lisent, mais ce sont des renvois.
+ */
 const COULEURS = {
-  fond: 0x1b1720,
-  case: 0x2a2433,
-  texte: "#f2e9d8",
-  attenue: "#c8bfae",
-  discret: "#8a8397",
-  bon: "#7ee0a0",
-  mauvais: "#ff8a7a",
-  mixte: "#ffd98a",
+  texte: T.os,
+  attenue: T.os,
+  discret: T.osMat,
+  bon: T.bile,
+  mauvais: T.sangFrais,
+  mixte: T.laiton,
 } as const;
 
 export class FichePersonne {
@@ -129,52 +154,73 @@ export class FichePersonne {
     this.sujet = sujet;
 
     const personne = personneDe(sujet);
+    const largeur = sujet.genre === "arrivant" ? LARGEUR_PORTE : LARGEUR;
     const hauteur = this.hauteurVoulue(sujet, personne);
-    const x = Math.round(this.scene.scale.width / 2 - LARGEUR / 2);
+    const x = Math.round(this.scene.scale.width / 2 - largeur / 2);
     const y = Math.max(10, Math.round(this.scene.scale.height / 2 - hauteur / 2));
 
-    const accent =
-      sujet.genre === "hero"
-        ? sujet.hero.classe.couleur
-        : sujet.genre === "arrivant"
-          ? 0xd8a86a
-          : 0x9ad17f;
-
     const voile = this.scene.add.graphics().setDepth(2600);
-    voile.fillStyle(0x0d0b12, 0.62);
+    voile.fillStyle(C.fer, 0.72);
     voile.fillRect(0, 0, this.scene.scale.width, this.scene.scale.height);
     this.objets.push(voile);
     this.zone(0, 0, this.scene.scale.width, this.scene.scale.height, 2601, () => this.fermer());
 
+    // ⚠️ La couleur de classe a quitte l'interface (§4.10) : la fiche d'un
+    // Necromancien et celle d'un Rodeur sont faites du meme metal. C'est le
+    // titre qui dit qui on regarde, plus un liseré.
     const cadre = this.scene.add.graphics().setDepth(2602);
-    cadre.fillStyle(COULEURS.fond, 0.98);
-    cadre.fillRoundedRect(x, y, LARGEUR, hauteur, 10);
-    cadre.lineStyle(3, accent, 1);
-    cadre.strokeRoundedRect(x, y, LARGEUR, hauteur, 10);
+    const plaque: Plaque = { x, y, largeur, hauteur };
+    plaqueDeFer(cadre, plaque, true);
+    barreDeTitre(cadre, plaque);
     this.objets.push(cadre);
     // Le clic a l'interieur ne referme pas la fiche.
-    this.zone(x, y, LARGEUR, hauteur, 2603, () => {});
+    this.zone(x, y, largeur, hauteur, 2603, () => {});
 
-    let curseur = this.identite(cadre, sujet, personne, x, y, accent);
-    curseur = this.statistiques(cadre, personne, x, curseur);
+    this.texte(
+      x + 14,
+      yTitre(plaque),
+      espacer(
+        sujet.genre === "arrivant"
+          ? "A LA PORTE"
+          : sujet.genre === "hero"
+            ? "HEROS"
+            : "HABITANT",
+      ),
+      11,
+      T.titre,
+    );
+
+    // A la porte, tout ce qui est commun tient dans la colonne de gauche : le
+    // milieu porte ses reponses et la droite ses questions, cote a cote, pour
+    // qu'on ne perde jamais son visage de vue en cliquant (§4.10).
+    const droite = x + largeur - 20 - COLONNE_PORTE;
+    const milieu = droite - 16 - COLONNE_PORTE;
+    const colonneGauche = sujet.genre === "arrivant" ? milieu - x - 40 : LARGEUR - 40;
+
+    let curseur = this.identite(cadre, sujet, personne, x, y + HAUTEUR_TITRE, colonneGauche);
+    curseur = this.statistiques(cadre, personne, x, curseur, colonneGauche);
     // Un inconnu n'a ni stress ni etat a montrer : sa jauge est a zero et sa
     // liste est vide. Afficher un moral vide serait du bruit sur la seule fiche
     // qu'on lit vraiment ligne a ligne.
     if (sujet.genre !== "arrivant") curseur = this.moral(cadre, personne, x, curseur);
-    curseur = this.traits(cadre, personne, x, curseur, sujet);
+    curseur = this.traits(cadre, personne, x, curseur, sujet, colonneGauche);
 
     if (sujet.genre === "hero") {
       curseur = this.combat(cadre, sujet.hero, x, curseur);
       curseur = this.equipe(cadre, sujet.groupe, x, curseur);
       curseur = this.competences(cadre, sujet.hero, x, curseur);
     } else if (sujet.genre === "arrivant") {
-      curseur = this.observations(cadre, sujet.arrivant, x, curseur);
-      curseur = this.interrogatoire(cadre, sujet, x, curseur);
+      this.observations(cadre, sujet.arrivant, x + 20, curseur, colonneGauche);
+      // Les deux colonnes de droite partent du haut du corps, pas du curseur :
+      // c'est ce qui les garde alignees quel que soit le nombre de traits.
+      const hautColonnes = y + HAUTEUR_TITRE + 18;
+      this.reponses(cadre, sujet.arrivant, milieu, hautColonnes, COLONNE_PORTE);
+      this.questions(cadre, sujet, droite, hautColonnes, COLONNE_PORTE);
     } else {
       curseur = this.metier(cadre, sujet.villageois, x, curseur);
     }
 
-    this.boutons(cadre, sujet, x, y + hauteur - 44);
+    this.boutons(cadre, sujet, x, y + hauteur - 44, largeur);
   }
 
   // ------------------------------------------------------------- sections
@@ -186,7 +232,7 @@ export class FichePersonne {
     personne: Personne,
     x: number,
     y: number,
-    accent: number,
+    largeur = LARGEUR - 40,
   ): number {
     const vivant =
       sujet.genre === "hero"
@@ -195,10 +241,24 @@ export class FichePersonne {
 
     // Le portrait est **assemble** (§4.23) : il change avec la personne, donc
     // il se redemande a chaque ouverture plutot que d'etre garde en champ.
-    const cle = portraitDe(this.scene, personne, vivant);
+    // ⚠️ **C'est le portrait qui trahit le mensonge**, pas une ligne de texte
+    // (§4.10) : des qu'une reponse deja posee l'a fait se derober, son regard
+    // glisse sur le cote pour le reste de l'entretien.
+    const seTrahit =
+      sujet.genre === "arrivant" &&
+      sujet.arrivant.questions.some(
+        (q) =>
+          sujet.arrivant.posees.includes(q.cle) && reponseA(sujet.arrivant, q).trahi,
+      );
+
+    const cle = portraitDe(this.scene, personne, vivant, seTrahit);
     const echelle = 4;
-    cadre.fillStyle(COULEURS.case, 1);
-    cadre.fillRect(x + 20, y + 18, TAILLE_PORTRAIT.largeur * echelle, TAILLE_PORTRAIT.hauteur * echelle);
+    creux(cadre, {
+      x: x + 20,
+      y: y + 18,
+      largeur: TAILLE_PORTRAIT.largeur * echelle,
+      hauteur: TAILLE_PORTRAIT.hauteur * echelle,
+    });
     const portrait = this.scene.add
       .image(x + 20, y + 18, cle)
       .setOrigin(0)
@@ -214,7 +274,7 @@ export class FichePersonne {
     // n'a encore rien vecu ». Le renommage vient apres, quand celui-la est
     // devenu quelqu'un — donc la zone cliquable n'existe pas ici.
     if (sujet.genre !== "arrivant") {
-      this.zone(gauche, y + 18, LARGEUR - (gauche - x) - 30, 26, 2606, () =>
+      this.zone(gauche, y + 18, largeur - (gauche - x) + 20, 26, 2606, () =>
         this.commencerLaSaisie(),
       );
     }
@@ -242,23 +302,48 @@ export class FichePersonne {
 
     // La barre de vie, commune elle aussi : un habitant en a une depuis le
     // bloc 4 (§4.18).
-    const bl = LARGEUR - (gauche - x) - 30;
+    const bl = Math.max(90, largeur - (gauche - x) + 10);
     if (sujet.genre === "hero") {
       const h = sujet.hero;
-      this.barre(cadre, gauche, y + 82, bl, 12, h.ratioPv, h.estCritique ? 0xe74c3c : 0x5fc26a);
+      // Le repere des 20 % est ici aussi : c'est le seuil qui verrouille tout,
+      // et une fiche qui ne le montrerait pas mentirait par omission (§4.3).
+      jaugeChrome(cadre, { x: gauche, y: y + 82, largeur: bl, hauteur: 12 }, h.ratioPv, undefined, 0.2);
       this.texte(gauche, y + 98, `${Math.ceil(h.pv)} / ${h.pvMax} PV`, 11, COULEURS.texte);
-      this.barre(cadre, gauche, y + 116, bl, 6, h.xp / h.xpRequise, 0x5ec8f0);
-      this.texte(gauche, y + 126, `${Math.floor(h.xp)} / ${h.xpRequise} XP  ·  ${h.kills} elimines`, 10, "#8fd4f0");
+      jaugeChrome(cadre, { x: gauche, y: y + 116, largeur: bl, hauteur: 6 }, h.xp / h.xpRequise, {
+        plein: C.laiton,
+        moitie: C.laiton,
+        critique: C.laiton,
+      });
+      this.texte(gauche, y + 126, `${Math.floor(h.xp)} / ${h.xpRequise} XP  ·  ${h.kills} elimines`, 10, T.osMat);
     } else if (sujet.genre === "arrivant") {
       // Pas de barre de vie : il n'est pas encore quelqu'un du village, et lui
       // en donner une repondrait a la seule question qu'on ne doit pas trancher
       // ici — ce qu'il vaut. On regarde un visage, pas des chiffres de combat.
-      this.texte(gauche, y + 86, "Un inconnu se presente a la porte.", 12, COULEURS.attenue);
-      this.texte(gauche, y + 106, "Trois choses se remarquent. Le reste se demande.", 10, COULEURS.discret);
+      // ⚠️ Ces deux phrases doivent s'arreter au bord de la colonne : sans
+      // enveloppe, elles ecrivaient par-dessus la colonne des reponses. Vu sur
+      // une capture — un texte Phaser ne se plaint jamais de deborder.
+      // ⚠️ La seconde phrase se pose sous la **hauteur mesuree** de la premiere.
+      // Un pas fixe de 20 px marchait tant que rien ne s'enveloppait ; dans la
+      // colonne etroite de la porte, la premiere prend deux lignes et recouvrait
+      // la seconde.
+      const intro = this.texte(
+        gauche,
+        y + 84,
+        "Un inconnu se presente a la porte.",
+        12,
+        COULEURS.attenue,
+      ).setWordWrapWidth(bl);
+      this.texte(
+        gauche,
+        y + 84 + intro.height + 4,
+        "Trois choses se remarquent. Le reste se demande.",
+        10,
+        COULEURS.discret,
+      ).setWordWrapWidth(bl);
     } else {
       const regles = sujet.villageois.regles;
       const pvMax = combatDe(regles).pvMax;
-      this.barre(cadre, gauche, y + 82, bl, 12, regles.pv / pvMax, 0x5fc26a);
+      jaugeChrome(cadre, { x: gauche, y: y + 82, largeur: bl, hauteur: 12 }, regles.pv / pvMax);
       this.texte(gauche, y + 98, `${Math.ceil(regles.pv)} / ${pvMax} PV`, 11, COULEURS.texte);
       this.texte(
         gauche,
@@ -269,9 +354,9 @@ export class FichePersonne {
       );
     }
 
-    cadre.lineStyle(1, accent, 0.35);
     const bas = y + 18 + TAILLE_PORTRAIT.hauteur * echelle + 12;
-    cadre.lineBetween(x + 20, bas, x + LARGEUR - 20, bas);
+    cadre.fillStyle(C.sangSeche, 0.7);
+    cadre.fillRect(x + 20, bas, largeur, 1);
     return bas + 12;
   }
 
@@ -288,8 +373,9 @@ export class FichePersonne {
     personne: Personne,
     x: number,
     y: number,
+    largeur = LARGEUR - 40,
   ): number {
-    this.texte(x + 20, y, "STATISTIQUES", 11, COULEURS.discret);
+    this.texte(x + 20, y, espacer("STATISTIQUES"), 10, COULEURS.discret);
 
     const lignes: [string, number, string][] = [
       ["Force", personne.stats.force, "degats, et recolte a la main"],
@@ -297,14 +383,18 @@ export class FichePersonne {
       ["Intelligence", personne.stats.intelligence, "batit moins cher, monte plus vite"],
     ];
 
+    // Sous 420 px, la colonne « a quoi ca sert » ne rentre plus : on la coupe
+    // plutot que de la laisser deborder du cadre. C'est la seule des quatre
+    // colonnes qu'on peut perdre — les trois autres portent le chiffre.
+    const large = largeur >= 420;
     lignes.forEach(([nom, valeur, quoi], i) => {
       const cy = y + 20 + i * 22;
-      cadre.fillStyle(COULEURS.case, 0.9);
-      cadre.fillRoundedRect(x + 20, cy, LARGEUR - 40, 19, 4);
+      creux(cadre, { x: x + 20, y: cy, largeur, hauteur: 19 });
       this.texte(x + 28, cy + 4, nom, 11, COULEURS.attenue);
-      this.barre(cadre, x + 120, cy + 6, 120, 8, valeur / 100, couleurDeStat(valeur));
-      this.texte(x + 250, cy + 4, `${valeur}%`, 11, COULEURS.texte);
-      this.texte(x + 300, cy + 5, quoi, 9, COULEURS.discret);
+      const largeurBarre = large ? 120 : Math.max(50, largeur - 200);
+      this.barre(cadre, x + 120, cy + 6, largeurBarre, 8, valeur / 100, couleurDeStat(valeur));
+      this.texte(x + 130 + largeurBarre, cy + 4, `${valeur}%`, 11, COULEURS.texte);
+      if (large) this.texte(x + 300, cy + 5, quoi, 9, COULEURS.discret);
     });
 
     return y + 20 + lignes.length * 22 + 10;
@@ -317,7 +407,7 @@ export class FichePersonne {
     x: number,
     y: number,
   ): number {
-    this.texte(x + 20, y, "MORAL", 11, COULEURS.discret);
+    this.texte(x + 20, y, espacer("MORAL"), 10, COULEURS.discret);
 
     const part = personne.stress / REGLAGES_STRESS.rupture;
     const couleur = personne.stress >= REGLAGES_STRESS.rupture ? 0xff5a4a : part > 0.6 ? 0xffd98a : 0x7ee0a0;
@@ -369,13 +459,14 @@ export class FichePersonne {
     x: number,
     y: number,
     sujet: SujetFiche,
+    largeur = LARGEUR - 40,
   ): number {
     const aLaPorte = sujet.genre === "arrivant";
     this.texte(
       x + 20,
       y,
-      aLaPorte ? "CE QU'ON LUI VOIT" : "CE QU'IL EST DEVENU",
-      11,
+      espacer(aLaPorte ? "CE QU'ON LUI VOIT" : "CE QU'IL EST DEVENU"),
+      10,
       COULEURS.discret,
     );
 
@@ -407,13 +498,20 @@ export class FichePersonne {
       return y + 44;
     }
 
-    lignes.forEach(([nom, resume, couleur], i) => {
-      const cy = y + 20 + i * 16;
+    // ⚠️ La hauteur d'une ligne est **mesuree**, pas supposee : dans une colonne
+    // etroite, un resume de trait s'enveloppe sur deux lignes et vient recouvrir
+    // le trait suivant. Vu sur une capture — un pas fixe de 16 px ne marche que
+    // tant que rien ne s'enveloppe.
+    let cy = y + 20;
+    for (const [nom, resume, couleur] of lignes) {
       this.texte(x + 24, cy, nom, 10, couleur);
-      this.texte(x + 150, cy, resume, 9, COULEURS.discret);
-    });
+      const t = this.texte(x + 150, cy, resume, 9, COULEURS.discret).setWordWrapWidth(
+        Math.max(80, largeur - 134),
+      );
+      cy += Math.max(16, t.height + 2);
+    }
 
-    return y + 20 + lignes.length * 16 + 10;
+    return cy + 10;
   }
 
   /** Les chiffres de combat d'un heros. Un habitant n'en a pas (§4.10). */
@@ -423,7 +521,7 @@ export class FichePersonne {
     x: number,
     y: number,
   ): number {
-    this.texte(x + 20, y, "AU COMBAT", 11, COULEURS.discret);
+    this.texte(x + 20, y, espacer("AU COMBAT"), 10, COULEURS.discret);
 
     const stats: [string, string][] = [
       ["Degats", `${hero.degats}`],
@@ -440,8 +538,7 @@ export class FichePersonne {
     stats.forEach(([nom, valeur], i) => {
       const cx = x + 20 + (i % 2) * colonne;
       const cy = y + 20 + Math.floor(i / 2) * 19;
-      cadre.fillStyle(COULEURS.case, 0.9);
-      cadre.fillRoundedRect(cx, cy, colonne - 8, 17, 4);
+      creux(cadre, { x: cx, y: cy, largeur: colonne - 8, hauteur: 17 });
       this.texte(cx + 8, cy + 3, nom, 10, COULEURS.attenue);
       this.texte(cx + colonne - 16, cy + 3, valeur, 10, COULEURS.texte).setOrigin(1, 0);
     });
@@ -456,7 +553,7 @@ export class FichePersonne {
     x: number,
     y: number,
   ): number {
-    this.texte(x + 20, y, "AU TRAVAIL", 11, COULEURS.discret);
+    this.texte(x + 20, y, espacer("AU TRAVAIL"), 10, COULEURS.discret);
 
     const regles = villageois.regles;
     const combat = combatDe(regles);
@@ -473,8 +570,7 @@ export class FichePersonne {
     stats.forEach(([nom, valeur], i) => {
       const cx = x + 20 + (i % 2) * colonne;
       const cy = y + 20 + Math.floor(i / 2) * 19;
-      cadre.fillStyle(COULEURS.case, 0.9);
-      cadre.fillRoundedRect(cx, cy, colonne - 8, 17, 4);
+      creux(cadre, { x: cx, y: cy, largeur: colonne - 8, hauteur: 17 });
       this.texte(cx + 8, cy + 3, nom, 10, COULEURS.attenue);
       this.texte(cx + colonne - 16, cy + 3, valeur, 10, COULEURS.texte).setOrigin(1, 0);
     });
@@ -489,7 +585,7 @@ export class FichePersonne {
     x: number,
     y: number,
   ): number {
-    this.texte(x + 20, y, "EQUIPE SOUDEE", 11, COULEURS.discret);
+    this.texte(x + 20, y, espacer("EQUIPE SOUDEE"), 10, COULEURS.discret);
     this.texte(
       x + LARGEUR - 20,
       y,
@@ -516,7 +612,7 @@ export class FichePersonne {
     y: number,
   ): number {
     const entrees = Object.entries(hero.competences);
-    this.texte(x + 20, y, "COMPETENCES", 11, COULEURS.discret);
+    this.texte(x + 20, y, espacer("COMPETENCES"), 10, COULEURS.discret);
     if (entrees.length === 0) {
       this.texte(x + 20, y + 20, "Aucune pour l'instant.", 11, COULEURS.discret);
       return y + 44;
@@ -541,75 +637,130 @@ export class FichePersonne {
   /**
    * Les trois lignes d'observation (§4.10, §4.18).
    *
-   * ⚠️ **Aucune couleur ne dit laquelle est alarmante**, et c'est un choix, pas
-   * un oubli. Marquer les mauvaises en rouge reviendrait a les compter pour le
-   * joueur : il regarderait trois pastilles au lieu de lire trois phrases, et le
-   * §4.18 demande exactement l'inverse — « les indices se lisent vraiment ».
+   * ⚠️ **Les alarmantes portent un « ! » rouge**, decision du 11 aout 2026 — et
+   * elle **annule le choix inverse** pris au bloc 6a, qui refusait toute couleur
+   * ici pour que le joueur lise au lieu de compter.
+   *
+   * Ce que ca coute, et il faut le dire une fois : la competence « apprendre les
+   * six phrases alarmantes » disparait, puisque le jeu les designe. Ce que ca ne
+   * coute pas : le doute. Les fourchettes du §4.18 se recouvrent volontairement
+   * — 0 signal innocente, 3 accusent, et **64 % des arrivants tombent entre les
+   * deux**, mesure en jeu sur 2000 tirages. Compter les « ! » ne suffit toujours
+   * pas a trancher.
    */
   private observations(
     cadre: Phaser.GameObjects.Graphics,
     arrivant: Arrivant,
     x: number,
     y: number,
+    largeur: number,
   ): number {
-    this.texte(x + 20, y, "CE QU'ON OBSERVE", 11, COULEURS.discret);
+    this.texte(x, y, espacer("CE QU'ON OBSERVE"), 10, COULEURS.discret);
 
-    arrivant.observations.forEach((ligne, i) => {
-      const cy = y + 20 + i * 22;
-      cadre.fillStyle(COULEURS.case, 0.9);
-      cadre.fillRoundedRect(x + 20, cy, LARGEUR - 40, 19, 4);
-      this.texte(x + 28, cy + 4, ligne.texte, 11, COULEURS.attenue);
-    });
+    let cy = y + 18;
+    for (const ligne of arrivant.observations) {
+      const t = this.texte(x + 18, cy + 5, ligne.texte, 11, COULEURS.attenue);
+      t.setWordWrapWidth(largeur - 26);
+      const hauteur = Math.max(20, t.height + 10);
+      creux(cadre, { x, y: cy, largeur, hauteur });
+      if (ligne.alarmante) this.texte(x + 6, cy + 4, "!", 12, T.sangFrais);
+      cy += hauteur + 3;
+    }
 
-    return y + 20 + arrivant.observations.length * 22 + 10;
+    return cy + 10;
   }
 
   /**
-   * Les questions, et ce qu'il repond (§4.10).
+   * Les questions, a droite, en boutons (§4.10).
    *
    * Les questions sont **tirees**, les reponses ne le sont **jamais** : le meme
    * homme, a la meme question, repond toujours la meme chose. On peut toutes les
    * poser — la rarete vient du tirage, pas d'un quota.
    */
-  private interrogatoire(
+  private questions(
     cadre: Phaser.GameObjects.Graphics,
     sujet: Extract<SujetFiche, { genre: "arrivant" }>,
     x: number,
     y: number,
-  ): number {
+    largeur: number,
+  ): void {
     const { arrivant } = sujet;
-    this.texte(x + 20, y, "CE QU'ON LUI DEMANDE", 11, COULEURS.discret);
+    this.texte(x, y, espacer("CE QU'ON LUI DEMANDE"), 10, COULEURS.discret);
 
-    let cy = y + 20;
+    let cy = y + 18;
     for (const question of arrivant.questions) {
       const posee = arrivant.posees.includes(question.cle);
+      const t = this.texte(
+        x + 10,
+        cy + 8,
+        `« ${question.texte} »`,
+        10,
+        posee ? COULEURS.discret : T.laiton,
+      );
+      t.setWordWrapWidth(largeur - 20);
+      const hauteur = Math.max(28, t.height + 16);
 
-      cadre.fillStyle(COULEURS.case, posee ? 0.5 : 0.9);
-      cadre.fillRoundedRect(x + 20, cy, LARGEUR - 40, 19, 4);
-      this.texte(x + 28, cy + 4, `« ${question.texte} »`, 11, posee ? COULEURS.discret : COULEURS.texte);
-      if (!posee) {
+      if (posee) {
+        creux(cadre, { x, y: cy, largeur, hauteur });
+      } else {
+        cadre.fillStyle(C.plaque, 1);
+        cadre.fillRect(x, cy, largeur, hauteur);
+        cadre.fillStyle(0x4a3a34, 1);
+        cadre.fillRect(x, cy, largeur, 1);
+        cadre.fillStyle(0x0a0707, 1);
+        cadre.fillRect(x, cy + hauteur - 1, largeur, 1);
+        cadre.lineStyle(1, 0x000000, 1);
+        cadre.strokeRect(x - 0.5, cy - 0.5, largeur + 1, hauteur + 1);
         // Redessiner la fiche entiere plutot que d'inserer une ligne : elle se
         // dimensionne sur son contenu, et sa hauteur change avec la reponse.
-        this.zone(x + 20, cy, LARGEUR - 40, 19, 2606, () => {
+        this.zone(x, cy, largeur, hauteur, 2606, () => {
           poser(arrivant, question.cle);
           this.afficher(sujet);
         });
       }
-      cy += 21;
+      cy += hauteur + 4;
+    }
+  }
 
-      if (!posee) continue;
+  /**
+   * Ce qu'il repond, au milieu (§4.10).
+   *
+   * ⚠️ **Le tell n'est pas ecrit ici.** Quand il se trahit, c'est le **portrait**
+   * qui le dit — son regard glisse sur le cote pour le reste de l'entretien — et
+   * une ligne rouge passe sous la reponse. Jamais une phrase qui annonce « il
+   * ment » : un regard qui fuit se lit plus vite et n'affirme rien.
+   */
+  private reponses(
+    cadre: Phaser.GameObjects.Graphics,
+    arrivant: Arrivant,
+    x: number,
+    y: number,
+    largeur: number,
+  ): void {
+    this.texte(x, y, espacer("CE QU'IL REPOND"), 10, COULEURS.discret);
 
-      const reponse = reponseA(arrivant, question);
-      this.texte(x + 36, cy, `— ${reponse.texte}`, 10, COULEURS.attenue);
-      cy += 16;
-      // Le tell est ici, et il ne dit jamais « il ment » : il dit ce qu'on voit.
-      if (reponse.trahi) {
-        this.texte(x + 36, cy, "Son regard se derobe une seconde.", 10, COULEURS.mixte);
-        cy += 16;
-      }
+    const posees = arrivant.questions.filter((q) => arrivant.posees.includes(q.cle));
+    if (posees.length === 0) {
+      this.texte(x, y + 22, "Il attend qu'on lui parle.", 11, COULEURS.discret).setWordWrapWidth(
+        largeur,
+      );
+      return;
     }
 
-    return cy + 8;
+    let cy = y + 20;
+    for (const question of posees) {
+      const reponse = reponseA(arrivant, question);
+      const t = this.texte(x, cy, `— ${reponse.texte}`, 11, COULEURS.attenue);
+      t.setWordWrapWidth(largeur);
+      cy += t.height + 4;
+
+      if (reponse.trahi) {
+        cadre.fillStyle(C.sangFrais, 1);
+        cadre.fillRect(x, cy, Math.min(largeur, t.width), 1);
+        cy += 6;
+      }
+      cy += 8;
+    }
   }
 
   private boutons(
@@ -617,14 +768,19 @@ export class FichePersonne {
     sujet: SujetFiche,
     x: number,
     y: number,
+    largeur: number,
   ): void {
     if (sujet.genre === "arrivant") {
-      this.bouton(cadre, x + 20, y, 200, 30, "OUVRIR LA PORTE", 0x7ee0a0, () => {
+      // ⚠️ Ni l'un ni l'autre n'est presente comme le bon choix : accepter peut
+      // faire entrer un meurtrier, refuser coute le bras qu'on n'aura pas
+      // (§4.18). Les deux boutons ont donc le meme poids visuel — la bile et le
+      // sang seche, jamais un vert « valider » et un gris « annuler ».
+      this.bouton(cadre, x + 20, y, 220, 32, "OUVRIR LA PORTE", C.bile, () => {
         const action = sujet.surAccepter;
         this.fermer();
         action();
       });
-      this.bouton(cadre, x + LARGEUR - 220, y, 200, 30, "LE RENVOYER", 0xff8a7a, () => {
+      this.bouton(cadre, x + largeur - 240, y, 220, 32, "LE RENVOYER", C.sangSeche, () => {
         const action = sujet.surRefuser;
         this.fermer();
         action();
@@ -633,13 +789,15 @@ export class FichePersonne {
     }
 
     if (sujet.genre === "hero" && !sujet.hero.estIncarne && sujet.hero.etat !== "mort") {
-      this.bouton(cadre, x + 20, y, 180, 30, "INCARNER", 0xf0c419, () => {
+      this.bouton(cadre, x + 20, y, 180, 32, "INCARNER", C.laiton, () => {
         const action = sujet.surIncarner;
         this.fermer();
         action();
       });
     }
-    this.bouton(cadre, x + LARGEUR - 140, y, 120, 30, "FERMER", 0x4a4152, () => this.fermer());
+    this.bouton(cadre, x + largeur - 140, y, 120, 32, "FERMER", 0x4a3a34, () =>
+      this.fermer(),
+    );
   }
 
   /**
@@ -659,17 +817,26 @@ export class FichePersonne {
       sujet.genre === "arrivant"
         ? traitsVisibles(sujet.arrivant).length
         : personne.traits.length + personne.sequelles.length;
-    h += 20 + Math.max(1, marques) * 16 + 10;
+    // A la porte, la colonne est etroite et chaque resume prend deux lignes.
+    h += 20 + Math.max(1, marques) * (sujet.genre === "arrivant" ? 26 : 16) + 10;
 
     if (sujet.genre === "arrivant") {
-      h += 20 + sujet.arrivant.observations.length * 22 + 10;
-      // Une question posee prend sa reponse en plus, et son tell le cas echeant.
-      h += 20 + sujet.arrivant.questions.length * 21 + 8;
+      // Trois colonnes : la fiche fait la hauteur de la plus haute des trois,
+      // pas de leur somme. Les lignes d'observation sont enveloppees dans une
+      // colonne etroite, donc on compte deux lignes par observation.
+      h += 20 + sujet.arrivant.observations.length * 38 + 10;
+
+      const hautColonnes = HAUTEUR_TITRE + 18;
+      // Une question tient sur deux lignes dans 250 px, plus ses marges.
+      const droite = hautColonnes + 18 + sujet.arrivant.questions.length * 46;
+
+      let milieu = hautColonnes + 20;
       for (const question of sujet.arrivant.questions) {
         if (!sujet.arrivant.posees.includes(question.cle)) continue;
-        h += 16 + (reponseA(sujet.arrivant, question).trahi ? 16 : 0);
+        milieu += 42 + (reponseA(sujet.arrivant, question).trahi ? 6 : 0);
       }
-      return h + 52;
+
+      return Math.max(h, droite, milieu) + 52;
     }
 
     if (sujet.genre === "hero") {
@@ -775,11 +942,16 @@ export class FichePersonne {
     couleur: number,
     action: () => void,
   ): void {
-    cadre.fillStyle(COULEURS.case, 1);
-    cadre.fillRoundedRect(x, y, l, h, 6);
-    cadre.lineStyle(2, couleur, 1);
-    cadre.strokeRoundedRect(x, y, l, h, 6);
-    this.texte(x + l / 2, y + 9, libelle, 12, teinte(couleur)).setOrigin(0.5, 0);
+    cadre.fillStyle(C.plaque, 1);
+    cadre.fillRect(x, y, l, h);
+    cadre.fillStyle(0x4a3a34, 1);
+    cadre.fillRect(x, y, l, 1);
+    cadre.fillStyle(0x0a0707, 1);
+    cadre.fillRect(x, y + h - 1, l, 1);
+    cadre.lineStyle(1, couleur, 1);
+    cadre.strokeRect(x - 0.5, y - 0.5, l + 1, h + 1);
+    this.texte(x + l / 2, y + Math.round((h - 12) / 2), espacer(libelle), 11, teinte(couleur))
+      .setOrigin(0.5, 0);
     this.zone(x, y, l, h, 2606, action);
   }
 
@@ -792,8 +964,7 @@ export class FichePersonne {
     ratio: number,
     couleur: number,
   ): void {
-    g.fillStyle(0x000000, 0.55);
-    g.fillRect(x, y, l, h);
+    creux(g, { x, y, largeur: l, hauteur: h });
     g.fillStyle(couleur, 1);
     g.fillRect(x, y, l * Phaser.Math.Clamp(ratio, 0, 1), h);
   }

@@ -287,7 +287,7 @@ interface Humeur {
   mort: boolean;
 }
 
-function humeurDe(personne: Personne, vivant: boolean): Humeur {
+function humeurDe(personne: Personne, vivant: boolean, regardForce = false): Humeur {
   const pire = pireEtat(personne.etats);
   const sequellesVisibles = personne.sequelles.some((id) => SEQUELLES[id]?.visible);
 
@@ -295,7 +295,8 @@ function humeurDe(personne: Personne, vivant: boolean): Humeur {
     paleur: pire ? 0.18 + pire.palier * 0.22 : 0,
     cernes: personne.stress >= REGLAGES_STRESS.seuilVisible,
     cicatrice: sequellesVisibles,
-    regardFuyant: personne.rupture === "paranoia" || personne.rupture === "terreur",
+    regardFuyant:
+      regardForce || personne.rupture === "paranoia" || personne.rupture === "terreur",
     eteint: personne.rupture === "abattement" || !vivant,
     mort: !vivant,
   };
@@ -334,8 +335,18 @@ export function portraitDe(
   scene: Phaser.Scene,
   personne: Personne,
   vivant = true,
+  /**
+   * Force le regard a glisser sur le cote, quelle que soit l'humeur.
+   *
+   * C'est **le portrait qui trahit le mensonge**, pas une ligne de texte
+   * (§4.10) : a la porte, quelqu'un qui vient de se contredire regarde ailleurs.
+   * Le §4.23 ne connait que la paranoia et la terreur ; la porte a besoin de le
+   * demander directement, et la signature de texture en tient compte, donc les
+   * deux visages du meme homme coexistent dans le cache sans se marcher dessus.
+   */
+  regardFuyant = false,
 ): string {
-  const humeur = humeurDe(personne, vivant);
+  const humeur = humeurDe(personne, vivant, regardFuyant);
   const cle = `portrait-${signature(personne, humeur)}`;
   if (scene.textures.exists(cle)) return cle;
 
