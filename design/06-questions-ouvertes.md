@@ -256,7 +256,8 @@ on fais x 2
   chance de compétence rare (§4.1)
 - ✅ Entre deux parties → **on garde son héros de départ**, affaibli et corrompu, qui
   part vers un autre village, jusqu'à basculer et devenir l'antagoniste (§4.12)
-- ✅ Direction artistique → **WorldBox** (§4.11)
+- ✅ Direction artistique → **WorldBox** pour le monde (§4.11). ⚠️ **Plus pour l'interface**
+  depuis le 11 août : voir la dernière entrée de cette liste
 - ✅ Caméra → **zoom libre à la molette**, avec les contraintes que ça impose (§4.11)
 - ✅ Rank up → **matériaux rares lâchés par les monstres** (§4.1)
 - ✅ Ultimes multiples → **une touche par ultime**, chacun son rechargement (§4.2)
@@ -483,3 +484,15 @@ on fais x 2
 - ✅ **Le jalon 5 passe de dix à douze blocs** : la mémoire du village (bloc 11) et la vie
   autonome (bloc 12) sortent du bloc 5, qui était devenu injugeable. Et un **jalon 6.5**
   neuf porte tout le système de builds (§5)
+- ✅ **L'interface n'est plus WorldBox** : **fer, os, sang** — neuf couleurs, un seul cadre,
+  fond **opaque** partout, sang frais réservé à ce qui peut tuer. Le monde, lui, ne change
+  pas. Un seul fichier porte la palette (§4.10, §4.11)
+- ✅ **Les sept couleurs de classe quittent l'interface** et ne vivent plus que sur le
+  sprite dans le monde. Conséquence assumée : sur l'écran de choix, c'est le **trait de
+  classe** qui différencie deux cartes, plus leur couleur (§4.10)
+- ✅ **Le journal devient une discussion** : une voix par **source** (le guet, le village,
+  l'église, le port, un héros par son nom, toi), **trois lignes** fermée, tout l'historique
+  ouverte sur **sept jours**, coupé par jour. Les répétitions se replient en « et 2 autres »
+  au lieu de « x3 » (§4.10)
+- ✅ **La ligne des touches se replie** : une ligne courte en bas au centre, `?` la déplie.
+  Une plaque opaque permanente masquerait le terrain sous le héros qu'on pilote (§4.10)

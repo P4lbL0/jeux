@@ -40,7 +40,8 @@ On le livre donc en **blocs jouables**, un par un.
 | **5** ✅ | **Les traits, le stress et les états** (§4.23), les **séquelles**, les trois statistiques, les portraits assemblés, la fiche unifiée, le renommage | Est-ce qu'on s'attache à ses gens ? |
 | **6a** ✅ | **La porte** (§4.18, §4.10) : les arrivants, la fiche d'observation, les six indices en deux versions, la banque de questions, les **trois degrés de folie** et les groupes, la réputation | Ouvrir sa porte est-il un vrai dilemme ? |
 | **6b** ✅ | **Le port** (§4.18) : le port en ruine qu'on relève, la voile qui paraît quand c'est calme, le **cours** de chaque ressource, la vente, l'**argent** | Produire au-delà de ses besoins a-t-il enfin un sens ? |
-| **6c1** | **Le journal** (§4.10) : la boîte en bas à droite qui garde les six dernières lignes, et qui **remplace la bannière d'annonce** | Le jeu se laisse-t-il lire sans qu'on rate ce qu'il dit ? |
+| **6c1** ✅ | **Le journal** (§4.10) : la boîte en bas à droite qui garde les six dernières lignes, et qui **remplace la bannière d'annonce** | Le jeu se laisse-t-il lire sans qu'on rate ce qu'il dit ? |
+| **6d** | **La refonte de l'interface** (§4.10, §4.11) : **fer, os, sang** — un module qui porte la palette et le cadre, les panneaux orphelins rhabillés, la **discussion** qui remplace le journal, la fiche, la porte, le village, le port, et les deux écrans d'avant-partie | Le jeu se lit-il, tout simplement ? |
 | **6c2** | **Les survivants** (§4.18) : ils paraissent au bord de la carte, parfois poursuivis, parfois blessés, la meute est tirée **au visu**, et il faut les ramener vivants | Le jour a-t-il enfin une raison de sortir du village ? |
 | **7** | **Le mode d'aménagement** (§4.24) : édition en pause, construction libre, déplacement gratuit, tout se casse, le village en ruines, le sol et les chemins — et **la forteresse** du §4.20 : murs améliorables au fer, porte cassable, douves, douves en eau, pont-levis | Dessiner son village est-il un plaisir ou une corvée ? |
 | **8** | **Les ordres pour tous** (§4.4) : n'importe qui fait n'importe quoi, menu d'ordres, héros au travail | Commander vingt personnes est-il agréable ? |
@@ -58,6 +59,17 @@ On le livre donc en **blocs jouables**, un par un.
 > est écrit en entier au §4.26 et au §4.27, avec ses garde-fous de performance, et attend
 > son tour. Les blocs 11 et 12 sont les deux seuls du jalon dont l'absence ne casse rien —
 > sans eux le jeu tourne, il est juste plus froid.
+
+> **Le 6d s'intercale, le 11 août 2026 au soir, et il passe avant les survivants.** Neuf
+> écrans avaient été construits l'un après l'autre, chacun avec ses couleurs : 48 valeurs de
+> couleur, six dorés différents, cinq zones de texte posées à nu sur l'herbe. Le jeu était
+> devenu **illisible**, et coder un système de plus par-dessus aurait voulu dire le recoder
+> juste après. C'est la même règle de dépendance que pour l'église en tête du jalon : le
+> plus coûteux à refaire d'abord.
+>
+> **Et il tient dans un ordre qui se coupe** : le module de style puis les panneaux
+> orphelins réglent l'essentiel du problème à eux seuls. Si le reste dérape, c'est ça qu'on
+> livre, et on le dit — comme le §5 l'exige partout ailleurs.
 
 > **Et le 6c se coupe en deux, le 11 août 2026.** Il devait ne porter que les survivants ;
 > la décision de les annoncer dans un **journal** plutôt que par la bannière lui a ajouté un
