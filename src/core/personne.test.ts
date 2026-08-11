@@ -16,6 +16,8 @@ import {
   verifierRupture,
   voirMourir,
   type Personne,
+  PRENOMS,
+  prenomLibre,
 } from "./personne";
 import { idSequelle, idTrait, traitParId } from "./traits";
 
@@ -258,5 +260,46 @@ describe("Le passage des journees", () => {
     const traits = [...p.traits];
     avancerLaJournee(p, 100);
     expect(p.traits).toEqual(traits);
+  });
+});
+
+describe("Les prenoms — la liste d'abord, les syllabes ensuite", () => {
+  it("sert les prenoms ecrits a la main tant qu'il en reste", () => {
+    const rng = new Rng(1);
+    const pris: string[] = [];
+    for (let i = 0; i < PRENOMS.length; i++) {
+      const nom = prenomLibre(rng, pris);
+      expect(PRENOMS).toContain(nom);
+      pris.push(nom);
+    }
+  });
+
+  it("ne rend jamais un prenom deja porte, meme a deux cents habitants", () => {
+    // Le §4.18 ne pose **aucun plafond** de population : le vingt-septieme
+    // habitant doit avoir un nom, pas un homonyme.
+    const rng = new Rng(2);
+    const pris: string[] = [];
+    for (let i = 0; i < 200; i++) {
+      const nom = prenomLibre(rng, pris);
+      expect(pris).not.toContain(nom);
+      pris.push(nom);
+    }
+    expect(new Set(pris).size).toBe(200);
+  });
+
+  it("assemble des noms qui se prononcent", () => {
+    const rng = new Rng(3);
+    const pris = [...PRENOMS];
+    for (let i = 0; i < 300; i++) {
+      const nom = prenomLibre(rng, pris);
+      pris.push(nom);
+      // Une majuscule, pas de chiffre, une longueur de nom propre, et jamais
+      // quatre consonnes de suite — ce qui serait imprononcable.
+      expect(nom[0]).toBe(nom[0]!.toUpperCase());
+      expect(nom).not.toMatch(/[0-9]/);
+      expect(nom.length).toBeGreaterThanOrEqual(4);
+      expect(nom.length).toBeLessThanOrEqual(22);
+      expect(nom.toLowerCase()).not.toMatch(/[bcdfgjklmnpqrstvwxz]{4}/);
+    }
   });
 });

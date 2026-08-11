@@ -2,19 +2,17 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-08-11, tard (**le bloc 6d est fait** : la refonte complète de
-> l'interface, en six étapes ; et **le §4.29 est écrit** : le nouveau départ).
-> **365 tests verts.**
+> Dernière mise à jour : 2026-08-11, tard (**les blocs 6d et 6c2 sont faits** : la refonte
+> complète de l'interface, puis **les survivants** ; la police du jeu devient **Oswald** ;
+> et **le §4.29 est écrit** : le nouveau départ). **388 tests verts.**
 >
 > **La boucle du village est refermée de bout en bout** : on produit, on vend au port, on
 > monte l'église. Les **quatre** conditions du §4.22 mordent enfin toutes les quatre — il
 > ne reste plus un seul champ neutralisé.
 >
-> **Le prochain morceau est le bloc 6c2 : les survivants.** Le design est écrit en entier
-> et **tout est tranché** (§4.18, section « Les survivants ») : ils paraissent le jour sur
-> n'importe quel bord praticable, ils attendent jusqu'au crépuscule, la meute est tirée
-> **au moment où on a le visu** (2 à 40, tirage plat), ils suivent dès qu'on les approche,
-> et la fiche d'observation se rejoue à l'arrivée.
+> **Le prochain morceau est le bloc 7 : le mode d'aménagement et la forteresse.** Édition
+> en pause, construction libre, tout se casse, le village en ruines — et les **portes qui
+> s'ouvrent et se ferment**, avec autant d'enceintes que le joueur en bâtit (§4.20, §4.24).
 >
 > ⚠️ **Et un jalon 5.5 neuf attend derrière tout le jalon 5** : le **nouveau départ**
 > (§4.29). Un seul héros, l'errance jusqu'au village qu'on choisit, le monde qui se fige
@@ -481,6 +479,56 @@ recoder juste après. Livré en six étapes, une par commit :
 ⚠️ **`POLICE` est une constante unique dans `chrome.ts`, aujourd'hui à `"monospace"`.**
 Changer la police de tout le jeu coûte une ligne — c'est ce qui rend le choix de police
 facile à jouer et à défaire.
+
+### Le bloc 6c2 — les survivants (fait le 11 août 2026, tard)
+
+**Le jour a enfin une raison de sortir du village.** Jusqu'ici il ne servait qu'à produire
+et à réparer, et tout se jouait autour de l'église.
+
+- **`src/core/survivants.ts`** — pur et testé (20 tests). Une table `REGLAGES_SURVIVANTS`
+  porte tout : situations, états, bornes de la meute, plancher du rythme, vitesse de suite.
+- **On ne sait que la direction** (§4.10). La discussion écrit une ligne — *« Quelqu'un
+  appelle, quelque part au nord »* — et rien d'autre. Un test vérifie qu'elle ne contient
+  **aucun chiffre** : un nombre serait une coordonnée.
+- **Il paraît sur n'importe quel bord praticable**, plage et éboulis compris, pas seulement
+  les deux fronts. Un test vérifie sur mille tirages qu'aucun ne tombe dans l'eau ni dans la
+  roche — le littoral ondule, et ça ne se serait vu qu'en jouant.
+- **La meute est tirée au visu**, pas à l'apparition : zéro coût tant que le joueur ne
+  regarde pas, et une découverte brutale au lieu de progressive. 2 à 40, **tirage plat**,
+  plafond dur à 40 (§4.17 règle 1). Mesuré : **un sauvetage sur deux est infaisable**.
+- **Seul le « poursuivi » en a une**, décidé en codant : un blessé qui traîne quarante
+  monstres aurait rendu les trois situations indistinguables.
+- **La fiche se rejoue à l'arrivée** — le même `Arrivant`, le même mode, le même code qu'à
+  la porte. Il peut être fou dans la même proportion, mais **son état est écrit noir sur
+  blanc** : la folie se devine, la maladie se lit.
+- **Une mort en chemin ne coûte qu'à la rumeur**, à demi-tarif — pas à la satisfaction : le
+  village ne pleure pas quelqu'un qu'il n'a jamais vu. Deux mémoires distinctes.
+- **Le plancher que la porte n'a pas** : un tous les cinq jours quoi qu'il arrive. Sans lui,
+  un village sous 25 de réputation n'a plus **aucune** voie de peuplement.
+
+⚠️ **Trois défauts trouvés en jouant, aucun visible à la compilation** :
+
+1. **La fiche disait « À LA PORTE » et « OUVRIR LA PORTE »** à quelqu'un qu'on venait de
+   ramener au péril de sa vie. Même fiche, même code — un champ `lieu` de plus, et elle
+   raconte la bonne scène.
+2. **Un survivant ramené s'appelait Anselme, comme un héros.** Trois fichiers filtraient
+   chacun leur liste de prénoms et chacun oubliait une population. Tout passe désormais par
+   **`prenomLibre` dans `core/personne.ts`**, seul distributeur de noms du jeu — et au-delà
+   des 26 prénoms écrits à la main, il **assemble des syllabes** (jointure phonologique :
+   une voyelle entre deux consonnes, une consonne entre deux voyelles).
+3. **Trois lignes de discussion en sang frais d'affilée**, dont « il se lève et te suit ».
+   Le §4.10 réserve cette couleur à ce qui peut tuer : seules la meute et la mort la gardent.
+
+**Ce qui a été vérifié en jouant** (Playwright, aucune erreur console) :
+
+| Vérifié | Résultat |
+|---|---|
+| L'appel | Une ligne, une direction, aucun chiffre |
+| Le visu | 34 puis 37 monstres lâchés en couronne autour de lui, à l'instant où on le voit |
+| Le contact | Il se lève et suit, plus lent que le héros |
+| L'arrivée à l'église | Le jeu se met en pause, la fiche s'ouvre, « DE RETOUR AU VILLAGE » |
+| L'état écrit | *« Il saigne, et ça ne s'arrête pas. Il n'a pas la journée. »* |
+| Accepter | Population 3 → 4, et **son hémorragie entre avec lui** |
 
 ### La sauvegarde et le compte The Circle (fait le 10 août 2026, §4.28)
 

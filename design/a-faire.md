@@ -41,3 +41,22 @@ pour rentrer dans le village faut ouvrir toute les porte
 ## Nouvelles notes (pas encore dépouillées)
 
 <!-- écris en dessous -->
+les trait et effet son ecrit en rouge quad c negatif et en or quand c bien et quand on passe la souris dessu on voit ca fait les histoire du trait ect ect 
+
+
+des competence pour stun les enemies
+
+nv trait qui a peur d'attaquer les humains et il est moins efficace contre les humain et il peut mm refuser et l'inverse aussi ineficace contre les monstre mais monstrueux face au humains
+autre trait alcoolique pieux ou encore un qui blaspheme (il ne peut pas recevoir de soin al'eglise)
+biensur malchanceux et chanceux 
+
+des mosntre avec des competence genre hurlement et stresse tt le mondee
+et au contraire le chevalier sacrer a une competence s ou il crie et calme tt le monde a un certain level tt c allier ce transcende 
+
+bien sur pour bcp plus tard faut penser au egout ect 
+
+voir en permanence deja les degats fait au enemie et a tt moment les degats totaux d'une competence ou de quelqun en particulier
+
+nvl classe druide qui peut donner des buff plus ou moins puissant pour une nuit 
+
+

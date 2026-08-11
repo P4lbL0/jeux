@@ -216,6 +216,98 @@ export const PRENOMS = [
 ];
 
 /**
+ * Les syllabes, quand les vingt-six prenoms ecrits a la main sont tous portes.
+ *
+ * ⚠️ **La liste ecrite a la main passe toujours en premier**, et ce n'est pas
+ * de la politesse : « Guenievre » et « Foulques » portent une epoque et un
+ * pays qu'aucun assemblage de syllabes ne retrouve tout seul. Le generateur
+ * n'est pas la pour faire mieux, il est la pour que le vingt-septieme habitant
+ * ait un nom au lieu d'un homonyme — et le §4.18 ne pose **aucun plafond** de
+ * population.
+ *
+ * Les tables sont taillees pour la meme phonologie que la liste : des attaques
+ * qui existent en francais medieval, des finales qui sonnent nom propre. Deux
+ * ou trois syllabes, plus quelques noms composes.
+ */
+const SYLLABES = {
+  /** Ce par quoi un nom commence */
+  tete: [
+    "Al", "An", "Ar", "Au", "Ber", "Bau", "Cle", "Col", "Cons", "Del", "Eu",
+    "Fal", "Flo", "Gar", "Gau", "Ger", "Gis", "Guil", "Hel", "Her", "Isa",
+    "Jehan", "Lam", "Mar", "Mau", "Mel", "Nor", "Ode", "Per", "Rai", "Ren",
+    "Rob", "Sil", "Tan", "Thi", "Ur", "Val", "Ver", "Yol", "Ys",
+  ],
+  /**
+   * La liaison, posee **seulement quand la jointure la reclame**.
+   *
+   * ⚠️ Premiere version corrigee en regardant la sortie : une syllabe du milieu
+   * tiree a chaque fois donnait « Robvasende » et « Isasehelm ». La regle est
+   * phonologique, pas aleatoire — une voyelle ne s'intercale qu'entre deux
+   * consonnes, sinon les deux morceaux se collent tres bien tout seuls.
+   */
+  liaison: ["e", "i", "o", "au", "ai", "e", "i"],
+  /** L'autre jointure qui se heurte : deux voyelles qui se suivent */
+  liant: ["l", "r", "n", "d", "b", "m"],
+  /** Ce par quoi il finit */
+  queue: [
+    "aud", "ain", "ard", "as", "bert", "burge", "din", "gonde", "in", "is",
+    "lin", "mond", "nard", "on", "quin", "rand", "sier", "son", "tin", "trude",
+    "vine", "win", "gard", "lie", "mar", "nou", "rec", "sende",
+  ],
+} as const;
+
+/** Un nom compose sur deux cents : assez pour surprendre, pas pour lasser. */
+const CHANCE_COMPOSE = 0.005;
+
+const VOYELLES = "aeiouy";
+
+/**
+ * Un prenom que personne ne porte deja.
+ *
+ * **C'est le seul endroit du jeu qui distribue un nom** — heros, habitants,
+ * arrivants et survivants passent tous par ici. Avant, trois fichiers filtraient
+ * chacun leur liste, et chacun oubliait une population : l'equipe de depart
+ * ignorait le village, le village ignorait l'equipe, et un survivant ramene
+ * pouvait s'appeler comme un heros. Vu en jouant, les trois fois.
+ *
+ * @param nomsPris tous les prenoms deja portes, toutes populations confondues
+ */
+export function prenomLibre(rng: Rng, nomsPris: readonly string[] = []): string {
+  const ecrits = PRENOMS.filter((prenom) => !nomsPris.includes(prenom));
+  if (ecrits.length > 0) return rng.pick(ecrits);
+
+  // La liste est epuisee : on assemble. La borne d'essais existe parce qu'un
+  // tirage seede qui boucle sans fin est un gel de partie, pas un ralenti.
+  for (let essai = 0; essai < 60; essai++) {
+    const propose = assemblerUnPrenom(rng);
+    if (!nomsPris.includes(propose)) return propose;
+  }
+  return `${assemblerUnPrenom(rng)} ${assemblerUnPrenom(rng)}`;
+}
+
+function assemblerUnPrenom(rng: Rng): string {
+  const simple = coller(rng.pick(SYLLABES.tete), rng.pick(SYLLABES.queue), rng);
+  if (!rng.chance(CHANCE_COMPOSE)) return simple;
+  return `${simple}-${coller(rng.pick(SYLLABES.tete), rng.pick(SYLLABES.queue), rng)}`;
+}
+
+/**
+ * Deux morceaux, et ce qu'il faut entre eux — **rien, la plupart du temps**.
+ *
+ * Une jointure se heurte dans les deux sens, et les deux ont ete vues dans la
+ * sortie avant d'etre corrigees : deux consonnes donnaient « Robsende », deux
+ * voyelles donnaient « Auon ». Chaque cas recoit ce qui lui manque, et le cas
+ * normal — consonne contre voyelle, ou l'inverse — ne recoit rien.
+ */
+function coller(tete: string, queue: string, rng: Rng): string {
+  const finit = VOYELLES.includes(tete[tete.length - 1]!.toLowerCase());
+  const commence = VOYELLES.includes(queue[0]!.toLowerCase());
+  if (!finit && !commence) return tete + rng.pick(SYLLABES.liaison) + queue;
+  if (finit && commence) return tete + rng.pick(SYLLABES.liant) + queue;
+  return tete + queue;
+}
+
+/**
  * Combien de traits on nait avec.
  *
  * Deux en moyenne : assez pour que deux habitants ne se ressemblent pas, pas

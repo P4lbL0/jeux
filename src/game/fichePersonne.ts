@@ -92,6 +92,24 @@ export type SujetFiche =
   | {
       genre: "arrivant";
       arrivant: Arrivant;
+      /**
+       * Ce qu'il porte, ecrit **noir sur blanc** (§4.18, les survivants).
+       *
+       * Absent a la porte, present quand on ramene un blesse du bord de la
+       * carte. C'est la difference volontaire entre les deux : **la folie se
+       * devine, la maladie se lit**. Sans ca, refuser quelqu'un qu'on vient de
+       * sauver ne serait qu'un pari de plus au lieu d'une decision.
+       */
+      etatAnnonce?: string;
+      /**
+       * Ou l'entretien a lieu.
+       *
+       * ⚠️ **Vu en jouant** : la fiche disait « A LA PORTE » et « OUVRIR LA
+       * PORTE » a quelqu'un qu'on venait de ramener du bord de la carte au
+       * peril de sa vie. C'est la meme fiche et c'est voulu (§4.10) — mais elle
+       * ne doit pas raconter la mauvaise scene.
+       */
+      lieu?: "porte" | "sauvetage";
       surAccepter: () => void;
       surRefuser: () => void;
     };
@@ -182,7 +200,7 @@ export class FichePersonne {
       yTitre(plaque),
       espacer(
         sujet.genre === "arrivant"
-          ? "A LA PORTE"
+          ? (sujet.lieu === "sauvetage" ? "DE RETOUR AU VILLAGE" : "A LA PORTE")
           : sujet.genre === "hero"
             ? "HEROS"
             : "HABITANT",
@@ -211,7 +229,16 @@ export class FichePersonne {
       curseur = this.equipe(cadre, sujet.groupe, x, curseur);
       curseur = this.competences(cadre, sujet.hero, x, curseur);
     } else if (sujet.genre === "arrivant") {
-      this.observations(cadre, sujet.arrivant, x + 20, curseur, colonneGauche);
+      curseur = this.observations(cadre, sujet.arrivant, x + 20, curseur, colonneGauche);
+      // Ce qu'on **constate**, sous ce qu'on observe : les six axes se doutent,
+      // un etat se lit. Les deux ne doivent pas se confondre a l'oeil.
+      if (sujet.etatAnnonce !== undefined) {
+        this.texte(x + 20, curseur, espacer("CE QU'ON VOIT SUR LUI"), 10, COULEURS.discret);
+        const t = this.texte(x + 26, curseur + 22, sujet.etatAnnonce, 11, T.sangFrais);
+        t.setWordWrapWidth(colonneGauche - 32);
+        cadre.fillStyle(C.sangSeche, 1);
+        cadre.fillRect(x + 20, curseur + 18, 2, t.height + 6);
+      }
       // Les deux colonnes de droite partent du haut du corps, pas du curseur :
       // c'est ce qui les garde alignees quel que soit le nombre de traits.
       const hautColonnes = y + HAUTEUR_TITRE + 18;
@@ -295,7 +322,7 @@ export class FichePersonne {
       gauche,
       y + 64,
       sujet.genre === "arrivant"
-        ? "il attend a la porte"
+        ? (sujet.lieu === "sauvetage" ? "il t'a suivi jusqu'ici" : "il attend a la porte")
         : "clic sur le nom pour renommer",
       9,
       COULEURS.discret,
@@ -330,7 +357,9 @@ export class FichePersonne {
       const intro = this.texte(
         gauche,
         y + 84,
-        "Un inconnu se presente a la porte.",
+        sujet.lieu === "sauvetage"
+          ? "Tu l'as ramene. Il attend ta reponse."
+          : "Un inconnu se presente a la porte.",
         12,
         COULEURS.attenue,
       ).setWordWrapWidth(bl);
@@ -776,7 +805,7 @@ export class FichePersonne {
       // faire entrer un meurtrier, refuser coute le bras qu'on n'aura pas
       // (§4.18). Les deux boutons ont donc le meme poids visuel — la bile et le
       // sang seche, jamais un vert « valider » et un gris « annuler ».
-      this.bouton(cadre, x + 20, y, 220, 32, "OUVRIR LA PORTE", C.bile, () => {
+      this.bouton(cadre, x + 20, y, 220, 32, (sujet.lieu === "sauvetage" ? "LE FAIRE ENTRER" : "OUVRIR LA PORTE"), C.bile, () => {
         const action = sujet.surAccepter;
         this.fermer();
         action();
@@ -826,6 +855,7 @@ export class FichePersonne {
       // pas de leur somme. Les lignes d'observation sont enveloppees dans une
       // colonne etroite, donc on compte deux lignes par observation.
       h += 20 + sujet.arrivant.observations.length * 38 + 10;
+      if (sujet.etatAnnonce !== undefined) h += 52;
 
       const hautColonnes = HAUTEUR_TITRE + 18;
       // Une question tient sur deux lignes dans 250 px, plus ses marges.

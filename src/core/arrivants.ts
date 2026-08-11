@@ -22,7 +22,7 @@
  */
 
 import type { Metier } from "./habitants";
-import { creerPersonne, PRENOMS, type Personne } from "./personne";
+import { creerPersonne, prenomLibre, type Personne } from "./personne";
 import { idTrait, type CleTrait } from "./traits";
 import type { Rng } from "./rng";
 
@@ -472,21 +472,6 @@ export function creerArrivant(rng: Rng, journee: number, nomsPris: readonly stri
   };
 }
 
-/**
- * Un prenom que le village ne porte pas deja.
- *
- * ⚠️ **Vu en jouant** : trois arrivees d'affilee ont donne deux Merlin dans un
- * village de six. Le §4.18 promet qu'on s'attache a ses gens et que « chaque
- * nouvel arrivant doit se remarquer » — deux homonymes rendent le tableau du
- * village illisible et vident les annonces de leur sens (« Merlin est mort »,
- * lequel ?). Quand la liste est epuisee, on reprend au hasard : un village de
- * trente personnes finira par avoir deux Colin, et c'est la vie.
- */
-function prenomLibre(rng: Rng, nomsPris: readonly string[]): string {
-  const libres = PRENOMS.filter((prenom) => !nomsPris.includes(prenom));
-  return rng.pick(libres.length > 0 ? libres : PRENOMS);
-}
-
 function texteObservation(axe: Axe, alarmante: boolean, metier: Metier): string {
   const modele = OBSERVATIONS[axe][alarmante ? "alarmante" : "rassurante"];
   return modele.replace("{outil}", OUTILS[metier] ?? "un outil");
@@ -582,12 +567,21 @@ export function reputation(
   satisfaction: number,
   journeesDesMorts: readonly number[],
   journeeCourante: number,
+  journeesDesMortsEnChemin: readonly number[] = [],
+  partDUneMortEnChemin = 0.5,
 ): number {
-  const retenus = journeesDesMorts.filter(
-    (jour) => journeeCourante - jour < REGLAGES_ARRIVEES.memoireDeLaRumeur,
-  ).length;
-  const valeur = satisfaction - retenus * REGLAGES_ARRIVEES.parMortRecent;
-  return Math.round(Math.max(0, Math.min(100, valeur)));
+  const recent = (jour: number) =>
+    journeeCourante - jour < REGLAGES_ARRIVEES.memoireDeLaRumeur;
+
+  const retenus = journeesDesMorts.filter(recent).length;
+  // Un survivant mort en chemin pese **la moitie** d'un habitant tue (§4.18) :
+  // il n'etait pas encore du village, mais on lui avait fait esperer. A zero,
+  // echouer ne couterait que du temps ; a plein tarif, on ne sortirait plus
+  // jamais et tout le bloc des survivants mourrait avec.
+  const enChemin = journeesDesMortsEnChemin.filter(recent).length;
+
+  const cout = (retenus + enChemin * partDUneMortEnChemin) * REGLAGES_ARRIVEES.parMortRecent;
+  return Math.round(Math.max(0, Math.min(100, satisfaction - cout)));
 }
 
 /**

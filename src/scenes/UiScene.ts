@@ -145,10 +145,18 @@ export class UiScene extends Phaser.Scene {
    * Le jeu est deja en pause quand on arrive ici : la scene s'en charge avant
    * d'emettre, comme pour le choix de competence.
    */
-  private ouvrirLaPorte(arrivant: Arrivant): void {
+  private ouvrirLaPorte(
+    arrivant: Arrivant,
+    etatAnnonce?: string,
+    lieu: "porte" | "sauvetage" = "porte",
+  ): void {
     this.fiche.afficher({
       genre: "arrivant",
       arrivant,
+      lieu,
+      // Present quand on ramene un blesse du bord de la carte, absent a la
+      // porte : **la folie se devine, la maladie se lit** (§4.18).
+      etatAnnonce,
       surAccepter: () => this.arene.events.emit("porte", true),
       surRefuser: () => this.arene.events.emit("porte", false),
     });

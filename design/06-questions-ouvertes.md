@@ -319,6 +319,34 @@ Le fichier `design/a-faire.md` a été dépouillé en entier. Ce qui en sort :
 - [ ] **Une porte s'ouvre-t-elle instantanément**, ou faut-il quelques secondes pendant
       lesquelles on est vulnérable ? Le deuxième est bien meilleur et coûte un délai de plus.
 
+### Le 11 août 2026, tard — ce que le bloc 6c2 a tranché en se codant
+
+- ✅ **Seul le « poursuivi » a une meute.** Le §4.18 tirait la meute « au visu » sans dire
+  pour qui : un blessé qui traîne quarante monstres aurait rendu sa situation indistinguable
+  de la précédente. Le seul, le poursuivi et le blessé diffèrent maintenant par **ce qu'il
+  faut faire**, pas par l'ambiance (§4.18)
+- ✅ **Une mort en chemin ne coûte qu'à la rumeur, pas à la satisfaction.** Le village ne
+  pleure pas quelqu'un qu'il n'a jamais vu. Deux mémoires distinctes, la demi-part ne
+  s'appliquant qu'à la première (§4.18, §4.23)
+- ✅ **Le survivant n'est pas enregistré, et son échéance non plus** : c'est un **instant**,
+  comme le navire du bloc 6b. On replanifie au chargement depuis la réputation du moment —
+  ce qui donne un délai neuf, jamais une apparition offerte à chaque rechargement (§4.28)
+- ✅ **La fiche dit où elle se joue.** Vu en jouant : elle annonçait « À LA PORTE » et
+  « OUVRIR LA PORTE » à quelqu'un qu'on venait de ramener au péril de sa vie. Même fiche,
+  même code — un champ de plus, et elle raconte la bonne scène (§4.10)
+- ✅ **Les prénoms se distribuent en un seul endroit**, toutes populations confondues. Trois
+  fichiers filtraient chacun leur liste et chacun oubliait une population : l'équipe
+  ignorait le village, le village ignorait l'équipe, un survivant pouvait s'appeler comme un
+  héros. Vu en jouant les trois fois (§4.18)
+- ✅ **Au-delà des vingt-six prénoms écrits à la main, on assemble des syllabes.** La liste
+  écrite passe toujours en premier — « Guenièvre » porte une époque qu'aucun assemblage ne
+  retrouve — mais le §4.18 ne pose **aucun plafond** de population, et le vingt-septième
+  habitant doit avoir un nom au lieu d'un homonyme. La jointure est phonologique, pas
+  aléatoire : une voyelle entre deux consonnes, une consonne entre deux voyelles (§4.18)
+- ✅ **Le sang frais reste réservé à ce qui peut tuer**, jusque dans la discussion : l'appel
+  et le ralliement passent par la voix du village, seules la meute et la mort gardent celle
+  du guet. Trois lignes rouges d'affilée videraient la couleur de son sens (§4.10)
+
 ## Tranché récemment
 
 - ✅ Garde-fou de la permadeath → **la règle des 20% + le totem d'immortalité** (§4.3)

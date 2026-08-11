@@ -141,9 +141,10 @@ function palierDe(villageois: Villageois): number {
 /**
  * Les noms qu'on tire. Ils comptent : on les perd.
  *
- * La liste est **commune aux heros et aux habitants** (`core/personne.ts`) : un
- * villageois qui devient heros au jalon 9 ne doit pas changer de prenom en
- * route.
+ * La source est **commune aux heros et aux habitants** (`core/personne.ts`) :
+ * un villageois qui devient heros au jalon 9 ne doit pas changer de prenom en
+ * route. Les trois premiers sortent de la liste ecrite a la main, dans l'ordre —
+ * la scene demele ensuite les homonymes avec l'equipe, qui se compose avant.
  */
 const NOMS = PRENOMS;
 
@@ -213,6 +214,16 @@ export class Village {
 
   /** La journee de chaque mort, pour que la satisfaction s'en souvienne (§4.23) */
   private readonly journeesDesMorts: number[] = [];
+  /**
+   * Les survivants morts en chemin (§4.18).
+   *
+   * ⚠️ **Une liste a part, et pas une entree de plus dans `journeesDesMorts`.**
+   * Celle-la nourrit **aussi** la satisfaction ; or le §4.18 ne fait payer une
+   * mort en chemin qu'a la **rumeur** — le village ne pleure pas quelqu'un
+   * qu'il n'a jamais vu. Les melanger aurait fait baisser le moral de gens qui
+   * ignorent tout de l'affaire.
+   */
+  private readonly journeesDesMortsEnChemin: number[] = [];
   /** La journee en cours, tenue par la scene a chaque aube */
   private journee = 1;
   /** Le dernier chiffre calcule, pour ne pas le refaire a chaque image */
@@ -313,6 +324,7 @@ export class Village {
     for (const villageois of this.habitants) villageois.destroy();
     this.habitants.length = 0;
     this.journeesDesMorts.length = 0;
+    this.journeesDesMortsEnChemin.length = 0;
   }
 
   /**
@@ -330,6 +342,16 @@ export class Village {
   /** La memoire des morts, pour la sauvegarde. */
   get memoireDesMorts(): number[] {
     return [...this.journeesDesMorts];
+  }
+
+  /** Ceux qu'on n'a pas ramenes. Ils ne comptent que pour la rumeur (§4.18). */
+  get memoireDesMortsEnChemin(): number[] {
+    return [...this.journeesDesMortsEnChemin];
+  }
+
+  /** Un survivant est tombe avant d'arriver. */
+  noterUneMortEnChemin(): void {
+    this.journeesDesMortsEnChemin.push(this.journee);
   }
 
   get population(): number {

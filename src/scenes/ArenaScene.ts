@@ -27,6 +27,14 @@ import {
 } from "../game/entities";
 import { choisirArchetype } from "../game/ennemis";
 import { POLICE } from "../game/ui/chrome";
+import { Survivants, type SpriteSurvivant } from "../game/survivants";
+import {
+  creerSurvivant,
+  ETAT_ANNONCE,
+  ligneDApparition,
+  prochainSurvivant,
+  REGLAGES_SURVIVANTS,
+} from "../core/survivants";
 import { piloter, type ContexteIA } from "../core/ia";
 import { animer, animerMort, declencher } from "../game/poses";
 import {
@@ -103,12 +111,14 @@ import {
   verifierExploits,
   verifierRupture,
   voirMourir,
+  prenomLibre,
 } from "../core/personne";
 import type { Habitant, PostureCivile, Ressource, Stocks } from "../core/habitants";
 import {
   accueillir as suivreSiFou,
   actesDeLaNuit,
   creerArrivant,
+  delaiEntreArrivees,
   prochaineArrivee,
   REGLAGES_ARRIVEES,
   replanifier,
@@ -425,6 +435,16 @@ export class ArenaScene extends Phaser.Scene {
   private navireAttendu = false;
   /** La journee ou quelqu'un se presentera, ou null quand plus personne ne vient */
   private prochaineArriveeJournee: number | null = null;
+
+  /**
+   * Les survivants (DESIGN.md §4.18) : la seule raison de sortir du village.
+   *
+   * Au plus un a la fois, et il ne parait que le jour.
+   */
+  private survivants!: Survivants;
+  private prochainSurvivantJournee = 1;
+  /** Celui qu'on presente a l'eglise, tant que la fiche est ouverte */
+  private survivantALEglise: SpriteSurvivant | null = null;
   /** Celui qui attend pendant que le jeu est en pause */
   private arrivantALaPorte: Arrivant | null = null;
   /** Les habitants, leurs postes et les stocks (DESIGN.md §4.18) */
@@ -707,6 +727,7 @@ export class ArenaScene extends Phaser.Scene {
     );
 
     this.construireVillageVivant();
+    this.demelerLesPrenoms();
 
     this.scene.launch("ui", { arene: this });
     this.events.on("choix-fait", this.resoudreChoix, this);
@@ -786,6 +807,13 @@ export class ArenaScene extends Phaser.Scene {
     // `fous` et le port sont modifies sur place ; ces deux-la sont des nombres,
     // il faut les relire.
     this.prochaineArriveeJournee = monde.prochaineArrivee;
+    // ⚠️ **Le survivant n'est pas enregistre, et son echeance non plus.** Comme
+    // le navire du bloc 6b, c'est un **instant**, pas un etat : quelqu'un qui
+    // appelle au bord de la carte n'a pas de raison d'etre encore la apres un
+    // rechargement. On replanifie donc depuis la reputation du moment — ce qui
+    // rend un delai neuf, jamais une apparition immediate, sinon recharger
+    // offrirait un survivant a chaque fois (§4.28, regle ironman).
+    this.planifierLeProchainSurvivant();
     this.argent = monde.argent;
     this.dureeJouee = sauvegarde.dureeJouee;
     this.debut = this.time.now;
@@ -872,6 +900,19 @@ export class ArenaScene extends Phaser.Scene {
       annoncer: (message) => this.events.emit("annonce", message, "port"),
     });
 
+    // Les survivants (§4.18). Ils ne connaissent ni la scene ni le village :
+    // quatre fonctions suffisent, comme pour la sauvegarde (§4.28).
+    this.survivants = new Survivants(this, {
+      rng: this.rng,
+      positionDuHeros: () => ({ x: this.hero.x, y: this.hero.y }),
+      vitesseDuHeros: () => this.hero.vitesse,
+      rayonDeVue: RAYON_DE_VUE,
+      annoncer: (message, source) => this.events.emit("annonce", message, source),
+      lacherLaMeute: (x, y, combien) => this.lacherLaMeute(x, y, combien),
+      presenter: (sprite) => this.presenterLeSurvivant(sprite),
+      noterUneMortEnChemin: () => this.village.noterUneMortEnChemin(),
+    });
+
     this.village = new Village(this, {
       menaceAutour: (x, y, rayon) => this.ennemiLePlusProche(x, y, rayon),
       annoncer: (message) => this.events.emit("annonce", message, "village"),
@@ -914,6 +955,15 @@ export class ArenaScene extends Phaser.Scene {
       this.cognerEglise(monstre as Ennemi);
     });
     this.physics.add.collider(this.equipe, this.eglise.sprite);
+
+    // Un survivant ne se defend pas et n'encaisse presque rien (§4.18) : le
+    // danger est le trajet du retour. On ne pose pas de collider permanent —
+    // il n'y a au plus qu'un survivant, et il n'existe pas la plupart du temps.
+    this.physics.add.overlap(this.ennemis, this.survivants.groupe, (a, b) => {
+      const sprite = (a instanceof Ennemi ? b : a) as SpriteSurvivant;
+      const ennemi = (a instanceof Ennemi ? a : b) as Ennemi;
+      this.survivants.blesser(sprite, ennemi.degats);
+    });
 
     this.fantome = this.add
       .image(0, 0, "mur")
@@ -1442,6 +1492,7 @@ export class ArenaScene extends Phaser.Scene {
     this.gererCapacitesAuto();
     this.gererCapacites();
     this.majCycle(delta);
+    this.survivants.mettreAJour();
     this.eglise.majorer(delta, this.time.now);
     this.majPort(delta);
     this.village.majorer(delta);
@@ -3924,6 +3975,7 @@ export class ArenaScene extends Phaser.Scene {
     else if (bascule === "aube") this.leverLeJour();
 
     this.regarderLaPorte();
+    this.regarderLHorizon();
     this.teinterLeCiel();
   }
 
@@ -3950,6 +4002,10 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private tomberLaNuit(): void {
+    // Celui qui attend encore n'a pas attendu la nuit (§4.18). Celui qui suit
+    // deja reste : l'abandonner au milieu du trajet serait arbitraire.
+    this.survivants.auCrepuscule();
+
     const nuit = this.cycle.nuit;
     this.resteDeLaNuit = effectifDeLaNuit(nuit);
     this.village.tomberLaNuit();
@@ -4019,16 +4075,146 @@ export class ArenaScene extends Phaser.Scene {
 
     // Les noms deja portes partent avec : deux homonymes dans un village de six
     // rendent chaque annonce ambigue (vu en jouant, §4.18).
-    this.arrivantALaPorte = creerArrivant(
-      this.rng,
-      this.cycle.jour,
-      this.village.habitants.map((v) => v.nom),
-    );
+    this.arrivantALaPorte = creerArrivant(this.rng, this.cycle.jour, this.nomsPris());
     this.enPause = true;
     this.debutPause = this.time.now;
     this.physics.pause();
     this.effacerDestination();
     this.events.emit("arrivant", this.arrivantALaPorte);
+  }
+
+  // --------------------------------------------------- les survivants (§4.18)
+
+  /**
+   * Quelqu'un appelle-t-il, quelque part au bord ? (DESIGN.md §4.18)
+   *
+   * **C'est la seule raison de sortir du village.** Jusqu'ici le jour ne servait
+   * qu'a produire et a reparer, et tout se jouait autour de l'eglise.
+   */
+  private regarderLHorizon(): void {
+    if (this.termine || this.enPause || this.saisieEnCours) return;
+    if (this.survivants.present !== null) return;
+    if (this.cycle.jour < this.prochainSurvivantJournee) return;
+    // Il parait **le jour**, et il attend jusqu'au crepuscule. Pas dans la
+    // premiere minute : l'aube fait deja le repas, les etats et la sauvegarde.
+    if (this.cycle.phase !== "jour" || this.cycle.part < 0.06) return;
+
+    const survivant = creerSurvivant(this.rng, this.cycle.jour, this.nomsPris());
+    this.survivants.faireParaitre(survivant, ligneDApparition(survivant));
+    this.planifierLeProchainSurvivant();
+  }
+
+  /**
+   * Quand le prochain appellera.
+   *
+   * Meme reputation que la porte, **avec le plancher** du §4.18 : sous 25 la
+   * porte se ferme pour de bon et les naissances n'existent pas avant le bloc 7.
+   * Sans ce plancher, un village qui saigne n'aurait plus **aucune** voie de
+   * peuplement — un cul-de-sac dont rien ne le sort.
+   */
+  private planifierLeProchainSurvivant(): void {
+    const rumeur = reputation(
+      this.village.satisfaction,
+      this.village.memoireDesMorts,
+      this.cycle.jour,
+      this.village.memoireDesMortsEnChemin,
+      REGLAGES_SURVIVANTS.partDeRumeurDUneMortEnChemin,
+    );
+    this.prochainSurvivantJournee = prochainSurvivant(
+      delaiEntreArrivees(rumeur),
+      this.cycle.jour,
+      this.rng,
+    );
+  }
+
+  /**
+   * La meute, lachee autour de lui **au moment ou on le voit** (§4.18).
+   *
+   * ⚠️ **Le plafond de l'ecran passe avant le tirage** (§4.17 regle 1) : une
+   * meute de 40 mange les deux tiers de la reserve de 60, et rien d'autre ne
+   * doit pouvoir paraitre pendant qu'elle est debout. Si l'ecran est deja
+   * charge, la meute est plus petite — jamais l'inverse.
+   */
+  private lacherLaMeute(x: number, y: number, combien: number): void {
+    const puissance = puissanceDeLaNuit(this.cycle.jour);
+    const place = MAX_ENNEMIS - this.ennemis.getLength();
+    for (let i = 0; i < Math.min(combien, place); i++) {
+      const archetype = choisirArchetype(puissance, this.rng.next());
+      // En couronne autour de lui : ils le tenaient deja, ils ne surgissent pas
+      // du bord de la carte comme une horde.
+      const angle = this.rng.range(0, Math.PI * 2);
+      const rayon = this.rng.range(40, 120);
+      const e = new Ennemi(
+        this,
+        x + Math.cos(angle) * rayon,
+        y + Math.sin(angle) * rayon,
+        puissance,
+        archetype,
+      );
+      this.ennemis.add(e);
+    }
+  }
+
+  /**
+   * Il est arrive a l'eglise : **la porte se rejoue** (§4.10, §4.18).
+   *
+   * Meme fiche, meme mode, meme code qu'a la porte — il peut etre fou dans la
+   * meme proportion. La seule difference tient en un champ : **son etat est
+   * ecrit noir sur blanc**. La folie se devine, la maladie se lit.
+   */
+  private presenterLeSurvivant(sprite: SpriteSurvivant): void {
+    this.survivantALEglise = sprite;
+    this.enPause = true;
+    this.debutPause = this.time.now;
+    this.physics.pause();
+    this.effacerDestination();
+
+    const etat = sprite.regles.etat;
+    this.events.emit(
+      "arrivant",
+      sprite.regles.arrivant,
+      etat === null ? undefined : ETAT_ANNONCE[etat],
+      "sauvetage",
+    );
+  }
+
+  /**
+   * Personne ne porte le prenom d'un autre, au premier matin.
+   *
+   * ⚠️ **Vu en jouant** : deux heros s'appelaient Aubin et Nine, comme deux des
+   * trois villageois de depart. L'equipe se compose **avant** le village — elle
+   * ne pouvait donc pas savoir. Plutot que de reordonner tout le demarrage (la
+   * camera, le commandement et quatre recouvrements dependent de l'equipe), on
+   * renomme **le villageois** : au moment ou ceci tourne, personne n'a encore vu
+   * son nom.
+   *
+   * Sur une partie reprise, la sauvegarde repose les vrais noms par-dessus.
+   */
+  private demelerLesPrenoms(): void {
+    const pris = this.heros.map((h) => h.personne.nom);
+    for (const villageois of this.village.habitants) {
+      if (!pris.includes(villageois.nom)) {
+        pris.push(villageois.nom);
+        continue;
+      }
+      villageois.personne.nom = prenomLibre(this.rng, pris);
+      pris.push(villageois.personne.nom);
+    }
+  }
+
+  /**
+   * Tous les prenoms deja portes ici — **habitants et heros**.
+   *
+   * ⚠️ **Vu en jouant** : un survivant ramene s'appelait Anselme, comme un des
+   * heros. On ne regardait que le village. Depuis que la barre de heros affiche
+   * le nom (§4.10), deux Anselme rendent chaque annonce ambigue — et le §4.18
+   * promet qu'on s'attache a ses gens, ce qui suppose de savoir de qui on parle.
+   */
+  private nomsPris(): string[] {
+    return [
+      ...this.village.habitants.map((v) => v.nom),
+      ...this.heros.map((h) => h.personne.nom),
+    ];
   }
 
   private planifierLaProchaineArrivee(): void {
@@ -4048,6 +4234,13 @@ export class ArenaScene extends Phaser.Scene {
    * du niveau 2 de l'eglise.
    */
   private repondreALaPorte(accepte: boolean): void {
+    // La meme fiche sert aux deux (§4.10), donc la meme reponse aussi : c'est
+    // ici qu'on sait duquel des deux il s'agit.
+    if (this.survivantALEglise !== null) {
+      this.repondreAuSurvivant(accepte);
+      return;
+    }
+
     const arrivant = this.arrivantALaPorte;
     this.arrivantALaPorte = null;
 
@@ -4067,6 +4260,47 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     this.planifierLaProchaineArrivee();
+    this.reprendreLeJeu();
+  }
+
+  /**
+   * On a risque sa peau pour lui, et on peut encore lui dire non (§4.18).
+   *
+   * ⚠️ **C'est dur, et c'est volontaire.** Sans la fiche, le survivant serait
+   * une ressource gratuite qu'on ramasse et les fous n'auraient qu'une seule
+   * porte d'entree. Avec elle, sortir devient un investissement qu'on peut
+   * decider de ne pas honorer — et le joueur qui accepte tout ce qu'il a sauve,
+   * par attachement, se fera avoir exactement comme celui qui ouvre sa porte a
+   * tout le monde.
+   *
+   * **Refuser ne coute rien** : meme regle qu'a la porte, la prudence ne se
+   * punit pas deux fois. Il repart, et la rumeur ne bouge pas.
+   */
+  private repondreAuSurvivant(accepte: boolean): void {
+    const sprite = this.survivantALEglise;
+    this.survivantALEglise = null;
+
+    if (sprite !== null) {
+      const { arrivant, etat } = sprite.regles;
+      if (accepte) {
+        const villageois = this.village.accueillir(arrivant.personne, arrivant.metierPretendu);
+        // Ce qu'il porte entre avec lui. L'infection est **contagieuse entre
+        // voisins de travail** (§4.23) : c'est le premier usage reel de la
+        // contagion, ecrite au bloc 5 et que rien ne declenchait.
+        if (etat !== null) contracterEtat(villageois.personne, etat);
+        const fou = suivreSiFou(arrivant, villageois.regles.id, this.cycle.jour, this.rng);
+        if (fou !== null) this.fous.push(fou);
+        this.events.emit(
+          "annonce",
+          `${arrivant.personne.nom} est rentre avec toi — ${NOMS_METIER[arrivant.metierPretendu].toLowerCase()}`,
+          "village",
+        );
+      } else {
+        this.events.emit("annonce", `${arrivant.personne.nom} repart sur la route`, "village");
+      }
+    }
+
+    this.survivants.retirer();
     this.reprendreLeJeu();
   }
 

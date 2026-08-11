@@ -12,7 +12,7 @@ import {
   type EvolutionDef,
 } from "../core/competences";
 import type { Ordre, Point } from "../core/ordres";
-import { PRENOMS, creerPersonne, type Personne } from "../core/personne";
+import { creerPersonne, prenomLibre, type Personne } from "../core/personne";
 import { Rng } from "../core/rng";
 import { nouvellePose } from "./poses";
 import { ARCHETYPE_DEFAUT, type Archetype } from "./ennemis";
@@ -269,8 +269,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.classe = classe;
     this.pv = classe.pvMax;
     const graine = rng ?? new Rng(Date.now() + prochainIdentifiant);
-    const libres = PRENOMS.filter((prenom) => !nomsPris.includes(prenom));
-    this.personne = creerPersonne(graine.pick(libres.length > 0 ? libres : PRENOMS), graine);
+    this.personne = creerPersonne(prenomLibre(graine, nomsPris), graine);
     if (classe.id === "assassin") this.bonus.discretion = true;
 
     scene.add.existing(this);
