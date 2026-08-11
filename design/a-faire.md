@@ -66,3 +66,7 @@ Une règle a été **annulée et réécrite** au passage, pas laissée en place 
 
 <!-- écris en dessous -->
 
+un trait genre qui fait que la personne aime pas le noir ou n'aime pas le jour
+
+pouvoir renomer le village 
+

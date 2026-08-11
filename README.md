@@ -192,6 +192,27 @@ endroit a toucher pour changer le rythme du jeu.
 | `T` | Monter dans une tour a portee, ou en descendre |
 | `Y` | Monter l'eglise d'un niveau, ou relancer son chantier |
 | `P` | Au port : relever le chantier, ou commercer avec le navire a quai |
+| `M` | Le **mode d'amenagement** : le jeu se met en pause, la grille apparait |
+
+### Le mode d'amenagement (§4.24)
+
+`M` arrete le temps et fait apparaitre la grille. **Le jour seulement** — l'ouvrir
+en pleine nuit serait une reparation gratuite au milieu d'un assaut. Le temps
+passe dedans est **rendu** a la fermeture.
+
+| Geste | Effet |
+|---|---|
+| `G` / `H` / `J` | Choisir quoi poser. Ce sont les **seules** touches vivantes sous cette pause |
+| **Clic gauche** | Poser si un outil est choisi ; sinon **prendre** ce qui est sous le curseur ; et si on tient quelque chose, le **reposer** |
+| **Clic droit** | Demolir — ca rend **la moitie** de ce qui tenait encore debout |
+
+**Deplacer est gratuit et instantane**, et la construction **garde ses points de
+vie** : sinon deplacer reparerait.
+
+Deux regles de pose, et elles sont **locales** : trois cases libres au moins
+entre ce qu'on batit et **l'eglise ou le port** (jamais les maisons, sinon
+l'enceinte serait repoussee hors de portee), et le sol doit porter. Un refus dit
+toujours pourquoi.
 
 Dans le tableau du village, **cliquer** un habitant change sa posture, **clic
 droit** l'envoie a un autre poste, **Maj + clic** ouvre sa fiche.

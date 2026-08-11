@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { CASE, COLONNES, Grille, LIGNES, grilleFideleALaFormule } from "./grille";
+import {
+  CASE,
+  COLONNES,
+  Grille,
+  IMPOSENT_UNE_DISTANCE,
+  LIGNES,
+  grilleFideleALaFormule,
+} from "./grille";
 import { MONDE, TERRAIN, VILLAGE, terrainEn } from "./carte";
 import {
   CASES_LIBRES_AUTOUR_DES_BATIMENTS,
@@ -144,6 +151,24 @@ describe("Les regles de pose (§4.24)", () => {
     const grille = new Grille();
     grille.poser(point.x, point.y, "mur");
     expect(grille.aProximite(point.x, point.y, 3, ["batiment"])).toBe(false);
+  });
+
+  it("ne fait imposer une distance qu'a l'eglise et au port, jamais aux maisons", () => {
+    // Mesure en jouant : neuf maisons en couronne, chacune avec trois cases
+    // interdites autour, repoussaient la palissade a 256 px du centre du village
+    // contre 82 px avant. L'enceinte doit pouvoir passer entre les maisons.
+    const grille = new Grille();
+    grille.poser(point.x, point.y, "maison");
+    const rayon = CASES_LIBRES_AUTOUR_DES_BATIMENTS;
+    const colle = { x: point.x + CASE, y: point.y };
+    expect(grille.aProximite(colle.x, colle.y, rayon, IMPOSENT_UNE_DISTANCE)).toBe(false);
+  });
+
+  it("garde la case d'une maison prise, meme sans distance", () => {
+    const grille = new Grille();
+    grille.poser(point.x, point.y, "maison");
+    expect(grille.constructible(point.x, point.y)).toBe(false);
+    expect(grille.bloque(point.x, point.y)).toBe(true);
   });
 
   it("marque toute l'emprise d'un batiment, pas son seul centre", () => {

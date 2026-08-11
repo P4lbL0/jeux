@@ -430,6 +430,82 @@ Le fichier `design/a-faire.md` a été dépouillé une deuxième fois. Ce qui en
 - [ ] **Trois cases, est-ce la bonne distance** entre un mur et un bâtiment ? C'est un chiffre
       donné à vue, et il décide de la taille de la cour où on se bat (§4.24).
 
+### Le 11 août 2026, tard — la refonte visuelle (§4.30)
+
+Une planche de propositions a servi de test, et elle a fait remonter trois défauts invisibles
+à la compilation avant même qu'on choisisse quoi que ce soit.
+
+- ✅ **Le jeu mélangeait trois perspectives** : maisons **isométriques**, murs et personnages
+  **de face**. Un objet isométrique ne peut pas s'aligner sur une grille orthogonale — c'est
+  géométrique. C'est toute l'explication du « tout est de biais ». **Tout passe en vue de
+  face** (§4.30, §4.11)
+- ✅ **Il n'existait aucun `villageois.png`** : les héros en 32 × 32, le villageois resté sur un
+  placeholder de 12 × 18. Un oubli de migration, pas un choix (§4.30, §4.18)
+- ✅ **Tout est désormais dessiné par le code**, plus aucun PNG de sprite. Un sprite en code
+  n'est pas un dessin, c'est une **fonction à paramètres** : un coup de pioche est un angle de
+  bras. ⚠️ **Les frames se cuisent au démarrage**, jamais par image — le §4.17 règle 3 ne
+  souffre aucune exception ici (§4.30, §4.17)
+- ✅ **Le monde passe en fer/os/sang**, les neuf couleurs des panneaux et aucune autre. Ça
+  **annule** le §4.11 (« le monde, lui, ne change pas »), qui est réécrit. Un jeu qui parle
+  deux langages visuels finit par en avoir trois — c'est exactement ce qui est arrivé (§4.30,
+  §4.11, §4.10)
+- ✅ **Église : proposition A** (clocher latéral), **moins colorée**. ⚠️ La **taille** n'a pas
+  été tranchée explicitement : le code part sur **2 × 2 (64 px)** parce que la consigne disait
+  « on agrandit **un peu** ». C'est une hypothèse écrite pour pouvoir être démentie en une
+  ligne (§4.30, §4.22)
+- ✅ **Maisons : proposition A**, et **la C devient la maison de fermier** — logis plus remise,
+  aux couleurs de la A. **Celui qui y vit ou y travaille voit son stress baisser** : c'est le
+  premier bâtiment du jeu qui agit sur le moral (§4.30, §4.23, §4.24)
+- ✅ **Les trois propositions de murs sont refusées** — « trop plates, ça fait une texture, pas
+  un rempart ». À refaire avec du relief : crête claire, corps, pied sombre, ombre portée
+  franche, et de la hauteur. La forme 16 × 32 orientable et améliorable ne change pas (§4.30,
+  §4.20)
+- ✅ **L'outil du villageois n'est en main que pendant le travail.** C'est ce qui fait qu'on lit
+  *qui travaille*, et pas seulement quel est son métier (§4.30, §4.18)
+- ✅ **L'usure se voit sur le corps** — voûté, pâle, cerné — plus le **sang** d'un blessé et une
+  animation de **toux**. Première fois que le §4.23 existe ailleurs que dans la fiche (§4.30,
+  §4.23)
+- ✅ **Les héros sont redessinés dans le langage des villageois.** Ils étaient « trop différents
+  visuellement ». Ce qui les distingue devient **ce qu'ils portent**. C'est cohérent avec tout
+  le document : un héros est un villageois qui a appris (§4.30, §4.18, §4.29)
+- ✅ **Les ronds des postes de travail disparaissent.** On reconnaît un lieu à ce qu'il y a
+  dessus — des arbres, des champs, l'entrée de la mine, le ponton (§4.30, §4.24)
+- ✅ **Les arbres tombent et repoussent lentement.** Des **forêts denses**, où l'on croise plus
+  souvent des monstres, plus des arbres isolés. Le bûcheron **se déplace, coupe et ramène**, et
+  ça doit être **long et fatigant**. La forêt recule si on l'exploite et revient si on la
+  laisse (§4.30, §4.18)
+- ✅ **Personne ne nage — ni le héros, ni les monstres.** Le flanc ouest du §4.6 tient
+  intégralement, et le port reste inattaquable. ⚠️ **Mais l'eau ne bloque pas assez** : vu en
+  jouant, « on a l'impression qu'on peut courir dessus ». Il faut qu'**on s'enfonce**, et
+  qu'une **bulle prévienne** le héros incarné qu'il va se noyer — un avertissement, jamais une
+  mort surprise (§4.30, §4.6, §4.18)
+- ✅ **On pêche depuis le port, et uniquement de là.** Le poste de pêche sur la plage disparaît
+  avec les ronds (§4.30, §4.18)
+- ✅ **Le sol est dessiné par le code.** Ça débloque les chemins qui s'usent, la place en terre
+  battue, les cratères de météore et les terres brûlées — tout ce que le §4.21 attendait
+  (§4.30, §4.21, §4.24)
+- ✅ **Le son reste hors périmètre, mais les animations lui laissent la place** : chaque
+  animation émet un **événement nommé** (coup de pioche, hache, toux, semis, chute d'arbre).
+  Le jour où le bloc 10 branche les volumes, il n'y a que des fichiers à poser. Coût
+  aujourd'hui : zéro (§4.30, §7, §4.10)
+- ✅ **Aucun modèle d'image n'entre dans ce chantier**, et c'est mesuré : ComfyUI a donné moins
+  bon que le code sous 96 px, et **aucun modèle ne place un pixel sur une grille**. L'IA garde
+  sa place sur ce qui est grand et immobile — portraits, illustrations, écran-titre (§4.30)
+
+### Ouvertes depuis la refonte visuelle
+
+- [ ] **L'église fait-elle 2 × 2 ou 3 × 3 carreaux ?** Le code part sur 2 × 2 par hypothèse.
+- [ ] **Le sol reste-t-il vert, ou passe-t-il en cendre ?** Un village d'os et de sang sur une
+      prairie éclatante, ça jure — mais un monde entièrement gris est déprimant à jouer
+      longtemps. À trancher sur image.
+- [ ] **Combien de temps met un arbre à repousser**, et combien de bois donne un arbre ? De ces
+      deux chiffres dépend tout l'équilibre du bois.
+- [ ] **De combien la maison de fermier fait-elle baisser le stress**, et est-ce qu'elle agit
+      sur celui qui y dort, sur celui qui y travaille, ou sur les deux ?
+- [ ] **À quelle profondeur on se noie**, et au bout de combien de temps après l'avertissement.
+- [ ] **Les monstres sont-ils redessinés aussi** dans le langage des villageois, ou gardent-ils
+      une silhouette franchement autre ? Ce sont les seuls qui ne sont pas humains.
+
 ## Tranché récemment
 
 - ✅ Garde-fou de la permadeath → **la règle des 20% + le totem d'immortalité** (§4.3)

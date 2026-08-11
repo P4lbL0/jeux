@@ -13,10 +13,16 @@
 > monte l'église. Les **quatre** conditions du §4.22 mordent enfin toutes les quatre — il
 > ne reste plus un seul champ neutralisé.
 >
-> **Le prochain morceau est la suite du bloc 7a** : le **mode d'aménagement lui-même** — la
-> touche qui met en pause, la grille affichée, la pose / le déplacement / la démolition à la
-> souris — puis les **maisons destructibles** et le **village qui démarre en ruines**
-> (§4.24). Le 7b (la forteresse : fer, portes, douves) vient après.
+> ⚠️ **Le prochain morceau n'est plus le 7a : c'est le bloc 7z, la refonte visuelle** (§4.30),
+> décidé le 11 août très tard. **Tout sera dessiné par le code** — plus aucun PNG de sprite —,
+> le monde passe en **fer/os/sang** comme les panneaux, et tout est **vu de face**. Le prompt
+> complet est dans **`PROMPT-BLOC-7Z.md`**.
+>
+> **Pourquoi avant le 7a** : le 7a pose les bâtiments, les maisons destructibles et le sol.
+> Les coder sur des sprites qu'on va jeter, ce serait les coder deux fois.
+>
+> Le **7a** reprend derrière (le mode d'aménagement est déjà debout, il reste les maisons
+> destructibles et le village en ruines), puis le **7b** (la forteresse : fer, portes, douves).
 >
 > ⚠️ **Et un jalon 5.5 neuf attend derrière tout le jalon 5** : le **nouveau départ**
 > (§4.29). Un seul héros, l'errance jusqu'au village qu'on choisit, le monde qui se fige
@@ -580,12 +586,75 @@ sur « tout se casse, on rebâtit ». Une ruine est maintenant un état **visibl
 | Bâtir → détruire → rebâtir | `"mur"` → `"ruine"` → **plus aucun refus** → `"mur"`. C'est le défaut ci-dessus, fermé |
 | Démolir | 12 bois payés, **6 rendus**, et la case repasse à `"libre"` |
 
-⚠️ **Une conséquence à juger en jouant, et elle est voulue** : la palissade ne peut plus se
-bâtir qu'à **256 px du centre du village** (contre 82 px avant). Les neuf maisons sont en
-couronne, et trois cases autour de chacune font un anneau interdit large. L'enceinte se pose
-donc **hors du village** au lieu de le traverser — ce qui est le but — mais **la distance
-n'a jamais été jouée sur une vraie nuit**, et elle se réduira toute seule quand le village
-démarrera en ruines avec **trois** maisons au lieu de neuf.
+⚠️ **Corrigé dans la foulée, et c'est la mesure qui l'a dit.** La première version appliquait
+les trois cases à *tous* les bâtiments : les neuf maisons sont en couronne, leurs anneaux
+interdits se recouvraient, et la palissade se retrouvait repoussée à **256 px du centre du
+village** contre 82 px avant. Une maison est donc une occupation à part : sa case est
+**prise**, mais elle n'impose **aucune distance**. Seuls l'église et le port en imposent une.
+L'enceinte peut passer entre les maisons — et on peut donc murer son village maison par
+maison, ce qui est assumé.
+
+### Le mode d'aménagement (fait le 11 août 2026, très tard)
+
+**La touche `M` arrête le temps et fait apparaître la grille** (§4.24). Le jour seulement :
+l'ouvrir en pleine nuit serait une réparation gratuite au milieu d'un assaut.
+
+- **Trois gestes, un seul bouton.** Clic gauche : **poser** si un outil est choisi, sinon
+  **prendre** ce qui est sous le curseur, et **reposer** si on tient déjà quelque chose. Clic
+  droit : **démolir**. C'est ce que fait tout jeu de construction, et ça évite un mode de plus
+  à expliquer.
+- **`G`, `H` et `J` sont les seules touches vivantes sous cette pause** — celles qui
+  choisissent quoi poser. La cloche, les postures, l'église et le port n'ont aucun sens
+  pendant que le temps est arrêté. Et **`M` vit hors de la boucle qui les gère** : elle doit
+  s'entendre pendant la pause qu'elle a elle-même posée, sinon on ne pourrait plus refermer.
+- **Le temps passé dedans est rendu** à la fermeture (`decalerLeTemps`), exactement comme la
+  pause hors focus du §4.19.
+- **La grille est dessinée une seule fois** pour toute la partie, puis cachée et remontrée
+  (§4.17 règle 3). Redessiner quelques milliers de segments à chaque ouverture serait
+  exactement ce que la règle interdit.
+
+**Ce qui a été vérifié en jouant** (Playwright, aucune erreur console, **50 FPS**) :
+
+| Vérifié | Résultat |
+|---|---|
+| `M` ouvre | Physique en pause, grille visible, cycle arrêté |
+| `G` sous la pause | La palissade est choisie, le fantôme paraît |
+| Poser | Mur à 120 PV, **12 bois débités** |
+| Prendre et reposer | Le mur passe d'une case à l'autre, **ses 40 PV restent 40** — déplacer ne répare pas |
+| Le déplacement est gratuit | Le bois ne bouge pas |
+| Clic droit | Mur démoli, **+2 bois** — la moitié de ce qui tenait encore debout, pas du prix neuf |
+| `M` referme | Physique relancée, grille cachée, et **le cycle n'a pas avancé d'une seconde** pendant la pause |
+| Le jeu repart | Le héros se déplace, 50 FPS |
+| La nuit | `M` refuse et le dit |
+
+⚠️ **Quatre défauts trouvés en jouant, et NON corrigés — c'est volontaire.** Ils touchent tous
+l'affichage, et le bloc 7z va le refaire entièrement : les corriger maintenant serait du
+travail fait deux fois. À reprendre à la fin du 7z.
+
+1. **`M` ne met pas vraiment en pause.** `physics.pause()` arrête les corps, pas les
+   **animations** Phaser : les personnages continuent de bouger les jambes pendant que le temps
+   est censé être arrêté. Il faut aussi geler le gestionnaire d'animations.
+2. **Une autre touche n'annule pas l'outil de construction.** Rien ne remet `enConstruction` à
+   zéro : on choisit une palissade, on sonne la cloche, et le fantôme est toujours là.
+3. **Le clic droit démolit avec un rayon d'une case entière** (`laPlusProche(..., CASE)`) :
+   cliquer une case **vide à côté** d'un mur démolit ce mur. Il faut `CASE / 2`, puisqu'on
+   aimante déjà sur le centre de la case.
+4. **On ne peut déplacer que ce que le joueur a bâti.** L'église, le port et les maisons ne
+   sont pas des `Construction`. ⚠️ Pour l'église, c'est un vrai chantier : sa position est une
+   **constante lue à 362 endroits dans 26 fichiers** (refuge, cap des monstres, soins,
+   sauvegarde, satisfaction) — c'est exactement ce que le §4.29 annonce pour le jalon 5.5.
+
+⚠️ **Ce que le 7a n'a PAS encore** — et c'est la moitié du bloc :
+
+1. **Les maisons ne se cassent pas.** Elles sont toujours du décor pur, en nombre fixe (neuf),
+   sans corps ni points de vie, sans lien avec la population (`ArenaScene.construireVillage`).
+2. **Le village ne démarre pas en ruines.** Le §4.24 veut trois maisons debout pour trois
+   habitants, des ruines noircies autour, et chaque arrivant qui en relève une.
+3. **Le sol est toujours la même herbe que la prairie** : ni place en terre battue, ni chemins
+   vers les quatre postes, ni chemins qui s'usent, ni détails de vie. **C'est le morceau à
+   couper si le bloc dérape** — il est purement visuel.
+4. **Le texte « LE VILLAGE » flotte toujours** au-dessus du village, et le §4.24 le supprime au
+   profit d'un survol.
 
 ### La sauvegarde et le compte The Circle (fait le 10 août 2026, §4.28)
 
@@ -650,16 +719,17 @@ n'ont jamais été vus de bout en bout. Le refus d'identifiants et la panne rés
 
 ### Tout de suite
 
-1. **Finir le bloc 7a : le mode d'aménagement lui-même** (§4.24). Les fondations sont
-   posées et jouées ; ce qui reste est l'interface et les maisons. Dans cet ordre :
-   a) la **touche** qui ouvre le mode et met le jeu en pause — ⚠️ **elle n'est pas
-   tranchée**, il faut la demander ; b) la grille affichée et les cases valides éclairées ;
-   c) la pose, le **déplacement** et la **démolition** à la souris — le cœur existe déjà
-   (`Constructions.deplacer`, `.demolir`, `.refus`), il n'y a qu'à le brancher ;
-   d) les **maisons destructibles** et le village qui **démarre en ruines** (trois maisons
-   pour trois habitants, chaque arrivant en relève une) ; e) le sol, la place en terre
-   battue et les chemins — **c'est le morceau à couper si le bloc dérape**, il est purement
-   visuel et le §5 dit de livrer la version minimale qui se joue.
+1. **Finir le bloc 7a** (§4.24). Le mode d'aménagement tourne et se joue ; il reste **les
+   bâtiments**. Dans cet ordre :
+   a) les **maisons destructibles** — corps, points de vie, chute, et la ruine qu'on relève
+   (tout le socle est là : `Constructions`, l'occupation `maison`, la ruine rebâtissable) ;
+   b) le village qui **démarre en ruines** — trois maisons debout pour trois habitants, des
+   ruines noircies autour, et chaque arrivant qui en relève une. ⚠️ Ça retire aussi l'anneau
+   de neuf maisons qui a faussé la première mesure des trois cases ;
+   c) le survol qui remplace le texte flottant « LE VILLAGE » ;
+   d) le sol, la place en terre battue et les chemins — **c'est le morceau à couper si le
+   bloc dérape**, il est purement visuel et le §5 dit de livrer la version minimale qui se
+   joue. Décidé : il reste dans le 7a, mais **en dernier**.
 2. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
    parce qu'à 32 px, 3 px disloquent le personnage. Amplitudes en haut de
    `scripts/animer-sprites.ts`.

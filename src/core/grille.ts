@@ -34,14 +34,34 @@ export const LIGNES = Math.ceil(MONDE.hauteur / CASE);
  * `libre` n'est pas un vide : c'est l'etat de tout ce que la formule a produit
  * et que personne n'a touche.
  *
- * `batiment` est l'eglise, le port et les maisons. Ils n'etaient dans la grille
- * a aucun titre jusqu'ici — ce qui interdisait toute regle de pose qui parle
- * d'eux, et la regle des trois cases du §4.24 en est une.
+ * `batiment` et `maison` sont neufs : rien de tout ca n'etait dans la grille a
+ * aucun titre, ce qui interdisait toute regle de pose qui parle d'eux.
+ *
+ * ⚠️ **Les deux sont separes pour une seule raison, et elle vient de la mesure.**
+ * `batiment` (l'eglise et le port) impose **trois cases libres autour** ;
+ * `maison` ne prend que **sa propre case**. Appliquer la distance aux maisons
+ * aussi repoussait la palissade a 256 px du centre du village contre 82 px
+ * avant — les neuf maisons sont en couronne, et leurs anneaux interdits se
+ * recouvraient. L'enceinte peut donc passer entre les maisons (§4.24).
  */
-export type Occupation = "libre" | "mur" | "tour" | "champ" | "ruine" | "batiment";
+export type Occupation =
+  | "libre"
+  | "mur"
+  | "tour"
+  | "champ"
+  | "ruine"
+  | "batiment"
+  | "maison";
 
 /** Les occupations qui arretent un corps. */
-const BLOQUANTES: Occupation[] = ["mur", "tour", "batiment"];
+const BLOQUANTES: Occupation[] = ["mur", "tour", "batiment", "maison"];
+
+/**
+ * Ce qui exige trois cases libres autour de soi (§4.24).
+ *
+ * L'eglise et le port, jamais les maisons : voir le commentaire d'`Occupation`.
+ */
+export const IMPOSENT_UNE_DISTANCE: Occupation[] = ["batiment"];
 
 /**
  * Les occupations sur lesquelles on peut batir.

@@ -93,8 +93,13 @@ import {
   tailleDeLaHorde,
 } from "../core/cycle";
 import { Village, type Villageois } from "../game/village";
-import { Grille } from "../core/grille";
-import { CONSTRUCTIONS, coutLisible, type TypeConstruction } from "../core/constructions";
+import { CASE, COLONNES, Grille, IMPOSENT_UNE_DISTANCE, LIGNES } from "../core/grille";
+import {
+  CASES_LIBRES_AUTOUR_DES_BATIMENTS,
+  CONSTRUCTIONS,
+  coutLisible,
+  type TypeConstruction,
+} from "../core/constructions";
 import { Constructions, PORTEE_OCCUPATION, type Construction } from "../game/constructions";
 import { Champs, REGLAGES_CHAMPS, type Champ } from "../game/champs";
 import { NOMS_METIER, NOMS_POSTURE_CIVILE, NOMS_RESSOURCE, RESSOURCES } from "../core/habitants";
@@ -250,6 +255,19 @@ const RAYON_DE_VUE = 340;
  * repousserait les murs sans qu'on comprenne pourquoi.
  */
 const EMPRISE_MAISON = 32;
+
+/**
+ * Les seules touches qui restent vivantes sous la pause du mode d'amenagement.
+ *
+ * Ce sont celles qui choisissent **quoi poser** — palissade, tour, champ. Tout
+ * le reste doit rester bloque : la cloche, les postures ou l'eglise n'ont aucun
+ * sens pendant que le temps est arrete (§4.24).
+ */
+const CHOISIR_QUOI_POSER: number[] = [
+  Phaser.Input.Keyboard.KeyCodes.G,
+  Phaser.Input.Keyboard.KeyCodes.H,
+  Phaser.Input.Keyboard.KeyCodes.J,
+];
 
 /**
  * Ce qu'on peut poser sur la grille.
@@ -498,6 +516,23 @@ export class ArenaScene extends Phaser.Scene {
   private fantome!: Phaser.GameObjects.Image;
   /** La tour dans laquelle se tient le heros incarne, s'il y en a une */
   private tourDuHero: Construction | null = null;
+
+  /**
+   * Le mode d'amenagement (DESIGN.md §4.24) : la touche `M`.
+   *
+   * ⚠️ **Il met le jeu en pause, et c'est assume alors que le §4.4 est fier de
+   * ne jamais l'interrompre.** Ce n'est pas la meme chose : un ordre tactique se
+   * donne dans le feu, amenager veut dire regarder, comparer, essayer. Poser
+   * vingt batiments a la souris en courant devant une horde ne serait pas tendu,
+   * ce serait penible.
+   */
+  private amenagement = false;
+  /** La grille du mode d'amenagement, dessinee **une seule fois** (§4.17) */
+  private calqueGrille?: Phaser.GameObjects.Graphics;
+  /** Ce qu'on a pris en main pour le reposer ailleurs ; null la plupart du temps */
+  private deplacee: Construction | null = null;
+  /** Le temps ou le mode d'amenagement s'est ouvert, pour rendre la pause */
+  private debutAmenagement = 0;
 
   private enPause = false;
   /**
@@ -1188,10 +1223,13 @@ export class ArenaScene extends Phaser.Scene {
       // differentes suffisent a ce qu'aucune maison ne soit la copie de sa
       // voisine, et une maison mise a l'echelle perdrait sa nettete.
       const sprite = this.add.image(x, y, rng.pick(maisons)).setDepth(y);
-      // Elles entrent dans la grille : sans ca la regle des trois cases du
-      // §4.24 ne verrait rien, et on murerait la place. Seule leur **emprise au
-      // sol** compte — un toit qui monte haut n'occupe pas le terrain sous lui.
-      this.grille.poserEmprise(x, y, sprite.width, EMPRISE_MAISON, "batiment");
+      // Elles entrent dans la grille en `maison` et non en `batiment` : leur
+      // case est prise, mais elles n'imposent **aucune distance**. Mesure en
+      // jouant : neuf maisons en couronne, chacune avec trois cases interdites
+      // autour, repoussaient la palissade a 256 px du centre contre 82 px avant
+      // (§4.24). Seule leur emprise au sol compte — un toit qui monte haut
+      // n'occupe pas le terrain sous lui.
+      this.grille.poserEmprise(x, y, sprite.width, EMPRISE_MAISON, "maison");
     }
 
     this.add
@@ -1250,7 +1288,16 @@ export class ArenaScene extends Phaser.Scene {
     };
 
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      if (this.termine || this.enPause) return;
+      if (this.termine) return;
+      // Le mode d'amenagement prend toute la souris : gauche pose, prend ou
+      // repose ; droite demolit. Rien ne commande, rien ne se deplace — le jeu
+      // est arrete (§4.24).
+      if (this.amenagement) {
+        const point = this.cameras.main.getWorldPoint(p.x, p.y);
+        this.cliquerEnAmenagement(point.x, point.y, p.rightButtonDown());
+        return;
+      }
+      if (this.enPause) return;
       // En mode construction, le clic gauche batit : c'est la seule chose qu'on
       // fasse d'un clic a ce moment-la, et le clic droit continue de commander.
       if (!p.rightButtonDown() && this.enConstruction) {
@@ -1410,10 +1457,19 @@ export class ArenaScene extends Phaser.Scene {
     ];
     for (const [code, action] of ordres) {
       clavier.addKey(code).on("down", () => {
-        if (this.termine || this.enPause || this.saisieEnCours) return;
+        if (this.termine || this.saisieEnCours) return;
+        // ⚠️ Le mode d'amenagement **est** une pause, et il faut donc pouvoir y
+        // travailler : G, H et J y choisissent quoi poser. Tout le reste — la
+        // cloche, les postures, l'eglise, le port — reste bloque, comme sous
+        // n'importe quelle autre pause.
+        if (this.enPause && !(this.amenagement && CHOISIR_QUOI_POSER.includes(code))) return;
         action();
       });
     }
+
+    // `M` vit hors de la boucle ci-dessus : elle doit s'entendre **pendant** la
+    // pause qu'elle a elle-meme posee, sinon on ne pourrait plus refermer.
+    clavier.addKey(K.M).on("down", () => this.basculerAmenagement());
 
     // « ? » deplie la ligne des touches (§4.10). On l'ecoute par son caractere
     // et non par un code : le « ? » demande Maj sur AZERTY comme sur QWERTY, et
@@ -1482,7 +1538,14 @@ export class ArenaScene extends Phaser.Scene {
   // ---------------------------------------------------------------- boucle
 
   update(_temps: number, delta: number): void {
-    if (this.termine || this.enPause) return;
+    if (this.termine) return;
+    // Le mode d'amenagement est une pause, mais il n'est pas mort : l'apercu
+    // doit suivre la souris, sinon on poserait a l'aveugle (§4.24).
+    if (this.amenagement) {
+      this.majFantome();
+      return;
+    }
+    if (this.enPause) return;
 
     this.majEtats(delta);
     this.majAffinites();
@@ -2511,6 +2574,10 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
 
+    // Choisir quoi poser lache ce qu'on tenait : on ne peut pas avoir une tour
+    // en main et une palissade au bout du curseur.
+    this.deplacee = null;
+
     this.enConstruction = this.enConstruction === type ? null : type;
     if (!this.enConstruction) {
       this.fantome.setVisible(false);
@@ -2532,26 +2599,164 @@ export class ArenaScene extends Phaser.Scene {
     this.events.emit("annonce", `${def.nom} — ${coutLisible(def)} · clic pour poser`, "toi");
   }
 
+  // ------------------------------------------------- le mode d'amenagement
+
+  /**
+   * La touche `M` (DESIGN.md §4.24).
+   *
+   * **Le jour seulement**, comme tout ce qui se batit (§4.20) : le mode met le
+   * jeu en pause, donc l'ouvrir en pleine nuit serait une reparation gratuite au
+   * milieu d'un assaut — on gelerait la horde pour refaire son mur.
+   *
+   * Le temps passe dedans est **rendu** a la fermeture, exactement comme la
+   * pause hors focus : sans ca, toute la nuit frapperait dans l'image de la
+   * reprise.
+   */
+  private basculerAmenagement(): void {
+    if (this.termine || this.saisieEnCours) return;
+
+    if (this.amenagement) {
+      this.fermerAmenagement();
+      return;
+    }
+
+    if (this.cycle.phase !== "jour") {
+      this.events.emit("annonce", "On n'amenage pas en pleine nuit", "toi");
+      return;
+    }
+    // Une autre pause tient deja le jeu (choix de competence, fiche, hors
+    // focus) : on ne se met pas en travers de qui rendra la main.
+    if (this.enPause) return;
+
+    this.amenagement = true;
+    this.enPause = true;
+    this.debutAmenagement = this.time.now;
+    this.physics.pause();
+    this.montrerLaGrille(true);
+    this.events.emit("annonce", "Amenagement — G/H/J pour choisir, clic droit pour demolir", "toi");
+  }
+
+  private fermerAmenagement(): void {
+    this.amenagement = false;
+    this.deplacee = null;
+    this.enConstruction = null;
+    this.fantome.setVisible(false).clearTint();
+    this.montrerLaGrille(false);
+    this.decalerLeTemps(this.time.now - this.debutAmenagement);
+    this.physics.resume();
+    this.enPause = false;
+    this.events.emit("annonce", "Le village reprend son souffle", "toi");
+  }
+
+  /**
+   * La grille, dessinee **une seule fois** pour toute la partie (§4.17 regle 3).
+   *
+   * On la cache et on la remontre ensuite : redessiner quelques milliers de
+   * segments a chaque ouverture serait exactement ce que le §4.17 interdit.
+   */
+  private montrerLaGrille(visible: boolean): void {
+    if (!this.calqueGrille) {
+      const g = this.add.graphics().setDepth(-450);
+      g.lineStyle(1, 0x000000, 0.16);
+      for (let colonne = 0; colonne <= COLONNES; colonne++) {
+        g.lineBetween(colonne * CASE, 0, colonne * CASE, LIGNES * CASE);
+      }
+      for (let ligne = 0; ligne <= LIGNES; ligne++) {
+        g.lineBetween(0, ligne * CASE, COLONNES * CASE, ligne * CASE);
+      }
+      g.strokePath();
+      this.calqueGrille = g;
+    }
+    this.calqueGrille.setVisible(visible);
+  }
+
+  /**
+   * Le clic gauche en mode amenagement : poser, prendre, ou reposer.
+   *
+   * Trois gestes sur un seul bouton, et ils ne se marchent jamais dessus : si un
+   * outil est choisi on **pose**, sinon on **prend** ce qui est sous le curseur,
+   * et si on tient deja quelque chose on le **repose**. C'est ce que fait tout
+   * jeu de construction, et ca evite un mode de plus a expliquer.
+   */
+  private cliquerEnAmenagement(x: number, y: number, demolir: boolean): void {
+    const centre = this.grille.centreDe(x, y);
+
+    if (demolir) {
+      this.deplacee = null;
+      const cible = this.constructions.laPlusProche(centre.x, centre.y, CASE);
+      if (!cible) {
+        this.events.emit("annonce", "Rien a demolir ici", "toi");
+        return;
+      }
+      if (cible === this.tourDuHero) this.tourDuHero = null;
+      const nom = cible.def.nom;
+      const rendu = this.constructions.demolir(cible, this.village.stocks);
+      const lisible = Object.entries(rendu)
+        .filter(([, montant]) => (montant ?? 0) > 0)
+        .map(([ressource, montant]) => `${montant} ${ressource}`)
+        .join(", ");
+      this.events.emit("annonce", `${nom} demolie — ${lisible || "rien"} recupere`, "toi");
+      return;
+    }
+
+    // On tient quelque chose : on le repose.
+    if (this.deplacee) {
+      if (!this.constructions.deplacer(this.deplacee, centre.x, centre.y)) {
+        this.events.emit("annonce", "On ne peut pas la poser la", "toi");
+        return;
+      }
+      this.deplacee = null;
+      this.fantome.setVisible(false);
+      return;
+    }
+
+    // Un outil est choisi : on pose, avec le meme code et les memes refus qu'en
+    // plein jeu — c'est la meme pose, pas une deuxieme.
+    if (this.enConstruction) {
+      this.batirIci(centre.x, centre.y);
+      return;
+    }
+
+    // Rien en main, rien a poser : on prend ce qui est sous le curseur.
+    const prise = this.constructions.laPlusProche(centre.x, centre.y, CASE);
+    if (!prise) return;
+    if (prise === this.tourDuHero) this.tourDuHero = null;
+    this.deplacee = prise;
+    this.fantome.setTexture(prise.def.texture).setVisible(true);
+    this.events.emit("annonce", `${prise.def.nom} en main — clic pour la reposer`, "toi");
+  }
+
   /**
    * L'apercu suit la souris, aimante sur la case.
    *
    * Vert : c'est posable. Rouge : ca ne l'est pas — terrain qui ne porte pas,
-   * case deja prise, trop pres de la place du village, ou pas de quoi payer. Le
+   * case deja prise, trop pres de l'eglise ou du port, ou pas de quoi payer. Le
    * joueur n'a jamais a deviner pourquoi son clic ne fait rien.
    */
   private majFantome(): void {
-    if (!this.enConstruction) return;
+    if (!this.enConstruction && !this.deplacee) return;
 
     const pointeur = this.input.activePointer;
     const monde = this.cameras.main.getWorldPoint(pointeur.x, pointeur.y);
     const centre = this.grille.centreDe(monde.x, monde.y);
-    const possible =
-      this.enConstruction === "champ"
+
+    // Deplacer ne coute rien : on ne juge donc que le terrain et la place, sans
+    // regarder les stocks (§4.24). Les juger ferait refuser un deplacement
+    // gratuit faute d'argent, ce qui n'aurait aucun sens.
+    const possible = this.deplacee
+      ? this.grille.constructible(centre.x, centre.y) &&
+        !this.grille.aProximite(
+          centre.x,
+          centre.y,
+          CASES_LIBRES_AUTOUR_DES_BATIMENTS,
+          IMPOSENT_UNE_DISTANCE,
+        )
+      : this.enConstruction === "champ"
         ? this.champs.possible(centre.x, centre.y, this.village.stocks)
         : this.constructions.possible(
             centre.x,
             centre.y,
-            this.enConstruction,
+            this.enConstruction!,
             this.village.stocks,
           );
 

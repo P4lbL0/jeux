@@ -45,6 +45,7 @@ On le livre donc en **blocs jouables**, un par un.
 | **6c1** ✅ | **Le journal** (§4.10) : la boîte en bas à droite qui garde les six dernières lignes, et qui **remplace la bannière d'annonce** | Le jeu se laisse-t-il lire sans qu'on rate ce qu'il dit ? |
 | **6d** ✅ | **La refonte de l'interface** (§4.10, §4.11) : **fer, os, sang** — un module qui porte la palette et le cadre, les panneaux orphelins rhabillés, la **discussion** qui remplace le journal, la fiche, la porte, le village, le port, et les deux écrans d'avant-partie | Le jeu se lit-il, tout simplement ? |
 | **6c2** ✅ | **Les survivants** (§4.18) : ils paraissent au bord de la carte, parfois poursuivis, parfois blessés, la meute est tirée **au visu**, et il faut les ramener vivants | Le jour a-t-il enfin une raison de sortir du village ? |
+| **7z** | **La refonte visuelle** (§4.30) : **tout est dessiné par le code** — plus aucun PNG de sprite —, le monde passe en **fer/os/sang**, tout est **vu de face** et aligné sur la grille. Les personnages (villageois, héros, monstres) et leurs animations, les bâtiments, les **murs à refaire**, le **sol en code**, les **forêts denses** où l'on abat de vrais arbres, l'**eau qui noie**, et la fin des ronds de poste | Le jeu a-t-il enfin **une seule main** ? |
 | **7a** | **Le mode d'aménagement** (§4.24) : la ruine qui se rebâtit, l'édition **en pause**, la pose / le déplacement gratuit / la démolition à la souris, la règle des **trois cases**, la démolition qui rend la moitié, les **maisons destructibles** et le village qui démarre en ruines, le sol et les chemins | Dessiner son village est-il un plaisir ou une corvée ? |
 | **7b** | **La forteresse** (§4.20) : murs améliorables au **fer** puis à la pierre, la **porte** — qui s'ouvre, se ferme, et qu'**on ne peut pas ne pas avoir** —, autant d'enceintes qu'on en bâtit, douves, douves en eau, pont-levis | Se fermer et se rouvrir est-il le dilemme annoncé ? |
 | **8** | **Les ordres pour tous** (§4.4) : n'importe qui fait n'importe quoi, menu d'ordres, héros au travail | Commander vingt personnes est-il agréable ? |
@@ -52,6 +53,22 @@ On le livre donc en **blocs jouables**, un par un.
 | **10** | Le confort : options, pause Échap, touches remappables (§4.10) — et **le rendu à la définition de l'écran** (§4.11) : le canvas dessiné en pixels d'écran et non en points CSS, donc un texte net **et** lisse, ce qui demande de reprendre les calculs de placement de chaque panneau | Le jeu est-il net sur un écran à 150 % ? |
 | **11** | **La mémoire du village** (§4.26) : les relations, les souvenirs, ce qu'une mort produit, l'héritage immatériel, les légendes assemblées | Le joueur raconte-t-il sa partie au lieu de la résumer ? |
 | **12** | **La vie autonome** (§4.27) : la journée qu'on enchaîne sans ordre, les initiatives rares | Le village a-t-il l'air habité quand on regarde ailleurs ? |
+
+> **Le bloc 7z s'intercale le 11 août 2026, tard, et il passe AVANT la suite du 7a.** Une
+> planche de propositions a fait remonter trois choses qu'aucune compilation ne voyait : le jeu
+> **mélange trois perspectives** (maisons isométriques, murs et personnages de face), le
+> villageois n'a **jamais eu de sprite** (12 × 18 contre 32 × 32 pour les héros), et l'église
+> déborde d'une demi-case. Rien de tout ça ne se corrige au réglage.
+>
+> **Pourquoi avant le 7a et pas après** : le 7a pose les bâtiments, les maisons destructibles
+> et le sol. Les coder sur des sprites qu'on va jeter, ce serait les coder **deux fois** — la
+> même règle de dépendance qui a mis l'église en tête du jalon et le 6d avant les survivants.
+>
+> ⚠️ **Et il faut dire son prix** : 30 PNG, 84 animations générées, `animer-sprites.ts`,
+> `png.ts` et `pixelliser.ts` partent à la poubelle. C'est du travail fait et payé. Ce qu'on
+> récupère : l'animation **programmable** (un coup de pioche est un angle de bras, pas une
+> planche à redessiner), une palette qui ne peut plus dériver, et un terrain modifiable qui
+> ouvre les chemins, les cratères et les terres brûlées.
 
 > **Le bloc 7 se coupe en deux, le 11 août 2026 au soir.** Il portait deux systèmes qui ne
 > partagent presque rien : **dessiner son village à la souris** et **bâtir une forteresse**.

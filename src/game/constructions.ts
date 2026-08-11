@@ -10,7 +10,7 @@ import {
   type ConstructionDef,
   type TypeConstruction,
 } from "../core/constructions";
-import { CASE, Grille } from "../core/grille";
+import { CASE, Grille, IMPOSENT_UNE_DISTANCE } from "../core/grille";
 import type { Ressource, Stocks } from "../core/habitants";
 
 /**
@@ -105,13 +105,14 @@ export class Constructions {
     const c = this.grille.caseEn(x, y);
     if (!c) return "Hors de la carte.";
     if (c.occupation === "batiment") return "Il y a deja un batiment ici.";
+    if (c.occupation === "maison") return "Il y a une maison ici.";
     if (c.occupation === "mur" || c.occupation === "tour") return "Il y a deja quelque chose ici.";
     if (c.occupation === "champ") return "Un champ est seme ici.";
     if (!this.grille.constructible(x, y)) return "Le sol ne porte pas.";
     if (
-      this.grille.aProximite(x, y, CASES_LIBRES_AUTOUR_DES_BATIMENTS, ["batiment"])
+      this.grille.aProximite(x, y, CASES_LIBRES_AUTOUR_DES_BATIMENTS, IMPOSENT_UNE_DISTANCE)
     ) {
-      return `Trop pres d'un batiment : il faut ${CASES_LIBRES_AUTOUR_DES_BATIMENTS} cases.`;
+      return `Trop pres de l'eglise ou du port : il faut ${CASES_LIBRES_AUTOUR_DES_BATIMENTS} cases.`;
     }
     if (!abordable(CONSTRUCTIONS[type], stocks)) {
       return `Il manque de quoi : ${coutLisible(CONSTRUCTIONS[type])}.`;
@@ -212,7 +213,9 @@ export class Constructions {
     // On se juge sur la case d'arrivee comme si on batissait, mais sans le prix :
     // meme terrain, meme regle des trois cases, meme refus des cases prises.
     if (!this.grille.constructible(x, y)) return false;
-    if (this.grille.aProximite(x, y, CASES_LIBRES_AUTOUR_DES_BATIMENTS, ["batiment"])) return false;
+    if (this.grille.aProximite(x, y, CASES_LIBRES_AUTOUR_DES_BATIMENTS, IMPOSENT_UNE_DISTANCE)) {
+      return false;
+    }
 
     const centre = this.grille.centreDe(x, y);
     this.grille.liberer(construction.x, construction.y);
