@@ -23,6 +23,7 @@ import type { Phase } from "./cycle";
 import type { EtatEglise, NiveauEglise } from "./eglise";
 import type { TypeConstruction } from "./constructions";
 import type { Fou } from "./arrivants";
+import type { Cours, EtatPort } from "./port";
 import type { EtatSubi } from "./etats";
 import type { Metier, PostureCivile, Stocks } from "./habitants";
 import type { Exploits, Personne, Rupture, Stats } from "./personne";
@@ -130,6 +131,14 @@ export interface EtatEgliseSauvee {
   avancement: number;
 }
 
+export interface EtatPortSauve {
+  etat: EtatPort;
+  /** Avancement du chantier en cours, en millisecondes */
+  avancement: number;
+  /** Le cours de chaque ressource, en part du prix de base */
+  cours: Partial<Cours>;
+}
+
 export interface EtatConstruction {
   x: number;
   y: number;
@@ -188,6 +197,23 @@ export interface Sauvegarde {
   fous?: Fou[];
   /** La journee ou quelqu'un se presentera, ou null quand plus personne ne vient */
   prochaineArrivee?: number | null;
+  /**
+   * L'argent du village, gagne au port (§4.18) et depense a l'eglise (§4.22).
+   *
+   * **Optionnel**, comme `fous` : une partie d'avant le bloc 6b n'en a pas, et
+   * son absence veut dire zero — ce qui est exactement vrai, puisque rien n'en
+   * produisait.
+   */
+  argent?: number;
+  /**
+   * Le port : son etat, son chantier, et le cours de chaque ressource.
+   *
+   * ⚠️ **Le navire n'est pas enregistre**, et c'est volontaire : c'est un
+   * instant, pas un etat. Il reparaitra quand le village sera calme — ce qui est
+   * exactement sa regle (§4.18). L'enregistrer aurait fige une voile a quai pour
+   * l'eternite chez un joueur qui ferme l'onglet au mauvais moment.
+   */
+  port?: EtatPortSauve;
   heros: EtatHeros[];
   /** L'index du heros incarne dans `heros` */
   incarne: number;

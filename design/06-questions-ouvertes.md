@@ -146,6 +146,27 @@ on fais x 2
   correction venue du jeu. Sans recouvrement, compter les lignes suffisait à trancher dès
   qu'on avait appris les six phrases alarmantes, ce que le §4.18 interdit explicitement.
   Zéro innocente et trois accusent ; tout le doute vit entre les deux (§4.18)
+- ✅ **Les survivants sortent du 6b et deviennent le bloc 6c** : un système de terrain
+  complet, qui ne partage rien avec le commerce (§5)
+- ✅ **Le navire n'a pas d'horaire** : une voile paraît environ **une journée calme sur
+  trois**, et calme veut dire jour + plus un monstre debout + aucun mort récent. C'est
+  l'imprévisibilité qui empêche l'attente optimale que des prix mouvants créent d'habitude
+  — les deux idées ne marcheraient ni l'une ni l'autre séparément (§4.18)
+- ✅ **Un cours par ressource**, qui dérive lentement entre 0,6 et 1,6 fois le prix de base.
+  Un cours global n'aurait jamais changé *ce qu'on charge*, seulement « vendre ou pas »
+  (§4.18)
+- ✅ **Vendre fait baisser le cours de ce qu'on vend**, et il remonte les journées
+  suivantes. C'est ce qui remplace le plafond de cargaison : le frein devient économique
+  au lieu d'être une règle arbitraire (§4.18)
+- ✅ **Les prix de base** : minerai 1 pièce pour 2 unités, bois 1 pour 4, blé 1 pour 5,
+  poisson 1 pour 6 — ce qui est dur à sortir vaut cher, ce qu'un flanc fermé protège vaut
+  peu (§4.18)
+- ✅ **On vend les quatre ressources, blé compris**, donc on peut s'affamer soi-même. La
+  seule contrepartie est que le panneau de vente affiche les journées de vivres restantes
+  pendant qu'on charge (§4.18, §4.10)
+- ✅ **Relever le port coûte 80 bois et une demi-journée** — moins que l'église, parce que
+  c'est un appontement et pas une cathédrale, et parce que c'est lui qui débloque l'argent
+  dont l'église a besoin (§4.18, §4.22)
 - ✅ **Le premier visiteur est offert, dès le premier matin.** Au rythme de croisière la
   première porte se serait ouverte après deux heures de jeu, et on peut apprendre un jeu
   pendant deux heures sans jamais croiser un de ses systèmes. Le rythme reprend dès la

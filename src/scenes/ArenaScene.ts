@@ -66,6 +66,7 @@ import { BatimentEglise } from "../game/eglise";
 import {
   CONDITIONS,
   RELEVEMENT,
+  coutEnArgent,
   lireCout,
   type BlocageMontee,
   type ContexteMontee,
@@ -86,7 +87,7 @@ import { Grille } from "../core/grille";
 import { CONSTRUCTIONS, coutLisible, type TypeConstruction } from "../core/constructions";
 import { Constructions, PORTEE_OCCUPATION, type Construction } from "../game/constructions";
 import { Champs, REGLAGES_CHAMPS, type Champ } from "../game/champs";
-import { NOMS_METIER, NOMS_POSTURE_CIVILE, RESSOURCES } from "../core/habitants";
+import { NOMS_METIER, NOMS_POSTURE_CIVILE, NOMS_RESSOURCE, RESSOURCES } from "../core/habitants";
 import {
   EFFETS_RUPTURE,
   NOMS_RUPTURE,
@@ -116,6 +117,9 @@ import {
   type Arrivant,
   type Fou,
 } from "../core/arrivants";
+import { calmePourUnNavire, unNavireVeutVenir } from "../core/port";
+import { BatimentPort } from "../game/port";
+import type { EtatPortAffiche } from "../game/panneauPort";
 import type { Phase } from "../core/cycle";
 import { Commandement } from "../game/commandement";
 import {
@@ -389,6 +393,19 @@ export class ArenaScene extends Phaser.Scene {
    * village : au matin il y a un mort ou une breche, et rien ne dit qui.
    */
   private readonly fous: Fou[] = [];
+
+  /**
+   * L'argent du village (DESIGN.md §4.8, §4.18).
+   *
+   * ⚠️ **Il ne vit pas dans `Stocks`**, et c'est voulu : le §4.8 range l'argent
+   * avec l'XP et les materiaux, pas avec les quatre ressources recoltees. Le
+   * mettre dans la meme table aurait permis a un fermier de « produire » de
+   * l'argent au premier ajout distrait, et aurait ouvert la porte a une
+   * conversion que le §4.8 interdit.
+   */
+  argent = 0;
+  /** Vrai quand une voile veut paraitre aujourd'hui, tire a l'aube (§4.18) */
+  private navireAttendu = false;
   /** La journee ou quelqu'un se presentera, ou null quand plus personne ne vient */
   private prochaineArriveeJournee: number | null = null;
   /** Celui qui attend pendant que le jeu est en pause */
@@ -404,6 +421,11 @@ export class ArenaScene extends Phaser.Scene {
    * un refuge.
    */
   eglise!: BatimentEglise;
+  /**
+   * Le port (§4.18). Volontairement sans corps ni points de vie : la ou l'eglise
+   * est un objectif qu'on defend, le port est un acquis que rien n'atteint.
+   */
+  port!: BatimentPort;
   /** Ce qu'il reste a faire arriver de l'effectif de la nuit en cours */
   private resteDeLaNuit = 0;
   /** Instant de la prochaine horde de jour, et de celle qu'on vient d'annoncer */
@@ -537,16 +559,17 @@ export class ArenaScene extends Phaser.Scene {
   /**
    * Ce que l'eglise a besoin de savoir du village pour monter (§4.22).
    *
-   * ⚠️ **La satisfaction n'est plus neutralisee** : le bloc 5 la remplit, donc
-   * la troisieme des quatre conditions mord pour de bon. Seul `argent` reste
-   * absent — il vient du port, au bloc 6 — et `undefined` veut toujours dire
-   * « ce systeme n'existe pas encore », surtout pas « zero ».
+   * ⚠️ **Les quatre conditions mordent enfin toutes les quatre.** Le bloc 5
+   * avait rempli la satisfaction ; le bloc 6b remplit l'argent, et il ne reste
+   * plus un seul champ optionnel. La boucle du §4.22 est refermee de bout en
+   * bout : on produit, on vend au port, on monte l'eglise.
    */
   private get contexteMontee(): ContexteMontee {
     return {
       stocks: this.village.stocks,
       population: this.village.population,
       satisfaction: this.village.satisfaction,
+      argent: this.argent,
     };
   }
 
@@ -666,6 +689,7 @@ export class ArenaScene extends Phaser.Scene {
     this.events.on("poste-habitant", this.tournerPosteCivil, this);
     this.events.on("saisie-clavier", (enCours: boolean) => (this.saisieEnCours = enCours), this);
     this.events.on("porte", this.repondreALaPorte, this);
+    this.events.on("vendre", this.vendreAuNavire, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.events.off("choix-fait", this.resoudreChoix, this);
       this.events.off("changer-hero", this.changerHero, this);
@@ -673,6 +697,7 @@ export class ArenaScene extends Phaser.Scene {
       this.events.off("posture-habitant", this.tournerPostureCivile, this);
       this.events.off("poste-habitant", this.tournerPosteCivil, this);
       this.events.off("porte", this.repondreALaPorte, this);
+      this.events.off("vendre", this.vendreAuNavire, this);
     });
 
     this.debut = this.time.now;
@@ -713,6 +738,8 @@ export class ArenaScene extends Phaser.Scene {
       champs: this.champs,
       fous: this.fous,
       prochaineArrivee: this.prochaineArriveeJournee,
+      port: this.port,
+      argent: this.argent,
       heros: this.heros,
       indexIncarne: this.indexIncarne,
       kills: this.kills,
@@ -729,8 +756,10 @@ export class ArenaScene extends Phaser.Scene {
     // pont a repose.
     this.rng = monde.rng;
     this.kills = monde.kills;
-    // `fous` est modifie sur place ; celui-ci est un nombre, il faut le relire.
+    // `fous` et le port sont modifies sur place ; ces deux-la sont des nombres,
+    // il faut les relire.
     this.prochaineArriveeJournee = monde.prochaineArrivee;
+    this.argent = monde.argent;
     this.dureeJouee = sauvegarde.dureeJouee;
     this.debut = this.time.now;
 
@@ -808,6 +837,12 @@ export class ArenaScene extends Phaser.Scene {
         secousse(this, "fort");
         this.village.viderLEglise();
       },
+    });
+
+    // Le port, sur la plage : aucun corps, aucun point de vie. Il est adosse au
+    // flanc ferme de l'ouest, donc rien ne peut jamais l'atteindre (§4.6).
+    this.port = new BatimentPort(this, {
+      annoncer: (message) => this.events.emit("annonce", message),
     });
 
     this.village = new Village(this, {
@@ -1266,6 +1301,9 @@ export class ArenaScene extends Phaser.Scene {
       // la monter d'un niveau, ou relancer son chantier quand elle est a terre.
       // Ce sont deux actions exclusives, jamais disponibles en meme temps.
       [K.Y, () => this.oeuvrerALEglise()],
+      // Le port, meme principe : relever le chantier, ou ouvrir la vente quand
+      // un navire est a quai. Les deux gestes ne coexistent jamais (§4.18).
+      [K.P, () => this.oeuvrerAuPort()],
     ];
     for (const [code, action] of ordres) {
       clavier.addKey(code).on("down", () => {
@@ -1366,6 +1404,7 @@ export class ArenaScene extends Phaser.Scene {
     this.gererCapacites();
     this.majCycle(delta);
     this.eglise.majorer(delta, this.time.now);
+    this.majPort(delta);
     this.village.majorer(delta);
     this.recolterALaMain(delta);
     this.majFantome();
@@ -2552,7 +2591,11 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
 
+    // L'argent se preleve ici : `monter` ne recoit qu'un nombre et n'a aucun
+    // moyen d'ecrire dans la bourse du village (§4.8).
+    const vise = (this.eglise.niveau + 1) as NiveauEglise;
     this.eglise.regles.monter(contexte);
+    this.argent -= coutEnArgent(vise);
     this.eglise.monterDUnNiveau();
     secousse(this, "leger");
   }
@@ -3859,6 +3902,13 @@ export class ArenaScene extends Phaser.Scene {
     this.partPremierFront = repartition(this.fronts, this.rng.next());
     this.prochaineApparition = this.time.now;
 
+    // ⚠️ **Le navire repart avant la nuit, pas au matin.** Vu en jouant : arrive
+    // dans une journee calme, il restait a quai pendant tout l'assaut, et l'on
+    // pouvait commercer tranquillement pendant que le village se faisait
+    // manger. Un navire qui n'accoste que quand c'est calme n'a aucune raison
+    // de rester quand ca ne l'est plus (§4.18).
+    if (this.port.navireAQuai) this.port.appareiller(this);
+
     const ou = this.fronts.map((f) => NOMS_FRONT[f]).join(" et ");
     this.events.emit("annonce", `Nuit ${nuit} — ils arrivent ${ou}`);
     // Un moment qui compte, et le dernier calme avant longtemps (§4.28).
@@ -3877,6 +3927,12 @@ export class ArenaScene extends Phaser.Scene {
     // ou la breche, sans jamais voir qui l'a fait — un coupable nomme serait un
     // probleme resolu. La nuit qui s'acheve est celle de la journee precedente.
     this.reglerLaNuitDesFous(this.cycle.jour - 1);
+
+    // Le marche bouge d'une journee a l'autre, et une voile decide **une fois
+    // par jour** si elle veut venir. Le calme, lui, ne decide que du moment :
+    // sans ce tirage unique, un village calme verrait un navire par seconde.
+    this.port.regles.passerLaJournee(this.rng);
+    this.navireAttendu = this.port.debout && unNavireVeutVenir(this.rng);
     // Plus personne ne venait : on redemande une fois par jour, la reputation a
     // pu remonter. Une seule fois, jamais par image — c'est un tirage, et le
     // rejouer chaque image consommerait la graine (§4.6).
@@ -4036,6 +4092,111 @@ export class ArenaScene extends Phaser.Scene {
     // On n'ajoute qu'une chose : que personne ne sait ce qui s'est passe.
     this.village.tuer(victime);
     this.events.emit("annonce", "On l'a trouve au matin. Personne n'a rien entendu");
+  }
+
+  // --------------------------------------------------------------- le port
+
+  /**
+   * Le port avance, et la voile guette le calme (DESIGN.md §4.18).
+   *
+   * Appelee une fois par image, et elle ne fait presque rien : deux
+   * comparaisons de scalaires tant qu'aucun navire n'est attendu. Le §4.17
+   * interdit de parcourir quoi que ce soit ici.
+   */
+  private majPort(delta: number): void {
+    this.port.majorer(delta);
+
+    if (!this.navireAttendu || !this.port.debout || this.port.navireAQuai) return;
+    if (
+      !calmePourUnNavire({
+        phase: this.cycle.phase,
+        monstresDebout: this.ennemis.getLength(),
+        journeesDesMorts: this.village.memoireDesMorts,
+        journee: this.cycle.jour,
+      })
+    ) {
+      return;
+    }
+
+    // Il ne vient qu'une fois par journee : le tirage a eu lieu a l'aube, le
+    // calme ne decide que du moment.
+    this.navireAttendu = false;
+    this.port.accoster(this);
+  }
+
+  /**
+   * On lui vend quelque chose.
+   *
+   * Toute la regle est dans `core/port.ts` — y compris le fait que **vendre fait
+   * baisser le cours**. La scene ne fait qu'encaisser et annoncer.
+   */
+  private vendreAuNavire(ressource: Ressource, quantite: number): void {
+    if (this.termine) return;
+
+    const vente = this.port.regles.vendre(ressource, quantite, this.village.stocks);
+    if (vente.pieces <= 0) {
+      this.events.emit("annonce", `Pas assez de ${NOMS_RESSOURCE[ressource].toLowerCase()} a vendre`);
+      return;
+    }
+
+    this.argent += vente.pieces;
+    this.events.emit(
+      "annonce",
+      `${vente.unites} ${NOMS_RESSOURCE[ressource].toLowerCase()} vendus — ${vente.pieces} pieces`,
+    );
+  }
+
+  /**
+   * La touche du port : relever le chantier, ou ouvrir la vente.
+   *
+   * Une seule touche pour les deux gestes qu'on peut lui faire, comme `Y` pour
+   * l'eglise : ils ne sont jamais disponibles en meme temps.
+   */
+  private oeuvrerAuPort(): void {
+    const hero = this.hero;
+    if (!hero) return;
+
+    if (!this.port.debout) {
+      if (this.port.regles.etat === "chantier") {
+        this.events.emit(
+          "annonce",
+          `Le port est en chantier — ${Math.round(this.port.regles.partChantier * 100)}%`,
+        );
+        return;
+      }
+      if (!this.port.aPortee(hero.x, hero.y)) {
+        this.events.emit("annonce", "Il faut etre au port, sur la plage a l'ouest");
+        return;
+      }
+      if (!this.port.lancerLeChantier(this.village.stocks)) {
+        this.events.emit("annonce", `Le port demande ${BatimentPort.coutLisible()}`);
+      }
+      return;
+    }
+
+    if (!this.port.navireAQuai) {
+      this.events.emit("annonce", "Aucun navire a quai — il en vient quand le village est calme");
+      return;
+    }
+    if (!this.port.aPortee(hero.x, hero.y)) {
+      this.events.emit("annonce", "Trop loin du port pour commercer");
+      return;
+    }
+    this.events.emit("basculer-port");
+  }
+
+  /** Ce que le panneau de vente a besoin de savoir, une fois par image. */
+  get etatPort(): EtatPortAffiche {
+    const hero = this.hero;
+    return {
+      ouvert: this.port.debout,
+      navireAQuai: this.port.navireAQuai,
+      aPortee: hero ? this.port.aPortee(hero.x, hero.y) : false,
+      argent: this.argent,
+      stocks: this.village.stocks,
+      cours: this.port.regles.cours,
+      joursDeVivres: this.village.joursDeVivres,
+    };
   }
 
   private oublierLeFou(fou: Fou): void {

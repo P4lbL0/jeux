@@ -17,6 +17,7 @@ import { POSTES } from "../core/carte";
 import { competenceParId } from "../core/competences";
 import { Cycle } from "../core/cycle";
 import type { Fou } from "../core/arrivants";
+import type { BatimentPort } from "./port";
 import { reserverIdentifiants, stocksVides, type Habitant } from "../core/habitants";
 import { Rng } from "../core/rng";
 import {
@@ -63,6 +64,9 @@ export interface PartieEnCours {
   fous: Fou[];
   /** La journee de la prochaine arrivee, ou null. Relu par la scene a la reprise */
   prochaineArrivee: number | null;
+  port: BatimentPort;
+  /** L'argent du village. Relu par la scene a la reprise, comme `prochaineArrivee` */
+  argent: number;
   /** Modifie **sur place** a la reprise : d'autres objets tiennent la reference */
   heros: Hero[];
   indexIncarne: number;
@@ -106,6 +110,12 @@ export function capturer(partie: PartieEnCours, maintenant: number): Sauvegarde 
       .filter((fou) => partie.village.parId(fou.id)?.regles.vivant === true)
       .map((fou) => ({ ...fou })),
     prochaineArrivee: partie.prochaineArrivee,
+    argent: partie.argent,
+    port: {
+      etat: partie.port.regles.etat,
+      avancement: partie.port.regles.chantier,
+      cours: { ...partie.port.regles.cours },
+    },
     heros: partie.heros.map((hero) => capturerHeros(hero, maintenant)),
     incarne: partie.indexIncarne,
     eglise: {
@@ -207,6 +217,12 @@ export function appliquer(
   partie.fous.length = 0;
   partie.fous.push(...(sauvegarde.fous ?? []).map((fou) => ({ ...fou })));
   partie.prochaineArrivee = sauvegarde.prochaineArrivee ?? null;
+
+  partie.argent = sauvegarde.argent ?? 0;
+  // Une partie d'avant le bloc 6b n'a pas de port : il repart en ruine, cours
+  // neutres. C'est exactement ce qu'elle avait.
+  const port = sauvegarde.port;
+  partie.port.reprendre(port?.etat ?? "ruine", port?.avancement ?? 0, port?.cours ?? {});
 
   partie.eglise.reprendre(
     sauvegarde.eglise.niveau,

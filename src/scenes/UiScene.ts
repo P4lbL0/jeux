@@ -7,6 +7,7 @@ import { FichePersonne } from "../game/fichePersonne";
 import type { Arrivant } from "../core/arrivants";
 import { PanneauOrdres } from "../game/panneauOrdres";
 import { PanneauVillage } from "../game/panneauVillage";
+import { PanneauPort } from "../game/panneauPort";
 import type { Hero } from "../game/entities";
 import type { ArenaScene } from "./ArenaScene";
 
@@ -32,6 +33,7 @@ export class UiScene extends Phaser.Scene {
   private fiche!: FichePersonne;
   private ordres!: PanneauOrdres;
   private village!: PanneauVillage;
+  private port!: PanneauPort;
   private stats!: Phaser.GameObjects.Text;
   private annonce!: Phaser.GameObjects.Text;
   private finAnnonce = 0;
@@ -71,6 +73,11 @@ export class UiScene extends Phaser.Scene {
       // deuxieme chemin que le §4.18 exige pour le renommage.
       (index) => this.ouvrirFicheHabitant(index),
     );
+    // Le panneau de vente ne touche jamais aux stocks : il demande, la scene
+    // vend, parce que c'est `core/port.ts` qui sait ce que ca fait au cours.
+    this.port = new PanneauPort(this, (ressource, quantite) =>
+      this.arene.events.emit("vendre", ressource, quantite),
+    );
 
     this.stats = this.add
       .text(0, 0, "", {
@@ -101,6 +108,7 @@ export class UiScene extends Phaser.Scene {
     evenements.on("annonce", this.annoncer, this);
     evenements.on("basculer-village", this.basculerVillage, this);
     evenements.on("arrivant", this.ouvrirLaPorte, this);
+    evenements.on("basculer-port", this.basculerPort, this);
     // Sans ce nettoyage, les ecouteurs s'empileraient a chaque nouvelle partie.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       evenements.off("choix", this.ouvrirChoix, this);
@@ -109,6 +117,7 @@ export class UiScene extends Phaser.Scene {
       evenements.off("annonce", this.annoncer, this);
       evenements.off("basculer-village", this.basculerVillage, this);
       evenements.off("arrivant", this.ouvrirLaPorte, this);
+      evenements.off("basculer-port", this.basculerPort, this);
     });
   }
 
@@ -125,6 +134,10 @@ export class UiScene extends Phaser.Scene {
 
   private basculerVillage(): void {
     this.village.basculer();
+  }
+
+  private basculerPort(): void {
+    this.port.basculer();
   }
 
   private ouvrirFiche(index: number): void {
@@ -201,6 +214,7 @@ export class UiScene extends Phaser.Scene {
     this.ordres.rafraichir(this.arene.etatOrdres);
     this.capacites.rafraichir();
     this.village.rafraichir(this.arene.etatVillage, this.time.now);
+    this.port.rafraichir(this.arene.etatPort);
     const resume = this.arene.resume;
     this.stats.setPosition(this.scale.width - 16, 16);
     this.stats.setText(`Survie : ${resume.secondes}s\nElimines : ${resume.kills}`);

@@ -2,17 +2,18 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-08-10, au soir (**le bloc 6a est fait** : la porte, la fiche
-> d'observation, les six indices, la banque de questions, les trois degrés de folie et
-> leurs groupes — codé, testé et joué). **315 tests verts.**
+> Dernière mise à jour : 2026-08-11 (**les blocs 6a et 6b sont faits** : la porte et ses
+> trois degrés de folie, puis le port, le cours des ressources et l'**argent** — codés,
+> testés et joués). **346 tests verts.**
 >
-> **Le prochain morceau est le bloc 6b : le port et le commerce.** Le port en ruine
-> qu'on relève, les navires, la vente plafonnée, l'**argent** — et les survivants qu'on
-> va chercher. Tout est écrit dans `design/4.18-les-habitants.md`.
+> **La boucle du village est refermée de bout en bout** : on produit, on vend au port, on
+> monte l'église. Les **quatre** conditions du §4.22 mordent enfin toutes les quatre — il
+> ne reste plus un seul champ neutralisé.
 >
-> Jouer a trouvé un défaut de conception dans la foulée — les fourchettes d'indices ne se
-> recouvraient pas, donc les compter suffisait — et il a été **corrigé le soir même**.
-> Voir « Ce que jouer a trouvé » plus bas.
+> **Le prochain morceau est le bloc 6c : les survivants** — ils paraissent au bord de la
+> carte, parfois poursuivis, parfois blessés, et il faut aller les ramener vivants. C'est
+> ce qui donnera enfin au jour une raison de sortir du village. Tout est écrit dans
+> `design/4.18-les-habitants.md`.
 
 ---
 
@@ -335,6 +336,55 @@ débloque avant tout.
 un village de six. Ça ne casse rien à la compilation et ça casse tout au jeu — « Merlin
 est mort », lequel ? Un arrivant ne reprend plus un prénom déjà porté.
 
+### Le bloc 6b — le port et le commerce (fait le 11 août 2026)
+
+**L'argent existe enfin comme quelque chose qu'on gagne et qu'on dépense.** Il n'était
+qu'une condition d'église que rien n'alimentait ; c'était le dernier champ neutralisé du
+bloc 4, et il ne l'est plus.
+
+- **`src/core/port.ts`** — pur et testé (27 tests). Une table `REGLAGES_PORT` porte tout :
+  coût, durée, prix de base, bornes du cours, impact des ventes, fréquence des voiles.
+- **L'argent ne vit pas dans `Stocks`** : le §4.8 le range avec l'XP et les matériaux, pas
+  avec les quatre récoltées. L'y mettre aurait permis à un fermier d'en « produire ».
+- **Le navire n'a pas d'horaire** : une voile paraît **une journée calme sur trois**, et
+  calme veut dire jour + plus un monstre debout + aucun mort récent. C'est
+  l'imprévisibilité qui empêche l'attente optimale que des prix mouvants créent d'habitude.
+- **Un cours par ressource**, dérive lente entre 0,6 et 1,6 avec rappel vers la moyenne.
+  **Vendre fait baisser le cours de ce qu'on vend** — c'est ce qui remplace le plafond de
+  cargaison.
+- **Le port est sur la plage, adossé au flanc fermé** : ni corps, ni points de vie, rien ne
+  l'atteint jamais. Là où l'église est un objectif, le port est un acquis. Un test vérifie
+  qu'il tombe bien sur du sable — le littoral ondule, et un port dans l'eau ne se verrait
+  qu'en jouant.
+- **`src/game/panneauPort.ts`** — la vente. Il affiche en permanence **les journées de
+  vivres**, qui baissent pendant qu'on charge : le §4.18 autorise à vendre son blé et son
+  poisson, donc à s'affamer, et c'est la seule contrepartie consentie.
+
+**Ce qui a été vérifié en jouant** (Playwright, aucune erreur console) :
+
+| Vérifié | Résultat |
+|---|---|
+| `P` loin du port | Refuse, et le bois n'est pas touché |
+| Le chantier | 80 bois prélevés au démarrage, debout après une demi-journée |
+| La voile | Paraît quand l'écran est nettoyé, glisse depuis le large |
+| Les rendements décroissants | Quatre lots de 200 bois : **48, 44, 40, 37** pièces, cours de 1,00 à 0,73 |
+| La 4ᵉ condition de l'église | 10 pièces → `manque: ['argent']` ; 200 pièces → plus rien |
+| La montée | Niveau 2, et **exactement 150 pièces débitées** |
+| Le rechargement | Argent, état du port, cours et niveau d'église reviennent à l'identique |
+| Le navire au rechargement | **Absent, et c'est voulu** : c'est un instant, pas un état |
+
+⚠️ **Deux problèmes trouvés — un par un test, un en jouant** :
+
+1. **Solder d'un coup échappait entièrement à l'impact sur le cours.** Le prix était
+   calculé une fois puis le cours baissait à la fin : vendre 2000 bois en un clic rapportait
+   le plein tarif, quand les vendre en dix fois rapportait moins. Le joueur n'aurait jamais
+   vendu autrement, et le frein économique n'aurait **jamais** freiné quoi que ce soit. La
+   vente s'écoule maintenant par tranches. *Trouvé par un test, pas en jouant.*
+2. **Le navire restait à quai toute la nuit.** Arrivé dans une journée calme, il traversait
+   l'assaut tranquillement et l'on commerçait pendant que le village se faisait manger. Un
+   navire qui n'accoste que quand c'est calme n'a aucune raison de rester quand ça ne l'est
+   plus : il appareille au **crépuscule**.
+
 ### Ce que jouer a trouvé, et corrigé dans la foulée
 
 ⚠️ **Les lignes d'observation étaient un classificateur parfait, et le §4.18 voulait
@@ -423,11 +473,12 @@ n'ont jamais été vus de bout en bout. Le refus d'identifiants et la panne rés
 
 ### Tout de suite
 
-1. **Coder le bloc 6b : le port et le commerce** (§4.18). Le port est **debout en ruine
-   dès la première minute** et se relève comme l'église : le chantier existe déjà, il n'y
-   a pas de touche de construction à inventer (le bloc 7 la défaisait). L'argent est une
-   **cinquième ressource**, `Stocks` n'en porte que quatre aujourd'hui — et
-   `ContexteMontee.argent` n'attend que ça pour que la 4ᵉ condition de l'église morde.
+1. **Coder le bloc 6c : les survivants** (§4.18). Ils paraissent au bord de la carte
+   pendant le jour, parfois poursuivis, parfois blessés, et il faut aller les **ramener
+   vivants**. C'est la voie de peuplement la plus intéressante — elle donne au jour une
+   raison de sortir, elle met le joueur en danger volontairement, et elle rend chaque
+   habitant mémorable. **Rien n'en est chiffré** : fréquence, distance, ce qui les
+   poursuit, ce qu'on perd s'ils meurent en chemin.
 2. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
    parce qu'à 32 px, 3 px disloquent le personnage. Amplitudes en haut de
    `scripts/animer-sprites.ts`.
@@ -568,7 +619,8 @@ dépendances** :
 | **4** ✅ | **L'église** : on y entre, soins, cap des monstres, ses 4 niveaux et leurs 4 conditions, destruction et relèvement, bloc de combat civil |
 | **5** ✅ | **Traits, stress et états**, séquelles, 3 statistiques, portraits assemblés, fiche unifiée, renommage, satisfaction |
 | **6a** ✅ | **La porte** : fiche d'observation, les 6 indices en deux versions, la banque de questions, les 3 degrés de folie et leurs groupes, la réputation |
-| **6b** | **Le port** : le port en ruine qu'on relève, les navires, la vente plafonnée, l'**argent**, et les survivants qu'on va chercher |
+| **6b** ✅ | **Le port** : le port en ruine qu'on relève, la voile qui paraît quand c'est calme, le **cours** de chaque ressource, la vente, l'**argent** |
+| **6c** | **Les survivants** : ils paraissent au bord de la carte, parfois poursuivis, parfois blessés, et il faut aller les ramener vivants |
 | **7** | **Mode d'aménagement** : édition en pause, construction libre, tout se casse, village en ruines, sol et chemins — et **la forteresse** : murs au fer, porte, douves, eau, pont-levis |
 | **8** | **Les ordres pour tous** : n'importe qui fait n'importe quoi, menu d'ordres, héros au travail |
 | **9** | **Le village armé** : entraînement au combat, métier de milicien, passage villageois → héros |
@@ -709,7 +761,12 @@ blocs :
   et de combien le rang la ralentit (bloc 5).
 - **Combien de pièces de portrait** pour que deux habitants ne se ressemblent jamais
   (bloc 5).
-- **Les prix du port** et la fréquence des navires (bloc 6b).
+- **Les prix du port, l'amplitude du cours et la force de l'impact des ventes** : posés au
+  bloc 6b (minerai 1 pièce pour 2 unités, bois 1 pour 4, blé 1 pour 5, poisson 1 pour 6 ;
+  cours entre 0,6 et 1,6 ; `impactParPiece` à 0,0016). Mesuré une fois, jamais sur une
+  partie longue. Tout est dans `REGLAGES_PORT`.
+- **Une voile sur trois journées calmes** : jamais éprouvé sur la durée. Un village bien
+  tenu pourrait en voir trop, un village qui saigne plus du tout.
 - **La répartition des trois degrés de folie** (45 / 30 / 25 : voleur, saboteur,
   meurtrier), la **part volée** (35 %) et le **coût d'un mort récent pour la rumeur**
   (8 points, mémoire de 8 journées) : premiers jets du bloc 6a, jamais joués longtemps.

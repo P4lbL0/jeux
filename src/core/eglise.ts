@@ -276,6 +276,10 @@ export class Eglise {
 
     const suivant = (this.niveau + 1) as NiveauEglise;
     prelever(CONDITIONS[suivant as 2 | 3 | 4].materiaux, ctx.stocks);
+    // ⚠️ **L'argent n'est pas preleve ici, et c'est l'appelant qui doit le
+    // faire** (voir `coutEnArgent`). `ctx.argent` est un nombre, pas la bourse
+    // du village : ce fichier n'a aucun moyen d'ecrire dedans, et lui en donner
+    // un voudrait dire faire entrer l'economie entiere dans l'eglise.
 
     const gain = PALIERS[suivant].pvMax - this.pvMax;
     this.niveau = suivant;
@@ -307,6 +311,18 @@ export class Eglise {
 // ------------------------------------------------------------------ paiement
 
 /** A-t-on de quoi payer ce cout ? */
+/**
+ * Ce que coute en argent le passage a ce niveau (DESIGN.md §4.22, §4.18).
+ *
+ * Il vit a cote de `monter` et non dedans : l'argent du village est tenu par la
+ * scene (§4.8 le range avec l'XP et les materiaux, pas avec les ressources
+ * recoltees), et `monter` ne recoit qu'un nombre. L'appelant preleve donc
+ * lui-meme — mais il n'a pas a savoir ou le chiffre est ecrit.
+ */
+export function coutEnArgent(niveauVise: NiveauEglise): number {
+  return niveauVise === 1 ? 0 : CONDITIONS[niveauVise].argent;
+}
+
 export function aDeQuoiPayer(
   cout: Partial<Record<Ressource, number>>,
   stocks: Stocks,

@@ -48,6 +48,7 @@ export function creerTexturesPlaceholder(scene: Phaser.Scene): void {
   creerVillageois(scene);
   creerTour(scene);
   creerEglise(scene);
+  creerPort(scene);
   creerChamp(scene);
   creerFamiliers(scene);
   creerProjectile(scene);
@@ -907,6 +908,108 @@ function creerMur(scene: Phaser.Scene): void {
   g.fillRect(9, 4, 4, 4);
   g.generateTexture("mur", 16, 16);
   g.destroy();
+}
+
+/**
+ * Le port, et le navire qui y accoste (DESIGN.md §4.18).
+ *
+ * Trois textures : la ruine, le port debout, et la voile. Le port est **en
+ * bois** quand tout le reste du village est en pierre — c'est ce qui le fait
+ * lire comme un appontement et non comme un batiment de la place, et ca dit du
+ * premier coup d'oeil que ce n'est pas une chose qu'on defend (§4.6 : le flanc
+ * ouest est ferme, rien ne l'atteint jamais).
+ *
+ * Le pont part vers la **gauche**, donc vers la mer, et le hangar reste a
+ * droite, du cote de la terre. Un port symetrique ne dirait pas de quel cote
+ * arrive la mer.
+ */
+function creerPort(scene: Phaser.Scene): void {
+  const BOIS = 0x7a5c3a;
+  const BOIS_SOMBRE = 0x5b432a;
+  const BOIS_CLAIR = 0x99764c;
+  const TOIT = 0x8a5a3c;
+  const TOIT_CLAIR = 0xa87050;
+  const VOILE = 0xe6dcc4;
+  const L = 56;
+  const H = 40;
+
+  // --- la ruine : il ne reste que les pilotis, et ils penchent.
+  if (!scene.textures.exists("port-ruine")) {
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(0x000000, 0.22);
+    g.fillEllipse(28, H - 5, 44, 8);
+
+    g.fillStyle(BOIS_SOMBRE, 1);
+    // Des pieux casses de hauteurs inegales : une ruine ne s'aligne pas.
+    const pieux: [number, number, number][] = [
+      [6, 20, 12], [14, 24, 9], [24, 19, 14], [33, 25, 8], [42, 22, 11],
+    ];
+    for (const [x, y, hauteur] of pieux) g.fillRect(x, y, 4, hauteur);
+    // Une planche tombee en travers, la seule chose horizontale qui reste.
+    g.fillStyle(BOIS, 1);
+    g.fillRect(10, 26, 22, 3);
+
+    g.generateTexture("port-ruine", L, H);
+    g.destroy();
+  }
+
+  // --- le port debout : l'appontement, et le hangar au bout.
+  if (!scene.textures.exists("port")) {
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(0x000000, 0.26);
+    g.fillEllipse(28, H - 4, 48, 9);
+
+    // Les pilotis d'abord : ils passent **sous** le pont.
+    g.fillStyle(BOIS_SOMBRE, 1);
+    for (const x of [4, 12, 20, 28]) g.fillRect(x, 24, 3, 10);
+
+    // Le pont, vers la mer.
+    g.fillStyle(BOIS, 1);
+    g.fillRect(2, 20, 34, 6);
+    g.fillStyle(BOIS_CLAIR, 1);
+    for (let x = 4; x < 34; x += 6) g.fillRect(x, 21, 3, 4);
+
+    // Le hangar, cote terre : mur bas, toit en pente, ouverture noire. C'est
+    // l'ouverture qui dit qu'on y depose quelque chose.
+    g.fillStyle(BOIS_SOMBRE, 1);
+    g.fillRect(34, 16, 20, 18);
+    g.fillStyle(BOIS, 1);
+    g.fillRect(36, 18, 16, 16);
+    g.fillStyle(0x241a12, 1);
+    g.fillRect(40, 24, 8, 10);
+
+    g.fillStyle(TOIT, 1);
+    g.fillTriangle(32, 18, 56, 18, 44, 6);
+    g.fillStyle(TOIT_CLAIR, 1);
+    g.fillTriangle(32, 18, 44, 18, 44, 6);
+
+    g.generateTexture("port", L, H);
+    g.destroy();
+  }
+
+  // --- le navire : on ne voit que sa coque et sa voile, de loin.
+  if (!scene.textures.exists("navire")) {
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+
+    g.fillStyle(BOIS_SOMBRE, 1);
+    g.fillTriangle(2, 30, 46, 30, 40, 38);
+    g.fillRect(2, 26, 44, 5);
+    g.fillStyle(BOIS, 1);
+    g.fillRect(4, 27, 40, 3);
+
+    g.fillStyle(0x3a2c1c, 1); // le mat
+    g.fillRect(22, 4, 3, 23);
+
+    // Une grand-voile et un foc : deux formes valent mieux qu'une, la
+    // silhouette se lit meme a zoom faible (§4.11).
+    g.fillStyle(VOILE, 1);
+    g.fillTriangle(25, 6, 25, 25, 42, 25);
+    g.fillStyle(0xd2c6a8, 1);
+    g.fillTriangle(21, 8, 21, 25, 8, 25);
+
+    g.generateTexture("navire", 48, 40);
+    g.destroy();
+  }
 }
 
 /**

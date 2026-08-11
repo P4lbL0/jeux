@@ -184,6 +184,21 @@ export const VILLAGE = { x: 470, y: 770 + DECALAGE_NORD, rayon: 150 };
  */
 export const EGLISE = { x: VILLAGE.x, y: VILLAGE.y, emprise: 48 };
 
+/**
+ * Le port, sur la plage a l'ouest (DESIGN.md §4.18).
+ *
+ * **Il est adosse au flanc ferme**, donc rien ne peut jamais l'atteindre : les
+ * monstres n'arrivent que du nord et de l'est (§4.6). C'est ce qui le separe de
+ * l'eglise — celle-ci est un objectif qu'on defend, le port est un acquis. Il
+ * n'a donc **pas de points de vie**, et ce n'est pas un oubli.
+ *
+ * Pose au milieu du sable a la latitude du village : assez pres pour qu'on y
+ * coure entre deux nuits, assez loin pour qu'on le voie comme un lieu et non
+ * comme un batiment de la place. Un test verifie que ce point tombe bien sur du
+ * sable — le littoral ondule, et un port dans l'eau ne se verrait qu'en jouant.
+ */
+export const PORT = { x: 288, y: VILLAGE.y, emprise: 40 };
+
 export type Front = "nord" | "est";
 
 export const NOMS_FRONT: Record<Front, string> = { nord: "au NORD", est: "a l'EST" };

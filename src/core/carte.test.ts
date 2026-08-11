@@ -12,6 +12,7 @@ import {
   ligneDEau,
   MONDE,
   ondulation,
+  PORT,
   POSTES,
   PRATICABLE,
   pointDApparition,
@@ -21,6 +22,24 @@ import {
   VILLAGE,
   type Front,
 } from "./carte";
+
+describe("Carte — le port", () => {
+  it("est pose sur le sable, et pas dans l'eau", () => {
+    // Le littoral ondule (§4.11) : un port a quelques pixels pres se retrouve
+    // dans la mer, et ca ne se verrait qu'en jouant.
+    expect(terrainEn(PORT.x, PORT.y)).toBe("sable");
+  });
+
+  it("tient tout entier sur la plage, emprise comprise", () => {
+    const moitie = PORT.emprise / 2;
+    expect(terrainEn(PORT.x - moitie, PORT.y)).toBe("sable");
+    expect(terrainEn(PORT.x + moitie, PORT.y)).toBe("sable");
+  });
+
+  it("reste a l'ouest du village, adosse au flanc ferme (§4.6)", () => {
+    expect(PORT.x).toBeLessThan(VILLAGE.x - VILLAGE.rayon);
+  });
+});
 
 describe("Carte — les flancs fermes", () => {
   /**

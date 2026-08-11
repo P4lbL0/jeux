@@ -126,7 +126,9 @@ plafond, visible dans la fiche de heros).
   statistiques, les portraits assembles, la fiche unifiee et le renommage.
 - *bloc 6a* — la **porte** : qui se presente, la fiche d'observation, les six
   indices, les questions, et les **trois degres de folie**.
-- *bloc 6b, a faire* — le port, les navires, l'argent, les survivants.
+- *bloc 6b* — le **port** : le relever, la voile qui parait quand c'est calme,
+  le **cours** de chaque ressource, la vente, et l'**argent**.
+- *bloc 6c, a faire* — les survivants qu'on va chercher au bord de la carte.
 
 ### La porte (§4.18, §4.10)
 
@@ -147,6 +149,29 @@ mode**, pas une interface de plus.
   nuit**.
 - **Refuser ne coute que le bras qu'on n'aura pas.** Pas de malus.
 
+### Le port et le commerce (§4.18)
+
+Le port est **debout en ruine** des la premiere minute, sur la plage a
+l'ouest. On le releve pour **80 bois et une demi-journee** (touche `P`, au
+port). Adosse au flanc ferme, **rien ne peut jamais l'atteindre**.
+
+- **Le navire n'a pas d'horaire.** Une voile parait environ **une journee
+  calme sur trois** — et calme veut dire : il fait jour, plus un monstre
+  debout, et personne n'est mort recemment. Une mauvaise nuit coupe donc le
+  commerce en meme temps que les arrivees.
+- **Chaque ressource a son cours**, qui derive lentement. Le minerai est haut
+  aujourd'hui, le bois est bas : on choisit **quoi** charger.
+- **Vendre fait baisser le cours de ce qu'on vend**, et il remonte les jours
+  suivants. C'est ce qui remplace un plafond de cargaison : solder tout un
+  stock d'un coup rapporte de moins en moins cher sur la fin.
+- **On vend les quatre ressources, ble compris** — donc on peut s'affamer
+  soi-meme. Le panneau affiche les journees de vivres, qui baissent pendant
+  qu'on charge.
+
+L'**argent** ne se recolte pas et ne se convertit pas : il vient du port, et il
+part dans les niveaux d'eglise (§4.22). C'est la seule conversion du jeu, et
+elle est a **sens unique**.
+
 ### Le cycle jour/nuit (§4.19)
 
 Le jour on produit, on repare, on recolte a la main ; la nuit un **effectif
@@ -165,6 +190,8 @@ endroit a toucher pour changer le rythme du jeu.
 | `H` | Batir une tour de guet |
 | `J` | Semer un champ, pres des champs |
 | `T` | Monter dans une tour a portee, ou en descendre |
+| `Y` | Monter l'eglise d'un niveau, ou relancer son chantier |
+| `P` | Au port : relever le chantier, ou commercer avec le navire a quai |
 
 Dans le tableau du village, **cliquer** un habitant change sa posture, **clic
 droit** l'envoie a un autre poste, **Maj + clic** ouvre sa fiche.
@@ -251,6 +278,7 @@ src/
     habitants.ts     metiers, cadence, progression et faim (testee)
     arrivants.ts     la porte : indices, questions, degres de folie,
                      reputation et la nuit des fous (testee)
+    port.ts          le commerce : chantier, cours, vente, la voile (testee)
     grille.ts        la carte modifiable, cuite depuis carte.ts (testee)
     constructions.ts murs et tours : couts, points de vie (testee)
     eglise.ts        niveaux, conditions, chute et relevement (testee)
