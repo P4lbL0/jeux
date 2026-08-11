@@ -38,25 +38,31 @@ pour rentrer dans le village faut ouvrir toute les porte
 
 ---
 
+## ✅ Dépouillé le 11 août 2026, tard — les sept notes suivantes
+
+Elles sont **entièrement traitées**, et cinq d'entre elles ont donné un **jalon neuf, le
+6.7** (§5). Où chacune est partie :
+
+| La note | Où elle vit maintenant |
+|---|---|
+| Traits en rouge/or, avec l'histoire au survol | **§4.10**, section « Le rouge et l'or » — laiton / sang séché / os, plus un signe pour les daltoniens · jalon **6.7** |
+| Voir les dégâts en permanence, et le total par compétence | **§4.10**, section « Voir ce qu'on fait vraiment » — un entier qu'on incrémente, un affichage au plus par seconde · jalon **6.7** |
+| Des compétences pour étourdir | **§4.13**, section « L'étourdissement » — avec ses quatre garde-fous, qui *sont* la compétence · jalon **6.7** |
+| Monstres qui hurlent + le Cri du Chevalier Sacré | **§4.23** (« Le moral devient une cible — et une arme ») et **§4.13** (« Le Cri ») · jalon **6.7** |
+| Alcoolique, blasphémateur, malchanceux | **§4.23**, table des traits de naissance · jalon **6.7** |
+| Peur d'attaquer les humains, et l'inverse | **§4.23**, « Les deux traits qui regardent qui est en face » — ⚠️ **jalon 8** : sans les pillards, ils ne se déclencheraient jamais |
+| Classe druide, buffs pour une nuit | **§4.1**, section « Le Druide » — ⚠️ **jalon 9**, avec le Voidwalker et le Bastion |
+| Les égouts | **§7 hors périmètre** — un deuxième niveau de carte, donc un deuxième jeu |
+
+Une règle a été **annulée et réécrite** au passage, pas laissée en place :
+
+- « le jeu n'a pas besoin de savoir qu'un anneau est fermé, c'est optionnel, le bloc 7 s'en
+  passe » (§4.20) → **une enceinte fermée a toujours une porte**, ce qui exige exactement le
+  calcul que ce paragraphe écartait. Le prix est écrit, et la règle est repoussée en **7b**.
+
+---
+
 ## Nouvelles notes (pas encore dépouillées)
 
 <!-- écris en dessous -->
-les trait et effet son ecrit en rouge quad c negatif et en or quand c bien et quand on passe la souris dessu on voit ca fait les histoire du trait ect ect 
-
-
-des competence pour stun les enemies
-
-nv trait qui a peur d'attaquer les humains et il est moins efficace contre les humain et il peut mm refuser et l'inverse aussi ineficace contre les monstre mais monstrueux face au humains
-autre trait alcoolique pieux ou encore un qui blaspheme (il ne peut pas recevoir de soin al'eglise)
-biensur malchanceux et chanceux 
-
-des mosntre avec des competence genre hurlement et stresse tt le mondee
-et au contraire le chevalier sacrer a une competence s ou il crie et calme tt le monde a un certain level tt c allier ce transcende 
-
-bien sur pour bcp plus tard faut penser au egout ect 
-
-voir en permanence deja les degats fait au enemie et a tt moment les degats totaux d'une competence ou de quelqun en particulier
-
-nvl classe druide qui peut donner des buff plus ou moins puissant pour une nuit 
-
 

@@ -3,11 +3,16 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-08-11 au soir (une section neuve, **le nouveau départ**
-> (§4.29) — un seul héros, l'errance jusqu'au village qu'on choisit, le monde qui se fige
-> quand on s'installe, et un **budget** qui fait payer chaque cadeau en menaces. Elle
-> **annule** deux règles centrales : « deux fronts seulement » du §4.6, et « on recrute des
-> héros » du §4.1)
+> Dernière mise à jour : 2026-08-11, tard (les **sept notes brutes** de `design/a-faire.md`
+> sont dépouillées : elles donnent un **jalon 6.7** neuf — le moral devient une arme — et
+> elles nourrissent les §4.1, §4.10, §4.13, §4.23 et §7. Le **bloc 7 se coupe en 7a / 7b**,
+> et le §4.20 **annule** son propre paragraphe « le jeu n'a pas besoin de savoir qu'un anneau
+> est fermé » : **une enceinte fermée a toujours une porte**)
+>
+> Avant ça, le 11 août au soir : une section neuve, **le nouveau départ** (§4.29) — un seul
+> héros, l'errance jusqu'au village qu'on choisit, le monde qui se fige quand on s'installe,
+> et un **budget** qui fait payer chaque cadeau en menaces. Elle **annule** deux règles
+> centrales : « deux fronts seulement » du §4.6, et « on recrute des héros » du §4.1.
 
 **Ce fichier est le sommaire.** Le contenu vit dans [`design/`](design/), un fichier par
 section — le document faisait 1800 lignes et n'était plus consultable d'un bloc.

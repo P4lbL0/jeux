@@ -347,6 +347,89 @@ Le fichier `design/a-faire.md` a été dépouillé en entier. Ce qui en sort :
   et le ralliement passent par la voix du village, seules la meute et la mort gardent celle
   du guet. Trois lignes rouges d'affilée videraient la couleur de son sens (§4.10)
 
+### Le 11 août 2026, tard — le bloc 7 se coupe, et les sept notes brutes deviennent un jalon
+
+Le fichier `design/a-faire.md` a été dépouillé une deuxième fois. Ce qui en sort :
+
+- ✅ **Le bloc 7 se coupe en deux** : **7a le mode d'aménagement**, **7b la forteresse**. Deux
+  systèmes qui ne partagent presque rien, et 7b réutilise l'interface de pose de 7a au lieu
+  d'en inventer une deuxième (§5, §4.24, §4.20)
+- ✅ **Un jalon 6.7 neuf** porte cinq des sept notes : le **hurlement** des monstres, le
+  **Cri** du Chevalier Sacré, l'**étourdissement**, trois traits de naissance de plus, et la
+  **lecture** (couleurs, histoire au survol, dégâts cumulés). Il passe **après 6.5**, parce
+  que l'étourdissement devient un tag et que le Cri est une compétence à évolution (§5)
+- ✅ **Une enceinte fermée a toujours une porte** — et ça **annule** le paragraphe du §4.20
+  qui disait « le jeu n'a pas besoin de savoir qu'un anneau est fermé, c'est du confort,
+  c'est optionnel, la première version du bloc 7 s'en passe ». Le paragraphe est réécrit. La
+  raison qui l'emporte : un joueur qui referme son dernier passage sans le voir découvre son
+  erreur la nuit suivante, et le §4.18 interdit qu'une perte vienne d'une inattention. Ça
+  coûte une **propagation depuis le bord de la carte à chaque pose** — acceptable parce que
+  le mode d'édition est en pause, et **repoussé en 7b** puisque ça exige que la porte existe
+  (§4.20, §4.24, §4.17)
+- ✅ **Poser le mur qui refermerait le dernier trou le transforme en porte**, au prix de la
+  porte, plutôt que de refuser la pose. Refuser laisserait le joueur devant un geste qui ne
+  marche pas sans dire pourquoi (§4.20)
+- ✅ **Le disque interdit de 55 % du rayon disparaît**, remplacé par deux règles **locales** :
+  trois cases au moins entre un mur et un bâtiment, et la porte obligatoire. Une règle
+  globale protégeait un lieu parce qu'il était à un endroit connu d'avance — ça ne veut plus
+  rien dire dès que le joueur dessine, et rien du tout au jalon 5.5 (§4.24, §4.29)
+- ✅ **Démolir rend la moitié du coût** — le taux que `coutReparation` applique déjà. Rien du
+  tout punirait l'expérimentation dans le seul mode fait pour expérimenter ; tout rembourser
+  viderait le placement de son enjeu (§4.24)
+- ✅ **Une ruine se rebâtit.** Constaté dans le code : un mur détruit ou un champ piétiné
+  passe la case en `"ruine"` et **rien ne la remet jamais en `"libre"`**, donc chaque
+  destruction stérilise son emplacement pour toute la partie. Ce n'est pas une décision de
+  design, c'est un défaut — et c'est la première chose que 7a corrige (§4.24, §4.21)
+- ✅ **Les égouts partent au §7 hors périmètre**, comme la note le demandait. Ce serait un
+  deuxième niveau de carte, donc une deuxième grille et des monstres qui arrivent par en
+  dessous : ça annulerait le §4.6, les fronts et les enceintes d'un coup (§7)
+- ✅ **Le Druide rejoint le jalon 9**, avec le Voidwalker et le Bastion. C'est la meilleure
+  des trois classes rares : la seule dont le jeu se joue **le jour**, et la seule dont le
+  pouvoir se donne à d'autres (§4.1)
+- ✅ **Miséricordieux et Bourreau d'hommes attendent le jalon 8.** Aucun humain n'est hostile
+  avant les pillards du §4.18 : les coder maintenant, ce serait écrire deux modificateurs qui
+  ne se déclenchent jamais (§4.23, §4.18)
+- ✅ **Un trait bénéfique s'écrit en laiton, un néfaste en sang séché, un ambivalent en os** —
+  et le **signe** (`+` / `−` / rien) porte l'information une deuxième fois, parce que la
+  couleur seule exclut les daltoniens. Pas de dixième couleur, pas de vert (§4.10, §4.11)
+- ✅ **L'étourdissement arrive avec ses quatre garde-fous dans la même décision** : court,
+  résistance qui monte à la répétition, inefficace sur les gros, visible. C'est l'effet que
+  tous les jeux du genre finissent par retirer — les garde-fous ne sont pas du confort, ils
+  *sont* la compétence (§4.13, §4.25)
+- ✅ **Le hurlement a un plafond de stress par nuit, un rechargement long, et il s'annonce**
+  en se cabrant, comme la brute. La lenteur de la jauge de stress *est* ce qui la rend
+  supportable : un hurleur sans plafond ferait craquer un village en une nuit et
+  court-circuiterait tout le §4.23 (§4.23, §4.17)
+- ✅ **Le Cri du sacre ne transcende que ceux dont le stress est déjà haut.** Une compétence
+  qui déclenche une rupture — normalement réservée au 100 % et au tirage — détournerait le
+  système de son sens. Sous cette forme, elle récompense d'avoir laissé ses gens souffrir
+  (§4.13, §4.23)
+
+### Ouvertes depuis le 11 août 2026, tard
+
+- [ ] **À quelle fréquence le Blasphémateur se tire-t-il ?** ⚠️ Il annule le §4.22 à lui
+      seul : l'église est le seul lieu de soin du jeu, donc un blasphémateur qui attrape une
+      hémorragie est **condamné sans décision**. Il lui faut une fréquence bien plus basse que
+      le reste de la table de naissance, et elle n'est pas écrite.
+- [ ] **Le hurlement en chiffres** : combien de points de stress, quel rayon, quel
+      rechargement, quel plafond par nuit, et derrière quel seuil de puissance il apparaît.
+- [ ] **L'étourdissement en chiffres** : durée, de combien la résistance monte à chaque
+      répétition, en combien de temps elle s'oublie, et le seuil au-dessus duquel un monstre
+      y résiste d'emblée.
+- [ ] **Le Cri** : de combien il fait redescendre le stress, son rayon, son rechargement, et
+      au-dessus de quel stress *Le Cri du sacre* transcende.
+- [ ] **L'Alcoolique** : combien de stress une cuite rend, et combien de cadence elle coûte
+      le lendemain.
+- [ ] **Le Druide** : la liste de ses bienfaits, leurs chiffres, son ultime, son trait de
+      classe. Et surtout — **de quoi dépend la puissance d'un bienfait**, puisqu'elle ne doit
+      pas être tirée au sort (§4.1).
+- [ ] **Les paliers du mur** (bois → fer → pierre) : PV et coût de chacun ; les **PV de la
+      porte** ; de combien une **douve** ralentit. Bloquant pour le **7b**, pas pour le 7a.
+- [ ] **La touche qui ouvre le mode d'aménagement**, et les chemins qui s'usent : au bout de
+      combien de passages, effacés en combien de jours (§4.24).
+- [ ] **Trois cases, est-ce la bonne distance** entre un mur et un bâtiment ? C'est un chiffre
+      donné à vue, et il décide de la taille de la cour où on se bat (§4.24).
+
 ## Tranché récemment
 
 - ✅ Garde-fou de la permadeath → **la règle des 20% + le totem d'immortalité** (§4.3)
