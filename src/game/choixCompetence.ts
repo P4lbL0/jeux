@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import type { Proposition } from "../core/competences";
+import { C, T, cadre, espacer, type Plaque } from "./ui/chrome";
 
 /**
  * Ecran de choix, utilise pour les competences comme pour les evolutions
@@ -31,12 +32,12 @@ export class ChoixCompetence {
     const h = this.scene.scale.height;
 
     const voile = this.scene.add.graphics().setDepth(3000);
-    voile.fillStyle(0x0d0b12, 0.85);
+    voile.fillStyle(C.fer, 0.88);
     voile.fillRect(0, 0, l, h);
     this.objets.push(voile);
 
-    this.ajouterTexte(l / 2, h * 0.17, titre, 30, "#f0c419").setOrigin(0.5);
-    this.ajouterTexte(l / 2, h * 0.17 + 34, sousTitre, 13, "#c8bfae").setOrigin(0.5);
+    this.ajouterTexte(l / 2, h * 0.17, espacer(titre.toUpperCase()), 26, T.laiton).setOrigin(0.5);
+    this.ajouterTexte(l / 2, h * 0.17 + 34, sousTitre, 13, T.osMat).setOrigin(0.5);
 
     const largeur = 226;
     const hauteur = 168;
@@ -52,7 +53,7 @@ export class ChoixCompetence {
       });
     });
 
-    this.ajouterTexte(l / 2, y + hauteur + 34, "Touches 1 a 3, ou clique", 12, "#8a8397").setOrigin(
+    this.ajouterTexte(l / 2, y + hauteur + 34, "Touches 1 a 3, ou clique", 12, T.osMat).setOrigin(
       0.5,
     );
 
@@ -85,21 +86,20 @@ export class ChoixCompetence {
     numero: number,
     surClic: () => void,
   ): void {
-    const couleur = proposition.couleur;
-
     const fond = this.scene.add.graphics().setDepth(3001);
-    fond.fillStyle(0x1b1720, 0.96);
-    fond.fillRoundedRect(x, y, largeur, hauteur, 8);
-    fond.lineStyle(3, couleur, 1);
-    fond.strokeRoundedRect(x, y, largeur, hauteur, 8);
+    const plaque: Plaque = { x, y, largeur, hauteur };
+    cadre(fond, plaque, true);
     this.objets.push(fond);
 
-    this.ajouterTexte(x + 16, y + 14, `${numero}.`, 13, "#8a8397");
-    this.ajouterTexte(x + 40, y + 12, proposition.nom, 15, "#f2e9d8").setWordWrapWidth(largeur - 56);
-    this.ajouterTexte(x + 40, y + 36, proposition.etiquette, 10, teinte(couleur));
+    // Le numero de touche est en laiton, comme partout ailleurs : c'est ce
+    // qu'on appuie (§4.10). La rarete de la competence, elle, garde sa couleur
+    // — c'est une information de contenu, pas de chrome.
+    this.ajouterTexte(x + 14, y + 15, `${numero}`, 15, T.laiton);
+    this.ajouterTexte(x + 34, y + 12, proposition.nom, 15, T.os).setWordWrapWidth(largeur - 50);
+    this.ajouterTexte(x + 34, y + 36, espacer(proposition.etiquette.toUpperCase()), 9, T.osMat);
 
-    this.ajouterTexte(x + 16, y + 66, proposition.description, 11, "#d8d2c4").setWordWrapWidth(
-      largeur - 32,
+    this.ajouterTexte(x + 14, y + 66, proposition.description, 11, T.os).setWordWrapWidth(
+      largeur - 28,
     );
 
     const zone = this.scene.add
@@ -137,8 +137,4 @@ export class ChoixCompetence {
     for (const objet of this.objets) objet.destroy();
     this.objets = [];
   }
-}
-
-function teinte(couleur: number): string {
-  return `#${couleur.toString(16).padStart(6, "0")}`;
 }

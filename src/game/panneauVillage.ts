@@ -10,6 +10,18 @@ import { lireEtat, pireEtat } from "../core/etats";
 import { NOMS_RUPTURE, REGLAGES_STRESS } from "../core/personne";
 import { lireSatisfaction } from "../core/satisfaction";
 import type { EtatVillage } from "../scenes/ArenaScene";
+import {
+  C,
+  T,
+  HAUTEUR_TITRE,
+  barreDeTitre,
+  cadre,
+  espacer,
+  teindre,
+  texte,
+  yTitre,
+  type Plaque,
+} from "./ui/chrome";
 
 /**
  * La jauge de stress en quatre caracteres.
@@ -24,12 +36,17 @@ function jauge(stress: number): string {
   return `[${"|".repeat(crans)}${" ".repeat(4 - crans)}]`;
 }
 
-/** Rouge quand il craque, orange quand il a faim ou qu'il monte, sinon neutre. */
+/**
+ * ⚠️ **La ligne entiere rougit quand quelqu'un va mal** (§4.10) — c'est la seule
+ * chose qu'on cherche en ouvrant ce tableau. Le sang frais est reserve a ce qui
+ * peut tuer, et une rupture ou un etat au dernier palier le peuvent ; la faim,
+ * elle, arrete le travail sans tuer, donc elle s'ecrit en laiton.
+ */
 function couleurDeLigne(rassasie: boolean, stress: number, enAlerte: boolean): string {
-  if (enAlerte) return "#ff5a4a";
-  if (!rassasie) return "#ff8a5a";
-  if (stress >= REGLAGES_STRESS.seuilVisible) return "#ffd98a";
-  return "#c8c2d4";
+  if (enAlerte) return T.sangFrais;
+  if (!rassasie) return T.laiton;
+  if (stress >= REGLAGES_STRESS.seuilVisible) return T.laiton;
+  return T.os;
 }
 
 /**
@@ -87,7 +104,8 @@ function lireEglise(etat: EtatVillage): string {
 }
 
 export class PanneauVillage {
-  private cadre: Phaser.GameObjects.Rectangle;
+  private fond: Phaser.GameObjects.Graphics;
+  private entete: Phaser.GameObjects.Text;
   private titre: Phaser.GameObjects.Text;
   private stocks: Phaser.GameObjects.Text;
   private aide: Phaser.GameObjects.Text;
@@ -105,19 +123,16 @@ export class PanneauVillage {
     private changerPoste: (index: number) => void,
     private ouvrirFiche: (index: number) => void,
   ) {
-    this.cadre = scene.add
-      .rectangle(0, 0, 330, 42 + LIGNES * 16 + 46, 0x1b1720, 0.92)
-      .setOrigin(0)
-      .setStrokeStyle(1, 0x6b6478)
-      .setDepth(1500)
-      .setVisible(false);
+    this.fond = scene.add.graphics().setDepth(1500).setVisible(false);
+    this.entete = this.texte(T.titre, 11);
+    this.entete.setText(espacer("LE VILLAGE"));
 
-    this.titre = this.texte("#ffd98a", "13px");
-    this.stocks = this.texte("#d8c48a", "12px");
-    this.aide = this.texte("#8f8a9e", "10px");
+    this.titre = this.texte(T.os, 12);
+    this.stocks = this.texte(T.laiton, 12);
+    this.aide = this.texte(T.osMat, 10);
 
     for (let i = 0; i < LIGNES; i++) {
-      const ligne = this.texte("#c8c2d4", "11px");
+      const ligne = this.texte(T.os, 11);
       // Cliquer un habitant fait tourner sa posture. Les objets sont fabriques
       // une fois ici, ecouteurs compris : rien n'est cree en cours de partie.
       ligne.setInteractive({ useHandCursor: true });
@@ -137,11 +152,8 @@ export class PanneauVillage {
     }
   }
 
-  private texte(couleur: string, taille: string): Phaser.GameObjects.Text {
-    return this.scene.add
-      .text(0, 0, "", { fontFamily: "monospace", fontSize: taille, color: couleur })
-      .setDepth(1501)
-      .setVisible(false);
+  private texte(couleur: string, taille: number): Phaser.GameObjects.Text {
+    return texte(this.scene, 0, 0, taille, couleur).setDepth(1501).setVisible(false);
   }
 
   basculer(): void {
@@ -158,20 +170,25 @@ export class PanneauVillage {
     this.majPanneau(etat);
   }
 
+  /**
+   * ⚠️ **La plaque se mesure sur son contenu.** Elle etait figee a 330 px de
+   * large pour des lignes qui en font plus de 500 : le titre et le tableau
+   * sortaient du cadre par la droite, et l'aide passait sous le bord bas. Vu en
+   * jouant, invisible a la compilation — un `Rectangle` ne se plaint jamais que
+   * ce qu'on ecrit dedans n'y tienne pas.
+   *
+   * La hauteur suit le nombre d'habitants **reels**, pas le plafond de douze :
+   * un village de trois n'a aucune raison d'afficher neuf lignes vides.
+   */
   private majPanneau(etat: EtatVillage): void {
-    this.cadre.setVisible(this.ouvert);
+    this.fond.setVisible(this.ouvert);
+    this.entete.setVisible(this.ouvert);
     this.titre.setVisible(this.ouvert);
     this.stocks.setVisible(this.ouvert);
     this.aide.setVisible(this.ouvert);
     for (const ligne of this.lignes) ligne.setVisible(false);
     if (!this.ouvert) return;
 
-    const x = 16;
-    const y = this.scene.scale.height - this.cadre.height - 16;
-    this.cadre.setPosition(x, y);
-    this.titre.setPosition(x + 12, y + 10);
-    this.stocks.setPosition(x + 12, y + 30);
-    this.aide.setPosition(x + 12, y + 52 + LIGNES * 16 + 6);
     this.aide.setText(
       `${lireEglise(etat)}\n` +
         `Clic : posture  ·  clic droit : poste  ·  Maj+clic : sa fiche  ·  B : cloche  ·  Y : eglise`,
@@ -179,26 +196,27 @@ export class PanneauVillage {
 
     const vivres = etat.joursDeVivres;
     this.titre.setText(
-      `LE VILLAGE — ${etat.population} habitants  ·  ${
+      `${etat.population} habitants  ·  ${
         Number.isFinite(vivres) ? `${vivres.toFixed(1)} j de vivres` : "personne a nourrir"
       }  ·  ${etat.satisfaction}% — ${lireSatisfaction(etat.satisfaction)}`,
     );
     // Sous deux jours de vivres, la production va s'arreter : c'est la seule
     // contrainte du §4.18, elle doit se voir avant de mordre.
-    this.titre.setColor(vivres < 2 ? "#ff8a5a" : "#ffd98a");
+    teindre(this.titre, vivres < 2 ? T.sangFrais : T.os);
 
     this.stocks.setText(
       RESSOURCES.map((r) => `${NOMS_RESSOURCE[r]} ${Math.floor(etat.stocks[r])}`).join("   "),
     );
 
-    etat.habitants.slice(0, LIGNES).forEach((habitant, index) => {
+    const montres = etat.habitants.slice(0, LIGNES);
+    montres.forEach((habitant, index) => {
       const ligne = this.lignes[index]!;
-      ligne.setPosition(x + 12, y + 52 + index * 16).setVisible(true);
+      ligne.setVisible(true);
 
       const { personne } = habitant;
       if (!habitant.vivant) {
         ligne.setText(`${personne.nom} — mort`);
-        ligne.setColor("#6b6478");
+        teindre(ligne, T.osMat);
         return;
       }
 
@@ -215,9 +233,36 @@ export class PanneauVillage {
       ligne.setText(
         `${personne.nom.padEnd(10)} ${NOMS_METIER[habitant.metier].padEnd(12)} ` +
           `${habitant.rang} niv ${habitant.niveau}/${plafond}  ` +
-          `${jauge(personne.stress)} ${(alerte || NOMS_POSTURE_CIVILE[habitant.posture]).padEnd(18)}`,
+          `${jauge(personne.stress)} ${alerte || NOMS_POSTURE_CIVILE[habitant.posture]}`,
       );
-      ligne.setColor(couleurDeLigne(habitant.rassasie, personne.stress, alerte !== ""));
+      teindre(ligne, couleurDeLigne(habitant.rassasie, personne.stress, alerte !== ""));
     });
+
+    // --- La plaque, une fois qu'on sait ce qu'il y a dedans ---
+    const contenus = [this.titre, this.stocks, this.aide, ...this.lignes.slice(0, montres.length)];
+    const largeur = Math.max(320, ...contenus.map((t) => t.width)) + 24;
+    const hauteur = HAUTEUR_TITRE + 12 + 20 + 22 + montres.length * 16 + 12 + this.aide.height + 12;
+
+    const x = 16;
+    const y = Math.max(16, this.scene.scale.height - hauteur - 16);
+    const plaque: Plaque = { x, y, largeur, hauteur };
+
+    this.fond.clear();
+    cadre(this.fond, plaque);
+    barreDeTitre(this.fond, plaque);
+
+    this.entete.setPosition(x + 12, yTitre(plaque));
+    this.titre.setPosition(x + 12, y + HAUTEUR_TITRE + 10);
+    this.stocks.setPosition(x + 12, y + HAUTEUR_TITRE + 30);
+
+    const hautTableau = y + HAUTEUR_TITRE + 54;
+    // Un filet sous les stocks : le tableau des gens est une autre lecture.
+    this.fond.fillStyle(C.sangSeche, 0.6);
+    this.fond.fillRect(x + 12, hautTableau - 8, largeur - 24, 1);
+
+    montres.forEach((_, index) => {
+      this.lignes[index]?.setPosition(x + 12, hautTableau + index * 16);
+    });
+    this.aide.setPosition(x + 12, hautTableau + montres.length * 16 + 10);
   }
 }

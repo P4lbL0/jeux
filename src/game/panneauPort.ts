@@ -1,6 +1,17 @@
 import Phaser from "phaser";
 import { NOMS_RESSOURCE, RESSOURCES, type Ressource, type Stocks } from "../core/habitants";
 import { lireCours, unitesPourUnePiece, valeurDe, type Cours } from "../core/port";
+import {
+  T,
+  HAUTEUR_TITRE,
+  barreDeTitre,
+  cadre,
+  espacer,
+  teindre,
+  texte,
+  yTitre,
+  type Plaque,
+} from "./ui/chrome";
 
 /**
  * Le panneau de vente (DESIGN.md §4.18, §4.10).
@@ -34,7 +45,8 @@ export interface EtatPortAffiche {
 export const LOT = 50;
 
 export class PanneauPort {
-  private cadre: Phaser.GameObjects.Rectangle;
+  private fond: Phaser.GameObjects.Graphics;
+  private entete: Phaser.GameObjects.Text;
   private titre: Phaser.GameObjects.Text;
   private aide: Phaser.GameObjects.Text;
   private lignes: Phaser.GameObjects.Text[] = [];
@@ -49,18 +61,15 @@ export class PanneauPort {
     private scene: Phaser.Scene,
     private vendre: (ressource: Ressource, quantite: number) => void,
   ) {
-    this.cadre = scene.add
-      .rectangle(0, 0, 420, 40 + RESSOURCES.length * 18 + 40, 0x14161f, 0.94)
-      .setOrigin(0)
-      .setStrokeStyle(1, 0x6b7a8f)
-      .setDepth(1500)
-      .setVisible(false);
+    this.fond = scene.add.graphics().setDepth(1500).setVisible(false);
+    this.entete = this.texte(T.titre, 11);
+    this.entete.setText(espacer("LE PORT"));
 
-    this.titre = this.texte("#9ad8f0", "13px");
-    this.aide = this.texte("#8f8a9e", "10px");
+    this.titre = this.texte(T.acier, 12);
+    this.aide = this.texte(T.osMat, 10);
 
     RESSOURCES.forEach((ressource, index) => {
-      const ligne = this.texte("#d8d2c4", "11px");
+      const ligne = this.texte(T.os, 11);
       ligne.setInteractive({ useHandCursor: true });
       ligne.on("pointerdown", (p: Phaser.Input.Pointer) => {
         if (!this.ouvert) return;
@@ -74,11 +83,8 @@ export class PanneauPort {
     });
   }
 
-  private texte(couleur: string, taille: string): Phaser.GameObjects.Text {
-    return this.scene.add
-      .text(0, 0, "", { fontFamily: "monospace", fontSize: taille, color: couleur })
-      .setDepth(1501)
-      .setVisible(false);
+  private texte(couleur: string, taille: number): Phaser.GameObjects.Text {
+    return texte(this.scene, 0, 0, taille, couleur).setDepth(1501).setVisible(false);
   }
 
   basculer(): void {
@@ -98,32 +104,32 @@ export class PanneauPort {
     // seul plutot que de mentir sur ce qu'on peut encore faire.
     if (this.ouvert && (!etat.navireAQuai || !etat.aPortee)) this.ouvert = false;
 
-    this.cadre.setVisible(this.ouvert);
+    this.fond.setVisible(this.ouvert);
+    this.entete.setVisible(this.ouvert);
     this.titre.setVisible(this.ouvert);
     this.aide.setVisible(this.ouvert);
     for (const ligne of this.lignes) ligne.setVisible(this.ouvert);
     if (!this.ouvert) return;
 
-    const x = this.scene.scale.width / 2 - this.cadre.width / 2;
-    const y = this.scene.scale.height - this.cadre.height - 90;
-    this.cadre.setPosition(x, y);
-    this.titre.setPosition(x + 14, y + 12);
-    this.aide.setPosition(x + 14, y + 40 + RESSOURCES.length * 18 + 8);
-
     const vivres = etat.joursDeVivres;
     this.titre.setText(
-      `LE NAVIRE EST A QUAI — ${etat.argent} pieces  ·  ${
+      `Le navire est a quai — ${etat.argent} pieces  ·  ${
         Number.isFinite(vivres) ? `${vivres.toFixed(1)} j de vivres` : "personne a nourrir"
       }`,
     );
     // Le meme seuil que le tableau du village : sous deux journees, la
     // production s'arrete. Vendre sa derniere reserve reste permis — mais pas
-    // sans que le chiffre passe a l'orange sous les doigts.
-    this.titre.setColor(vivres < 2 ? "#ff8a5a" : "#9ad8f0");
+    // sans que le chiffre vire au sang sous les doigts.
+    teindre(this.titre, vivres < 2 ? T.sangFrais : T.acier);
+
+    this.aide.setText(
+      `Clic : vendre ${LOT}  ·  Maj+clic : tout vendre  ·  P : fermer
+` +
+        "Vendre fait baisser le cours de ce qu'on vend ; il remonte les jours suivants.",
+    );
 
     RESSOURCES.forEach((ressource, index) => {
       const ligne = this.lignes[index]!;
-      ligne.setPosition(x + 14, y + 40 + index * 18);
 
       const stock = Math.floor(etat.stocks[ressource]);
       const cours = etat.cours[ressource];
@@ -136,13 +142,31 @@ export class PanneauPort {
           `  ·  ${lot} -> ${gain} pieces`,
       );
       // La couleur dit le cours d'un coup d'oeil : c'est ce qui fait choisir
-      // **quoi** charger sans lire quatre lignes.
-      ligne.setColor(cours >= 1.1 ? "#7ee0a0" : cours <= 0.9 ? "#ff8a7a" : "#d8d2c4");
+      // **quoi** charger sans lire quatre lignes. Ce qui monte est en bile, ce
+      // qui descend en sang frais (§4.10) — vendre a perte est ce qui coute.
+      teindre(ligne, cours >= 1.1 ? T.bile : cours <= 0.9 ? T.sangFrais : T.os);
     });
 
-    this.aide.setText(
-      `Clic : vendre ${LOT}  ·  Maj+clic : tout vendre  ·  P : fermer\n` +
-        "Vendre fait baisser le cours de ce qu'on vend ; il remonte les jours suivants.",
-    );
+    // La plaque se mesure sur son contenu, comme le tableau du village : les
+    // lignes de cours changent de longueur avec les chiffres.
+    const contenus = [this.titre, this.aide, ...this.lignes];
+    const largeur = Math.max(420, ...contenus.map((t) => t.width)) + 28;
+    const hauteur = HAUTEUR_TITRE + 12 + 24 + RESSOURCES.length * 18 + 14 + this.aide.height + 12;
+
+    const x = Math.round(this.scene.scale.width / 2 - largeur / 2);
+    const y = Math.max(16, this.scene.scale.height - hauteur - 96);
+    const plaque: Plaque = { x, y, largeur, hauteur };
+
+    this.fond.clear();
+    cadre(this.fond, plaque);
+    barreDeTitre(this.fond, plaque);
+
+    this.entete.setPosition(x + 14, yTitre(plaque));
+    this.titre.setPosition(x + 14, y + HAUTEUR_TITRE + 10);
+    const hautLignes = y + HAUTEUR_TITRE + 36;
+    RESSOURCES.forEach((_, index) => {
+      this.lignes[index]?.setPosition(x + 14, hautLignes + index * 18);
+    });
+    this.aide.setPosition(x + 14, hautLignes + RESSOURCES.length * 18 + 12);
   }
 }
