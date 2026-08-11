@@ -1,0 +1,26 @@
+/*
+ * La police du jeu (DESIGN.md §4.10, §4.11).
+ *
+ * ⚠️ **Elle est embarquee dans le depot, pas chargee depuis un serveur de
+ * polices.** Une police systeme change d'une machine a l'autre : `monospace`
+ * donnait Consolas ici, autre chose ailleurs, et l'interface ne rendait donc
+ * jamais deux fois pareil. Un fichier de 28 Ko regle ca definitivement, et le
+ * jeu continue de se lancer hors ligne.
+ *
+ * Oswald est sous licence OFL — utilisable dans le jeu sans rien demander a
+ * personne. C'est une variable font : un seul fichier porte les graisses 200 a
+ * 700, donc les titres et le texte courant partagent la meme fonte sans en
+ * telecharger une deuxieme.
+ *
+ * ⚠️ `font-display: block` **et** l'attente de `document.fonts.load` dans
+ * `main.ts` : Phaser dessine son texte dans un canvas, et un canvas ne repeint
+ * pas tout seul quand la police finit d'arriver. Sans les deux, les premiers
+ * ecrans s'afficheraient dans la police de repli et y resteraient.
+ */
+@font-face {
+  font-family: "Oswald";
+  font-style: normal;
+  font-weight: 200 700;
+  font-display: block;
+  src: url("./assets/fonts/oswald.woff2") format("woff2");
+}

@@ -230,8 +230,11 @@ export class PanneauVillage {
           : "";
 
       const plafond = plafondDeNiveau(habitant.rang);
+      // ⚠️ **Plus de colonnes calees a l'espace.** Elles ne tenaient qu'en
+      // chasse fixe ; la police du jeu est condensee depuis le 11 aout (§4.10).
+      // Le separateur remplace l'alignement, et il se lit partout.
       ligne.setText(
-        `${personne.nom.padEnd(10)} ${NOMS_METIER[habitant.metier].padEnd(12)} ` +
+        `${personne.nom}  ·  ${NOMS_METIER[habitant.metier]}  ·  ` +
           `${habitant.rang} niv ${habitant.niveau}/${plafond}  ` +
           `${jauge(personne.stress)} ${alerte || NOMS_POSTURE_CIVILE[habitant.posture]}`,
       );

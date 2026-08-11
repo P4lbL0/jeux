@@ -22,6 +22,7 @@ import {
   creux,
   espacer,
   jauge as jaugeChrome,
+  POLICE,
   yTitre,
   type Plaque,
 } from "./ui/chrome";
@@ -977,7 +978,7 @@ export class FichePersonne {
     couleur: string,
   ): Phaser.GameObjects.Text {
     const t = this.scene.add
-      .text(x, y, contenu, { fontFamily: "monospace", fontSize: `${taille}px`, color: couleur })
+      .text(x, y, contenu, { fontFamily: POLICE, fontSize: `${taille}px`, color: couleur })
       .setDepth(2605);
     this.objets.push(t);
     return t;

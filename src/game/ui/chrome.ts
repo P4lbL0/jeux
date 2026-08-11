@@ -70,8 +70,24 @@ export const T = {
 const BISEAU = 0x4a3a34;
 const OMBRE = 0x0a0707;
 
-/** Toutes les polices du jeu sont monospace : c'est deja la bonne matiere. */
-export const POLICE = "monospace";
+/**
+ * **La police du jeu, et il n'y en a qu'une** (§4.10).
+ *
+ * Choisie le 11 aout 2026 sur pieces, en comparant onze polices rendues dans ces
+ * memes panneaux : **Oswald**, condensee et dense, lisible a 12 px et jusqu'a
+ * 10. Elle remplace `monospace`, qui n'etait pas un choix mais un defaut — et
+ * qui rendait differemment sur chaque machine, puisque le navigateur y mettait
+ * ce qu'il avait.
+ *
+ * ⚠️ **Condensee veut dire que la meme phrase tient dans moins de large.** Les
+ * panneaux qui calculaient leur largeur en comptant les caracteres se retrouvent
+ * donc trop larges, jamais trop etroits — c'est le bon sens de l'erreur, mais il
+ * faudra les reprendre en regardant l'image.
+ *
+ * Elle est embarquee dans le depot (`src/police.css`) et attendue au demarrage
+ * (`main.ts`) : un canvas ne se repeint pas quand une police arrive en retard.
+ */
+export const POLICE = "Oswald";
 
 // ------------------------------------------------------------- les elements
 
@@ -245,8 +261,12 @@ export function texte(
  * Les majuscules espacees des etiquettes.
  *
  * Phaser n'expose pas `letterSpacing` sur un objet Texte : on ecarte donc les
- * lettres a la main. C'est du monospace, donc l'espace ajoute est exactement
- * une demi-chasse et l'alignement ne bouge pas.
+ * lettres a la main.
+ *
+ * ⚠️ **Ne pas s'en servir pour aligner quoi que ce soit.** Du temps du
+ * monospace, l'espace ajoute valait exactement une demi-chasse et les colonnes
+ * suivaient ; la police est condensee et proportionnelle depuis le 11 aout, donc
+ * cet espace ne mesure plus rien de fixe. Il n'ecarte que des lettres.
  */
 export function espacer(contenu: string): string {
   return contenu.split("").join(" ");

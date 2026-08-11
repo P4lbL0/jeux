@@ -294,7 +294,12 @@ export class Hud {
       g.fillRect(x + 7, y + (HAUTEUR - CASE_PORTRAIT) / 2, CASE_PORTRAIT, CASE_PORTRAIT);
       carte.portrait.setAlpha(mort ? 0.35 : 1);
 
-      carte.titre.setText(`${hero.classe.nom.slice(0, 9)} ${hero.niveau}`);
+      // ⚠️ **Son nom, jamais sa classe** (§4.10, corrige le 11 aout 2026).
+      // Cette barre affichait « Chevalier 1 » : renommer son heros dans la fiche
+      // ne changeait donc rien la ou on le regarde en permanence, et deux heros
+      // de la meme classe portaient la meme etiquette. La classe reste lisible —
+      // c'est le portrait, et depuis le §4.10 c'est le sprite qui la porte.
+      carte.titre.setText(`${hero.personne.nom.slice(0, 12)} ${hero.niveau}`);
       teindre(carte.titre, incarne ? T.laiton : mort ? T.osMat : T.os);
 
       // --- Vie ---

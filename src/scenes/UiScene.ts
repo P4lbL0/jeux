@@ -11,6 +11,7 @@ import { PanneauPort } from "../game/panneauPort";
 import type { Hero } from "../game/entities";
 import { BoiteJournal } from "../game/journal";
 import { PanneauEtat } from "../game/ui/panneauEtat";
+import { POLICE } from "../game/ui/chrome";
 import type { ArenaScene } from "./ArenaScene";
 
 /**
@@ -179,7 +180,7 @@ export class UiScene extends Phaser.Scene {
         this.scale.height / 2,
         `Toute l'equipe est tombee.\n\nLa cite n'a plus de Protecteur.\n\n${secondes} secondes  ·  ${kills} elimines\n\nR pour recommencer`,
         {
-          fontFamily: "monospace",
+          fontFamily: POLICE,
           fontSize: "20px",
           color: "#f2e9d8",
           align: "center",

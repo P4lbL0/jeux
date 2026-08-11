@@ -7,7 +7,9 @@
  */
 
 import Phaser from "phaser";
+import "./police.css";
 import { creerTexturesPlaceholder } from "./game/art";
+import { POLICE } from "./game/ui/chrome";
 
 const ZOOM = 4;
 const CLES = ["eglise-1", "eglise-2", "eglise-3", "eglise-4"];
@@ -28,7 +30,7 @@ class Apercu extends Phaser.Scene {
       this.add.image(x, 390, cle).setOrigin(0.5, 1).setScale(ZOOM);
       this.add
         .text(x, 410, `${cle}\n48 x ${hauteur}`, {
-          fontFamily: "monospace",
+          fontFamily: POLICE,
           fontSize: "15px",
           color: "#f2e9d8",
           align: "center",
@@ -43,7 +45,7 @@ class Apercu extends Phaser.Scene {
     this.add.image(880, 390, "maison-bleue").setOrigin(0.5, 1).setScale(ZOOM);
     this.add
       .text(880, 410, "maison\n(comparaison)", {
-        fontFamily: "monospace",
+        fontFamily: POLICE,
         fontSize: "15px",
         color: "#9aa3b2",
         align: "center",

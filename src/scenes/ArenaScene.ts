@@ -26,6 +26,7 @@ import {
   type Dome,
 } from "../game/entities";
 import { choisirArchetype } from "../game/ennemis";
+import { POLICE } from "../game/ui/chrome";
 import { piloter, type ContexteIA } from "../core/ia";
 import { animer, animerMort, declencher } from "../game/poses";
 import {
@@ -616,7 +617,7 @@ export class ArenaScene extends Phaser.Scene {
       liens: this.heros
         .filter((autre) => autre !== hero && autre.estVivant)
         .map((autre) => ({
-          nom: autre.classe.nom,
+          nom: autre.personne.nom,
           force: this.affinites.affinite(hero.identifiant, autre.identifiant),
         })),
     };
@@ -990,6 +991,10 @@ export class ArenaScene extends Phaser.Scene {
         CITE.x + Math.cos(angle) * 60,
         CITE.y + Math.sin(angle) * 60,
         CLASSES[id],
+        undefined,
+        // Les prenoms deja distribues partent avec : sans ca l'equipe sortait
+        // deux Tancrede sur sept, et la barre de heros affiche desormais le nom.
+        this.heros.map((h) => h.personne.nom),
       );
       hero.estIncarne = i === 0;
       this.heros.push(hero);
@@ -1119,7 +1124,7 @@ export class ArenaScene extends Phaser.Scene {
 
     this.add
       .text(CITE.x, CITE.y - CITE.rayon - 18, "LE VILLAGE", {
-        fontFamily: "monospace",
+        fontFamily: POLICE,
         fontSize: "12px",
         color: "#f2e9d8",
       })
@@ -1139,7 +1144,7 @@ export class ArenaScene extends Phaser.Scene {
       g.strokeCircle(poste.position.x, poste.position.y, 34);
       this.add
         .text(poste.position.x, poste.position.y - 48, poste.nom.toUpperCase(), {
-          fontFamily: "monospace",
+          fontFamily: POLICE,
           fontSize: "10px",
           color: "#d8c48a",
         })
@@ -1214,7 +1219,7 @@ export class ArenaScene extends Phaser.Scene {
     this.effetCercle(point.x, point.y, protege ? 34 : 22, protege ? 0x7ee0a0 : 0x5ec8f0);
     this.annoncer(
       protege
-        ? `${nombre} protege${nombre > 1 ? "nt" : ""} ${protege.classe.nom}`
+        ? `${nombre} protege${nombre > 1 ? "nt" : ""} ${protege.personne.nom}`
         : `${nombre} en route`,
     );
   }
@@ -2529,7 +2534,7 @@ export class ArenaScene extends Phaser.Scene {
     hero.body!.enable = false;
     hero.porteeTour = tour.def.bonusPortee;
     hero.setDepth(tour.depth + 1);
-    this.events.emit("annonce", `${hero.classe.nom} monte en tour — T pour descendre`, "toi");
+    this.events.emit("annonce", `${hero.personne.nom} monte en tour — T pour descendre`, "toi");
   }
 
   private descendreDeTour(): void {
@@ -2977,7 +2982,7 @@ export class ArenaScene extends Phaser.Scene {
     this.events.emit(
       "choix",
       `NIVEAU ${hero.niveau}`,
-      `${hero.classe.nom} — choisis une competence`,
+      `${hero.personne.nom} — choisis une competence`,
       defs.map((d) => propositionCompetence(d, hero.competences)),
     );
   }
@@ -4603,7 +4608,7 @@ export class ArenaScene extends Phaser.Scene {
     this.effetCercle(hero.x, hero.y, 90, 0xff3b30);
     poufMort(this, hero.x, hero.y, 0xff3b30);
     secousse(this, "fort");
-    this.flotter(hero.x, hero.y - 30, `${hero.classe.nom} est tombe`, "#ff6b5a");
+    this.flotter(hero.x, hero.y - 30, `${hero.personne.nom} est tombe`, "#ff6b5a");
     this.events.emit("hero-tombe", hero);
     this.faireLeDeuil(hero);
 
@@ -4688,7 +4693,7 @@ export class ArenaScene extends Phaser.Scene {
     const t =
       this.textesLibres.pop() ??
       this.add
-        .text(0, 0, "", { fontFamily: "monospace", fontSize: "11px", color: "#ffffff" })
+        .text(0, 0, "", { fontFamily: POLICE, fontSize: "11px", color: "#ffffff" })
         .setOrigin(0.5)
         .setDepth(5000);
 

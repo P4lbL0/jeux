@@ -246,13 +246,31 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
    */
   readonly personne: Personne;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, classe: ClasseDef, rng?: Rng) {
+  /**
+   * @param nomsPris les prenoms deja portes autour de lui.
+   *
+   * ⚠️ **Vu en jouant** : l'equipe de depart a sorti **deux Tancrede sur sept**.
+   * C'est le meme bug que celui corrige a la porte au bloc 6a — et il compte
+   * bien davantage depuis que la barre de heros affiche le **nom** et non plus
+   * la classe (§4.10) : deux cartes identiques cote a cote, et « Tancrede est
+   * tombe » qui ne dit plus lequel. Quand la liste est epuisee, on reprend au
+   * hasard : un village de trente finira par avoir deux Colin, et c'est la vie.
+   */
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    classe: ClasseDef,
+    rng?: Rng,
+    nomsPris: readonly string[] = [],
+  ) {
     super(scene, x, y, `hero-${classe.id}`);
     this.familleSprite = `hero-${classe.id}`;
     this.classe = classe;
     this.pv = classe.pvMax;
     const graine = rng ?? new Rng(Date.now() + prochainIdentifiant);
-    this.personne = creerPersonne(graine.pick(PRENOMS), graine);
+    const libres = PRENOMS.filter((prenom) => !nomsPris.includes(prenom));
+    this.personne = creerPersonne(graine.pick(libres.length > 0 ? libres : PRENOMS), graine);
     if (classe.id === "assassin") this.bonus.discretion = true;
 
     scene.add.existing(this);

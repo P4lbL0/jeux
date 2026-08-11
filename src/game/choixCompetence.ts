@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import type { Proposition } from "../core/competences";
-import { C, T, cadre, espacer, type Plaque } from "./ui/chrome";
+import { C, POLICE, T, cadre, espacer, type Plaque } from "./ui/chrome";
 
 /**
  * Ecran de choix, utilise pour les competences comme pour les evolutions
@@ -120,7 +120,7 @@ export class ChoixCompetence {
   ): Phaser.GameObjects.Text {
     const t = this.scene.add
       .text(x, y, contenu, {
-        fontFamily: "monospace",
+        fontFamily: POLICE,
         fontSize: `${taille}px`,
         color: couleur,
         lineSpacing: 3,

@@ -136,8 +136,12 @@ export class PanneauPort {
       const lot = Math.min(LOT, stock);
       const gain = valeurDe(ressource, lot, etat.cours);
 
+      // ⚠️ **Plus de colonnes calees a l'espace.** Elles ne tenaient qu'en
+      // chasse fixe ; la police du jeu est condensee depuis le 11 aout (§4.10),
+      // donc `padEnd` ne calait plus rien et laissait un tableau en dents de
+      // scie. Un separateur explicite se lit dans n'importe quelle police.
       ligne.setText(
-        `${NOMS_RESSOURCE[ressource].padEnd(9)} ${String(stock).padStart(5)}  ·  ` +
+        `${NOMS_RESSOURCE[ressource]} ${stock}  ·  ` +
           `${unitesPourUnePiece(ressource, etat.cours).toFixed(1)} la piece, ${lireCours(cours)}` +
           `  ·  ${lot} -> ${gain} pieces`,
       );

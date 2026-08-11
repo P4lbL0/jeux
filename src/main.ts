@@ -1,4 +1,6 @@
 import Phaser from "phaser";
+import "./police.css";
+import { POLICE } from "./game/ui/chrome";
 import { BootScene } from "./scenes/BootScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { ChoixClasseScene } from "./scenes/ChoixClasseScene";
@@ -26,4 +28,26 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, MenuScene, ChoixClasseScene, ArenaScene, UiScene],
 };
 
-new Phaser.Game(config);
+/**
+ * On attend la police avant de lancer le jeu.
+ *
+ * ⚠️ **Phaser dessine son texte dans un canvas, et un canvas ne se repeint pas
+ * quand la police finit d'arriver.** Sans cette attente, l'ecran-titre et le
+ * menu s'afficheraient dans la police de repli et **y resteraient** jusqu'a ce
+ * qu'autre chose les redessine. On demande les deux graisses dont l'interface se
+ * sert (§4.10) — charger une variable font ne charge pas ses graisses toutes
+ * seules.
+ *
+ * L'attente est bornee : une police qui n'arrive pas ne doit jamais empecher de
+ * jouer. On perd la fonte, on ne perd pas la partie.
+ */
+async function attendreLaPolice(): Promise<void> {
+  if (typeof document === "undefined" || document.fonts === undefined) return;
+  const chargements = [`400 16px ${POLICE}`, `600 44px ${POLICE}`].map((forme) =>
+    document.fonts.load(forme),
+  );
+  const delai = new Promise((resoudre) => setTimeout(resoudre, 3000));
+  await Promise.race([Promise.all(chargements), delai]);
+}
+
+void attendreLaPolice().then(() => new Phaser.Game(config));

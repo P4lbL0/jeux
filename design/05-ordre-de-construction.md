@@ -47,7 +47,7 @@ On le livre donc en **blocs jouables**, un par un.
 | **7** | **Le mode d'aménagement** (§4.24) : édition en pause, construction libre, déplacement gratuit, tout se casse, le village en ruines, le sol et les chemins — et **la forteresse** du §4.20 : murs améliorables au fer, **portes qui s'ouvrent et se ferment** et autant d'enceintes qu'on en bâtit, douves, douves en eau, pont-levis | Dessiner son village est-il un plaisir ou une corvée ? |
 | **8** | **Les ordres pour tous** (§4.4) : n'importe qui fait n'importe quoi, menu d'ordres, héros au travail | Commander vingt personnes est-il agréable ? |
 | **9** | **Le village armé** (§4.18) : l'entraînement au combat, le métier de **milicien** qui patrouille les rues, et le passage **villageois → héros** | Une milice change-t-elle vraiment une nuit ? |
-| **10** | Le confort : options, pause Échap, touches remappables (§4.10) | — |
+| **10** | Le confort : options, pause Échap, touches remappables (§4.10) — et **le rendu à la définition de l'écran** (§4.11) : le canvas dessiné en pixels d'écran et non en points CSS, donc un texte net **et** lisse, ce qui demande de reprendre les calculs de placement de chaque panneau | Le jeu est-il net sur un écran à 150 % ? |
 | **11** | **La mémoire du village** (§4.26) : les relations, les souvenirs, ce qu'une mort produit, l'héritage immatériel, les légendes assemblées | Le joueur raconte-t-il sa partie au lieu de la résumer ? |
 | **12** | **La vie autonome** (§4.27) : la journée qu'on enchaîne sans ordre, les initiatives rares | Le village a-t-il l'air habité quand on regarde ailleurs ? |
 

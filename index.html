@@ -13,10 +13,31 @@
         background: #0d0b12;
         overflow: hidden;
       }
-      /* Rendu net : indispensable pour du pixel-art zoome */
+      /*
+        ⚠️ **Plus de `image-rendering: pixelated` ici** (11 aout 2026).
+
+        Cette ligne ne servait a rien sur un ecran a 100 % — le canvas y fait
+        exactement sa taille — et elle abimait tout le reste. Sur un ecran a
+        150 ou 200 % (le cas de la machine de developpement), le navigateur
+        agrandit le canvas entier, et `pixelated` lui fait faire cet
+        agrandissement au **plus proche voisin** : chaque lettre de l'interface
+        sortait en escalier.
+
+        Le pixel-art, lui, ne perd rien : ce qui garde les sprites nets, c'est
+        `pixelArt: true` dans la configuration Phaser (filtrage des textures
+        **dans** le canvas, donc au zoom de la camera). Cette ligne-ci ne
+        concernait que le dernier agrandissement, celui du navigateur.
+      */
       canvas {
-        image-rendering: pixelated;
         display: block;
+        /*
+          `!important` parce que **Phaser pose ce style lui-meme, en ligne**, au
+          moment ou il cree le renderer (`pixelArt: true` appelle
+          `CanvasInterpolation.setCrisp`). Une regle de feuille de style marquee
+          important passe devant un style en ligne qui ne l'est pas : c'est la
+          seule facon de le reprendre sans toucher au moteur.
+        */
+        image-rendering: auto !important;
       }
       #game {
         width: 100%;
