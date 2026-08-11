@@ -3,10 +3,11 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-08-10 (une section neuve, **la sauvegarde et le compte**
-> (§4.28) — la sauvegarde locale devient la référence et le cloud une copie, trois
-> emplacements, règle ironman ; elle **annule** la décision « la sauvegarde passera par
-> Supabase, pas par `localStorage` »)
+> Dernière mise à jour : 2026-08-11 au soir (une section neuve, **le nouveau départ**
+> (§4.29) — un seul héros, l'errance jusqu'au village qu'on choisit, le monde qui se fige
+> quand on s'installe, et un **budget** qui fait payer chaque cadeau en menaces. Elle
+> **annule** deux règles centrales : « deux fronts seulement » du §4.6, et « on recrute des
+> héros » du §4.1)
 
 **Ce fichier est le sommaire.** Le contenu vit dans [`design/`](design/), un fichier par
 section — le document faisait 1800 lignes et n'était plus consultable d'un bloc.
@@ -86,6 +87,7 @@ Détail complet : [§1 Pitch](design/01-pitch.md).
 | **4.17** | [Tenir la fluidité](design/4.17-tenir-la-fluidite.md) |
 | **4.21** | [Le ciel : la météo et les catastrophes](design/4.21-le-ciel-la-meteo-et-les-catastrophes.md) |
 | **4.28** | [**La sauvegarde et le compte**](design/4.28-la-sauvegarde-et-le-compte.md) |
+| **4.29** | [**Le nouveau départ : le monde qu'on traverse, le village qu'on choisit**](design/4.29-le-nouveau-depart.md) |
 
 ### Le plan
 
@@ -111,7 +113,8 @@ Détail complet : [§1 Pitch](design/01-pitch.md).
   [§4.24 le village qu'on aménage](design/4.24-le-village-qu-on-amenage.md),
   [§4.25 tags, fusions et synergies](design/4.25-tags-fusions-et-synergies.md),
   [§4.26 la mémoire du village](design/4.26-les-relations-les-souvenirs-et-la-memoire-du-village.md),
-  [§4.27 la vie autonome](design/4.27-la-vie-autonome.md).
+  [§4.27 la vie autonome](design/4.27-la-vie-autonome.md),
+  [§4.29 le nouveau départ](design/4.29-le-nouveau-depart.md).
   (Le §4.22, l'église, est **codé** depuis le 10 août.)
 
 ## Comment on tient ce document

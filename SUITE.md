@@ -2,8 +2,9 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-08-11 au soir (**le bloc 6c1 est fait** : le **journal**, qui
-> remplace la bannière d'annonce — codé, testé et joué). **356 tests verts.**
+> Dernière mise à jour : 2026-08-11, tard (**le bloc 6d est fait** : la refonte complète de
+> l'interface, en six étapes ; et **le §4.29 est écrit** : le nouveau départ).
+> **365 tests verts.**
 >
 > **La boucle du village est refermée de bout en bout** : on produit, on vend au port, on
 > monte l'église. Les **quatre** conditions du §4.22 mordent enfin toutes les quatre — il
@@ -14,6 +15,12 @@
 > n'importe quel bord praticable, ils attendent jusqu'au crépuscule, la meute est tirée
 > **au moment où on a le visu** (2 à 40, tirage plat), ils suivent dès qu'on les approche,
 > et la fiche d'observation se rejoue à l'arrivée.
+>
+> ⚠️ **Et un jalon 5.5 neuf attend derrière tout le jalon 5** : le **nouveau départ**
+> (§4.29). Un seul héros, l'errance jusqu'au village qu'on choisit, le monde qui se fige
+> quand on s'installe, un **budget** qui fait payer chaque cadeau en menaces, des fronts de
+> **1 à 4**, et l'**écran-titre animé** (§4.10). **Rien n'en est codé**, et c'est voulu : ça
+> change ce que tous les blocs restants tiennent pour acquis.
 
 ---
 
@@ -452,6 +459,29 @@ première porte se serait ouverte après deux heures de jeu. Il ne frappe pas à
 l'aube — celle-ci porte déjà le repas, les états et la sauvegarde — mais **dans la
 matinée** (4 % de la journée). Le rythme normal reprend dès la deuxième arrivée.
 
+### Le bloc 6d — la refonte de l'interface (fait le 11 août 2026)
+
+**Neuf écrans avaient été construits l'un après l'autre, chacun avec ses couleurs** : 48
+valeurs de couleur, six dorés différents, cinq zones de texte posées à nu sur l'herbe. Le
+jeu était devenu illisible, et coder un système de plus par-dessus aurait voulu dire le
+recoder juste après. Livré en six étapes, une par commit :
+
+1. **`src/game/ui/chrome.ts`** — le seul endroit du jeu qui connaît la palette. Neuf
+   couleurs (fer, plaque, os, sang séché, sang frais, laiton, bile, acier, ciel sale), un
+   cadre unique, la barre de titre, le creux, la jauge avec son repère des 20 %, l'étiquette,
+   le bouton, le titre du jeu. ⚠️ **Rien d'autre dans `src/game/` ni `src/scenes/` ne
+   redéfinit une couleur d'interface.**
+2. **Les panneaux orphelins** — HUD, capacités, ordres, plus `ui/panneauEtat.ts`.
+3. **La discussion** remplace le journal : une voix par **source**, trois lignes fermée,
+   sept jours d'historique ouverte, les répétitions repliées en « et 2 autres ».
+4. **La fiche unifiée** et la porte en trois colonnes.
+5. **Le village, le port et le choix de compétence.**
+6. **Les deux écrans d'avant-partie** (menu, choix de classe).
+
+⚠️ **`POLICE` est une constante unique dans `chrome.ts`, aujourd'hui à `"monospace"`.**
+Changer la police de tout le jeu coûte une ligne — c'est ce qui rend le choix de police
+facile à jouer et à défaire.
+
 ### La sauvegarde et le compte The Circle (fait le 10 août 2026, §4.28)
 
 **Rafraîchir la page n'est plus une nouvelle partie.** La sauvegarde vit dans le
@@ -662,8 +692,9 @@ dépendances** :
 | **5** ✅ | **Traits, stress et états**, séquelles, 3 statistiques, portraits assemblés, fiche unifiée, renommage, satisfaction |
 | **6a** ✅ | **La porte** : fiche d'observation, les 6 indices en deux versions, la banque de questions, les 3 degrés de folie et leurs groupes, la réputation |
 | **6b** ✅ | **Le port** : le port en ruine qu'on relève, la voile qui paraît quand c'est calme, le **cours** de chaque ressource, la vente, l'**argent** |
-| **6c** | **Les survivants** : ils paraissent au bord de la carte, parfois poursuivis, parfois blessés, et il faut aller les ramener vivants |
-| **7** | **Mode d'aménagement** : édition en pause, construction libre, tout se casse, village en ruines, sol et chemins — et **la forteresse** : murs au fer, porte, douves, eau, pont-levis |
+| **6d** ✅ | **La refonte de l'interface** : `chrome.ts`, les panneaux rhabillés, la discussion, la fiche, la porte, le village, le port, les deux écrans d'avant-partie |
+| **6c2** | **Les survivants** : ils paraissent au bord de la carte, parfois poursuivis, parfois blessés, et il faut aller les ramener vivants |
+| **7** | **Mode d'aménagement** : édition en pause, construction libre, tout se casse, village en ruines, sol et chemins — et **la forteresse** : murs au fer, **portes qui s'ouvrent et se ferment**, autant d'enceintes qu'on en bâtit, douves, eau, pont-levis |
 | **8** | **Les ordres pour tous** : n'importe qui fait n'importe quoi, menu d'ordres, héros au travail |
 | **9** | **Le village armé** : entraînement au combat, métier de milicien, passage villageois → héros |
 | **10** | Confort : options, pause Échap, touches remappables |

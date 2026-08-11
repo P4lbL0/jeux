@@ -31,7 +31,11 @@ on verra apres
 on fais x 2 
 - [ ] Liste des compétences et de leurs raretés
 - [ ] Ultime de chaque classe
-- [ ] Comment recrute-t-on un héros ? Il se présente, on l'achète, on le trouve ?
+- [x] Comment recrute-t-on un héros ? — **Tranché le 11 août 2026 : on ne le recrute pas.**
+      Aucune des trois issues proposées. Le joueur commence **seul**, et tous les autres
+      héros **sortent du village** — naissances, **centre d'apprentissage**, gens acceptés à
+      la porte ou ramenés du bord de la carte. Ça annule le §4.1 et fait du **bloc 9** la
+      seule source de héros du jeu (§4.29, §4.1, §4.18).
 - [ ] Coût du totem d'immortalité (sa consommation à l'usage est tranchée, §4.3)
 - [ ] Peut-on soigner un héros blessé rentré à l'église, et à quel prix ?
 - [ ] **Combien de niveaux a l'église, et que coûte chacun ?** Les quatre axes sont écrits
@@ -242,6 +246,78 @@ on fais x 2
   dont rien ne le sort (§4.18, §4.24)
 - ✅ **Le héros blessé rare reste au jalon 9** : il a besoin des rangs et du recrutement, que
   le §4.18 renvoie lui-même à ce jalon (§4.18, §4.1)
+
+### Le 11 août 2026, au soir — le nouveau départ (§4.29)
+
+Le fichier `design/a-faire.md` a été dépouillé en entier. Ce qui en sort :
+
+- ✅ **On commence seul.** Un héros choisi, pas d'équipe donnée. Ça retire un échafaudage que
+  le code annonçait lui-même comme provisoire depuis le jalon 3 — et ça met **en sommeil**
+  la règle des 20 %, l'IA de repli, les ordres, les postures, les formations et
+  l'expérience de groupe jusqu'au premier villageois formé. Prix assumé (§4.29, §4.3, §4.4)
+- ✅ **Les héros ne se recrutent pas, ils poussent** : naissances, **centre d'apprentissage**
+  (bâtiment neuf, bloc 9), arrivants à la porte, survivants ramenés (§4.29, §4.1)
+- ✅ **On apparaît loin, on marche, et on choisit son village.** Le monde se génère **devant**
+  le joueur, à l'infini ; refuser un village est **définitif** (on ne revient jamais en
+  arrière) ; les villages **s'espacent** à mesure qu'on avance ; on peut en voir deux dans la
+  même zone. C'est l'espacement croissant qui fait tout le système : sans lui, on relancerait
+  jusqu'au monde parfait (§4.29)
+- ✅ **On s'installe, et le monde se fige** dans une zone jouable dont on ne sort plus, de
+  **deux à trois fois la carte actuelle**. ⚠️ Le coût de performance n'a **jamais été
+  mesuré** : la taille se code en paramètre, et on monte de ×1 à ×3 en mesurant (§4.29, §4.17)
+- ✅ **Un seul budget chiffré** par monde : tout ce qu'il t'offre (habitants, défenses debout,
+  église intacte, terrain fermé) se paie en menaces (monstres plus nombreux, plus forts,
+  maladies, incendie déjà parti). Deux curseurs indépendants auraient produit la partie
+  injouable et la partie offerte (§4.29)
+- ✅ **Les fronts vont de 1 à 4**, et ça **annule** la règle « deux fronts seulement » du
+  §4.6, qui décrit maintenant le milieu de l'échelle. ⚠️ À quatre fronts, la baliste du
+  jalon 7 perd presque tout son sens : le budget doit traiter ça comme une menace majeure
+  (§4.29, §4.6, §4.7)
+- ✅ **Le nouveau départ passe après tout le jalon 5**, en jalon **5.5**. Le coder avant
+  voudrait dire coder les survivants, l'aménagement et le village armé deux fois (§5)
+- ✅ **Les enceintes ne sont pas définies par le jeu** : le joueur en bâtit autant qu'il veut,
+  et **la solidité n'est pas décidée par le rang de l'anneau** — c'est lui qui choisit lequel
+  il blinde au fer. Blinder l'intérieur et sacrifier l'extérieur est une stratégie tout aussi
+  valable (§4.20, §4.24)
+- ✅ **Les portes s'ouvrent et se ferment**, et c'est tout le dilemme : la cloche referme
+  quand plus personne n'est dehors ; ressortir ou faire rentrer quelqu'un demande de
+  **rouvrir**, donc d'**écarter les monstres d'abord**, sinon ils entrent (§4.20, §4.18)
+- ✅ **Le jeu n'a pas besoin de savoir qu'un anneau est fermé** — correction du soir même,
+  après avoir annoncé l'inverse. Tout se joue par la physique déjà en place : mur = obstacle,
+  porte ouverte = trou, monstre = il marche vers l'église et entre par le trou. Calculer les
+  enceintes par propagation ne servirait qu'à **prévenir** le joueur : c'est du confort,
+  c'est **optionnel**, et le bloc 7 s'en passe (§4.20)
+- ✅ **L'écran-titre devient un écran-titre** : LE PROTECTEUR, un sous-titre, **JOUER /
+  PARAMÈTRES / CRÉDITS**, et les trois emplacements de sauvegarde passent **derrière**
+  JOUER. Le compte The Circle reste sur l'écran-titre, en une ligne discrète (§4.10, §4.28)
+- ✅ **Le fond de l'écran-titre est animé** — feu, crépitements, explosions, ombres qui se
+  battent, sang qui tache les lettres — et **fabriqué en code avec les assets existants** :
+  les ombres *sont* nos douze personnages animés teintés en noir, le feu vient d'`effets.ts`,
+  le sang s'accumule dans une `RenderTexture` masquée par le titre. Ni génération d'images
+  (PixelLab à zéro, ComfyUI moins bon que le code sous 96 px), ni vidéo pré-calculée (§4.10)
+- ✅ **L'entrée en jeu est très zoomée sur le héros, puis la caméra dézoome seule.** C'est le
+  **seul** mouvement de caméra automatique du jeu — le §4.11 verrouille le zoom libre, donc
+  on ne prend la caméra au joueur qu'une fois, avant qu'il ait quoi que ce soit à faire (§4.10)
+- ✅ **La police du jeu change**, et elle se choisit sur pièces : un panorama de polices
+  rendues dans les vrais panneaux fer/os/sang. Une seule constante la porte
+  (`POLICE` dans `chrome.ts`), donc le changement coûte une ligne (§4.10, §4.11)
+
+### Ouvertes depuis le 11 août 2026 — le nouveau départ
+
+- [ ] **Combien vaut le budget d'un monde**, et combien coûte chaque cadeau ? Rien n'est
+      chiffré, et c'est le cœur du §4.29 : c'est une table entière à écrire, puis à jouer.
+- [ ] **Combien de temps dure l'errance jusqu'au premier village**, et de combien
+      l'espacement grandit à chaque refus ? « Court » n'est pas un nombre.
+- [ ] **La zone figée tient-elle à ×2 ? à ×3 ?** Jamais mesuré. La grille, la cuisson de la
+      carte et tout ce qui balaye le terrain grossissent avec elle (§4.17).
+- [ ] **Que voit-on d'un village avant de décider ?** Tout (population, maladies, défenses) ou
+      seulement ce qu'on peut voir de loin ? C'est ce qui décide si le choix est un calcul ou
+      un pari.
+- [ ] **Comment se tire une géographie qui reste logique** — une rivière descend vers la mer,
+      une forêt pousse au pied d'une montagne. Par assemblage de règles, mais lesquelles ?
+- [ ] **Le sous-titre de l'écran-titre** : il n'est pas écrit.
+- [ ] **Une porte s'ouvre-t-elle instantanément**, ou faut-il quelques secondes pendant
+      lesquelles on est vulnérable ? Le deuxième est bien meilleur et coûte un délai de plus.
 
 ## Tranché récemment
 
