@@ -121,7 +121,7 @@ import { calmePourUnNavire, unNavireVeutVenir } from "../core/port";
 import { BatimentPort } from "../game/port";
 import type { EtatPortAffiche } from "../game/panneauPort";
 import type { Phase } from "../core/cycle";
-import { Journal } from "../core/journal";
+import { Journal, type Voix } from "../core/journal";
 import { Commandement } from "../game/commandement";
 import {
   appliquer,
@@ -737,7 +737,7 @@ export class ArenaScene extends Phaser.Scene {
       this.reprendreLaPartie(this.reprise);
       this.reprise = null;
     } else {
-      this.events.emit("annonce", "Jour 1 — le village se reveille");
+      this.events.emit("annonce", "Jour 1 — le village se reveille", "village");
       // ⚠️ **Le premier visiteur est offert**, des le premier matin (decision du
       // 10 aout 2026). Au rythme de croisiere — un tous les 2 a 3 jours, et une
       // journee dure 45 minutes reelles — la premiere porte se serait ouverte
@@ -806,7 +806,7 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     const moment = this.cycle.phase === "nuit" ? "Nuit" : "Jour";
-    this.events.emit("annonce", `${moment} ${this.cycle.jour} — la partie reprend`);
+    this.events.emit("annonce", `${moment} ${this.cycle.jour} — la partie reprend`, "village");
   }
 
   /**
@@ -857,7 +857,7 @@ export class ArenaScene extends Phaser.Scene {
     // L'eglise **avant** les habitants : ils naissent a son pied et leur premier
     // reflexe est d'y rentrer, elle doit donc deja exister (§4.22).
     this.eglise = new BatimentEglise(this, {
-      annoncer: (message) => this.events.emit("annonce", message),
+      annoncer: (message) => this.events.emit("annonce", message, "eglise"),
       effondrement: (x, y) => {
         poufMort(this, x, y, 0x8a7f6d);
         secousse(this, "fort");
@@ -868,12 +868,12 @@ export class ArenaScene extends Phaser.Scene {
     // Le port, sur la plage : aucun corps, aucun point de vie. Il est adosse au
     // flanc ferme de l'ouest, donc rien ne peut jamais l'atteindre (§4.6).
     this.port = new BatimentPort(this, {
-      annoncer: (message) => this.events.emit("annonce", message),
+      annoncer: (message) => this.events.emit("annonce", message, "port"),
     });
 
     this.village = new Village(this, {
       menaceAutour: (x, y, rayon) => this.ennemiLePlusProche(x, y, rayon),
-      annoncer: (message) => this.events.emit("annonce", message),
+      annoncer: (message) => this.events.emit("annonce", message, "village"),
       egliseDebout: () => this.eglise.fonctionne,
       niveauEglise: () => this.eglise.niveau,
       litsEglise: () => this.eglise.regles.palier.lits,
@@ -1863,7 +1863,7 @@ export class ArenaScene extends Phaser.Scene {
     const { personne } = hero;
 
     if (coeurLache(personne)) {
-      this.events.emit("annonce", `${personne.nom} s'effondre — son coeur a lache`);
+      this.events.emit("annonce", `${personne.nom} s'effondre — son coeur a lache`, "village");
       this.tomber(hero);
       return;
     }
@@ -1873,7 +1873,9 @@ export class ArenaScene extends Phaser.Scene {
 
     this.events.emit(
       "annonce",
-      `${personne.nom} craque — ${NOMS_RUPTURE[rupture]} : ${EFFETS_RUPTURE[rupture].hero}`,
+      `je craque — ${NOMS_RUPTURE[rupture]} : ${EFFETS_RUPTURE[rupture].hero}`,
+      "heros",
+      personne.nom,
     );
     this.flotter(hero.x, hero.y - 28, NOMS_RUPTURE[rupture], "#ff5a4a");
     secousse(this, "leger");
@@ -2397,6 +2399,7 @@ export class ArenaScene extends Phaser.Scene {
     this.events.emit(
       "annonce",
       `${villageois.nom} — ${NOMS_POSTURE_CIVILE[suivante]}`,
+      "toi",
     );
   }
 
@@ -2426,7 +2429,7 @@ export class ArenaScene extends Phaser.Scene {
    */
   private basculerConstruction(type: ModeBati): void {
     if (this.cycle.phase !== "jour") {
-      this.events.emit("annonce", "On ne batit pas en pleine nuit");
+      this.events.emit("annonce", "On ne batit pas en pleine nuit", "toi");
       return;
     }
 
@@ -2441,13 +2444,14 @@ export class ArenaScene extends Phaser.Scene {
       this.events.emit(
         "annonce",
         `Champ — ${REGLAGES_CHAMPS.coutBois} bois · clic pour semer, pres des champs`,
+        "toi",
       );
       return;
     }
 
     const def = CONSTRUCTIONS[type];
     this.fantome.setTexture(def.texture).setVisible(true);
-    this.events.emit("annonce", `${def.nom} — ${coutLisible(def)} · clic pour poser`);
+    this.events.emit("annonce", `${def.nom} — ${coutLisible(def)} · clic pour poser`, "toi");
   }
 
   /**
@@ -2486,7 +2490,7 @@ export class ArenaScene extends Phaser.Scene {
         : this.constructions.batir(x, y, this.enConstruction, this.village.stocks);
 
     if (!pose) {
-      this.events.emit("annonce", "Impossible de poser ici");
+      this.events.emit("annonce", "Impossible de poser ici", "toi");
       return true;
     }
 
@@ -2512,7 +2516,7 @@ export class ArenaScene extends Phaser.Scene {
 
     const tour = this.constructions.tourLibre(hero.x, hero.y, PORTEE_OCCUPATION);
     if (!tour) {
-      this.events.emit("annonce", "Aucune tour libre a portee");
+      this.events.emit("annonce", "Aucune tour libre a portee", "toi");
       return;
     }
 
@@ -2525,7 +2529,7 @@ export class ArenaScene extends Phaser.Scene {
     hero.body!.enable = false;
     hero.porteeTour = tour.def.bonusPortee;
     hero.setDepth(tour.depth + 1);
-    this.events.emit("annonce", `${hero.classe.nom} monte en tour — T pour descendre`);
+    this.events.emit("annonce", `${hero.classe.nom} monte en tour — T pour descendre`, "toi");
   }
 
   private descendreDeTour(): void {
@@ -2559,7 +2563,7 @@ export class ArenaScene extends Phaser.Scene {
     hero.setPosition(tour.x, tour.y + 20);
     recul(hero, tour.x, tour.y, this.time.now, 220);
     this.encaisser(hero, Math.round(hero.pvMax * 0.15), tour.x, tour.y, 0xbfae8a);
-    this.events.emit("annonce", "La tour cede !");
+    this.events.emit("annonce", "La tour cede !", "guet");
   }
 
   /**
@@ -2574,7 +2578,7 @@ export class ArenaScene extends Phaser.Scene {
     if (!this.champs.pietiner(champ)) return;
 
     poufMort(this, champ.x, champ.y, 0xd8b64a);
-    this.events.emit("annonce", "Un champ est ravage");
+    this.events.emit("annonce", "Un champ est ravage", "guet");
   }
 
   private cognerConstruction(e: Ennemi, construction: Construction): void {
@@ -2604,13 +2608,14 @@ export class ArenaScene extends Phaser.Scene {
     if (!this.eglise.fonctionne) {
       if (this.eglise.regles.etat === "relevement") {
         const part = Math.round(this.eglise.regles.partRelevement * 100);
-        this.events.emit("annonce", `Le chantier avance — ${part}%`);
+        this.events.emit("annonce", `Le chantier avance — ${part}%`, "eglise");
         return;
       }
       if (!this.eglise.lancerRelevement(this.village.stocks)) {
         this.events.emit(
           "annonce",
           `Il faut ${lireCout(RELEVEMENT.cout)} pour relever l'eglise`,
+          "toi",
         );
       }
       return;
@@ -2621,7 +2626,7 @@ export class ArenaScene extends Phaser.Scene {
 
     if (!verdict.possible) {
       const vise = (this.eglise.niveau + 1) as 2 | 3 | 4;
-      this.events.emit("annonce", `Eglise : il manque ${lireBlocages(verdict.manque, vise)}`);
+      this.events.emit("annonce", `Eglise : il manque ${lireBlocages(verdict.manque, vise)}`, "toi");
       return;
     }
 
@@ -3895,8 +3900,16 @@ export class ArenaScene extends Phaser.Scene {
    * Elle ne fait que trois choses : avancer, annoncer les bascules, et teinter
    * le ciel. Tout le calcul est dans `core/cycle.ts`, ou il se teste.
    */
-  private consignerAuJournal(message: string): void {
-    this.journal.ajouter(message);
+  /**
+   * Le seul point d'entree de la discussion (DESIGN.md §4.10).
+   *
+   * La voix par defaut est **le village** : c'est la source la plus frequente,
+   * et une annonce sans voix explicite parle forcement de ce qui se passe ici.
+   * Le jour, lui, n'est jamais passe par l'appelant — il est lu du cycle, sinon
+   * cent-vingt emetteurs auraient a le connaitre pour rien.
+   */
+  private consignerAuJournal(message: string, voix: Voix = "village", qui = ""): void {
+    this.journal.ajouter(message, voix, this.cycle.jour, qui);
   }
 
   private majCycle(delta: number): void {
@@ -3948,7 +3961,7 @@ export class ArenaScene extends Phaser.Scene {
     if (this.port.navireAQuai) this.port.appareiller(this);
 
     const ou = this.fronts.map((f) => NOMS_FRONT[f]).join(" et ");
-    this.events.emit("annonce", `Nuit ${nuit} — ils arrivent ${ou}`);
+    this.events.emit("annonce", `Nuit ${nuit} — ils arrivent ${ou}`, "guet");
     // Un moment qui compte, et le dernier calme avant longtemps (§4.28).
     this.enregistrer();
   }
@@ -3960,7 +3973,7 @@ export class ArenaScene extends Phaser.Scene {
     this.village.seLever(this.cycle.jour);
     this.passerLaJourneeDesHeros();
     this.programmerHorde();
-    this.events.emit("annonce", `Jour ${this.cycle.jour} — le soleil se leve`);
+    this.events.emit("annonce", `Jour ${this.cycle.jour} — le soleil se leve`, "village");
     // ⚠️ **Au matin**, pas dans la nuit. Le §4.18 veut qu'on **decouvre** le mort
     // ou la breche, sans jamais voir qui l'a fait — un coupable nomme serait un
     // probleme resolu. La nuit qui s'acheve est celle de la journee precedente.
@@ -4041,9 +4054,10 @@ export class ArenaScene extends Phaser.Scene {
         this.events.emit(
           "annonce",
           `${arrivant.personne.nom} entre au village — ${NOMS_METIER[arrivant.metierPretendu].toLowerCase()}`,
+          "village",
         );
       } else {
-        this.events.emit("annonce", `${arrivant.personne.nom} repart sur la route`);
+        this.events.emit("annonce", `${arrivant.personne.nom} repart sur la route`, "village");
       }
     }
 
@@ -4065,7 +4079,7 @@ export class ArenaScene extends Phaser.Scene {
     if (actes.length === 0) return;
 
     if (actes.length >= REGLAGES_ARRIVEES.taillePourUnGroupe) {
-      this.events.emit("annonce", "Cette nuit, plusieurs mains ont travaille ensemble");
+      this.events.emit("annonce", "Cette nuit, plusieurs mains ont travaille ensemble", "village");
     }
 
     for (const { fou, acte } of actes) {
@@ -4099,6 +4113,7 @@ export class ArenaScene extends Phaser.Scene {
       emporte > 0
         ? `Les reserves ont ete videes dans la nuit — ${emporte} de perdu`
         : "Quelqu'un est parti dans la nuit",
+      "guet",
     );
   }
 
@@ -4108,14 +4123,14 @@ export class ArenaScene extends Phaser.Scene {
     // ce qui est l'acte du degre au-dessus.
     const murs = this.constructions.toutes.filter((c) => !c.def.occupable);
     if (murs.length === 0) {
-      this.events.emit("annonce", "Des outils ont disparu dans la nuit");
+      this.events.emit("annonce", "Des outils ont disparu dans la nuit", "guet");
       return;
     }
 
     const mur = this.rng.pick(murs);
     poufMort(this, mur.x, mur.y, 0x9a8b74);
     this.constructions.detruire(mur);
-    this.events.emit("annonce", "Une breche a ete ouverte dans la palissade");
+    this.events.emit("annonce", "Une breche a ete ouverte dans la palissade", "guet");
   }
 
   private acteDeMeurtre(fou: Fou): void {
@@ -4129,7 +4144,7 @@ export class ArenaScene extends Phaser.Scene {
     // `tuer` annonce deja la mort, fait le deuil et met la satisfaction a jour.
     // On n'ajoute qu'une chose : que personne ne sait ce qui s'est passe.
     this.village.tuer(victime);
-    this.events.emit("annonce", "On l'a trouve au matin. Personne n'a rien entendu");
+    this.events.emit("annonce", "On l'a trouve au matin. Personne n'a rien entendu", "guet");
   }
 
   // --------------------------------------------------------------- le port
@@ -4173,7 +4188,7 @@ export class ArenaScene extends Phaser.Scene {
 
     const vente = this.port.regles.vendre(ressource, quantite, this.village.stocks);
     if (vente.pieces <= 0) {
-      this.events.emit("annonce", `Pas assez de ${NOMS_RESSOURCE[ressource].toLowerCase()} a vendre`);
+      this.events.emit("annonce", `Pas assez de ${NOMS_RESSOURCE[ressource].toLowerCase()} a vendre`, "toi");
       return;
     }
 
@@ -4181,6 +4196,7 @@ export class ArenaScene extends Phaser.Scene {
     this.events.emit(
       "annonce",
       `${vente.unites} ${NOMS_RESSOURCE[ressource].toLowerCase()} vendus — ${vente.pieces} pieces`,
+      "port",
     );
   }
 
@@ -4199,25 +4215,26 @@ export class ArenaScene extends Phaser.Scene {
         this.events.emit(
           "annonce",
           `Le port est en chantier — ${Math.round(this.port.regles.partChantier * 100)}%`,
+          "port",
         );
         return;
       }
       if (!this.port.aPortee(hero.x, hero.y)) {
-        this.events.emit("annonce", "Il faut etre au port, sur la plage a l'ouest");
+        this.events.emit("annonce", "Il faut etre au port, sur la plage a l'ouest", "toi");
         return;
       }
       if (!this.port.lancerLeChantier(this.village.stocks)) {
-        this.events.emit("annonce", `Le port demande ${BatimentPort.coutLisible()}`);
+        this.events.emit("annonce", `Le port demande ${BatimentPort.coutLisible()}`, "toi");
       }
       return;
     }
 
     if (!this.port.navireAQuai) {
-      this.events.emit("annonce", "Aucun navire a quai — il en vient quand le village est calme");
+      this.events.emit("annonce", "Aucun navire a quai — il en vient quand le village est calme", "toi");
       return;
     }
     if (!this.port.aPortee(hero.x, hero.y)) {
-      this.events.emit("annonce", "Trop loin du port pour commercer");
+      this.events.emit("annonce", "Trop loin du port pour commercer", "toi");
       return;
     }
     this.events.emit("basculer-port");
@@ -4269,11 +4286,11 @@ export class ArenaScene extends Phaser.Scene {
 
       for (const evenement of avancerLaJournee(personne, 1)) {
         if (evenement.quoi === "mort") {
-          this.events.emit("annonce", `${personne.nom} n'a pas survecu — ${evenement.nom}`);
+          this.events.emit("annonce", `${personne.nom} n'a pas survecu — ${evenement.nom}`, "village");
           this.tomber(hero);
           break;
         }
-        this.events.emit("annonce", `${personne.nom} : ${evenement.nom}`);
+        this.events.emit("annonce", `${personne.nom} : ${evenement.nom}`, "village");
       }
 
       this.annoncerLesExploits(hero);
@@ -4338,7 +4355,7 @@ export class ArenaScene extends Phaser.Scene {
     this.hordeAuDepart = maintenant + REGLAGES_CYCLE.preavisHorde;
 
     const ou = this.fronts.map((f) => NOMS_FRONT[f]).join(" et ");
-    this.events.emit("annonce", `Une horde arrive ${ou} !`);
+    this.events.emit("annonce", `Une horde arrive ${ou} !`, "guet");
   }
 
   private programmerHorde(): void {
@@ -4375,7 +4392,7 @@ export class ArenaScene extends Phaser.Scene {
     this.archetypesVus.add(id);
     // Le fonceur est le fond de la vague : il n'a rien d'une nouvelle.
     if (id === "fonceur") return;
-    this.events.emit("annonce", `Nouveau : ${nom}`);
+    this.events.emit("annonce", `Nouveau : ${nom}`, "guet");
   }
 
   // --------------------------------------------------------------- degats
@@ -4503,7 +4520,7 @@ export class ArenaScene extends Phaser.Scene {
       this.rng.chance(0.15 * hero.personne.mods.contagion) &&
       contracterEtat(hero.personne, "hemorragie")
     ) {
-      this.events.emit("annonce", `${hero.personne.nom} saigne — il lui reste une journee`);
+      this.events.emit("annonce", "je saigne — il me reste une journee", "heros", hero.personne.nom);
       this.flotter(hero.x, hero.y - 34, "HEMORRAGIE", "#ff5a4a");
     }
 
@@ -4627,7 +4644,7 @@ export class ArenaScene extends Phaser.Scene {
   /** Un trait gagne se dit : sinon le joueur ne saurait jamais qu'il l'a fait. */
   private annoncerLesExploits(hero: Hero): void {
     for (const cle of verifierExploits(hero.personne)) {
-      this.events.emit("annonce", `${hero.personne.nom} devient ${cle}`);
+      this.events.emit("annonce", `je deviens ${cle}`, "heros", hero.personne.nom);
     }
   }
 
