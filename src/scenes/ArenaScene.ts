@@ -121,6 +121,7 @@ import { calmePourUnNavire, unNavireVeutVenir } from "../core/port";
 import { BatimentPort } from "../game/port";
 import type { EtatPortAffiche } from "../game/panneauPort";
 import type { Phase } from "../core/cycle";
+import { Journal } from "../core/journal";
 import { Commandement } from "../game/commandement";
 import {
   appliquer,
@@ -386,6 +387,21 @@ export class ArenaScene extends Phaser.Scene {
   cycle = new Cycle();
 
   /**
+   * Tout ce que le jeu a a dire (DESIGN.md §4.10, bloc 6c1).
+   *
+   * ⚠️ **Il appartient a l'arene, pas a l'interface**, et ce n'est pas un detail
+   * de rangement. `scene.launch("ui")` est differe d'une image par Phaser :
+   * quand cette scene-ci annonce « Jour 1 » a la fin de son `create`, `UiScene`
+   * n'a pas encore branche le moindre ecouteur. Trouve en jouant — le journal
+   * demarrait vide. Un journal porte par l'interface perd donc, par
+   * construction, tout ce qui est dit avant qu'elle existe.
+   *
+   * `UiScene` le lit comme elle lit `etatVillage` ou `etatPort` : elle dessine,
+   * elle ne detient rien.
+   */
+  readonly journal = new Journal();
+
+  /**
    * La porte (DESIGN.md §4.18, bloc 6a).
    *
    * ⚠️ **`fous` est la seule chose du jeu que le joueur ne doit jamais voir.**
@@ -630,6 +646,16 @@ export class ArenaScene extends Phaser.Scene {
     const graine = Date.now() % 1_000_000;
     this.rng = new Rng(graine);
     console.log(`[arene] graine = ${graine}`);
+
+    // En tout premier : la scene est reutilisee telle quelle a chaque `R`, et
+    // tout ce qui est annonce plus bas dans ce `create` doit deja avoir ou
+    // s'ecrire. Les cent-vingt emetteurs d'« annonce » n'ont pas bouge — seul
+    // ce qu'on en fait a change (§4.10).
+    this.journal.vider();
+    this.events.on("annonce", this.consignerAuJournal, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.events.off("annonce", this.consignerAuJournal, this);
+    });
 
     creerTexturesPlaceholder(this);
     // Les visages de la partie precedente n'ont plus personne derriere eux :
@@ -3861,6 +3887,10 @@ export class ArenaScene extends Phaser.Scene {
    * Elle ne fait que trois choses : avancer, annoncer les bascules, et teinter
    * le ciel. Tout le calcul est dans `core/cycle.ts`, ou il se teste.
    */
+  private consignerAuJournal(message: string): void {
+    this.journal.ajouter(message);
+  }
+
   private majCycle(delta: number): void {
     const bascule = this.cycle.avancer(delta);
 

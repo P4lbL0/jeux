@@ -120,6 +120,19 @@ on fais x 2
       combien d'XP en plus (§4.23) ?
 - [ ] Combien d'**initiatives** par nuit au maximum avant que ça devienne du bruit (§4.27) ?
 
+### Ouvertes depuis le 11 août 2026 — à régler en jouant le bloc 6c
+
+- [ ] **Combien de lignes le journal garde-t-il** ? Six est un premier jet. Trop peu et une
+      mauvaise nuit efface son propre début ; trop et ça devient un mur de texte (§4.10).
+- [ ] **À quelle vitesse le survivant suit-il** le joueur, et à quelle distance faut-il
+      l'approcher pour qu'il se lève ? Deux chiffres inventés au bloc 6c2, jamais joués.
+- [ ] **Un sauvetage sur deux infaisable, est-ce le bon dosage ?** C'est ce que donne le
+      tirage plat 2-40. Assumé hardcore — mais jamais mesuré sur une partie entière (§4.18).
+- [ ] **Le plancher d'un survivant tous les cinq jours suffit-il** à sortir un village d'un
+      cul-de-sac de réputation, ou est-ce trop lent pour changer quoi que ce soit (§4.18) ?
+- [ ] **La contagion fongique se voit-elle vraiment** quand on ramène un infecté, ou passe-
+      t-elle inaperçue faute de voisins de travail assez proches (§4.23) ?
+
 ### Le 10 août 2026, au soir — la porte et le port
 
 - ✅ **Le bloc 6 se livre en deux** : **6a la porte**, **6b le port**. Trois systèmes
@@ -187,6 +200,48 @@ on fais x 2
   restent inconvertibles entre elles (§4.8, §4.18)
 - ✅ **Le §4.8 ne fait plus venir l'argent du « bilan de fin de vague »** : il n'y a plus de
   vagues depuis le bloc 2, le jeu compte en journées (§4.8, §4.19)
+
+### Le 11 août 2026 — le journal et les survivants (bloc 6c)
+
+- ✅ **Le jeu ne parle plus qu'à un seul endroit** : un **journal** en bas à droite, six
+  lignes gardées, la plus récente en bas. Il **remplace la bannière d'annonce** du milieu de
+  l'écran, qui disait une chose à la fois et l'effaçait en quatre secondes — donc perdait la
+  première des deux quand deux événements tombaient ensemble, ce qui arrive exactement quand
+  ça compte (§4.10)
+- ✅ **Pas de minimap.** Envisagée en haut à droite, puis abandonnée le jour même. Le journal
+  donne la **direction** — « quelque part au nord » — jamais la position, et chercher fait
+  partie du sauvetage (§4.10, §4.18)
+- ✅ **Le bloc 6c se coupe en deux** : **6c1 le journal**, **6c2 les survivants**. Le journal
+  reçoit les événements qui existent déjà, donc il se juge avant que rien n'en dépende (§5)
+- ✅ Un survivant paraît **le jour**, sur **n'importe quel bord praticable** — pas seulement
+  les deux fronts — et **attend jusqu'au crépuscule** (§4.18)
+- ✅ **Trois situations tirées au sort** : seul, poursuivi, blessé. Le **blessé** tire entre
+  l'**hémorragie** (mort en une journée), la **blessure palier 2** (cinq à sept jours) et
+  l'**infection fongique contagieuse** — le premier usage réel de la contagion du §4.23, et
+  le seul cas où ce qu'on ramène met en danger **les autres** (§4.18, §4.23)
+- ✅ **La meute est tirée au moment où le joueur a le visu** (340 px, le rayon de vue qui
+  ferme déjà le camping), et elle fait **2 à 40 monstres, tirage plat**. Donc environ **un
+  sauvetage sur deux est infaisable** : on arrive, on voit, on fait demi-tour. Le jeu est
+  assumé **hardcore et infinissable** (§4.18, §4.6, §4.17)
+- ✅ **Plafond dur à 40** — le §4.17 règle 1 l'exige, et l'écran est limité à 60 monstres
+  depuis le bloc 2 (§4.17, §4.19)
+- ✅ **Il suit dès qu'on l'approche**, il ne se défend pas, il est plus lent que le héros :
+  c'est le **trajet du retour** qui est dangereux, pas l'aller (§4.18)
+- ✅ **La fiche d'observation se rejoue à l'arrivée** — même fiche, même mode, même code
+  qu'à la porte. Il peut être **fou dans la même proportion** (2 à 3 sur 10), mais **son
+  état est écrit noir sur blanc** : la folie se devine, la maladie se lit (§4.10, §4.18)
+- ✅ **Refuser un survivant ne coûte rien** — même règle qu'à la porte, la prudence ne se
+  punit pas deux fois. C'est dur (on a risqué sa peau pour lui) et c'est volontaire : sans
+  la fiche, le survivant serait une ressource gratuite qu'on ramasse (§4.18)
+- ✅ **Mourir en chemin coûte la moitié d'un habitant tué** sur la rumeur. À zéro, échouer ne
+  coûterait que du temps ; à plein tarif, on ne sortirait plus jamais et le bloc mourrait
+  avec (§4.18)
+- ✅ **La réputation pilote le rythme, avec un plancher d'un tous les cinq jours** que la
+  porte n'a pas. Sans lui, un village sous 25 de réputation n'a plus aucune voie de
+  peuplement — porte fermée, naissances absentes avant le bloc 7 — et c'est un cul-de-sac
+  dont rien ne le sort (§4.18, §4.24)
+- ✅ **Le héros blessé rare reste au jalon 9** : il a besoin des rangs et du recrutement, que
+  le §4.18 renvoie lui-même à ce jalon (§4.18, §4.1)
 
 ## Tranché récemment
 
@@ -304,8 +359,10 @@ on fais x 2
   mer amène du monde — dont des fous (§4.18)
 - ✅ Les arrivées dépendent de la **réputation** et du **commerce**, jamais du hasard seul
   (§4.18)
-- ✅ **Six indices**, dont trois montrés par arrivant ; un innocent en montre 0 à 1, un fou
-  2 à 3 (§4.18)
+- ✅ **Six indices**, en trois axes montrés par arrivant. ⚠️ *Cette ligne disait « un
+  innocent en montre 0 à 1, un fou 2 à 3 » : c'est **périmé** depuis la correction du
+  10 août au soir. Les fourchettes **se recouvrent** — innocent **0 à 2**, fou **1 à 3** —
+  parce que sans recouvrement, compter les lignes suffisait à trancher* (§4.18)
 - ✅ Les fous **forment des groupes** quand on en laisse entrer plusieurs : le risque
   devient exponentiel, pas additif (§4.18)
 - ✅ La porte se joue sur une **fiche d'observation** — portrait, observations, questions à

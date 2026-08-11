@@ -2,18 +2,18 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-08-11 (**les blocs 6a et 6b sont faits** : la porte et ses
-> trois degrés de folie, puis le port, le cours des ressources et l'**argent** — codés,
-> testés et joués). **346 tests verts.**
+> Dernière mise à jour : 2026-08-11 au soir (**le bloc 6c1 est fait** : le **journal**, qui
+> remplace la bannière d'annonce — codé, testé et joué). **356 tests verts.**
 >
 > **La boucle du village est refermée de bout en bout** : on produit, on vend au port, on
 > monte l'église. Les **quatre** conditions du §4.22 mordent enfin toutes les quatre — il
 > ne reste plus un seul champ neutralisé.
 >
-> **Le prochain morceau est le bloc 6c : les survivants** — ils paraissent au bord de la
-> carte, parfois poursuivis, parfois blessés, et il faut aller les ramener vivants. C'est
-> ce qui donnera enfin au jour une raison de sortir du village. Tout est écrit dans
-> `design/4.18-les-habitants.md`.
+> **Le prochain morceau est le bloc 6c2 : les survivants.** Le design est écrit en entier
+> et **tout est tranché** (§4.18, section « Les survivants ») : ils paraissent le jour sur
+> n'importe quel bord praticable, ils attendent jusqu'au crépuscule, la meute est tirée
+> **au moment où on a le visu** (2 à 40, tirage plat), ils suivent dès qu'on les approche,
+> et la fiche d'observation se rejoue à l'arrivée.
 
 ---
 
@@ -385,6 +385,48 @@ bloc 4, et il ne l'est plus.
    navire qui n'accoste que quand c'est calme n'a aucune raison de rester quand ça ne l'est
    plus : il appareille au **crépuscule**.
 
+### Le bloc 6c1 — le journal (fait le 11 août 2026, au soir)
+
+**Le jeu ne parle plus qu'à un seul endroit.** Une boîte en bas à droite garde les **six
+dernières lignes**, la plus récente en bas, les plus anciennes plus pâles. Elle remplace la
+bannière qui s'affichait en gros au milieu de l'écran pendant quatre secondes.
+
+- **Les cent-vingt émetteurs d'`annonce` n'ont pas bougé.** Ils passent tous par un seul
+  événement, capté à un seul endroit : seul ce qu'on en fait a changé. C'est ce qui a rendu
+  ce bloc petit là où il paraissait énorme.
+- **`src/core/journal.ts`** — pur et testé (10 tests). Il ne fait que garder : capacité,
+  ce qui sort, et **le repli des répétitions**. Dix « Impossible de poser ici » d'affilée
+  font une ligne et un `x10`, sinon un geste refusé en rafale chasserait de la boîte tout ce
+  qui comptait.
+- **`src/game/journal.ts`** — les six objets Texte sont fabriqués **une fois** au démarrage
+  (§4.17 règle 3), et rien n'est recalculé tant qu'un compteur de version n'a pas bougé.
+- **La minimap a été envisagée puis abandonnée.** Le journal donne donc la **direction**,
+  jamais la position — ce qui décide déjà de la forme du bloc 6c2.
+
+⚠️ **Un bug trouvé en jouant, invisible à la compilation** — et c'est le plus intéressant
+depuis longtemps, parce qu'il condamnait toute une façon de ranger le code :
+
+**Le journal démarrait vide, alors que l'arène annonce « Jour 1 » dans son `create`.**
+`this.scene.launch("ui")` est **différé d'une image** par Phaser : quand l'arène parle à la
+fin de son `create`, `UiScene` n'a pas encore branché le moindre écouteur. Avec la bannière
+ça ne se voyait pas — elle s'effaçait de toute façon. Avec un journal qui garde, la première
+ligne de la partie manquait.
+
+La correction n'est pas un décalage d'appel : **le journal appartient à l'arène**, et
+`UiScene` le lit comme elle lit `etatVillage` ou `etatPort`. Toute la classe de bugs
+disparaît avec, au lieu d'être repoussée d'une ligne.
+
+**Ce qui a été vérifié en jouant** (Playwright, aucune erreur console, 40 FPS) :
+
+| Vérifié | Résultat |
+|---|---|
+| La première ligne de la partie | *« Jour 1 — le village se réveille »* est là dès l'ouverture |
+| Un refus répété dix fois | Une seule ligne, `x10` — rien d'autre n'est chassé |
+| Des événements variés | Port, église, palissade : empilés dans l'ordre, le plus récent en bas |
+| Le crépuscule et l'aube | Consignés, et l'aube écrit **cinq lignes d'un coup** — exactement ce que la bannière perdait |
+| Le débordement | Au-delà de six, les plus anciennes sortent, les six dernières restent |
+| La lisibilité | Corrigée en regardant l'image : 0,3 d'opacité sur de l'herbe en plein soleil ne se lit pas ; plancher remonté à 0,5, fond à 0,72, et la boîte épouse le texte au lieu de faire un bandeau de 400 px |
+
 ### Ce que jouer a trouvé, et corrigé dans la foulée
 
 ⚠️ **Les lignes d'observation étaient un classificateur parfait, et le §4.18 voulait
@@ -473,12 +515,12 @@ n'ont jamais été vus de bout en bout. Le refus d'identifiants et la panne rés
 
 ### Tout de suite
 
-1. **Coder le bloc 6c : les survivants** (§4.18). Ils paraissent au bord de la carte
-   pendant le jour, parfois poursuivis, parfois blessés, et il faut aller les **ramener
-   vivants**. C'est la voie de peuplement la plus intéressante — elle donne au jour une
-   raison de sortir, elle met le joueur en danger volontairement, et elle rend chaque
-   habitant mémorable. **Rien n'en est chiffré** : fréquence, distance, ce qui les
-   poursuit, ce qu'on perd s'ils meurent en chemin.
+1. **Coder le bloc 6c2 : les survivants** (§4.18). Tout est tranché, il n'y a plus de
+   question à poser — voir la section « Les survivants » du §4.18. Ce qui reste à
+   construire : l'apparition sur un bord praticable, la meute tirée **au visu**
+   (`RAYON_DE_VUE`, 2 à 40, plafond dur à 40), le suivi, la mort en chemin à demi-tarif sur
+   la rumeur, et la fiche d'observation rejouée à l'arrivée avec **l'état écrit noir sur
+   blanc**. Le journal du 6c1 est déjà là pour l'annoncer.
 2. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
    parce qu'à 32 px, 3 px disloquent le personnage. Amplitudes en haut de
    `scripts/animer-sprites.ts`.
