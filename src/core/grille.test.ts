@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import { CASE, COLONNES, Grille, LIGNES, grilleFideleALaFormule } from "./grille";
 import { MONDE, TERRAIN, VILLAGE, terrainEn } from "./carte";
 import {
+  CASES_LIBRES_AUTOUR_DES_BATIMENTS,
   CONSTRUCTIONS,
+  PART_REMBOURSEE,
   abordable,
   coutReparation,
+  crediter,
   payer,
+  remboursementDemolition,
 } from "./constructions";
 import { stocksVides } from "./habitants";
 
@@ -80,6 +84,138 @@ describe("La couche modifiable", () => {
     grille.poser(x, y, "mur");
     expect(libre).toBe(true);
     expect(grille.constructible(x, y)).toBe(false);
+  });
+});
+
+describe("La ruine se rebatit (§4.24)", () => {
+  // Le defaut que ces trois tests ferment : `detruire` et `pietiner` ecrivaient
+  // "ruine" et rien ne remettait jamais "libre". Chaque mur tombe sterilisait
+  // definitivement son emplacement — sur la ligne de front, exactement.
+  const point = { x: VILLAGE.x + 200, y: VILLAGE.y };
+
+  it("laisse rebatir la ou quelque chose est tombe", () => {
+    const grille = new Grille();
+    grille.poser(point.x, point.y, "ruine");
+    expect(grille.constructible(point.x, point.y)).toBe(true);
+  });
+
+  it("ne bloque le passage sur aucune ruine", () => {
+    const grille = new Grille();
+    grille.poser(point.x, point.y, "ruine");
+    expect(grille.bloque(point.x, point.y)).toBe(false);
+  });
+
+  it("rend la case a la carte quand on la libere", () => {
+    const grille = new Grille();
+    grille.poser(point.x, point.y, "mur");
+    expect(grille.constructible(point.x, point.y)).toBe(false);
+    grille.liberer(point.x, point.y);
+    expect(grille.occupationEn(point.x, point.y)).toBe("libre");
+    expect(grille.constructible(point.x, point.y)).toBe(true);
+  });
+});
+
+describe("Les regles de pose (§4.24)", () => {
+  const point = { x: VILLAGE.x + 200, y: VILLAGE.y };
+
+  it("compte les cases en carre, pas a vol d'oiseau", () => {
+    const grille = new Grille();
+    grille.poser(point.x, point.y, "batiment");
+
+    // La diagonale est a la meme distance que la ligne droite : une regle de
+    // pose se lit sur la grille qu'on voit.
+    const rayon = CASES_LIBRES_AUTOUR_DES_BATIMENTS;
+    const enDiagonale = { x: point.x + rayon * CASE, y: point.y + rayon * CASE };
+    expect(grille.aProximite(enDiagonale.x, enDiagonale.y, rayon, ["batiment"])).toBe(true);
+  });
+
+  it("laisse exactement trois cases vides entre un batiment et ce qu'on batit", () => {
+    const grille = new Grille();
+    grille.poser(point.x, point.y, "batiment");
+    const rayon = CASES_LIBRES_AUTOUR_DES_BATIMENTS;
+
+    const trop = { x: point.x + rayon * CASE, y: point.y };
+    const juste = { x: point.x + (rayon + 1) * CASE, y: point.y };
+    expect(grille.aProximite(trop.x, trop.y, rayon, ["batiment"])).toBe(true);
+    expect(grille.aProximite(juste.x, juste.y, rayon, ["batiment"])).toBe(false);
+  });
+
+  it("ne voit que les occupations qu'on lui demande", () => {
+    const grille = new Grille();
+    grille.poser(point.x, point.y, "mur");
+    expect(grille.aProximite(point.x, point.y, 3, ["batiment"])).toBe(false);
+  });
+
+  it("marque toute l'emprise d'un batiment, pas son seul centre", () => {
+    // Une eglise de 96 px couvre trois cases : n'en poser qu'une laisserait
+    // batir contre son flanc.
+    const grille = new Grille();
+    grille.poserEmprise(point.x, point.y, CASE * 3, CASE * 3, "batiment");
+    expect(grille.occupationEn(point.x - CASE, point.y)).toBe("batiment");
+    expect(grille.occupationEn(point.x + CASE, point.y)).toBe("batiment");
+    expect(grille.occupationEn(point.x, point.y + CASE)).toBe("batiment");
+  });
+
+  it("couvre les deux cases d'une emprise de 48 px", () => {
+    // L'eglise fait exactement ca. Un demi-rayon arrondi vers le bas donnerait
+    // floor(48/2/32) = 0, donc une seule case, et on batirait contre son flanc.
+    const grille = new Grille();
+    const centre = grille.centreDe(point.x, point.y);
+    grille.poserEmprise(centre.x, centre.y, 48, 48, "batiment");
+    expect(grille.toutesLes("batiment").length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("fait d'un batiment un obstacle", () => {
+    const grille = new Grille();
+    grille.poser(point.x, point.y, "batiment");
+    expect(grille.bloque(point.x, point.y)).toBe(true);
+    expect(grille.constructible(point.x, point.y)).toBe(false);
+  });
+});
+
+describe("Demolir rend la moitie (§4.24)", () => {
+  it("rend la moitie du prix d'une construction intacte", () => {
+    const def = CONSTRUCTIONS.palissade;
+    const rendu = remboursementDemolition(def, def.pvMax);
+    expect(rendu.bois).toBe(Math.floor(def.cout.bois! * PART_REMBOURSEE));
+  });
+
+  it("ne rend rien d'une construction a terre", () => {
+    // Sinon rebatir sur une ruine serait gratuit : on encaisserait le prix plein
+    // d'un mur qui ne valait plus rien.
+    const rendu = remboursementDemolition(CONSTRUCTIONS.tour, 0);
+    expect(Object.values(rendu).every((v) => v === 0)).toBe(true);
+  });
+
+  it("rend moins que le prix neuf, quoi qu'il arrive", () => {
+    for (const def of Object.values(CONSTRUCTIONS)) {
+      const rendu = remboursementDemolition(def, def.pvMax);
+      for (const [ressource, montant] of Object.entries(def.cout)) {
+        expect(rendu[ressource as keyof typeof rendu]!).toBeLessThan(montant!);
+      }
+    }
+  });
+
+  it("verse vraiment ce qu'il rend dans les stocks", () => {
+    const stocks = stocksVides();
+    const def = CONSTRUCTIONS.tour;
+    const rendu = remboursementDemolition(def, def.pvMax);
+    crediter(rendu, stocks);
+    expect(stocks.bois).toBe(rendu.bois);
+    expect(stocks.minerai).toBe(rendu.minerai);
+  });
+
+  it("ne permet jamais de gagner du bois en batissant puis en demolissant", () => {
+    // La boucle infinie evidente, et elle doit rester fermee.
+    const stocks = stocksVides();
+    stocks.bois = 100;
+    const def = CONSTRUCTIONS.palissade;
+    const depart = stocks.bois;
+    for (let i = 0; i < 5; i++) {
+      payer(def, stocks);
+      crediter(remboursementDemolition(def, def.pvMax), stocks);
+    }
+    expect(stocks.bois).toBeLessThan(depart);
   });
 });
 

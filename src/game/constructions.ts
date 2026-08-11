@@ -1,14 +1,17 @@
 import Phaser from "phaser";
 import {
+  CASES_LIBRES_AUTOUR_DES_BATIMENTS,
   CONSTRUCTIONS,
   abordable,
+  coutLisible,
+  crediter,
   payer,
+  remboursementDemolition,
   type ConstructionDef,
   type TypeConstruction,
 } from "../core/constructions";
 import { CASE, Grille } from "../core/grille";
-import { VILLAGE } from "../core/carte";
-import type { Stocks } from "../core/habitants";
+import type { Ressource, Stocks } from "../core/habitants";
 
 /**
  * Ce qu'on batit, a l'ecran (DESIGN.md §4.20).
@@ -85,18 +88,40 @@ export class Constructions {
   }
 
   /**
-   * Peut-on batir ici ?
+   * Pourquoi on ne peut pas batir ici — ou `null` si on peut.
    *
-   * Trois refus, et chacun a sa raison : le terrain ne porte pas (§4.6), la case
-   * est prise, ou c'est au milieu de la place du village — on ne se mure pas
-   * chez soi, et surtout les habitants doivent pouvoir y rentrer.
+   * Elle rend la **raison** et pas un booleen : le mode d'amenagement doit dire
+   * au joueur ce qui cloche, et un refus muet dans une interface de pose est la
+   * facon la plus sure de la rendre penible (§4.24).
+   *
+   * ⚠️ **Le disque interdit de 55 % du rayon du village a disparu ici** (11 aout
+   * 2026). C'etait une regle **globale**, qui protegeait un lieu parce qu'il
+   * etait a un endroit connu d'avance ; elle contredisait « la carte entiere est
+   * constructible » (§4.24) et elle ne voudra plus rien dire au jalon 5.5, ou le
+   * village change de place. La regle des trois cases la remplace : elle est
+   * **locale**, donc elle survit a tout ce qui vient apres.
    */
-  possible(x: number, y: number, type: TypeConstruction, stocks: Stocks): boolean {
-    if (!this.grille.constructible(x, y)) return false;
-    if (Phaser.Math.Distance.Between(x, y, VILLAGE.x, VILLAGE.y) < VILLAGE.rayon * 0.55) {
-      return false;
+  refus(x: number, y: number, type: TypeConstruction, stocks: Stocks): string | null {
+    const c = this.grille.caseEn(x, y);
+    if (!c) return "Hors de la carte.";
+    if (c.occupation === "batiment") return "Il y a deja un batiment ici.";
+    if (c.occupation === "mur" || c.occupation === "tour") return "Il y a deja quelque chose ici.";
+    if (c.occupation === "champ") return "Un champ est seme ici.";
+    if (!this.grille.constructible(x, y)) return "Le sol ne porte pas.";
+    if (
+      this.grille.aProximite(x, y, CASES_LIBRES_AUTOUR_DES_BATIMENTS, ["batiment"])
+    ) {
+      return `Trop pres d'un batiment : il faut ${CASES_LIBRES_AUTOUR_DES_BATIMENTS} cases.`;
     }
-    return abordable(CONSTRUCTIONS[type], stocks);
+    if (!abordable(CONSTRUCTIONS[type], stocks)) {
+      return `Il manque de quoi : ${coutLisible(CONSTRUCTIONS[type])}.`;
+    }
+    return null;
+  }
+
+  /** Peut-on batir ici ? */
+  possible(x: number, y: number, type: TypeConstruction, stocks: Stocks): boolean {
+    return this.refus(x, y, type, stocks) === null;
   }
 
   /** @returns la construction posee, ou null si c'etait impossible */
@@ -148,6 +173,61 @@ export class Constructions {
     if (index >= 0) this.liste.splice(index, 1);
     construction.destroy();
     return occupant;
+  }
+
+  /**
+   * Le joueur la demolit lui-meme, en mode amenagement (§4.24).
+   *
+   * Deux differences avec `detruire`, et elles comptent toutes les deux : ca
+   * **rend la moitie** de ce qui tient encore debout, et la case redevient
+   * **libre** au lieu de garder une ruine — on a demonte, on n'a pas perdu.
+   *
+   * @returns ce qui a ete rendu
+   */
+  demolir(construction: Construction, stocks: Stocks): Partial<Record<Ressource, number>> {
+    const rendu = remboursementDemolition(construction.def, construction.pv);
+    crediter(rendu, stocks);
+
+    construction.occupant = null;
+    this.grille.liberer(construction.x, construction.y);
+
+    const index = this.liste.indexOf(construction);
+    if (index >= 0) this.liste.splice(index, 1);
+    construction.destroy();
+    return rendu;
+  }
+
+  /**
+   * Elle change de place, gratuitement et instantanement (§4.24).
+   *
+   * Ce qui se paie, c'est de **construire** ; une fois paye, la disposition
+   * appartient au joueur. On ne repose donc pas un objet neuf — on deplace
+   * celui-la, **avec ses points de vie**, sinon deplacer reparerait.
+   *
+   * @returns vrai si le deplacement a eu lieu
+   */
+  deplacer(construction: Construction, x: number, y: number): boolean {
+    const c = this.grille.caseEn(x, y);
+    if (!c) return false;
+    // On se juge sur la case d'arrivee comme si on batissait, mais sans le prix :
+    // meme terrain, meme regle des trois cases, meme refus des cases prises.
+    if (!this.grille.constructible(x, y)) return false;
+    if (this.grille.aProximite(x, y, CASES_LIBRES_AUTOUR_DES_BATIMENTS, ["batiment"])) return false;
+
+    const centre = this.grille.centreDe(x, y);
+    this.grille.liberer(construction.x, construction.y);
+    this.grille.poser(centre.x, centre.y, construction.def.occupable ? "tour" : "mur");
+
+    construction.setPosition(centre.x, centre.y);
+    const corps = construction.body as Phaser.Physics.Arcade.StaticBody;
+    corps.position.set(centre.x - CASE / 2, centre.y - CASE / 2);
+    corps.updateCenter();
+    construction.setDepth(centre.y + construction.height / 2);
+
+    // L'occupant suit sa tour : le laisser dans le vide en ferait une cible
+    // isolee sans que le joueur l'ait decide.
+    construction.occupant?.setPosition(centre.x, centre.y);
+    return true;
   }
 
   /** La construction la plus proche de ce point, dans ce rayon. */

@@ -62,6 +62,7 @@ import {
   frontsDeLaVague,
   MONDE,
   NOMS_FRONT,
+  PORT,
   POSTES,
   PRATICABLE,
   pointDApparition,
@@ -239,6 +240,16 @@ export interface EtatVillage {
  * de la carte ne detourne plus personne des postes de travail.
  */
 const RAYON_DE_VUE = 340;
+
+/**
+ * Ce qu'une maison occupe **au sol**, en pixels (DESIGN.md §4.24).
+ *
+ * Le sprite fait 48 px de haut, mais l'essentiel est du toit : le terrain
+ * reellement pris tient sur une case. Prendre la hauteur du sprite ferait
+ * remonter l'emprise d'une case vers le nord, et la regle des trois cases
+ * repousserait les murs sans qu'on comprenne pourquoi.
+ */
+const EMPRISE_MAISON = 32;
 
 /**
  * Ce qu'on peut poser sur la grille.
@@ -900,6 +911,13 @@ export class ArenaScene extends Phaser.Scene {
       annoncer: (message) => this.events.emit("annonce", message, "port"),
     });
 
+    // Les deux batiments uniques entrent dans la grille, comme les maisons. On
+    // n'y pose rien, et on ne pose rien a trois cases autour (§4.24). C'est leur
+    // **emprise au sol** qu'on inscrit, jamais la hauteur du sprite : l'eglise
+    // monte a 96 px au niveau 4 sans occuper un pouce de terrain de plus.
+    this.grille.poserEmprise(EGLISE.x, EGLISE.y, EGLISE.emprise, EGLISE.emprise, "batiment");
+    this.grille.poserEmprise(PORT.x, PORT.y, PORT.emprise, PORT.emprise, "batiment");
+
     // Les survivants (§4.18). Ils ne connaissent ni la scene ni le village :
     // quatre fonctions suffisent, comme pour la sauvegarde (§4.28).
     this.survivants = new Survivants(this, {
@@ -1169,7 +1187,11 @@ export class ArenaScene extends Phaser.Scene {
       // Taille native, comme le reste du decor : trois toits de couleurs
       // differentes suffisent a ce qu'aucune maison ne soit la copie de sa
       // voisine, et une maison mise a l'echelle perdrait sa nettete.
-      this.add.image(x, y, rng.pick(maisons)).setDepth(y);
+      const sprite = this.add.image(x, y, rng.pick(maisons)).setDepth(y);
+      // Elles entrent dans la grille : sans ca la regle des trois cases du
+      // §4.24 ne verrait rien, et on murerait la place. Seule leur **emprise au
+      // sol** compte — un toit qui monte haut n'occupe pas le terrain sous lui.
+      this.grille.poserEmprise(x, y, sprite.width, EMPRISE_MAISON, "batiment");
     }
 
     this.add
@@ -2546,7 +2568,15 @@ export class ArenaScene extends Phaser.Scene {
         : this.constructions.batir(x, y, this.enConstruction, this.village.stocks);
 
     if (!pose) {
-      this.events.emit("annonce", "Impossible de poser ici", "toi");
+      // Le refus dit ce qui cloche, comme celui de l'eglise (§4.22, §4.24). Un
+      // clic qui ne fait rien sans expliquer pourquoi est la facon la plus sure
+      // de rendre une interface de pose penible.
+      const raison =
+        this.enConstruction === "champ"
+          ? "Impossible de semer ici"
+          : (this.constructions.refus(x, y, this.enConstruction, this.village.stocks) ??
+            "Impossible de poser ici");
+      this.events.emit("annonce", raison, "toi");
       return true;
     }
 

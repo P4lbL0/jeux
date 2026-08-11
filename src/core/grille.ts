@@ -33,11 +33,26 @@ export const LIGNES = Math.ceil(MONDE.hauteur / CASE);
  *
  * `libre` n'est pas un vide : c'est l'etat de tout ce que la formule a produit
  * et que personne n'a touche.
+ *
+ * `batiment` est l'eglise, le port et les maisons. Ils n'etaient dans la grille
+ * a aucun titre jusqu'ici — ce qui interdisait toute regle de pose qui parle
+ * d'eux, et la regle des trois cases du §4.24 en est une.
  */
-export type Occupation = "libre" | "mur" | "tour" | "champ" | "ruine";
+export type Occupation = "libre" | "mur" | "tour" | "champ" | "ruine" | "batiment";
 
 /** Les occupations qui arretent un corps. */
-const BLOQUANTES: Occupation[] = ["mur", "tour"];
+const BLOQUANTES: Occupation[] = ["mur", "tour", "batiment"];
+
+/**
+ * Les occupations sur lesquelles on peut batir.
+ *
+ * **Une ruine en fait partie, et c'est une correction, pas un ajout** (§4.24).
+ * `detruire` et `pietiner` ecrivaient `ruine` et rien ne remettait jamais
+ * `libre` : chaque mur tombe sterilisait definitivement son emplacement, et
+ * chaque champ pietine le sien. Ca rongeait exactement la ligne de front et
+ * exactement la zone des champs — les deux seuls endroits ou on veut rebatir.
+ */
+const REBATISSABLES: Occupation[] = ["libre", "ruine"];
 
 export interface Case {
   colonne: number;
@@ -122,8 +137,58 @@ export class Grille {
   constructible(x: number, y: number): boolean {
     const c = this.caseEn(x, y);
     if (!c) return false;
-    if (c.occupation !== "libre") return false;
+    if (!REBATISSABLES.includes(c.occupation)) return false;
     return c.terrain === "sable" || c.terrain === "herbe" || c.terrain === "sous-bois";
+  }
+
+  /** Rend la case a la carte. C'est ce qui manquait a `poser`. */
+  liberer(x: number, y: number): boolean {
+    return this.poser(x, y, "libre");
+  }
+
+  /**
+   * Y a-t-il une de ces occupations a portee de ce point ?
+   *
+   * La distance se compte **en cases et en carre** (Tchebychev) et non a vol
+   * d'oiseau : une regle de pose se lit sur la grille qu'on voit, pas sur un
+   * cercle qu'il faudrait deviner. `rayon` de 3 laisse donc trois cases vides
+   * entre les deux — c'est la regle du §4.24.
+   *
+   * On balaye au plus (2r+1)^2 cases, soit 49 a rayon 3. C'est fait a la pose,
+   * jamais par image (§4.17).
+   */
+  aProximite(x: number, y: number, rayon: number, occupations: Occupation[]): boolean {
+    const colonne = this.colonneDe(x);
+    const ligne = this.ligneDe(y);
+    for (let dl = -rayon; dl <= rayon; dl++) {
+      for (let dc = -rayon; dc <= rayon; dc++) {
+        const c = this.case(colonne + dc, ligne + dl);
+        if (c && occupations.includes(c.occupation)) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Marque l'emprise d'un batiment, en cases.
+   *
+   * L'eglise fait 96 px de large : elle couvre trois cases, pas une. Poser un
+   * seul point ferait qu'on peut batir contre son flanc.
+   */
+  poserEmprise(x: number, y: number, largeur: number, hauteur: number, occupation: Occupation): void {
+    // Toutes les cases que le rectangle touche, et pas un rayon en cases : une
+    // emprise de 48 px couvre deux cases de 32, ce qu'un demi-rayon arrondi vers
+    // le bas ramenerait a une seule.
+    const premiereC = this.colonneDe(x - largeur / 2);
+    const derniereC = this.colonneDe(x + largeur / 2);
+    const premiereL = this.ligneDe(y - hauteur / 2);
+    const derniereL = this.ligneDe(y + hauteur / 2);
+    for (let ligne = premiereL; ligne <= derniereL; ligne++) {
+      for (let colonne = premiereC; colonne <= derniereC; colonne++) {
+        const c = this.case(colonne, ligne);
+        if (c) c.occupation = occupation;
+      }
+    }
   }
 
   /** Vrai si un corps ne peut pas traverser ce point. */

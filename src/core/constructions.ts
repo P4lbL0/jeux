@@ -65,6 +65,20 @@ export const CONSTRUCTIONS: Record<TypeConstruction, ConstructionDef> = {
 
 export const ORDRE_CONSTRUCTIONS: TypeConstruction[] = ["palissade", "tour"];
 
+/**
+ * Cases vides exigees entre ce qu'on batit et un batiment (§4.24).
+ *
+ * Ca remplace le disque interdit de 55 % du rayon du village, qui contredisait
+ * « la carte entiere est constructible » et ne voudra plus rien dire du tout au
+ * jalon 5.5, ou le village change de place d'une partie a l'autre.
+ *
+ * ⚠️ La regle vaut pour **tout ce que le joueur batit**, tour comprise, et pas
+ * seulement pour les murs : une file de tours collees a l'eglise contournerait
+ * sinon la regle en produisant exactement ce qu'elle interdit. Ce qu'on protege,
+ * c'est la cour — l'endroit ou on se bat.
+ */
+export const CASES_LIBRES_AUTOUR_DES_BATIMENTS = 3;
+
 /** A-t-on de quoi la batir ? */
 export function abordable(def: ConstructionDef, stocks: Stocks): boolean {
   return Object.entries(def.cout).every(
@@ -103,4 +117,37 @@ export function coutReparation(
     cout[ressource as Ressource] = Math.ceil((montant ?? 0) * manque * 0.5);
   }
   return cout;
+}
+
+/** Part du prix rendue quand on demolit soi-meme (§4.24). */
+export const PART_REMBOURSEE = 0.5;
+
+/**
+ * Ce que la demolition rend.
+ *
+ * La moitie du prix, et **proportionnellement a ce qui tient encore debout** :
+ * demolir une palissade a moitie cassee ne rend pas ce qu'elle a coute neuve.
+ * Sans ca, rebatir sur une ruine serait gratuit — on encaisserait le
+ * remboursement plein d'un mur qui ne valait plus rien.
+ *
+ * Rien du tout punirait l'essai dans le seul mode fait pour essayer ; tout
+ * rendre viderait le placement de son enjeu (§4.24).
+ */
+export function remboursementDemolition(
+  def: ConstructionDef,
+  pv: number,
+): Partial<Record<Ressource, number>> {
+  const reste = Math.max(0, Math.min(1, pv / def.pvMax));
+  const rendu: Partial<Record<Ressource, number>> = {};
+  for (const [ressource, montant] of Object.entries(def.cout)) {
+    rendu[ressource as Ressource] = Math.floor((montant ?? 0) * reste * PART_REMBOURSEE);
+  }
+  return rendu;
+}
+
+/** Verse un remboursement dans les stocks. */
+export function crediter(rendu: Partial<Record<Ressource, number>>, stocks: Stocks): void {
+  for (const [ressource, montant] of Object.entries(rendu)) {
+    stocks[ressource as Ressource] += montant ?? 0;
+  }
 }

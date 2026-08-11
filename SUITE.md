@@ -2,17 +2,21 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-08-11, tard (**les blocs 6d et 6c2 sont faits** : la refonte
-> complète de l'interface, puis **les survivants** ; la police du jeu devient **Oswald** ;
-> et **le §4.29 est écrit** : le nouveau départ). **388 tests verts.**
+> Dernière mise à jour : 2026-08-11, très tard. **402 tests verts.**
+>
+> **Les sept notes brutes de `design/a-faire.md` sont dépouillées** et donnent un **jalon
+> 6.7** neuf (le moral devient une arme : le hurlement, le Cri, l'étourdissement, trois
+> traits, et la lecture). **Le bloc 7 se coupe en 7a / 7b.** Et **les fondations du 7a sont
+> codées** : la ruine qui se rebâtit, les règles de pose, la démolition, le déplacement.
 >
 > **La boucle du village est refermée de bout en bout** : on produit, on vend au port, on
 > monte l'église. Les **quatre** conditions du §4.22 mordent enfin toutes les quatre — il
 > ne reste plus un seul champ neutralisé.
 >
-> **Le prochain morceau est le bloc 7 : le mode d'aménagement et la forteresse.** Édition
-> en pause, construction libre, tout se casse, le village en ruines — et les **portes qui
-> s'ouvrent et se ferment**, avec autant d'enceintes que le joueur en bâtit (§4.20, §4.24).
+> **Le prochain morceau est la suite du bloc 7a** : le **mode d'aménagement lui-même** — la
+> touche qui met en pause, la grille affichée, la pose / le déplacement / la démolition à la
+> souris — puis les **maisons destructibles** et le **village qui démarre en ruines**
+> (§4.24). Le 7b (la forteresse : fer, portes, douves) vient après.
 >
 > ⚠️ **Et un jalon 5.5 neuf attend derrière tout le jalon 5** : le **nouveau départ**
 > (§4.29). Un seul héros, l'errance jusqu'au village qu'on choisit, le monde qui se fige
@@ -530,6 +534,59 @@ et à réparer, et tout se jouait autour de l'église.
 | L'état écrit | *« Il saigne, et ça ne s'arrête pas. Il n'a pas la journée. »* |
 | Accepter | Population 3 → 4, et **son hémorragie entre avec lui** |
 
+### Le bloc 7a, premières fondations (fait le 11 août 2026, très tard)
+
+**Le mode d'aménagement n'existe pas encore ; ce sur quoi il repose, si.** Trois choses, et
+la première n'était pas prévue au programme.
+
+⚠️ **Une case détruite était stérilisée pour toute la partie, et personne ne l'avait vu.**
+`Constructions.detruire` et `Champs.pietiner` écrivaient l'occupation `"ruine"` dans la
+grille, `Grille.constructible` refusait toute case qui n'est pas `"libre"` — et **rien, nulle
+part, ne réécrivait jamais `"libre"`**. Donc : chaque mur qui tombait interdisait à jamais de
+rebâtir à cet endroit, chaque champ piétiné interdisait à jamais de resemer sur le sien. Ça
+rongeait exactement la ligne de front et exactement la zone des champs. Invisible à la
+compilation, invisible sur une partie courte, et **fatal au bloc 7**, qui repose entièrement
+sur « tout se casse, on rebâtit ». Une ruine est maintenant un état **visible et réversible**.
+
+- **Les règles de pose sont locales, et le disque interdit a disparu.** `possible` refusait
+  toute pose à moins de **55 % du rayon du village** — une règle **globale**, qui protégeait
+  un lieu parce qu'il était à un endroit connu d'avance, et qui contredisait « la carte
+  entière est constructible » (§4.24). Elle ne voudrait plus rien dire au jalon 5.5, où le
+  village change de place. Deux règles **locales** la remplacent : **trois cases au moins
+  entre ce qu'on bâtit et un bâtiment**, et (au 7b) la porte obligatoire.
+- **L'église, le port et les maisons entrent dans la grille**, en occupation `"batiment"` —
+  ils n'y étaient à aucun titre, ce qui interdisait toute règle qui parle d'eux. On inscrit
+  leur **emprise au sol**, jamais la hauteur du sprite : l'église monte à 96 px au niveau 4
+  sans occuper un pouce de terrain de plus.
+- **`refus()` rend la raison, pas un booléen.** Le joueur lit « Trop près d'un bâtiment : il
+  faut 3 cases » au lieu de « Impossible de poser ici ». Même règle que le refus de la touche
+  `Y` (§4.22) : un clic qui ne fait rien sans dire pourquoi rend une interface de pose
+  pénible.
+- **Démolir rend la moitié**, proportionnellement à ce qui tient encore debout — et la case
+  redevient **libre**, pas une ruine : on a démonté, on n'a pas perdu. Un test vérifie qu'on
+  ne peut pas gagner du bois en bâtissant puis en démolissant en boucle.
+- **Déplacer est gratuit et instantané** (§4.24), et la construction **garde ses points de
+  vie** : sinon déplacer réparerait. L'occupant d'une tour la suit.
+
+**Ce qui a été vérifié en jouant** (Playwright, deux passes, aucune erreur console, 41 à
+45 FPS) :
+
+| Vérifié | Résultat |
+|---|---|
+| Les bâtiments dans la grille | **57 cases** en `"batiment"` : église, port et les neuf maisons |
+| La règle des trois cases | Refusé de 0 à 224 px de l'église, **accepté à partir de 256 px** |
+| Le refus, en jouant | `G`, souris près de l'église : **fantôme rouge**, clic sans effet, et la discussion écrit *« Trop pres d'un batiment : il faut 3 cases »* |
+| La pose, en jouant | Plus loin : **fantôme vert**, palissade posée, grille à `"mur"` |
+| Bâtir → détruire → rebâtir | `"mur"` → `"ruine"` → **plus aucun refus** → `"mur"`. C'est le défaut ci-dessus, fermé |
+| Démolir | 12 bois payés, **6 rendus**, et la case repasse à `"libre"` |
+
+⚠️ **Une conséquence à juger en jouant, et elle est voulue** : la palissade ne peut plus se
+bâtir qu'à **256 px du centre du village** (contre 82 px avant). Les neuf maisons sont en
+couronne, et trois cases autour de chacune font un anneau interdit large. L'enceinte se pose
+donc **hors du village** au lieu de le traverser — ce qui est le but — mais **la distance
+n'a jamais été jouée sur une vraie nuit**, et elle se réduira toute seule quand le village
+démarrera en ruines avec **trois** maisons au lieu de neuf.
+
 ### La sauvegarde et le compte The Circle (fait le 10 août 2026, §4.28)
 
 **Rafraîchir la page n'est plus une nouvelle partie.** La sauvegarde vit dans le
@@ -593,12 +650,16 @@ n'ont jamais été vus de bout en bout. Le refus d'identifiants et la panne rés
 
 ### Tout de suite
 
-1. **Coder le bloc 6c2 : les survivants** (§4.18). Tout est tranché, il n'y a plus de
-   question à poser — voir la section « Les survivants » du §4.18. Ce qui reste à
-   construire : l'apparition sur un bord praticable, la meute tirée **au visu**
-   (`RAYON_DE_VUE`, 2 à 40, plafond dur à 40), le suivi, la mort en chemin à demi-tarif sur
-   la rumeur, et la fiche d'observation rejouée à l'arrivée avec **l'état écrit noir sur
-   blanc**. Le journal du 6c1 est déjà là pour l'annoncer.
+1. **Finir le bloc 7a : le mode d'aménagement lui-même** (§4.24). Les fondations sont
+   posées et jouées ; ce qui reste est l'interface et les maisons. Dans cet ordre :
+   a) la **touche** qui ouvre le mode et met le jeu en pause — ⚠️ **elle n'est pas
+   tranchée**, il faut la demander ; b) la grille affichée et les cases valides éclairées ;
+   c) la pose, le **déplacement** et la **démolition** à la souris — le cœur existe déjà
+   (`Constructions.deplacer`, `.demolir`, `.refus`), il n'y a qu'à le brancher ;
+   d) les **maisons destructibles** et le village qui **démarre en ruines** (trois maisons
+   pour trois habitants, chaque arrivant en relève une) ; e) le sol, la place en terre
+   battue et les chemins — **c'est le morceau à couper si le bloc dérape**, il est purement
+   visuel et le §5 dit de livrer la version minimale qui se joue.
 2. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
    parce qu'à 32 px, 3 px disloquent le personnage. Amplitudes en haut de
    `scripts/animer-sprites.ts`.
@@ -741,8 +802,9 @@ dépendances** :
 | **6a** ✅ | **La porte** : fiche d'observation, les 6 indices en deux versions, la banque de questions, les 3 degrés de folie et leurs groupes, la réputation |
 | **6b** ✅ | **Le port** : le port en ruine qu'on relève, la voile qui paraît quand c'est calme, le **cours** de chaque ressource, la vente, l'**argent** |
 | **6d** ✅ | **La refonte de l'interface** : `chrome.ts`, les panneaux rhabillés, la discussion, la fiche, la porte, le village, le port, les deux écrans d'avant-partie |
-| **6c2** | **Les survivants** : ils paraissent au bord de la carte, parfois poursuivis, parfois blessés, et il faut aller les ramener vivants |
-| **7** | **Mode d'aménagement** : édition en pause, construction libre, tout se casse, village en ruines, sol et chemins — et **la forteresse** : murs au fer, **portes qui s'ouvrent et se ferment**, autant d'enceintes qu'on en bâtit, douves, eau, pont-levis |
+| **6c2** ✅ | **Les survivants** : ils paraissent au bord de la carte, parfois poursuivis, parfois blessés, et il faut aller les ramener vivants |
+| **7a** | **Mode d'aménagement** : ✅ la ruine qui se rebâtit, ✅ les règles de pose, ✅ démolir / déplacer — puis l'édition **en pause**, la pose à la souris, les maisons destructibles, le village en ruines, le sol et les chemins |
+| **7b** | **La forteresse** : murs au fer, **portes qui s'ouvrent et se ferment** (et qu'on ne peut pas ne pas avoir), autant d'enceintes qu'on en bâtit, douves, eau, pont-levis |
 | **8** | **Les ordres pour tous** : n'importe qui fait n'importe quoi, menu d'ordres, héros au travail |
 | **9** | **Le village armé** : entraînement au combat, métier de milicien, passage villageois → héros |
 | **10** | Confort : options, pause Échap, touches remappables |
