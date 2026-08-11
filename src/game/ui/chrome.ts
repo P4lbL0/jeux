@@ -354,6 +354,30 @@ export class Bouton {
 }
 
 /**
+ * « LE PROTECTEUR », en haut des deux ecrans d'avant-partie (§4.10).
+ *
+ * **C'est le seul endroit du jeu ou l'interface a le droit d'etre grosse et
+ * sale** : lettres serrees, ombre portee en sang seche. Partout ailleurs elle se
+ * tait. Ces deux ecrans donnent le ton avant qu'on ait joue une seconde, et un
+ * titre timide dirait exactement le contraire de ce que le jeu raconte.
+ */
+export function titreDuJeu(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  taille = 44,
+): Phaser.GameObjects.Text {
+  return scene.add
+    .text(x, y, "LE PROTECTEUR", {
+      fontFamily: POLICE,
+      fontSize: `${taille}px`,
+      color: T.titre,
+    })
+    .setOrigin(0.5)
+    .setShadow(3, 3, T.sangSeche, 0, true, true);
+}
+
+/**
  * Change la couleur d'un texte **seulement si elle change vraiment**.
  *
  * ⚠️ `setColor` n'a aucun court-circuit dans Phaser : il repasse par
