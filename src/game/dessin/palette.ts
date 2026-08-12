@@ -1,0 +1,239 @@
+import { C } from "../ui/couleurs";
+
+/**
+ * La palette du **monde**, derivee des neuf couleurs des panneaux
+ * (DESIGN.md §4.30, section « Le socle »).
+ *
+ * **Pourquoi ce fichier existe, et pourquoi il est une donnee.** Le bloc 6d a
+ * passe une journee a supprimer 48 valeurs de couleur semees dans neuf ecrans.
+ * Le monde etait reste dehors : herbe eclatante, toits bleus et jaunes, chair
+ * rose. Il rentre ici, et sous la meme regle — **une couleur qui ne descend pas
+ * des neuf de `chrome.ts` ne peut pas exister**, parce qu'il n'y a aucun endroit
+ * ou l'ecrire.
+ *
+ * ⚠️ **Rien d'autre dans `src/game/dessin/` ne nomme une couleur.** Un dessin
+ * demande une matiere ; il ne choisit jamais une teinte.
+ */
+
+// ------------------------------------------------------------ l'arithmetique
+
+interface Canaux {
+  r: number;
+  v: number;
+  b: number;
+}
+
+function decomposer(couleur: number): Canaux {
+  return { r: (couleur >> 16) & 0xff, v: (couleur >> 8) & 0xff, b: couleur & 0xff };
+}
+
+function borner(valeur: number): number {
+  return Math.max(0, Math.min(255, Math.round(valeur)));
+}
+
+function recomposer({ r, v, b }: Canaux): number {
+  return (borner(r) << 16) | (borner(v) << 8) | borner(b);
+}
+
+/** Deux couleurs, et la part de la seconde. `part` de 0 a 1. */
+export function melanger(a: number, b: number, part: number): number {
+  const x = decomposer(a);
+  const y = decomposer(b);
+  return recomposer({
+    r: x.r + (y.r - x.r) * part,
+    v: x.v + (y.v - x.v) * part,
+    b: x.b + (y.b - x.b) * part,
+  });
+}
+
+/**
+ * La luminance percue.
+ *
+ * Les trois coefficients ne sont pas un tiers chacun : l'oeil voit le vert
+ * beaucoup plus que le bleu. Desaturer a poids egaux ferait virer les verts au
+ * clair et les bleus au sombre.
+ */
+function luminance(c: Canaux): number {
+  return 0.299 * c.r + 0.587 * c.v + 0.114 * c.b;
+}
+
+/** Tire une couleur vers son propre gris. `part` de 0 (rien) a 1 (gris pur). */
+export function desaturer(couleur: number, part: number): number {
+  const c = decomposer(couleur);
+  const gris = luminance(c);
+  return recomposer({
+    r: c.r + (gris - c.r) * part,
+    v: c.v + (gris - c.v) * part,
+    b: c.b + (gris - c.b) * part,
+  });
+}
+
+/** De combien deux couleurs different, tous canaux confondus. Sert aux tests. */
+export function ecart(a: number, b: number): number {
+  const x = decomposer(a);
+  const y = decomposer(b);
+  return Math.abs(x.r - y.r) + Math.abs(x.v - y.v) + Math.abs(x.b - y.b);
+}
+
+/** La luminance d'une couleur, de 0 a 255. Sert aux tests. */
+export function clarte(couleur: number): number {
+  return luminance(decomposer(couleur));
+}
+
+// -------------------------------------------------------------- les matieres
+
+/** Une matiere : son corps, et les deux valeurs qui s'en deduisent. */
+export interface Matiere {
+  readonly sombre: number;
+  readonly corps: number;
+  readonly clair: number;
+}
+
+/**
+ * De combien une matiere descend vers le fer pour faire son ombre, et monte
+ * vers l'os pour faire sa lumiere.
+ *
+ * L'ombre mord plus fort que la lumiere : un monde post-apocalyptique se joue
+ * mieux quand ce qui est sombre est franchement sombre, et le §4.10 demande
+ * exactement ca aux panneaux.
+ */
+const VERS_L_OMBRE = 0.38;
+const VERS_LA_LUMIERE = 0.3;
+
+/**
+ * **L'ombre de toute matiere est du fer, sa lumiere est de l'os** (§4.30).
+ *
+ * Une matiere ne choisit qu'une couleur : son corps. Les deux autres se
+ * calculent. C'est ce qui donne au monde une lumiere unique — si chaque matiere
+ * choisissait ses trois valeurs a la main, les ombres partiraient chacune dans
+ * leur teinte et on retomberait sur les 48 valeurs du bloc 6d.
+ */
+export function matiere(
+  corps: number,
+  ombre = VERS_L_OMBRE,
+  lumiere = VERS_LA_LUMIERE,
+): Matiere {
+  return {
+    sombre: melanger(corps, C.fer, ombre),
+    corps,
+    clair: melanger(corps, C.os, lumiere),
+  };
+}
+
+/** L'os sali : c'est ce qui donne le village d'ossements (§4.30). */
+export const PIERRE = matiere(desaturer(melanger(C.os, C.fer, 0.55), 0.55));
+
+/**
+ * La plaque eclaircie, **puis rechauffee au laiton**.
+ *
+ * ⚠️ Le rechauffement n'est pas une coquetterie, il est mesure : sans lui, le
+ * bois tombe a trois unites de la pierre sur les trois canaux — deux gris
+ * identiques. Une maison a pans de bois dont les colombages ont la couleur du
+ * torchis ne montre plus rien. Un test tient ce garde-fou.
+ */
+export const BOIS = matiere(melanger(melanger(C.plaque, C.os, 0.4), C.laiton, 0.22));
+
+/** L'acier assombri. Le fer des armes, des ferrures et des remparts ameliores. */
+export const FER = matiere(melanger(C.acier, C.fer, 0.42));
+
+/**
+ * Le toit d'une maison : de l'acier assombri jusqu'a l'ardoise.
+ *
+ * Tranche le 12 aout 2026 : le §4.30 se contredisait, sa table disait « du sang
+ * seche, et lui seul » quand sa maison A disait « toit gris ». C'est la maison A
+ * qui l'emporte, et le sang seche reste a l'eglise — ca lui donne une couleur
+ * qui n'appartient qu'a elle.
+ *
+ * ⚠️ Elle descend de l'**acier** et non de l'os, contrairement a ce que la
+ * premiere version disait : un toit tire de l'os sali tombait a quinze unites du
+ * sol de cendre, et un village dont les toits ont la couleur du sol n'a plus de
+ * toits. Une ardoise est froide, c'est ce qui la separe de la pierre chaude des
+ * murs — et elle reste **plus sombre qu'eux**, sinon le batiment se lit a
+ * l'envers.
+ */
+export const ARDOISE = matiere(desaturer(melanger(C.acier, C.fer, 0.62), 0.2));
+
+/** Le toit de l'eglise, et lui seul : du sang seche desature (§4.22). */
+export const TOIT_EGLISE = matiere(desaturer(C.sangSeche, 0.35));
+
+/** Ce qui vaut quelque chose : la croix, une boucle, une serrure. */
+export const LAITON = matiere(C.laiton);
+
+/** L'os rechauffe au laiton. **Jamais une peau rose** (§4.30). */
+export const CHAIR = matiere(melanger(melanger(C.os, C.laiton, 0.3), C.fer, 0.12));
+
+/** Le fer eclairci : les vetements sombres, la tunique. */
+export const TISSU = matiere(melanger(C.fer, C.os, 0.18));
+
+/** L'os legerement sali : le tablier, le torchis, une voile. */
+export const TOILE = matiere(melanger(C.os, C.fer, 0.22));
+
+/** La bile salie : les houppiers, ce qui pousse. */
+export const FEUILLE = matiere(melanger(C.bile, C.fer, 0.3));
+
+/**
+ * L'acier assombri, **puis franchement tire vers le ciel sale**.
+ *
+ * ⚠️ Mesure, encore : a 0,15 de ciel sale, l'eau tombait a **une unite** du fer.
+ * Elle en prend 0,42 — c'est le reflet du ciel qui separe une etendue d'eau d'une
+ * plaque de metal, et il faut qu'il se voie.
+ */
+export const EAU = matiere(melanger(melanger(C.acier, C.fer, 0.62), C.cielSale, 0.42));
+
+/**
+ * Le sang frais, et **il ne sert qu'a ce qui peut tuer** (§4.10).
+ *
+ * Sur un sprite, ca veut dire une hemorragie — le seul etat qui tue en une
+ * journee (§4.23) — et rien d'autre. Trois pixels, jamais un aplat : la couleur
+ * ne garde son sens que parce qu'elle est rare.
+ */
+export const SANG = matiere(C.sangFrais);
+
+/**
+ * Les deux sols, et **les deux existent expres**.
+ *
+ * ⚠️ Le §6 laisse la question ouverte — « un village d'os et de sang sur une
+ * prairie eclatante, ca jure, mais un monde entierement gris est deprimant a
+ * jouer longtemps » — et demande de trancher **sur image**. La planche du socle
+ * est donc coupee en deux, memes sprites de part et d'autre. Celui qui perd se
+ * supprime en une ligne.
+ */
+export const SOL_VERT = matiere(melanger(C.bile, C.fer, 0.42));
+// La cendre est franchement plus sombre que la pierre des murs : un sol qui a la
+// clarte des murs qu'il porte fait disparaitre le pied des batiments.
+export const SOL_CENDRE = matiere(desaturer(melanger(C.os, C.fer, 0.68), 0.5));
+
+/**
+ * Le contour de tout sprite, et il n'y en a qu'un : le fer, la plus sombre des
+ * neuf. Le §4.30 le veut **automatique** — un contour dessine a la main est un
+ * contour qu'on oublie quelque part.
+ */
+export const CONTOUR = C.fer;
+
+/** Palit une matiere : l'usure, un malade, un mort (§4.23). `part` de 0 a 1. */
+export function palir(m: Matiere, part: number): Matiere {
+  return matiere(desaturer(melanger(m.corps, C.os, 0.3 * part), 0.55 * part));
+}
+
+/**
+ * La table, pour la planche de controle et pour les tests.
+ *
+ * Elle n'est pas decorative : c'est elle qui permet de verifier d'un coup d'oeil
+ * que deux matieres ne se confondent pas, ce qui est arrive au bois et a la
+ * pierre avant qu'on les mesure.
+ */
+export const MATIERES: ReadonlyArray<{ nom: string; matiere: Matiere }> = [
+  { nom: "pierre", matiere: PIERRE },
+  { nom: "bois", matiere: BOIS },
+  { nom: "fer", matiere: FER },
+  { nom: "ardoise", matiere: ARDOISE },
+  { nom: "toit eglise", matiere: TOIT_EGLISE },
+  { nom: "laiton", matiere: LAITON },
+  { nom: "chair", matiere: CHAIR },
+  { nom: "tissu", matiere: TISSU },
+  { nom: "toile", matiere: TOILE },
+  { nom: "feuille", matiere: FEUILLE },
+  { nom: "eau", matiere: EAU },
+  { nom: "sol vert", matiere: SOL_VERT },
+  { nom: "sol cendre", matiere: SOL_CENDRE },
+];

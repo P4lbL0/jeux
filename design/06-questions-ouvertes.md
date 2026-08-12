@@ -494,17 +494,29 @@ Une planche de propositions a servi de test, et elle a fait remonter trois défa
 
 ### Ouvertes depuis la refonte visuelle
 
-- [ ] **L'église fait-elle 2 × 2 ou 3 × 3 carreaux ?** Le code part sur 2 × 2 par hypothèse.
+- [x] ✅ **L'église fait 2 × 2, soit 64 px** (12 août 2026). L'hypothèse du code est confirmée :
+      « on agrandit un peu » — 48 → 64 est *un peu*, 48 → 96 serait doubler. Et une emprise de
+      9 cases aurait repoussé la palissade beaucoup plus loin, exactement le défaut mesuré au
+      bloc 7a (§4.30, §4.22, §4.24)
+- [x] ✅ **Les toits : ardoise sombre aux maisons, sang séché à l'église** (12 août 2026). Le
+      §4.30 se contredisait — sa table disait « du sang séché, et lui seul », sa maison A disait
+      « toit gris ». C'est la maison A qui l'emporte, et le sang séché reste à l'église : ça lui
+      donne **une couleur qui n'appartient qu'à elle**, donc elle domine le village par la
+      teinte autant que par la hauteur, et ça se lit de bien plus loin (§4.30, §4.22)
+- [x] ✅ **Les monstres gardent une silhouette franchement autre** (12 août 2026) : même palette,
+      même contour, même grille, mais **pas la carrure**. Le raisonnement qui tire les héros vers
+      les villageois — ce sont les mêmes gens — ne s'applique pas à eux, et l'appliquer quand
+      même coûterait la seule chose qui compte la nuit : savoir en une image qui est des nôtres
+      (§4.30, §4.11)
 - [ ] **Le sol reste-t-il vert, ou passe-t-il en cendre ?** Un village d'os et de sang sur une
       prairie éclatante, ça jure — mais un monde entièrement gris est déprimant à jouer
-      longtemps. À trancher sur image.
+      longtemps. **À trancher sur image, et les deux sont dessinés** : la planche du socle est
+      coupée en deux, mêmes sprites de part et d'autre.
 - [ ] **Combien de temps met un arbre à repousser**, et combien de bois donne un arbre ? De ces
       deux chiffres dépend tout l'équilibre du bois.
 - [ ] **De combien la maison de fermier fait-elle baisser le stress**, et est-ce qu'elle agit
       sur celui qui y dort, sur celui qui y travaille, ou sur les deux ?
 - [ ] **À quelle profondeur on se noie**, et au bout de combien de temps après l'avertissement.
-- [ ] **Les monstres sont-ils redessinés aussi** dans le langage des villageois, ou gardent-ils
-      une silhouette franchement autre ? Ce sont les seuls qui ne sont pas humains.
 
 ## Tranché récemment
 

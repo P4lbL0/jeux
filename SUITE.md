@@ -18,6 +18,12 @@
 > le monde passe en **fer/os/sang** comme les panneaux, et tout est **vu de face**. Le prompt
 > complet est dans **`PROMPT-BLOC-7Z.md`**.
 >
+> ✅ **L'étage 1 du 7z est livré le 12 août 2026 : le socle.** `src/game/dessin/` porte la
+> palette dérivée des neuf, le pinceau à angles, le four à frames et un villageois cobaye —
+> **426 tests verts**. Rien n'est branché sur le jeu, et c'est voulu : la planche
+> (`captures/planche-socle-*.png`) se juge d'abord. **Deux réponses attendues sur image** : le
+> sol vert ou cendre, et la lisibilité du villageois à 32 px.
+>
 > **Pourquoi avant le 7a** : le 7a pose les bâtiments, les maisons destructibles et le sol.
 > Les coder sur des sprites qu'on va jeter, ce serait les coder deux fois.
 >
@@ -655,6 +661,58 @@ travail fait deux fois. À reprendre à la fin du 7z.
    couper si le bloc dérape** — il est purement visuel.
 4. **Le texte « LE VILLAGE » flotte toujours** au-dessus du village, et le §4.24 le supprime au
    profit d'un survol.
+
+### Le bloc 7z, étage 1 — le socle de dessin (fait le 12 août 2026)
+
+**Le module qui produit les sprites existe, et il se juge sur une planche.** Rien n'est encore
+branché sur le jeu : `art.ts`, les 30 PNG et les 84 animations sont **intacts**, et la partie
+tourne exactement comme avant. C'est voulu — on ne débranche l'ancien qu'une fois le nouveau
+jugé (§4.30, section « Le socle »).
+
+Quatre fichiers neufs dans `src/game/dessin/` :
+
+- **`palette.ts`** — **treize matières**, toutes dérivées par calcul des neuf de `chrome.ts`.
+  Une matière ne choisit qu'une couleur, son corps : **son ombre est du fer, sa lumière est de
+  l'os**. Le contour de tout sprite est du fer, lui aussi.
+- **`pinceau.ts`** — la grille de pixels, et surtout `membre(x, y, longueur, **angle**, ...)`,
+  qui est la primitive de tout le bloc. Plus le **contour automatique** et l'ombre au sol.
+- **`four.ts`** — la cuisson : **une planche par famille**, toutes les frames au démarrage
+  (§4.17 règle 3), les animations déclarées, et les **plages** de chaque geste.
+- **`villageois.ts`** — le cobaye : **32 × 32**, quatre gestes, `posture()` pure et testée.
+
+⚠️ **`chrome.ts` a perdu ses neuf couleurs au profit de `src/game/ui/couleurs.ts`, et il les
+réexporte** — rien n'a changé pour ses cent lecteurs. La raison : `chrome.ts` importe Phaser,
+qui touche `window` au chargement, donc **la palette du monde n'était pas testable**. Neuf
+entiers n'ont pas à dépendre d'un moteur de rendu.
+
+**24 tests neufs** (426 au total, tous verts), et ils ne testent pas des pixels : ils testent
+les **angles** et les **écarts de couleur**, c'est-à-dire ce qui est mesurable.
+
+⚠️ **Six défauts trouvés, et c'est la répartition qui est intéressante** — trois par les tests,
+trois seulement en regardant l'image :
+
+| Trouvé par | Le défaut |
+|---|---|
+| Un test | **L'eau tombait à une unité du fer**, et le bois à trois de la pierre. Deux matières séparées de moins de 24 ne se distinguent pas à 32 px : un test compare les **91 paires** |
+| Un test | **La pioche ne touchait jamais le sol.** Un geste qui boucle n'atteint jamais un avancement de 1 : la frappe était étalée au-delà de la dernière frame, donc le bras montait et le geste repartait |
+| Un test | **La boucle du travail se lisait à l'envers** : la frame de récupération était plus en avant que la frappe elle-même. Invisible frame par frame |
+| **L'image** | **Les bras ne se voyaient pas.** Attachés à 3 px du milieu pour une carrure de 10, ils restaient **à l'intérieur de la silhouette** : le balancement de la marche n'existait pas à l'écran. Six frames pour rien |
+| **L'image** | **Toutes les lignes de la planche montraient les mêmes frames.** Une planche porte tous les gestes bout à bout ; demander « la frame 2 » sans la plage du geste donne la frame 2 du **premier** geste. `cuire` rend les plages depuis |
+| **L'image** | Le chapeau faisait **15 px de large pour une carrure de 10** — le villageois était un champignon —, et le tablier mangeait tout le buste, donc la tunique sombre avait disparu |
+
+**Ce qui a été vérifié en regardant** (`captures/planche-socle-1.png` et `-2.png`, Playwright,
+aucune erreur console) : les quatre gestes tournent, la pioche monte derrière la tête et
+retombe, la toux plie le corps, les frames diffèrent d'une capture à l'autre, et le sang du
+blessé se voit à 32 px.
+
+⚠️ **Ce que l'étage 1 n'a PAS**, et il ne faut pas le croire fait : rien n'est branché sur le
+jeu, les héros et les monstres ne sont pas dessinés, aucun bâtiment, aucun sol en jeu, et les
+sept animations que `poses.ts` attend d'une famille (`attaque`, `charge`, `incantation`,
+`touche`, `mort`) n'existent pas encore pour le villageois.
+
+⚠️ **Deux questions attendent une réponse sur image**, et la planche est faite pour ça :
+**le sol reste-t-il vert ou passe-t-il en cendre** (§6), et **le villageois se lit-il assez** à
+sa vraie taille — il est volontairement sombre, comme tout le reste du monde désormais.
 
 ### La sauvegarde et le compte The Circle (fait le 10 août 2026, §4.28)
 
