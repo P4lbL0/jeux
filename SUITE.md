@@ -18,7 +18,7 @@
 > le monde passe en **fer/os/sang** comme les panneaux, et tout est **vu de face**. Le prompt
 > complet est dans **`PROMPT-BLOC-7Z.md`**.
 >
-> ✅ **L'étage 1 du 7z est livré le 12 août 2026 : le socle.** `src/game/dessin/` porte la
+> ✅ **Les étages 1 et 2 du 7z sont livrés (12-13 août 2026) : le socle, les héros, le sol.** `src/game/dessin/` porte la
 > palette dérivée des neuf, le pinceau à angles, le four à frames et un villageois cobaye —
 > **426 tests verts**. Rien n'est branché sur le jeu, et c'est voulu : la planche
 > (`captures/planche-socle-*.png`) se juge d'abord. **Deux réponses attendues sur image** : le
@@ -713,6 +713,57 @@ sept animations que `poses.ts` attend d'une famille (`attaque`, `charge`, `incan
 ⚠️ **Deux questions attendent une réponse sur image**, et la planche est faite pour ça :
 **le sol reste-t-il vert ou passe-t-il en cendre** (§6), et **le villageois se lit-il assez** à
 sa vraie taille — il est volontairement sombre, comme tout le reste du monde désormais.
+
+### Le bloc 7z, étage 2 — les héros et le sol (fait le 13 août 2026)
+
+**Le sol vert est retenu**, et le défaut qu'il a fait remonter est corrigé : *« ça se répète de
+fou furieux »*. Un seul carreau de 32 px répété fait un damier.
+
+- **`src/game/dessin/sol.ts`** — **quatre états de case** (`herbe`, `terre`, `brule`, `cratere`)
+  × **quatre variantes**, choisies par la **position de la case** et jamais au hasard : le même
+  endroit doit donner le même carreau à chaque lancement, sinon la carte scintille au
+  rechargement et deux captures ne se comparent plus.
+- ⚠️ **Le cratère et la terre brûlée sont des états de case, pas des décalques** (§4.21). Rien
+  ne les écrit encore — aucun météore ne tombe au jalon 5 — mais le dessin et le chemin
+  existent. Un décalque n'aurait survécu ni à la sauvegarde, ni au mode d'aménagement.
+
+**Et les héros n'ont plus de corps à eux.**
+
+- **`src/game/dessin/corps.ts`** — **une seule fonction dessine l'humain**, villageois et héros
+  confondus ; ils ne diffèrent que par ce qu'ils **portent**. Ce n'est pas de la propreté : c'est
+  ce qui rend *« un héros est un villageois qui a appris »* (§4.18) vrai **par construction**. Le
+  jour où le bloc 9 fait passer un habitant héros, il n'y a rien à redessiner.
+- **`src/game/dessin/heros.ts`** — les sept classes, leurs sept armes, les **sept gestes** que
+  `poses.ts` attend, et **cinq paliers d'équipement** : un tous les deux rangs
+  (`F E` · `D C` · `B A` · `S SR` · `SSR`). Casque au 1, plastron au 2, cape au 3, **laiton au 4
+  et lui seul**. On cuit **à la demande**, une planche par (classe, palier).
+
+⚠️ **Les sept couleurs de classe sont rebasées dans la palette.** Le §4.11 les gardait « sur le
+sprite et sur le sprite seulement », le §4.30 dit « les neuf, et aucune autre » : les deux ne
+pouvaient pas être vraies. On garde la **teinte** — son seul travail est de faire reconnaître qui
+est qui — et on lui donne la matière du monde.
+
+**440 tests verts.** ⚠️ **Six défauts de plus, et la répartition n'a pas changé** :
+
+| Trouvé par | Le défaut |
+|---|---|
+| Un test | **`varianteDe` rendait -2.** `^` rend un entier signé en JavaScript, et le `>>> 0` était après le modulo au lieu d'avant. **J'ai écrit le commentaire qui met en garde contre ce bug, puis je l'ai fait** |
+| Un test | **Le mélangeur privilégiait une variante** — 433 cases sur 900 attendues : une multiplication ordinaire de grands entiers passe par un flottant et perd ses bits de poids faible. `Math.imul` |
+| Un test | **L'attaque n'armait jamais** : la coupure était à 0,4 pour un geste de cinq frames dont l'avancement vaut 0 / 0,25 / 0,5 / 0,75 / 1. Même classe de défaut que la pioche |
+| Un test | **La chute sortait du carreau** : il n'y a que deux pixels sous les pieds. Les jambes s'écartent au lieu de s'allonger — ce qui est aussi ce à quoi ressemble quelqu'un qui s'effondre |
+| Un test | **L'arc du Rôdeur sortait du cadre** au palier 2 : une arme perpendiculaire prend sa longueur en **largeur**, la dimension où il reste le moins de place. Le palier se lit sur la corde |
+| **L'image** | **Les héros se lisaient comme des pâtes de couleur.** Peints d'une seule teinte du col aux pieds, on ne voyait ni leur taille ni leur pas. Des **jambes sombres** leur rendent la structure à deux valeurs qui rend le villageois lisible |
+
+**Ce qui a été vérifié en regardant** (`captures/planche-7z-1.png` et `-2.png`, aucune erreur
+console) : la répétition de l'herbe a disparu, les cinq paliers se lisent, les sept classes se
+distinguent, les sept gestes tournent.
+
+⚠️ **Ce que l'étage 2 n'a PAS** : rien n'est encore branché sur le jeu (`art.ts` et les 30 PNG
+sont intacts), aucun monstre, aucun bâtiment, et le sol n'est pas posé dans l'arène.
+
+⚠️ **Deux réserves à regarder** : l'**Oracle** est très pâle et se détache mal, et l'**Assassin**
+et le **Nécromancien** sont tous deux sombres — ils passent le test des 24 unités, mais de
+justesse à l'œil.
 
 ### La sauvegarde et le compte The Circle (fait le 10 août 2026, §4.28)
 

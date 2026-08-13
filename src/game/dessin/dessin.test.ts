@@ -16,7 +16,11 @@ import {
 import { Toile } from "./pinceau";
 import { avancementDe, type Geste } from "./four";
 import { GESTES, posture, villageois } from "./villageois";
+import { PALIERS, familleDeHero, hero, palierDeRang, posture as postureHero } from "./heros";
+import { VARIANTES, varianteDe } from "./sol";
+import { rebaser } from "./palette";
 import { C } from "../ui/couleurs";
+import { CLASSES, ORDRE_CLASSES, ORDRE_RANGS } from "../../core/classes";
 
 describe("Palette — l'arithmetique", () => {
   it("melange sans deborder de ses bornes", () => {
@@ -233,3 +237,148 @@ describe("Villageois — un geste est un angle", () => {
 function suite(geste: Geste, lire: (avancement: number) => number): number[] {
   return Array.from({ length: geste.frames }, (_, i) => lire(avancementDe(geste, i)));
 }
+
+describe("Les couleurs de classe, rebasees dans le monde", () => {
+  it("garde les sept distinctes les unes des autres", () => {
+    // Elles n'ont qu'un travail : faire reconnaitre qui est qui a petite taille.
+    // Deux classes qu'on confond, c'est un heros qu'on croit mort.
+    const teintes = ORDRE_CLASSES.map((id) => ({ id, corps: rebaser(CLASSES[id].couleur).corps }));
+    teintes.forEach((a, i) => {
+      for (const b of teintes.slice(i + 1)) {
+        expect(ecart(a.corps, b.corps), `${a.id} / ${b.id}`).toBeGreaterThan(24);
+      }
+    });
+  });
+
+  it("ne confond aucune classe avec une matiere du monde", () => {
+    // ⚠️ Le cas qui a impose la mesure : a 0,55 de desaturation, l'Assassin
+    // tombait sur la tunique du villageois. Un heros qu'on prend pour un
+    // habitant, la nuit, c'est un heros qu'on laisse mourir.
+    for (const id of ORDRE_CLASSES) {
+      const teinte = rebaser(CLASSES[id].couleur).corps;
+      for (const { nom, matiere } of MATIERES) {
+        expect(ecart(teinte, matiere.corps), `${id} / ${nom}`).toBeGreaterThan(24);
+      }
+    }
+  });
+
+  it("assombrit et desature, sans jamais eclaircir", () => {
+    for (const id of ORDRE_CLASSES) {
+      const brut = CLASSES[id].couleur;
+      expect(clarte(rebaser(brut).corps), id).toBeLessThan(clarte(brut));
+    }
+  });
+});
+
+describe("Les heros — un palier tous les deux rangs", () => {
+  it("range les neuf rangs en cinq paliers, deux par deux", () => {
+    const paliers = ORDRE_RANGS.map(palierDeRang);
+    expect(paliers).toEqual([0, 0, 1, 1, 2, 2, 3, 3, 4]);
+    expect(Math.max(...paliers)).toBe(PALIERS - 1);
+  });
+
+  it("donne au SSR un palier que personne d'autre n'atteint", () => {
+    // Le rang le plus rare a la seule chose que l'argent n'achete pas ici :
+    // une allure. Et c'est ce qui justifie de lui reserver le laiton (§4.10).
+    const seuls = ORDRE_RANGS.filter((r) => palierDeRang(r) === PALIERS - 1);
+    expect(seuls).toEqual(["SSR"]);
+  });
+
+  it("donne a chaque classe une famille de texture par palier", () => {
+    const cles = new Set<string>();
+    for (const classe of ORDRE_CLASSES) {
+      for (let p = 0; p < PALIERS; p += 1) cles.add(familleDeHero(classe, p));
+    }
+    expect(cles.size).toBe(ORDRE_CLASSES.length * PALIERS);
+  });
+
+  it("porte les sept gestes que poses.ts attend d'une famille animee", () => {
+    // Sans les sept, un heros dessine en code ne peut pas remplacer un PNG :
+    // `declencher` et `animer` joueraient des cles qui n'existent pas.
+    const attendus = ["repos", "marche", "attaque", "charge", "incantation", "touche", "mort"];
+    for (const classe of ORDRE_CLASSES) {
+      const cles = hero(classe, 0).gestes.map((g) => g.cle);
+      expect(cles, classe).toEqual(attendus);
+    }
+  });
+
+  it("frappe vers l'avant, et le coup est le point le plus avance", () => {
+    const attaque = hero("guerrier", 0).gestes.find((g) => g.cle === "attaque")!;
+    const bras = suite(attaque, (a) => postureHero("attaque", a).brasAvant);
+    expect(Math.min(...bras), "il n'arme jamais").toBeLessThan(-1.4);
+    expect(bras[bras.length - 1]).toBe(Math.max(...bras));
+  });
+
+  it("garde l'arme en main meme en marchant", () => {
+    // ⚠️ C'est l'inverse du villageois, dont l'outil n'est en main qu'au travail.
+    // Un heros desarme qui traverse la place ne se distingue plus d'un habitant.
+    expect(postureHero("marche", 0.3).outil).toBe(true);
+    expect(postureHero("repos", 0.3).outil).toBe(true);
+  });
+
+  it("tient dans son carreau, pour les sept classes et les cinq paliers", () => {
+    // 7 classes x 5 paliers x 7 gestes : c'est exactement la ou un dessin
+    // parametrique casse, et jamais a la compilation.
+    for (const classe of ORDRE_CLASSES) {
+      for (let palier = 0; palier < PALIERS; palier += 1) {
+        const modele = hero(classe, palier);
+        const toile = new Toile(modele.taille, modele.taille);
+        for (const geste of modele.gestes) {
+          for (let i = 0; i < geste.frames; i += 1) {
+            toile.effacer();
+            modele.dessiner(toile, geste.cle, avancementDe(geste, i));
+            toile.contour();
+            expect(
+              toile.pixelsDuBord(),
+              `${classe} p${palier} ${geste.cle} ${i}`,
+            ).toBe(0);
+          }
+        }
+      }
+    }
+  });
+});
+
+describe("Le sol", () => {
+  it("choisit toujours la meme variante pour la meme case", () => {
+    // ⚠️ Determine, jamais aleatoire : sinon le terrain change a chaque
+    // rechargement de sauvegarde et deux captures ne se comparent plus.
+    expect(varianteDe(12, 40)).toBe(varianteDe(12, 40));
+    expect(varianteDe(-3, -9)).toBe(varianteDe(-3, -9));
+  });
+
+  it("ne rend jamais d'index hors des variantes, meme en negatif", () => {
+    // En JavaScript `^` rend un entier **signe**, et `banque[-3]` vaut
+    // `undefined` : c'est le bug qui a fait planter la fiche au bloc 5.
+    for (let c = -50; c < 50; c += 1) {
+      for (let l = -50; l < 50; l += 7) {
+        const v = varianteDe(c, l);
+        expect(v).toBeGreaterThanOrEqual(0);
+        expect(v).toBeLessThan(VARIANTES);
+      }
+    }
+  });
+
+  it("repartit les variantes au lieu d'en privilegier une", () => {
+    // Un melangeur qui rend trois fois la meme valeur redonne le damier qu'on
+    // vient de supprimer.
+    const compte = new Array<number>(VARIANTES).fill(0);
+    for (let c = 0; c < 60; c += 1) {
+      for (let l = 0; l < 60; l += 1) compte[varianteDe(c, l)]! += 1;
+    }
+    for (const n of compte) expect(n).toBeGreaterThan((60 * 60) / VARIANTES / 2);
+  });
+
+  it("ne repete pas la meme variante sur deux cases voisines partout", () => {
+    // C'est le defaut d'origine : un damier se voit meme avec quatre carreaux si
+    // le choix suit une regularite. On compte les voisins identiques.
+    let identiques = 0;
+    for (let c = 0; c < 40; c += 1) {
+      for (let l = 0; l < 40; l += 1) {
+        if (varianteDe(c, l) === varianteDe(c + 1, l)) identiques += 1;
+      }
+    }
+    // Au hasard pur on attendrait un quart. On refuse au-dela de la moitie.
+    expect(identiques).toBeLessThan(40 * 40 * 0.5);
+  });
+});

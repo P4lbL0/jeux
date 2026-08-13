@@ -508,10 +508,12 @@ Une planche de propositions a servi de test, et elle a fait remonter trois défa
       les villageois — ce sont les mêmes gens — ne s'applique pas à eux, et l'appliquer quand
       même coûterait la seule chose qui compte la nuit : savoir en une image qui est des nôtres
       (§4.30, §4.11)
-- [ ] **Le sol reste-t-il vert, ou passe-t-il en cendre ?** Un village d'os et de sang sur une
-      prairie éclatante, ça jure — mais un monde entièrement gris est déprimant à jouer
-      longtemps. **À trancher sur image, et les deux sont dessinés** : la planche du socle est
-      coupée en deux, mêmes sprites de part et d'autre.
+- [x] ✅ **Le sol reste vert** (13 août 2026), tranché sur la planche du socle où les deux étaient
+      dessinés côte à côte. ⚠️ Mais le même coup d'œil a trouvé autre chose : *« ça se répète de
+      fou furieux »*. Un seul carreau de 32 px répété fait un damier — il faut **plusieurs
+      variantes choisies par la position de la case**, et des touffes rares. Et **tout doit
+      pouvoir être détruit** : cratères et terres brûlées sont des **états de case**, pas des
+      décalques (§4.30, §4.21, §4.24)
 - [ ] **Combien de temps met un arbre à repousser**, et combien de bois donne un arbre ? De ces
       deux chiffres dépend tout l'équilibre du bois.
 - [ ] **De combien la maison de fermier fait-elle baisser le stress**, et est-ce qu'elle agit

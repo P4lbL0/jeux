@@ -210,6 +210,32 @@ export const SOL_CENDRE = matiere(desaturer(melanger(C.os, C.fer, 0.68), 0.5));
  */
 export const CONTOUR = C.fer;
 
+/**
+ * Ramene une couleur de classe dans le monde (§4.30, §4.11).
+ *
+ * ⚠️ **Les sept couleurs de classe ne sont pas dans les neuf**, et les deux
+ * regles se contredisaient : le §4.11 les garde « sur le sprite et sur le sprite
+ * seulement », le §4.30 dit « les neuf, et aucune autre ». Le bleu du Chevalier
+ * et le violet du Mage sont des couleurs d'interface WorldBox — posees a cote du
+ * villageois, elles hurlent.
+ *
+ * **Ce qu'on garde d'une couleur de classe, c'est sa teinte**, et rien d'autre :
+ * c'est le seul travail qu'on lui demande, reconnaitre qui est qui a petite
+ * taille. On lui donne ensuite la **matiere du monde** — desaturee, assombrie,
+ * ramenee dans la fourchette des neuf. Un Mage reste violet, d'un violet qui a
+ * vecu ici.
+ *
+ * ⚠️ Le correctif, si deux classes se confondent, est d'**ecarter les teintes**
+ * — jamais de remonter la saturation.
+ */
+export function rebaser(couleurDeClasse: number): Matiere {
+  // Mesure : a 0,55 de desaturation, l'Assassin tombait sur la tunique du
+  // villageois et le Necromancien sur l'ardoise — un heros qu'on prend pour un
+  // habitant, la nuit, c'est un heros qu'on laisse mourir. A 0,40 / 0,18, les
+  // sept sont separees les unes des autres **et** des treize matieres.
+  return matiere(melanger(desaturer(couleurDeClasse, 0.4), C.fer, 0.18));
+}
+
 /** Palit une matiere : l'usure, un malade, un mort (§4.23). `part` de 0 a 1. */
 export function palir(m: Matiere, part: number): Matiere {
   return matiere(desaturer(melanger(m.corps, C.os, 0.3 * part), 0.55 * part));
