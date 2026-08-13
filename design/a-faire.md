@@ -70,3 +70,4 @@ un trait genre qui fait que la personne aime pas le noir ou n'aime pas le jour
 
 pouvoir renomer le village 
 
+Shift At Midnight pour les gens qui arrive a la porte pouvoir avoir une carte d'identiter regarder si ya des chose qui vont pas ect ect (on rajoute aussi  qu'un humain puisse etre un monstre avec par exemple le fait qui parle d'un village qui est tomber (il faut se souvenir ))

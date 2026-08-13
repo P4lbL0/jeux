@@ -765,6 +765,32 @@ sont intacts), aucun monstre, aucun bâtiment, et le sol n'est pas posé dans l'
 et le **Nécromancien** sont tous deux sombres — ils passent le test des 24 unités, mais de
 justesse à l'œil.
 
+#### La terre brûlée et le cratère, refaits trois fois
+
+*« Je trouve ça TRÈS moche »*, et c'était juste. Les trois essais, parce que la progression dit
+mieux que le résultat ce qu'il faut retenir :
+
+1. **Ardoise + 22 % de pixels bruités** → du gris **bleu** — la matière d'un toit — semé de
+   points clairs. Ça ne faisait pas de la cendre, ça faisait de la **neige sur du métal**. Deux
+   fautes : une matière froide pour ce qui a brûlé, et une densité d'éclat calibrée pour de
+   l'herbe claire alors que sur du sombre l'œil compte chaque pixel clair.
+2. **Des disques de suie et des entailles droites** → des **pois** et des **brindilles**.
+3. **Du bruit à deux échelles**, mais pris **par blocs** (`floor(x / 6)`) → des carrés à bords
+   francs, c'est-à-dire du **camouflage numérique**. Une matière n'a pas d'arêtes droites.
+
+**Ce qui marche** : un bruit **interpolé** entre ses points de grille, adouci en S, sur trois
+échelles — le gros dessine les zones, le fin casse leurs bords. Plus un détail **rare** (un
+moignon calciné une case sur trois) : c'est lui, et non la couleur, qui fait lire « ça a brûlé »
+plutôt que « c'est sombre ».
+
+> ⚠️ **La vraie leçon** : je dessinais des **objets** là où il fallait une **matière**. Une
+> surface de terre n'est pas faite de choses posées dessus.
+>
+> ⚠️ **Et le cratère reste incomplet, il faut le dire.** Ce qui fait lire un trou, c'est la
+> **crête claire au bord de la zone** — donc un carreau qui sait qu'il est en bordure, donc qui
+> connaît ses voisins, donc le sol écrit dans la grille : **c'est l'étage 4**. Ce carreau-ci
+> n'est que le remplissage, et il est fait pour ne pas jurer quand le rebord arrivera.
+
 ### La sauvegarde et le compte The Circle (fait le 10 août 2026, §4.28)
 
 **Rafraîchir la page n'est plus une nouvelle partie.** La sauvegarde vit dans le

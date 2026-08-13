@@ -1,14 +1,7 @@
 import type Phaser from "phaser";
 import { Toile } from "./pinceau";
-import {
-  ARDOISE,
-  BOIS,
-  FEUILLE,
-  PIERRE,
-  SOL_VERT,
-  melanger,
-  type Matiere,
-} from "./palette";
+import { BOIS, FEUILLE, PIERRE, SOL_VERT, melanger, type Matiere } from "./palette";
+import { C } from "../ui/couleurs";
 
 /**
  * Le sol, dessine par le code (DESIGN.md §4.30, §4.21).
@@ -104,37 +97,46 @@ export function cuireLesSols(scene: Phaser.Scene): number {
   return compte;
 }
 
-/** La matiere de chaque etat, et ce qu'on seme dessus. */
-const MATIERE: Record<EtatDuSol, Matiere> = {
-  herbe: SOL_VERT,
-  // La terre battue : de l'herbe qui a perdu sa vie, tiree vers le bois.
-  terre: { ...SOL_VERT },
-  brule: ARDOISE,
-  cratere: PIERRE,
-};
-
 export function peindreCarreau(toile: Toile, etat: EtatDuSol, variante: number): void {
-  const sol = etat === "terre" ? terreBattue() : MATIERE[etat];
+  const sol = matiereDe(etat);
   toile.rect(0, 0, CARREAU, CARREAU, sol.corps);
-
-  // Le grain de fond : il ne suffit pas a casser la repetition, mais sans lui un
-  // aplat de 32 px se lit comme un defaut d'affichage.
-  semer(toile, sol, variante);
 
   switch (etat) {
     case "herbe":
-      // Les touffes : une case sur sept en porte, les autres non.
+      semer(toile, sol, variante, 9);
+      // Les touffes : une case sur deux en porte, les autres non.
       if (variante % 2 === 0) peindreTouffes(toile, variante);
       break;
-    case "brule":
-      peindreCendres(toile, variante);
-      break;
-    case "cratere":
-      peindreCratere(toile, variante);
-      break;
     case "terre":
+      semer(toile, sol, variante, 9);
       peindreOrnieres(toile, variante);
       break;
+    case "brule":
+      // ⚠️ Une terre brulee est une **matiere**, pas un assemblage d'objets. Deux
+      // essais l'ont ratee en dessinant des taches de suie rondes : ca donnait
+      // des pois. Ce qu'il faut est un marbrage — des zones sombres irregulieres
+      // qui se fondent — et un ecart clair **rare**, sinon la cendre fait de la
+      // neige.
+      marbrer(toile, sol, variante, 0.42, 0.88);
+      if (variante % 3 === 0) peindreSouche(toile, variante);
+      break;
+    case "cratere":
+      marbrer(toile, sol, variante + 11, 0.44, 0.86);
+      peindreGravats(toile, sol, variante);
+      break;
+  }
+}
+
+function matiereDe(etat: EtatDuSol): Matiere {
+  switch (etat) {
+    case "herbe":
+      return SOL_VERT;
+    case "terre":
+      return terreBattue();
+    case "brule":
+      return terreBrulee();
+    case "cratere":
+      return terreRetournee();
   }
 }
 
@@ -148,13 +150,45 @@ function terreBattue(): Matiere {
   };
 }
 
-function semer(toile: Toile, sol: Matiere, variante: number): void {
+/**
+ * La terre brulee.
+ *
+ * ⚠️ **Elle descend de la terre, pas de l'ardoise.** Le premier jet la peignait
+ * en ardoise — un gris **bleu**, la matiere d'un toit — et le resultat ne
+ * ressemblait a rien : du metal froid pose au milieu d'un pre. Ce qui brule
+ * noircit **en restant chaud**, et surtout ca reste du **sol** : ca doit pouvoir
+ * toucher de l'herbe sans qu'on voie une decoupe.
+ */
+function terreBrulee(): Matiere {
+  const base = terreBattue();
+  const corps = melanger(base.corps, C.fer, 0.62);
+  return {
+    sombre: melanger(corps, C.fer, 0.55),
+    corps,
+    // La cendre est le seul eclat, et elle est grise : c'est ce qui separe une
+    // terre brulee d'une terre simplement sombre.
+    clair: melanger(corps, PIERRE.clair, 0.42),
+  };
+}
+
+/** La terre retournee d'un cratere : plus sombre et plus froide que la battue. */
+function terreRetournee(): Matiere {
+  const base = terreBattue();
+  const corps = melanger(base.corps, C.fer, 0.42);
+  return {
+    sombre: melanger(corps, C.fer, 0.6),
+    corps,
+    clair: melanger(corps, PIERRE.clair, 0.28),
+  };
+}
+
+function semer(toile: Toile, sol: Matiere, variante: number, rarete: number): void {
   // Le decalage par variante est ce qui fait que quatre carreaux voisins ne
   // montrent pas le meme grain : sans lui, quatre textures identiques.
   const sel = variante * 37;
   for (let y = 0; y < CARREAU; y += 1) {
     for (let x = 0; x < CARREAU; x += 1) {
-      const g = (x * 7 + y * 13 + ((x * y) % 11) + sel) % 9;
+      const g = (x * 7 + y * 13 + ((x * y) % 11) + sel) % rarete;
       if (g === 0) toile.point(x, y, sol.sombre);
       else if (g === 4) toile.point(x, y, sol.clair);
     }
@@ -186,36 +220,126 @@ function peindreOrnieres(toile: Toile, variante: number): void {
   toile.rect(0, y + 9, CARREAU, 1, melanger(BOIS.sombre, SOL_VERT.sombre, 0.5));
 }
 
-function peindreCendres(toile: Toile, variante: number): void {
-  // Ce qui reste debout apres un incendie : des moignons noirs, rares.
-  const places = [
-    [9, 18],
-    [21, 24],
-    [15, 9],
-    [26, 14],
-  ] as const;
-  const place = places[variante % places.length]!;
-  const [x, y] = place;
-  toile.segment(x, y, x, y - 4, 1.4, ARDOISE.sombre);
-  toile.point(x + 1, y - 4, ARDOISE.corps);
+/**
+ * Un bruit fixe, de 0 a 1. Il ne depend que de ses entrees.
+ *
+ * `Math.imul` et le `>>> 0` **avant** la division : la meme discipline que
+ * `varianteDe`, et pour la meme raison.
+ */
+function bruit(x: number, y: number, sel: number): number {
+  let h = Math.imul(x + sel * 131, 0x27d4eb2d) ^ Math.imul(y + sel * 57, 0x165667b1);
+  h = Math.imul(h ^ (h >>> 15), 0x2545f491);
+  return ((h ^ (h >>> 13)) >>> 0) / 4294967296;
 }
 
-function peindreCratere(toile: Toile, variante: number): void {
-  // Un cratere se lit par son **bord clair et son fond sombre**, pas par sa
-  // couleur : c'est le meme principe que le mur du §4.30, crete claire et pied
-  // sombre. Sans ce contraste, il n'a pas de creux.
-  const cx = 16 + ((variante % 2) * 2 - 1) * 2;
-  const cy = 16 + ((variante > 1 ? 1 : -1) * 2);
-  const rayon = 11;
-
+/**
+ * Le marbrage : deux echelles de bruit, et **aucun objet**.
+ *
+ * ⚠️ **C'est la lecon de deux essais rates.** La terre brulee a d'abord ete
+ * peinte en disques de suie — elle a donne des pois — puis le cratere en
+ * entailles droites — il a donne des brindilles. Une surface de terre n'est pas
+ * faite d'objets poses dessus : c'est une **matiere**, et une matiere se fabrique
+ * avec du bruit a plusieurs echelles. Le gros dessine les zones, le fin casse
+ * leurs bords pour qu'aucune ne paraisse decoupee.
+ *
+ * @param plancher en dessous, le pixel passe en sombre.
+ * @param plafond au-dessus, il passe en clair. **Le tenir haut** : sur du sombre,
+ *        l'oeil compte chaque pixel clair, et a 20 % ca fait de la neige.
+ */
+function marbrer(
+  toile: Toile,
+  sol: Matiere,
+  variante: number,
+  plancher: number,
+  plafond: number,
+): void {
   for (let y = 0; y < CARREAU; y += 1) {
     for (let x = 0; x < CARREAU; x += 1) {
-      const d = Math.hypot(x - cx, y - cy) / rayon;
-      if (d > 1) continue;
-      // Le bord accroche la lumiere, le fond la perd.
-      if (d > 0.82) toile.point(x, y, PIERRE.clair);
-      else if (d > 0.55) toile.point(x, y, PIERRE.corps);
-      else toile.point(x, y, melanger(PIERRE.sombre, ARDOISE.sombre, 0.6));
+      const gros = bruitLisse(x, y, 7, variante * 3 + 1);
+      const moyen = bruitLisse(x, y, 3, variante * 5 + 2);
+      const fin = bruit(x, y, variante * 7 + 3);
+      const v = gros * 0.58 + moyen * 0.3 + fin * 0.12;
+      if (v < plancher) toile.point(x, y, sol.sombre);
+      else if (v > plafond) toile.point(x, y, sol.clair);
     }
+  }
+}
+
+/**
+ * Le meme bruit, **interpole** entre ses points de grille.
+ *
+ * ⚠️ **C'est le troisieme essai de la terre brulee, et le defaut etait la.**
+ * Prendre le bruit par blocs (`bruit(floor(x/6), ...)`) donne des **carres a
+ * bords francs** : le resultat ne ressemblait plus a de la terre mais a du
+ * **camouflage numerique**. Une matiere n'a pas d'aretes droites. On interpole
+ * donc entre les quatre coins, avec un adoucissement aux extremites — sans lui,
+ * les diagonales de la grille restent visibles.
+ */
+function bruitLisse(x: number, y: number, echelle: number, sel: number): number {
+  const fx = x / echelle;
+  const fy = y / echelle;
+  const x0 = Math.floor(fx);
+  const y0 = Math.floor(fy);
+  const tx = adoucir(fx - x0);
+  const ty = adoucir(fy - y0);
+
+  const haut = melangeLineaire(bruit(x0, y0, sel), bruit(x0 + 1, y0, sel), tx);
+  const bas = melangeLineaire(bruit(x0, y0 + 1, sel), bruit(x0 + 1, y0 + 1, sel), tx);
+  return melangeLineaire(haut, bas, ty);
+}
+
+/** La courbe en S qui efface les aretes de la grille du bruit. */
+function adoucir(t: number): number {
+  return t * t * (3 - 2 * t);
+}
+
+function melangeLineaire(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+/**
+ * Ce qui est reste debout apres le feu.
+ *
+ * **Une case sur trois seulement**, et c'est le point : un moignon sur chaque
+ * carreau redonne un motif, donc un damier. C'est ce detail rare, et non la
+ * couleur, qui fait lire « ca a brule » plutot que « c'est sombre ».
+ */
+function peindreSouche(toile: Toile, variante: number): void {
+  const sol = terreBrulee();
+  const x = 8 + bruit(7, 3, variante) * (CARREAU - 16);
+  const y = 14 + bruit(3, 7, variante) * (CARREAU - 20);
+  const haut = 4 + bruit(1, 1, variante) * 3;
+
+  toile.segment(x, y, x + 1, y - haut, 1.6, C.fer);
+  // Une branche, pour que ce ne soit pas un piquet.
+  toile.segment(x + 1, y - haut, x + 3, y - haut - 1.5, 1, C.fer);
+  // Le cote eclaire du tronc : sans lui, c'est une rayure.
+  toile.point(x - 1, y - haut + 1, sol.clair);
+}
+
+/**
+ * Les gravats d'un cratere : de la terre retournee, et rien de plus.
+ *
+ * ⚠️ **Une case ne montre pas un cratere entier.** Le premier jet dessinait un
+ * disque complet et centre dans les 32 px : quatre cases cote a cote donnaient
+ * quatre rondelles alignees, et c'est exactement ce que ca avait l'air d'etre. Un
+ * impact de meteore est **plus grand qu'un carreau**.
+ *
+ * ⚠️ **Et le rebord ne peut pas se dessiner ici.** Ce qui fait lire un trou,
+ * c'est la crete claire **au bord de la zone** — donc un carreau qui sait qu'il
+ * est en bordure. Ca demande de connaitre les cases voisines, c'est-a-dire que le
+ * sol soit ecrit dans la grille : **c'est l'etage 4**. Ce carreau-ci n'est que le
+ * remplissage, et il est fait pour ne pas jurer une fois le rebord ajoute.
+ */
+function peindreGravats(toile: Toile, sol: Matiere, variante: number): void {
+  // Des mottes, pas des entailles : elles accrochent la lumiere en haut a gauche
+  // et portent leur ombre en bas a droite, comme tout le reste du jeu.
+  for (let i = 0; i < 5; i += 1) {
+    const x = 3 + bruit(i + 20, 1, variante) * (CARREAU - 6);
+    const y = 3 + bruit(1, i + 20, variante) * (CARREAU - 6);
+    const rayon = 1 + bruit(i, 13, variante) * 1.2;
+    toile.disque(x, y, rayon, sol.corps);
+    toile.point(x - rayon * 0.8, y - rayon * 0.8, sol.clair);
+    toile.point(x + rayon * 0.8, y + rayon * 0.8, sol.sombre);
   }
 }

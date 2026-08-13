@@ -4,7 +4,7 @@ import { POLICE, T as TONS } from "./game/ui/chrome";
 import { C } from "./game/ui/couleurs";
 import { ORDRE_CLASSES, ORDRE_RANGS, CLASSES } from "./core/classes";
 import { cuire } from "./game/dessin/four";
-import { CARREAU, VARIANTES, cleDuSol, cuireLesSols, varianteDe } from "./game/dessin/sol";
+import { CARREAU, cleDuSol, cuireLesSols, varianteDe } from "./game/dessin/sol";
 import { PALIERS, hero, palierDeRang } from "./game/dessin/heros";
 import { villageois } from "./game/dessin/villageois";
 
@@ -19,7 +19,7 @@ import { villageois } from "./game/dessin/villageois";
  */
 
 const LARGEUR = 1320;
-const HAUTEUR = 1000;
+const HAUTEUR = 1060;
 const MARGE = 24;
 
 class Planche extends Phaser.Scene {
@@ -29,7 +29,7 @@ class Planche extends Phaser.Scene {
     this.peindreLesPaliers(MARGE, 118);
     this.peindreLesClasses(MARGE, 424);
     this.peindreLesEtatsDuSol(MARGE, 700);
-    this.peindreLeVillageois(MARGE, 862);
+    this.peindreLeVillageois(MARGE, 940);
   }
 
   /**
@@ -136,14 +136,19 @@ class Planche extends Phaser.Scene {
     );
 
     const etats = ["herbe", "terre", "brule", "cratere"] as const;
+    // ⚠️ **En plaques, pas en echantillons.** Quatre carreaux isoles ne disent
+    // rien : c'est cote a cote qu'on voit si un cratere se lit comme un trou ou
+    // comme quatre rondelles alignees — le defaut trouve le 13 aout.
     etats.forEach((etat, i) => {
-      const x = x0 + i * 300;
+      const x = x0 + i * 316;
       this.etiquette(x, y0, etat, 12);
-      for (let v = 0; v < VARIANTES; v += 1) {
-        this.add
-          .image(x + v * 66, y0 + 18, cleDuSol(etat, v))
-          .setOrigin(0)
-          .setScale(2);
+      for (let l = 0; l < 3; l += 1) {
+        for (let c = 0; c < 4; c += 1) {
+          this.add
+            .image(x + c * 64, y0 + 18 + l * 64, cleDuSol(etat, varianteDe(c + i * 7, l)))
+            .setOrigin(0)
+            .setScale(2);
+        }
       }
     });
   }
