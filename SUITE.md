@@ -791,6 +791,59 @@ plutôt que « c'est sombre ».
 > connaît ses voisins, donc le sol écrit dans la grille : **c'est l'étage 4**. Ce carreau-ci
 > n'est que le remplissage, et il est fait pour ne pas jurer quand le rebord arrivera.
 
+### Le bloc 7z, étage 3 — les bâtiments entrent dans le jeu (fait le 13 août 2026)
+
+**C'est le premier étage qui se voit en jouant.** Les deux précédents ne vivaient que dans la
+planche ; celui-ci remplace ce que l'arène affiche.
+
+- **Le troisième dessin de mur : l'angle.** La planche du 11 août le demandait en toutes lettres
+  (« en est-ouest, en nord-sud et **en angle** »), le §4.30 ne l'avait pas enregistré. Il
+  emprunte sa largeur à l'est-ouest et sa hauteur au nord-sud : c'est ce qui fait que les trois
+  carreaux se raccordent une fois **centrés sur leur case**. La face part vers l'est, le pilier
+  monte ; les deux autres coins sont le **miroir horizontal**, qui ne déplace pas la lumière.
+- **Le branchement.** Les 9 maisons PNG, l'église et `mur.png` sont remplacés par les textures
+  cuites. La palissade que le joueur bâtit aussi (`CONSTRUCTIONS.palissade.texture`) — un test
+  la compare à `cleMur("est-ouest", "bois")` pour que les deux fichiers ne dérivent pas.
+- **La pose collée en haut à gauche de l'emprise** (règle de pose du §4.30, pas règle de
+  dessin) : une maison occupe 2 × 2 cases et n'en remplit qu'un coin. C'est elle qui fait que
+  deux voisines ne se touchent jamais.
+- **Le disque de terre battue et le texte « LE VILLAGE » ont disparu.** Le disque était peint
+  dans la carte cuite : il ne pouvait ni s'user, ni brûler, ni suivre un village qui déménage
+  (§4.29). La place reviendra comme **état de case**, à l'étage 4.
+- **`src/game/dessin/mer.ts`** — la houle en un `TileSprite` qu'on fait glisser, et l'écume en
+  **une vague par bande de 32 px** le long du rivage, chacune démarrée à un autre moment de son
+  cycle. En phase, les quarante-sept vagues battraient ensemble et la côte entière clignoterait.
+  ⚠️ Par-dessus la carte, jamais dedans : deux millions de pixels cuits ne s'animent pas.
+
+**446 tests verts, aucune erreur console.**
+
+| Trouvé par | Le défaut |
+|---|---|
+| **L'image** | **La palissade se lisait comme une file de caisses.** Elle était posée à trente angles réguliers sur un cercle : chaque carreau tombait **entre** les cases et se décalait de quelques pixels. Un mur large d'une case ne se raccorde à son voisin que s'il est **dans** la case — elle est désormais tracée sur la grille, et chaque carreau choisit son dessin d'après **ses voisins** et non d'après sa position |
+| Le code | `poserEmprise` prend toutes les cases que le rectangle **touche** : une emprise de 64 posée sur une frontière de case en marquait **neuf** au lieu de quatre. Les maisons posent case par case |
+
+**Ce qui a été vérifié en jouant** (`captures/7z-village-1.png`, `-2.png`, `7z-mer-1.png` et
+`-2.png`) : les maisons, la ferme, l'église et la palissade sont bien les textures cuites, le
+mur ouest fait une ligne continue, les brèches des fronts restent ouvertes, et l'écume bouge
+d'une capture à l'autre.
+
+⚠️ **Le piège de Playwright, et il coûte une heure si on ne le sait pas** : en headless, la
+fenêtre n'a jamais le focus, Phaser émet `BLUR` et l'arène **se met en pause** (§4.17). Rien ne
+bouge, le héros ne marche pas, la mer est figée — et on cherche un bug qui n'existe pas. Il faut
+réveiller le jeu : `window.dispatchEvent(new Event("focus"))`.
+
+⚠️ **Ce que l'étage 3 n'a PAS** : les personnages sont **toujours les PNG** (héros, villageois,
+monstres), le sol de l'arène est toujours celui d'`art.ts` — le damier vert se voit sur les
+captures —, les ronds de poste sont toujours là, et l'emprise de l'église reste à **48 px** dans
+`core/carte.ts` alors qu'elle est dessinée sur 64 : la passer à 64 élargirait le rayon d'entrée
+de l'église, et c'est une règle de jeu, pas un chiffre d'affichage.
+
+⚠️ **Deux réserves à regarder sur image** : au niveau 1, **l'église ne domine pas** — son toit
+monte moins haut que celui d'une maison, alors que le §4.22 lui demande l'inverse (la
+silhouette ne prend le dessus qu'en montant le clocher, donc à partir du niveau 2) ; et la
+**houle est très discrète** sur la mer d'origine, qui est bien plus saturée que la palette du
+monde.
+
 ### La sauvegarde et le compte The Circle (fait le 10 août 2026, §4.28)
 
 **Rafraîchir la page n'est plus une nouvelle partie.** La sauvegarde vit dans le

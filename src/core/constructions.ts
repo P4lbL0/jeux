@@ -42,7 +42,11 @@ export const CONSTRUCTIONS: Record<TypeConstruction, ConstructionDef> = {
   palissade: {
     id: "palissade",
     nom: "Palissade",
-    texture: "mur",
+    // ⚠️ **La cle est celle que `dessin/batiments.ts` cuit au demarrage**, plus
+    // celle du PNG : le §4.30 refait les murs en code. Elle est ecrite en clair
+    // et non importee — `core/` ne remonte jamais vers `game/` — et un test la
+    // compare a `cleMur("est-ouest", "bois")` pour que les deux ne derivent pas.
+    texture: "bati-mur-est-ouest-bois",
     cout: { bois: 12 },
     pvMax: 120,
     occupable: false,

@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { CLASSES, ORDRE_CLASSES } from "../core/classes";
-import { ligneDEau, MONDE, terrainEn, VILLAGE, type Terrain } from "../core/carte";
+import { ligneDEau, MONDE, terrainEn, type Terrain } from "../core/carte";
 
 /**
  * Textures placeholder generees par code.
@@ -559,7 +559,11 @@ function creerCarte(scene: Phaser.Scene): void {
   }
 
   peindreEcume(ctx);
-  peindreVillage(ctx);
+  // ⚠️ **Plus de disque de terre battue sous le village.** Il etait peint ici,
+  // donc il ne pouvait ni s'user, ni bruler, ni suivre un village qui demenage
+  // (§4.29). La place et les chemins reviendront comme **etats de case**, ecrits
+  // dans la grille — c'est ce que le §4.30 debloque, et ca appartient a l'etage
+  // du terrain, pas a la cuisson de la carte.
   texture.refresh();
 }
 
@@ -578,36 +582,6 @@ function planchesDeSol(scene: Phaser.Scene): Partial<Record<Terrain, PlancheSol>
     planches[sol] = scene.textures.get(cle).getSourceImage() as PlancheSol;
   }
   return planches;
-}
-
-/**
- * Le sol du village : de la terre battue, avec une place plus claire au centre.
- *
- * Cuit dans la meme texture que le terrain — c'est un sol, pas un objet, et il
- * ne bougera jamais.
- */
-function peindreVillage(ctx: CanvasRenderingContext2D): void {
-  const terres = [0x8b7b60, 0x94856c, 0x7f7057, 0x9c8d73];
-  const debutX = Math.floor((VILLAGE.x - VILLAGE.rayon) / TUILE) * TUILE;
-  const debutY = Math.floor((VILLAGE.y - VILLAGE.rayon) / TUILE) * TUILE;
-
-  for (let py = debutY; py < VILLAGE.y + VILLAGE.rayon; py += TUILE) {
-    for (let px = debutX; px < VILLAGE.x + VILLAGE.rayon; px += TUILE) {
-      const d = Math.hypot(px + TUILE / 2 - VILLAGE.x, py + TUILE / 2 - VILLAGE.y);
-      if (d > VILLAGE.rayon) continue;
-
-      const de = grain(px, py, 13);
-      // Le bord s'effrite : quelques tuiles manquantes evitent le disque parfait.
-      if (d > VILLAGE.rayon - TUILE * 1.5 && de > 0.55) continue;
-
-      ctx.fillStyle = hex(terres[Math.floor(de * terres.length)]!);
-      ctx.fillRect(px, py, TUILE, TUILE);
-      if (de > 0.88) {
-        ctx.fillStyle = "#6f6350";
-        ctx.fillRect(px + 2, py + 3, 3, 2);
-      }
-    }
-  }
 }
 
 /**

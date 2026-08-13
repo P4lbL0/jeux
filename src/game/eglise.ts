@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { EGLISE } from "../core/carte";
 import { Eglise, PALIERS, type NiveauEglise } from "../core/eglise";
+import { cleEglise } from "./dessin/batiments";
 
 /**
  * L'eglise a l'ecran (DESIGN.md §4.22).
@@ -53,7 +54,7 @@ export class BatimentEglise {
     // masquer un monstre qui arrive.
     this.halo = scene.add.graphics().setDepth(-500);
 
-    this.sprite = scene.physics.add.staticImage(EGLISE.x, EGLISE.y, "eglise-1");
+    this.sprite = scene.physics.add.staticImage(EGLISE.x, EGLISE.y, cleEglise(1));
     this.redessiner();
   }
 
@@ -153,7 +154,7 @@ export class BatimentEglise {
     const aTerre = !this.regles.fonctionne;
     // Une ruine reste la chapelle basse, assombrie : on doit reconnaitre le
     // batiment qu'on a perdu.
-    this.sprite.setTexture(aTerre ? "eglise-1" : `eglise-${this.regles.niveau}`);
+    this.sprite.setTexture(cleEglise(aTerre ? 1 : this.regles.niveau));
     // L'origine suit la hauteur du sprite pour que le pied reste au meme
     // endroit quand elle grandit : sinon elle semblerait s'enfoncer dans le sol.
     this.sprite.setOrigin(0.5, 1 - (EGLISE.emprise * 0.3) / this.sprite.height);

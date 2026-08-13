@@ -97,6 +97,35 @@ export function debout(usure: number): Attitude {
   };
 }
 
+/**
+ * La quinte de toux — **et elle appartient a tout le monde** (§4.23).
+ *
+ * ⚠️ Elle a d'abord ete ecrite chez le villageois seul, et c'etait une erreur de
+ * lecture du design : le §4.23 donne les maladies et les etats aux **personnes**,
+ * pas aux habitants. `core/personne.ts` porte deja les deux populations sous un
+ * seul systeme depuis le bloc 5 — un heros attrape la fievre exactement comme un
+ * civil, et il n'y avait aucune raison qu'il ne tousse pas.
+ *
+ * Il plie vite et se redresse lentement. L'inverse ferait un salut.
+ */
+export function tousser(repos: Attitude, avancement: number): Attitude {
+  const spasme = Math.sin(Math.min(1, avancement * 1.2) * Math.PI);
+  return borner({
+    ...repos,
+    // Bornee sous DOS_MAXIMUM pour un corps neuf : une quinte qui tape le
+    // plafond du pliage se lit comme une simple inclinaison, elle ne monte plus.
+    // Un corps deja voute, lui, y touche — et c'est juste, on ne se plie pas
+    // deux fois.
+    buste: repos.buste + spasme * 0.34,
+    tete: repos.tete + spasme * 0.3,
+    // La main devant la bouche : sans elle, il s'incline, il ne tousse pas.
+    brasAvant: repos.brasAvant - spasme * 1.75,
+    brasArriere: repos.brasArriere - spasme * 0.3,
+    jambeAvant: 0.1,
+    jambeArriere: -0.1,
+  });
+}
+
 /** Ce qu'on a sur la tete : c'est ce qui dit qui on est, a petite taille. */
 export type Coiffe =
   /** Bord plat : le villageois, et lui seul. */

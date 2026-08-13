@@ -58,8 +58,10 @@ import {
 } from "../core/ordres";
 import { Affinites } from "../core/affinites";
 import {
+  AMPLITUDE,
   EGLISE,
   frontsDeLaVague,
+  ligneDEau,
   MONDE,
   NOMS_FRONT,
   PORT,
@@ -67,6 +69,7 @@ import {
   PRATICABLE,
   pointDApparition,
   repartition,
+  TERRAIN,
   terrainEn,
   VILLAGE,
   type Front,
@@ -151,6 +154,17 @@ import {
 import type { Emplacement, Sauvegarde } from "../core/sauvegarde";
 import { effacer as effacerCloud, envoyer } from "../en-ligne/sauvegardeCloud";
 import { enregistrerPartie } from "../en-ligne/parties";
+import {
+  CLE_FERME,
+  EMPRISE_MAISON,
+  MAISON,
+  VARIANTES_MAISON,
+  cleMaison,
+  cleMur,
+  cuireLesBatiments,
+  type SensMur,
+} from "../game/dessin/batiments";
+import { poserLaMer, type MerAnimee } from "../game/dessin/mer";
 import type { EtatEquipe } from "../game/hud";
 import type { EtatOrdres } from "../game/panneauOrdres";
 import type { GroupeAffiche } from "../game/fichePersonne";
@@ -245,16 +259,6 @@ export interface EtatVillage {
  * de la carte ne detourne plus personne des postes de travail.
  */
 const RAYON_DE_VUE = 340;
-
-/**
- * Ce qu'une maison occupe **au sol**, en pixels (DESIGN.md §4.24).
- *
- * Le sprite fait 48 px de haut, mais l'essentiel est du toit : le terrain
- * reellement pris tient sur une case. Prendre la hauteur du sprite ferait
- * remonter l'emprise d'une case vers le nord, et la regle des trois cases
- * repousserait les murs sans qu'on comprenne pourquoi.
- */
-const EMPRISE_MAISON = 32;
 
 /**
  * Les seules touches qui restent vivantes sous la pause du mode d'amenagement.
@@ -514,6 +518,8 @@ export class ArenaScene extends Phaser.Scene {
   private enConstruction: ModeBati | null = null;
   /** L'apercu fantome, cree une fois et deplace : jamais recree (§4.17) */
   private fantome!: Phaser.GameObjects.Image;
+  /** La houle et l'ecume, posees sur la carte cuite (§4.30) */
+  private mer!: MerAnimee;
   /** La tour dans laquelle se tient le heros incarne, s'il y en a une */
   private tourDuHero: Construction | null = null;
 
@@ -1019,7 +1025,7 @@ export class ArenaScene extends Phaser.Scene {
     });
 
     this.fantome = this.add
-      .image(0, 0, "mur")
+      .image(0, 0, CONSTRUCTIONS.palissade.texture)
       .setAlpha(0.55)
       .setVisible(false)
       .setDepth(880);
@@ -1114,9 +1120,24 @@ export class ArenaScene extends Phaser.Scene {
    * cours de partie (§4.17).
    */
   private construireDecor(): void {
+    // Les batiments dessines par le code (§4.30). Cuits une fois, avant qu'on
+    // en pose un seul : `add.image` sur une cle inconnue donne un carre vert.
+    cuireLesBatiments(this);
+
     // Tout le sol tient dans une seule image, cuite au demarrage : la mer
     // etagee, le littoral qui serpente, la plage, la foret et la roche.
     this.add.image(0, 0, "carte").setOrigin(0).setDepth(-1000);
+
+    // ⚠️ **L'eau bouge par-dessus, jamais dedans.** La carte est une seule
+    // texture de deux millions de pixels : rien ne peut y etre anime. La mer et
+    // le sable d'origine sont gardes pour leur couleur, cette couche n'ajoute
+    // que le mouvement (§4.30).
+    this.mer = poserLaMer(
+      this,
+      MONDE,
+      Math.floor(TERRAIN.mer - AMPLITUDE.cote),
+      ligneDEau,
+    );
 
     this.semerLeDecor();
     this.construireVillage();
@@ -1199,47 +1220,127 @@ export class ArenaScene extends Phaser.Scene {
   private construireVillage(): void {
     const rng = new Rng(20260808);
 
-    // La palissade, ouverte au nord et a l'est : c'est par la que ca arrive,
-    // et une enceinte fermee ferait mentir la carte.
-    for (let i = 0; i < 30; i++) {
-      const a = (i / 30) * Math.PI * 2;
+    this.dresserLaPalissade();
+    this.poserLesMaisons(rng);
+
+    // ⚠️ **Plus de texte « LE VILLAGE » qui flotte, et plus de disque de terre
+    // battue** (§4.24, §4.30) : on reconnait un lieu a ce qu'il y a dessus. Le
+    // sol de place et les chemins sont des **etats de case** — ils reviendront
+    // ecrits dans la grille, pas peints dans la carte.
+  }
+
+  /**
+   * La palissade, ouverte au nord et a l'est : c'est par la que ca arrive, et
+   * une enceinte fermee ferait mentir la carte.
+   *
+   * ⚠️ **Chaque carreau choisit son dessin selon la direction du mur** (§4.30) :
+   * un mur qui court vers l'horizon montre son arete, pas sa face, et la ou il
+   * tourne c'est un angle qu'il faut. Poser partout le meme bloc, c'est
+   * exactement ce que le §4.30 refuse — et ca se voyait.
+   */
+  private dresserLaPalissade(): void {
+    // ⚠️ **Sur la grille, et pas sur le cercle.** Les carreaux etaient poses a
+    // trente angles reguliers : ils tombaient entre les cases, se decalaient de
+    // quelques pixels a chaque pas, et l'enceinte se lisait comme une file de
+    // caisses au lieu d'un rempart. Un mur large d'une case ne se raccorde a son
+    // voisin que si les deux sont **dans** la case (§4.30).
+    const anneau = new Set<string>();
+    const tours = 240;
+    for (let i = 0; i < tours; i++) {
+      const a = (i / tours) * Math.PI * 2;
+      // Les fronts restent ouverts : c'est par la que ca arrive, et une enceinte
+      // fermee ferait mentir la carte. Une case sur trois y reste debout, pour
+      // que la breche se lise comme une ruine et non comme un bord de dessin.
       const versLesFronts = Math.cos(a) > 0.55 || Math.sin(a) < -0.55;
-      if (versLesFronts && i % 3 !== 0) continue;
-      const x = CITE.x + Math.cos(a) * CITE.rayon;
-      const y = CITE.y + Math.sin(a) * CITE.rayon;
-      this.add.image(x, y, "mur").setDepth(y - 4);
+      const colonne = Math.floor((CITE.x + Math.cos(a) * CITE.rayon) / CASE);
+      const ligne = Math.floor((CITE.y + Math.sin(a) * CITE.rayon) / CASE);
+      if (versLesFronts && (colonne + ligne) % 3 !== 0) continue;
+      anneau.add(`${colonne},${ligne}`);
     }
 
-    // Les maisons, en couronne autour de la place centrale. Elles sont posees
-    // une fois pour toutes : le village en ruine et sa restauration arrivent
-    // au jalon 7.
-    const maisons = ["maison-bleue", "maison-rouge", "maison-jaune"];
+    for (const cle of anneau) {
+      const [colonne, ligne] = cle.split(",").map(Number) as [number, number];
+      // Le sens d'un carreau se lit sur **ses voisins**, jamais sur sa position :
+      // c'est la seule lecture qui reste juste quand l'enceinte n'est plus un
+      // cercle — et elle ne le sera plus des que le joueur y touchera (§4.24).
+      const est = anneau.has(`${colonne + 1},${ligne}`);
+      const ouest = anneau.has(`${colonne - 1},${ligne}`);
+      const vertical =
+        anneau.has(`${colonne},${ligne - 1}`) || anneau.has(`${colonne},${ligne + 1}`);
+      const sens: SensMur = (est || ouest) && vertical ? "angle" : est || ouest ? "est-ouest" : "nord-sud";
+
+      const centre = Grille.centreCase(colonne, ligne);
+      this.add
+        .image(centre.x, centre.y, cleMur(sens, "bois"))
+        // La face d'un angle part vers l'est ; quand le mur continue a l'ouest,
+        // c'est le miroir qu'il faut. Il ne deplace pas la lumiere.
+        .setFlipX(sens === "angle" && !est)
+        .setDepth(centre.y - 4);
+    }
+  }
+
+  /**
+   * Les maisons, en couronne autour de la place centrale. Elles sont posees une
+   * fois pour toutes : le village en ruine et sa restauration arrivent au
+   * jalon 7.
+   *
+   * ⚠️ **Une maison se cale contre le coin haut-gauche de son emprise de 2 x 2
+   * et laisse le reste en jardin** (§4.30, planche du 11 aout). C'est une regle
+   * de **pose**, pas de dessin : c'est elle qui fait que deux voisines ne se
+   * touchent jamais et que le village respire. Centrees dans leur emprise, elles
+   * donneraient une rangee reguliere, c'est-a-dire un lotissement.
+   */
+  private poserLesMaisons(rng: Rng): void {
+    const cotes = EMPRISE_MAISON / CASE;
+    const prises = new Set<string>();
+    const casesDe = (colonne: number, ligne: number) => {
+      const cles: string[] = [];
+      for (let dl = 0; dl < cotes; dl++) {
+        for (let dc = 0; dc < cotes; dc++) cles.push(`${colonne + dc},${ligne + dl}`);
+      }
+      return cles;
+    };
+
     for (let i = 0; i < 9; i++) {
       const a = (i / 9) * Math.PI * 2 + 0.4;
       const rayon = CITE.rayon * rng.range(0.55, 0.78);
-      const x = CITE.x + Math.cos(a) * rayon;
-      const y = CITE.y + Math.sin(a) * rayon;
-      // Taille native, comme le reste du decor : trois toits de couleurs
-      // differentes suffisent a ce qu'aucune maison ne soit la copie de sa
-      // voisine, et une maison mise a l'echelle perdrait sa nettete.
-      const sprite = this.add.image(x, y, rng.pick(maisons)).setDepth(y);
+      // L'emprise tombe dans la grille : deux cases sur deux, jamais a cheval.
+      const colonne = Math.floor((CITE.x + Math.cos(a) * rayon) / CASE);
+      const ligne = Math.floor((CITE.y + Math.sin(a) * rayon) / CASE);
+      const cles = casesDe(colonne, ligne);
+      // Deux tirages voisins peuvent se chevaucher : on perd la maison plutot
+      // que d'en empiler deux au meme endroit.
+      if (cles.some((c) => prises.has(c))) continue;
+      for (const c of cles) prises.add(c);
+
+      const gauche = colonne * CASE;
+      const haut = ligne * CASE;
+      // La ferme remplace une maison ordinaire (§4.30). Une seule : c'est le
+      // premier batiment qui agit sur le moral, il ne doit pas etre la norme.
+      const texture = i === 4 ? CLE_FERME : cleMaison(i % VARIANTES_MAISON);
+      this.add
+        .image(gauche, haut, texture)
+        .setOrigin(0)
+        // La profondeur suit le **pied** du batiment, pas son ancre : un
+        // habitant qui passe devant doit passer devant.
+        .setDepth(haut + MAISON.hauteur);
+
       // Elles entrent dans la grille en `maison` et non en `batiment` : leur
       // case est prise, mais elles n'imposent **aucune distance**. Mesure en
       // jouant : neuf maisons en couronne, chacune avec trois cases interdites
       // autour, repoussaient la palissade a 256 px du centre contre 82 px avant
       // (§4.24). Seule leur emprise au sol compte — un toit qui monte haut
       // n'occupe pas le terrain sous lui.
-      this.grille.poserEmprise(x, y, sprite.width, EMPRISE_MAISON, "maison");
+      //
+      // ⚠️ Case par case, et **pas** `poserEmprise` : celui-ci prend toutes les
+      // cases que le rectangle **touche**, donc une emprise de 64 posee sur une
+      // frontiere de case en marque neuf au lieu de quatre.
+      for (let dl = 0; dl < cotes; dl++) {
+        for (let dc = 0; dc < cotes; dc++) {
+          this.grille.poser(gauche + dc * CASE + CASE / 2, haut + dl * CASE + CASE / 2, "maison");
+        }
+      }
     }
-
-    this.add
-      .text(CITE.x, CITE.y - CITE.rayon - 18, "LE VILLAGE", {
-        fontFamily: POLICE,
-        fontSize: "12px",
-        color: "#f2e9d8",
-      })
-      .setOrigin(0.5)
-      .setDepth(-930);
   }
 
   /**
@@ -1546,6 +1647,10 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
     if (this.enPause) return;
+
+    // Un reglage de propriete, pas un redessin : c'est tout ce que coute la mer
+    // qui bouge (§4.17 regle 3).
+    this.mer.deriver(delta);
 
     this.majEtats(delta);
     this.majAffinites();

@@ -18,9 +18,11 @@ import { avancementDe, type Geste } from "./four";
 import { GESTES, posture, villageois } from "./villageois";
 import { PALIERS, familleDeHero, hero, palierDeRang, posture as postureHero } from "./heros";
 import { VARIANTES, varianteDe } from "./sol";
+import { MUR, SENS_MUR, cleMur, peindreMur, type SensMur } from "./batiments";
 import { rebaser } from "./palette";
 import { C } from "../ui/couleurs";
 import { CLASSES, ORDRE_CLASSES, ORDRE_RANGS } from "../../core/classes";
+import { CONSTRUCTIONS } from "../../core/constructions";
 
 describe("Palette — l'arithmetique", () => {
   it("melange sans deborder de ses bornes", () => {
@@ -295,7 +297,19 @@ describe("Les heros — un palier tous les deux rangs", () => {
   it("porte les sept gestes que poses.ts attend d'une famille animee", () => {
     // Sans les sept, un heros dessine en code ne peut pas remplacer un PNG :
     // `declencher` et `animer` joueraient des cles qui n'existent pas.
-    const attendus = ["repos", "marche", "attaque", "charge", "incantation", "touche", "mort"];
+    // ⚠️ `toux` en plus des sept : le §4.23 donne les maladies aux **personnes**,
+    // pas aux habitants. Un heros qui attrape la fievre et ne le montre jamais
+    // rendrait le systeme invisible sur la moitie du village.
+    const attendus = [
+      "repos",
+      "marche",
+      "attaque",
+      "charge",
+      "incantation",
+      "touche",
+      "mort",
+      "toux",
+    ];
     for (const classe of ORDRE_CLASSES) {
       const cles = hero(classe, 0).gestes.map((g) => g.cle);
       expect(cles, classe).toEqual(attendus);
@@ -307,6 +321,21 @@ describe("Les heros — un palier tous les deux rangs", () => {
     const bras = suite(attaque, (a) => postureHero("attaque", a).brasAvant);
     expect(Math.min(...bras), "il n'arme jamais").toBeLessThan(-1.4);
     expect(bras[bras.length - 1]).toBe(Math.max(...bras));
+  });
+
+  it("lache son arme pour tousser, et seulement pour ca", () => {
+    // Les deux mains sont prises, l'une devant la bouche.
+    expect(postureHero("toux", 0.4).outil).toBe(false);
+    expect(postureHero("attaque", 0.4).outil).toBe(true);
+  });
+
+  it("tousse exactement comme un villageois", () => {
+    // Le geste vit dans `corps.ts` : si les deux divergeaient, le passage
+    // villageois -> heros du bloc 9 se verrait a l'oeil.
+    for (const t of [0, 0.33, 0.66, 1]) {
+      expect(postureHero("toux", t).buste).toBeCloseTo(posture("toux", t, 0).buste);
+      expect(postureHero("toux", t).brasAvant).toBeCloseTo(posture("toux", t, 0).brasAvant);
+    }
   });
 
   it("garde l'arme en main meme en marchant", () => {
@@ -336,6 +365,61 @@ describe("Les heros — un palier tous les deux rangs", () => {
         }
       }
     }
+  });
+});
+
+describe("Les murs — trois dessins, et ils doivent se raccorder", () => {
+  /** La premiere ligne opaque d'une colonne : le haut du mur a cet endroit. */
+  function hautDuMur(toile: Toile, colonne: number): number {
+    const lignes = toile.rendu().split("\n");
+    return lignes.findIndex((ligne) => ligne[colonne] === "#" || ligne[colonne] === "X");
+  }
+
+  /** La premiere colonne opaque d'une ligne : le flanc gauche du mur. */
+  function flancGauche(toile: Toile, ligne: number): number {
+    const rendu = toile.rendu().split("\n")[ligne]!;
+    return [...rendu].findIndex((c) => c === "#" || c === "X");
+  }
+
+  function peindre(sens: SensMur): Toile {
+    const toile = new Toile(MUR[sens].largeur, MUR[sens].hauteur);
+    peindreMur(toile, sens, "pierre");
+    return toile;
+  }
+
+  it("dessine les trois sens, et aucun n'est le meme bloc tourne", () => {
+    const rendus = SENS_MUR.map((sens) => peindre(sens).rendu());
+    expect(new Set(rendus).size).toBe(SENS_MUR.length);
+  });
+
+  it("pose la face de l'angle sur la meme ligne que celle de l'est-ouest", () => {
+    // ⚠️ Les deux carreaux n'ont pas la meme hauteur : ce qui doit coincider,
+    // c'est la crete **une fois chacun centre sur sa case**. Sans cette mesure,
+    // un coin decroche d'un ou deux pixels et ca ne se voit qu'en jouant.
+    const angle = peindre("angle");
+    const estOuest = peindre("est-ouest");
+    const colonne = MUR.angle.largeur - 3;
+
+    expect(hautDuMur(angle, colonne) - MUR.angle.hauteur / 2).toBe(
+      hautDuMur(estOuest, colonne) - MUR["est-ouest"].hauteur / 2,
+    );
+  });
+
+  it("centre le pilier de l'angle comme un carreau nord-sud", () => {
+    const angle = peindre("angle");
+    const nordSud = peindre("nord-sud");
+    // Une ligne prise au milieu du pilier, sous la crete des deux carreaux.
+    const ligne = Math.floor(MUR.angle.hauteur / 2);
+
+    expect(flancGauche(angle, ligne) - MUR.angle.largeur / 2).toBe(
+      flancGauche(nordSud, ligne) - MUR["nord-sud"].largeur / 2,
+    );
+  });
+
+  it("garde la palissade du joueur sur la texture que la cuisson produit", () => {
+    // Les deux vivent dans deux fichiers qui ne se connaissent pas : sans cette
+    // mesure, renommer une cle laisse une palissade invisible en jeu.
+    expect(CONSTRUCTIONS.palissade.texture).toBe(cleMur("est-ouest", "bois"));
   });
 });
 

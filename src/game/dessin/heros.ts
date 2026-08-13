@@ -7,6 +7,7 @@ import {
   borner,
   debout,
   peindreCorps,
+  tousser,
   type Apparence,
   type Attitude,
 } from "./corps";
@@ -91,6 +92,12 @@ export function gestesDeHero(classe: ClassId): readonly Geste[] {
     { cle: "incantation", frames: 6, cadence: 18, boucle: false, evenement: "sort", frameCle: 4 },
     { cle: "touche", frames: 3, cadence: 18, boucle: false },
     { cle: "mort", frames: 6, cadence: 9, boucle: false, evenement: "chute", frameCle: 5 },
+    // ⚠️ **Un heros tousse aussi.** Le §4.23 donne les maladies aux *personnes*,
+    // pas aux habitants : `core/personne.ts` porte les deux populations sous un
+    // seul systeme depuis le bloc 5. Un heros qui attrape la fievre et ne le
+    // montre jamais rendrait le systeme invisible sur la moitie du village —
+    // exactement ce que le §4.30 reproche a la fiche.
+    { cle: "toux", frames: 4, cadence: 6, boucle: false, evenement: "toux", frameCle: 1 },
   ];
 }
 
@@ -187,6 +194,10 @@ export function posture(geste: string, avancement: number, usure = 0): Attitude 
         outil: true,
       });
     }
+
+    case "toux":
+      // Sans arme : il a les deux mains prises, l'une devant la bouche.
+      return { ...tousser(repos, avancement), outil: false };
 
     case "mort": {
       // Il s'affaisse. La chute a le droit de faire ce que les autres n'ont pas

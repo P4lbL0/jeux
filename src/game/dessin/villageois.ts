@@ -6,6 +6,7 @@ import {
   borner,
   debout,
   peindreCorps,
+  tousser,
   type Apparence,
   type Attitude,
 } from "./corps";
@@ -100,24 +101,9 @@ export function posture(geste: string, avancement: number, usure: number): Attit
       });
     }
 
-    case "toux": {
-      // Il se plie vite, il se redresse lentement. L'inverse ferait un salut.
-      const spasme = Math.sin(Math.min(1, avancement * 1.2) * Math.PI);
-      return borner({
-        ...repos,
-        // Bornee sous DOS_MAXIMUM pour un corps neuf : une quinte qui tape le
-        // plafond du pliage se lit comme une simple inclinaison, elle ne monte
-        // plus. Un villageois deja voute, lui, y touche — et c'est juste, on ne
-        // se plie pas deux fois.
-        buste: dos + spasme * 0.34,
-        tete: repos.tete + spasme * 0.3,
-        // La main devant la bouche : sans elle, il s'incline, il ne tousse pas.
-        brasAvant: repos.brasAvant - spasme * 1.75,
-        brasArriere: repos.brasArriere - spasme * 0.3,
-        jambeAvant: 0.1,
-        jambeArriere: -0.1,
-      });
-    }
+    case "toux":
+      // Elle vit dans `corps.ts` : un heros tousse exactement pareil (§4.23).
+      return tousser(repos, avancement);
 
     default:
       // La respiration : un pixel, et lentement. A 32 px, trois pixels
