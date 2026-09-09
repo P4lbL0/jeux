@@ -23,15 +23,18 @@ const MINUTE = 60_000;
  *
  * Le §5 de DESIGN.md le dit : le bloc 2 du jalon 5 porte tout le risque du
  * jalon, et la question "30 minutes de jour et 15 de nuit, est-ce le bon
- * chiffre ?" ne se tranche qu'en jouant. Elle doit donc se re-regler sans lire
+ * chiffre ?" a ete tranchee le 9 septembre 2026 : c'etait non. On est passe a
+ * 10 + 5, parce qu'aucun chiffre du jeu — stress, eglise, port, arrivees —
+ * n'avait jamais pu etre mesure faute d'une partie assez longue pour en voir
+ * l'effet. Le reste se re-regle ici aussi. Elle doit donc se re-regler sans lire
  * une ligne de code — d'ou cette table, et d'ou le fait que rien ailleurs
  * n'ecrive une duree en dur.
  */
 export const REGLAGES_CYCLE = {
   /** Duree d'un jour, en millisecondes */
-  jour: 30 * MINUTE,
+  jour: 10 * MINUTE,
   /** Duree d'une nuit, en millisecondes */
-  nuit: 15 * MINUTE,
+  nuit: 5 * MINUTE,
 
   /**
    * Monstres de la premiere nuit, puis ce que chaque nuit ajoute.
@@ -71,9 +74,15 @@ export const REGLAGES_CYCLE = {
    */
   plafondEcran: 60,
 
-  /** Ecart entre deux hordes de jour, en millisecondes (tire entre les deux) */
-  hordeMin: 6 * MINUTE,
-  hordeMax: 12 * MINUTE,
+  /**
+   * Ecart entre deux hordes de jour, en millisecondes (tire entre les deux).
+   *
+   * Cale sur la duree du jour : il en faut deux a cinq par journee, sinon le
+   * jour redevient le temps mort que le §4.19 refuse. Valait 6-12 minutes quand
+   * le jour en durait 30 ; il en dure 10 depuis le 9 septembre 2026.
+   */
+  hordeMin: 2 * MINUTE,
+  hordeMax: 4 * MINUTE,
 
   /** Monstres de la premiere horde de jour, puis ce que chaque jour ajoute */
   hordePremierJour: 5,

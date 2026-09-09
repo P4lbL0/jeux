@@ -62,12 +62,25 @@ Une règle a été **annulée et réécrite** au passage, pas laissée en place 
 
 ---
 
-## Nouvelles notes (pas encore dépouillées)
+## Dépouillé le 9 septembre 2026 — les trois dernières notes
 
-<!-- écris en dessous -->
+| La note | Où elle vit maintenant |
+|---|---|
+| Un trait « n'aime pas le noir » / « n'aime pas le jour » | **§4.23** — deux traits opposés, *Peur du noir* et *Enfant de la nuit*, qui agissent sur le stress et sur le refus de sortir |
+| Pouvoir renommer le village | **§4.24** et **§4.10** — à l'installation, et depuis la fiche du village |
+| La carte d'identité à la porte, et un humain qui est un monstre parlant d'un village tombé | **§4.6** — des papiers à recouper avec la mémoire du village (§4.26) ; un imposteur démasqué attaque immédiatement |
+
+### Le texte d'origine, tel quel
 
 un trait genre qui fait que la personne aime pas le noir ou n'aime pas le jour
 
 pouvoir renomer le village 
 
 Shift At Midnight pour les gens qui arrive a la porte pouvoir avoir une carte d'identiter regarder si ya des chose qui vont pas ect ect (on rajoute aussi  qu'un humain puisse etre un monstre avec par exemple le fait qui parle d'un village qui est tomber (il faut se souvenir ))
+
+---
+
+## Nouvelles notes (pas encore dépouillées)
+
+<!-- écris en dessous -->
+

@@ -1,58 +1,243 @@
 # §6 Questions ouvertes
 
+## Le grand depouillage du 9 septembre 2026
+
+> **Toutes les questions ouvertes du projet ont ete tranchees ce jour**, en une seule passe, a
+> la demande d'Angelos : « plus AUCUNE question, ne plus devoir faire des allers-retours ».
+> Ce qui suit fait foi et **annule** toute valeur contraire ecrite ailleurs dans le design.
+> Les chiffres marques *(tranche par le code)* n'ont pas ete soumis : ce sont des valeurs
+> defendables posees pour ne plus rien laisser en suspens — elles se corrigent en jouant.
+
+### Le squelette d'une partie
+
+- **Le §4.29 devient le mode principal, et le seul.** Toute partie commence par un heros seul
+  qui erre et tombe sur un village deja peuple. L'ancien demarrage (village fixe, sept heros)
+  **disparait**. C'est ce qui fait du jalon 5.5 le plus gros chantier restant.
+- **On voit d'un village ce qui se voit de loin** : le terrain, sa taille, les defenses encore
+  debout, les habitants dehors. **Jamais** les maladies, le stress, ni les reserves. Le choix
+  est un pari eclaire, pas un calcul.
+- **Le premier village arrive vite** — deux a trois minutes de marche. **Refuser coute** : le
+  suivant est deux fois plus loin, et ainsi de suite.
+- **Le budget du monde s'annonce en une phrase** avant d'entrer : « un village riche, bien
+  defendu — et la foret grouille ». On echange du confort contre du danger, en le sachant.
+- **Une journee fait 10 minutes de jour et 5 de nuit** (contre 30 + 15). C'est la decision qui
+  debloque tout le reste : aucun chiffre du jeu n'avait jamais ete mesure faute de parties
+  assez longues. **Annule le §4.19.**
+
+### Les heros
+
+- **On ne devient pas heros : on nait avec un don.** Un homme sans don peut s'entrainer dix ans
+  sans jamais transcender. L'entrainement **developpe** un don, il ne le cree pas. **Annule
+  toute formulation ou un veteran devient heros a l'usure.**
+- **Un habitant sur dix porte un don**, et personne ne le sait au depart.
+- **Un don se reveille par trois voies a la fois** : le **danger de mort** (gratuit, au hasard,
+  et c'est la voie noble — les heros naissent des pires moments de la partie), l'**entrainement**
+  au centre d'apprentissage, et un **rituel a l'eglise** (sur, cher).
+- **Un don sur vingt est majeur** — soit un habitant sur deux cents : quelqu'un qui nait en
+  maitrisant deja une magie de rang tres haut. Le jeu l'annonce comme une naissance
+  exceptionnelle. C'est l'evenement d'une partie.
+- **Niveau maximum : +10 par rang.** F 10, E 20, D 30, C 40, B 50, A 60, S 70, et SR comme SSR
+  plafonnent a 80 *(tranche par le code)*.
+- **Un heros bascule en antagoniste par le stress, jamais par les defaites** : trois ruptures
+  non soignees et il part. **Annule le comptage de defaites du §4.12.**
+- **Tomber, c'est mourir.** Il n'existe aucune penalite de defaite, parce qu'il n'existe aucun
+  relevement gratuit : seule une **Relique d'immortalite** (consommee) ou une capacite tres
+  rare ramene quelqu'un.
+- **Le mot « totem » est libere** : l'objet qui ramene un mort devient la **Relique
+  d'immortalite** ; le totem reste le piquet qu'on plante au combat (§4.7).
+- **La Relique coute un coeur de boss et beaucoup d'argent.** On ne peut pas la farmer : il
+  faut avoir tue un boss.
+- **Les materiaux sont des coeurs de bete, en trois qualites** : commun (monstres normaux),
+  rare (elites), de boss.
+- **Quatre competences actives au maximum**, le reste devient passif ou remplace une active
+  qu'on choisit.
+- **La double specialisation devient des voies, pas des classes.** Gardien, Chronomancien,
+  Ingenieur et Blood Knight sont des **branches** qu'un heros pousse en montant de rang ; la
+  fusion arrive quand deux branches sont allees assez loin. **Aucune classe nouvelle a
+  equilibrer.**
+
+### Le village et ses gens
+
+- **Il n'y a pas de plafond de population.** Au-dela de **65 habitants**, le village attire les
+  monstres : les attaques **debordent sur le jour** et ne s'arretent plus. Un seuil unique et
+  brutal, pas une pente. **Annule la limite dure du §4.17** — la protection de fluidite reste,
+  mais elle devient un plafond technique invisible *(tranche par le code : 120 habitants)*.
+- **L'entrainement demande un batiment** : une **cour d'entrainement** ou l'on voit les gens
+  s'exercer, avec un **instructeur** affecte. Un habitant en formation ne produit rien pendant
+  **deux journees** *(tranche par le code)*.
+- **Trois paliers de combattant, tres separes** : civil (30 PV, meurt du premier gros coup une
+  fois sur deux), milicien (60 PV, une fois sur cinq), veteran (100 PV, presque jamais). Un
+  civil arme est de la chair a canon, et c'est le sujet.
+- **Un enfant travaille au bout de cinq journees.**
+- **A trois fous, la folie s'emballe** : leur progression double et ils se couvrent
+  mutuellement, ce qui rend vols et sabotages plus durs a attribuer.
+- **Trois initiatives autonomes annoncees par nuit au maximum**, les plus graves d'abord. Le
+  reste se produit sans notification.
+- **Le journal affiche six lignes, et garde tout** : un historique complet de la partie est
+  consultable.
+- **Deux traits neufs, opposes** : *Peur du noir* (stress double la nuit, refuse de sortir
+  apres la tombee du jour sauf ordre) et *Enfant de la nuit* (l'exact inverse).
+- **Le Blasphemateur est rare et vraiment condamne** : il refuse l'eglise, donc une blessure
+  grave le tue. Frequence *(tranche par le code)* : une naissance sur vingt.
+- **L'Alcoolique boit tout seul** quand son stress depasse un seuil, la nuit, et on le
+  decouvre au matin : stress qui retombe fort, journee du lendemain gachee.
+- **Le stress reste tel quel** : c'est **se battre** qui use, pas veiller. La mesure du bloc 5
+  (5 a 8 points pour une nuit dehors) est donc le comportement voulu, pas un defaut.
+
+### La porte
+
+- **Les arrivants presentent des papiers**, a recouper avec ce que le village sait : villages
+  deja tombes, gens deja vus, dates impossibles. Ca branche la porte (§4.6) sur la memoire du
+  village (§4.26) — c'est le meilleur usage des deux.
+- **Un monstre peut se faire passer pour un humain**, et parler d'un village tombe qu'il a
+  lui-meme detruit.
+- **Un imposteur demasque attaque immediatement**, devant la porte.
+- **Une porte s'ouvre en 2 secondes, laisse passer une personne par seconde, et se referme en
+  2 secondes.** Rentrer poursuivi devient une vraie decision.
+
+### Les batiments et les defenses
+
+- **Les paliers de mur s'ecartent brutalement (×4)** : 120 PV en bois, 500 en fer, 2000 en
+  pierre — et le cout suit *(tranche par le code : 40 bois, puis 200 bois + 80 fer, puis 500
+  pierre par segment)*. Une fois la pierre atteinte, les monstres doivent passer par les portes.
+- **Chaque segment de mur s'ameliore separement**, comme dans Clash of Clans : c'est cher et ca
+  prend du temps.
+- **Un chantier occupe un batisseur**, et il y a autant de chantiers simultanes que d'habitants
+  affectes. Un gros village avance vite — c'est assume.
+- **Deux cases entre un mur et un batiment** au lieu de trois. **Annule la regle des trois
+  cases du §4.24**, mesuree trop lache au bloc 7a.
+- **L'eglise garde ses quatre niveaux et ses couts actuels** (120 bois / 6 habitants, 260 / 12,
+  500 / 20), a eprouver en jouant maintenant que les journees sont courtes.
+- **Les soins sont gratuits**, et leur **vitesse depend du niveau de l'eglise et du heros
+  soigneur qui y est affecte**. C'est un poste neuf : un heros de soutien peut servir le
+  village au lieu de sortir. Une eglise de niveau 4 avec une pretresse de haut rang soigne
+  plusieurs fois plus vite qu'une chapelle vide *(tranche par le code : ×1 sans soigneur,
+  jusqu'a ×4)*.
+- **Les defenses catastrophiques (§4.7) restent exceptionnelles** : rechargement de **trois
+  nuits** *(tranche par le code)*, et jamais un bouton « je gagne » — a ce stade les monstres
+  sont enormes.
+
+### Le monde et l'economie
+
+- **Un arbre donne 8 bois et repousse en 3 journees.** La foret recule visiblement autour d'un
+  village qui s'equipe, et revient si on la laisse.
+- **La maison de fermier fait baisser de 30 % le stress accumule de celui qui y dort** — le
+  logement, pas le lieu de travail. On la batit pour quelqu'un de precis.
+- **On s'enfonce dans l'eau, une bulle previent, et on se noie au bout de 3 secondes.** Jamais
+  une mort surprise.
+- **Le ble et le poisson restent deux nourritures**, avec des effets differents : le poisson
+  nourrit moins mais **fait baisser le stress** (un bon repas), le ble nourrit plus.
+- **Un navire tous les deux jours calmes**, et il se rarefie si le village saigne.
+- **Le cours des ressources garde son amplitude (×0,6 a ×1,6)**, mais **remonte deux fois plus
+  vite** : sur des journees de 15 minutes, un cours effondre qui traine est un cours mort.
+- **Les pillards se declenchent a la richesse**, pas a la date : plus le village prospere, plus
+  ils reviennent souvent.
+- **Un sauvetage de survivant sur trois est infaisable** (contre un sur deux) : au-dela, le
+  joueur cesse d'y aller, et un systeme qu'on ignore ne sert a rien.
+
+### Le combat
+
+- **L'etourdissement : 1,5 seconde, la resistance double a chaque repetition sur la meme
+  cible, et s'oublie en 10 secondes. Les boss n'en subissent jamais** — ils sont seulement
+  ralentis.
+- **Le hurlement d'un monstre : +10 de stress dans un large rayon, et les civils non entraines
+  lachent leur poste** et fuient vers l'eglise. C'est une arme economique avant d'etre une
+  arme de combat.
+- **Le Cri du Chevalier Sacre grandit avec les ameliorations** et **ralentit les ennemis** dans
+  sa zone. Paliers *(tranches par le code)* : rayon 90 / 150 / 220 px, -15 de stress aux
+  allies, -30 % de vitesse aux ennemis, recharge 60 s.
+
+### Les chiffres restants, tranches sans etre soumis
+
+Aucun de ceux-ci n'est bloquant, et tous se corrigent en jouant.
+
+| Question | Valeur retenue |
+|---|---|
+| Duree d'une rupture de stress | 2 minutes reelles, redescente a 75 % ensuite (inchange) |
+| Purge d'un etat a l'eglise | 20 s par lit, 3 lits au niveau 1, +2 par niveau |
+| Sequelles | 6 differentes, une chance sur trois a chaque sauvetage in extremis |
+| Seuil de relation pour une competence de groupe | 60 sur 100, gagne 2 par nuit ensemble, oublie 1 par jour separes |
+| Palier de fusion | Proposee a chaque passage de rang, refusable, reproposee au rang suivant |
+| L'Intelligence en chiffres | -1 % de materiaux et +1 % d'XP par point |
+| Le systeme de charges (competence *Reserve*) | Coupe — remplace par une recharge classique |
+| Bornes de zoom | ×0,75 a ×2 |
+| Chemins qui s'usent | Visibles a 30 passages, effaces en 4 journees sans passage |
+| Degats physiques / magiques | Une seule statistique de degats, comme demande |
+| Rage du Guerrier | Pourcentage de vie manquante (confirme) |
+| Trait de l'Assassin | Il n'est pas cible en priorite, et il porte un malus de PV maximum |
+| Corruption visible sur le sprite | Non — elle se lit sur la fiche et dans le comportement |
+| Cloche de rappel | Gratuite, mais 60 s de recharge |
+| Sous-titre de l'ecran-titre | « Ils ne tiendront pas la nuit sans toi » |
+| Renommer le village | Oui, a l'installation et depuis la fiche du village |
+| Geographie aleatoire | Par assemblage : une riviere descend toujours vers la mer, une foret pousse au pied d'un relief, un village s'installe pres d'une eau |
+| Contagion fongique | Rayon de contagion double, pour qu'elle se voie vraiment |
+| Plancher d'un survivant tous les cinq jours | Conserve |
+| Vitesse et distance d'un survivant | Il suit a 85 % de la vitesse du heros, se leve a 48 px |
+
+### Ce qui n'est pas une question, mais du contenu a ecrire
+
+Ces points ne se tranchent pas par choix : ils demandent d'ecrire du contenu, plus tard.
+
+- La liste complete des competences, leurs raretes, et l'ultime de chaque classe.
+- Les statistiques chiffrees et l'attaque automatique de chacune des quatre classes.
+- La liste complete des questions posables a la porte, et ce que chacune revele.
+- Les bienfaits du Druide, leurs chiffres, son ultime et son trait de classe (jalon 9).
+
+---
+
 > [← Sommaire du design](../DESIGN.md)
 
 ---
 
 À trancher plus tard, sans bloquer le code actuel :
 
-- [ ] **Combien de défaites avant que le héros bascule ?** 
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Combien de défaites avant que le héros bascule ?** 
 on vas revoir ce systeme plus tard 
-- [ ] **Que perd exactement le héros à chaque défaite ?** 
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Que perd exactement le héros à chaque défaite ?** 
 on vas voir plus tard 
-- [ ] **Que devient l'ancien héros une fois devenu antagoniste ?** 
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Que devient l'ancien héros une fois devenu antagoniste ?** 
 on vas voir plus tard 
-- [ ] La corruption se voit-elle sur le sprite du héros au fil des défaites ?
-- [ ] Quels **matériaux** existe-t-il, et sont-ils spécifiques au rang visé ?
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* La corruption se voit-elle sur le sprite du héros au fil des défaites ?
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Quels **matériaux** existe-t-il, et sont-ils spécifiques au rang visé ?
 des coeur de bete de plsu ou moins haut niv les bosse en font tomber plus et de plus haute qualiter 
-- [ ] Bornes de zoom minimum et maximum
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Bornes de zoom minimum et maximum
 pas compris 
-- [ ] **Y a-t-il des dégâts physiques et des dégâts magiques ?** 
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Y a-t-il des dégâts physiques et des dégâts magiques ?** 
 non une seule stat 
-- [ ] **Rage du guerrier** : +1% de vitesse d'attaque par *point de vie* manquant, ou par
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Rage du guerrier** : +1% de vitesse d'attaque par *point de vie* manquant, ou par
       *pourcentage* de vie manquante ? C'est actuellement le pourcentage (donc +100% au
       maximum) ; le premier deviendrait démesuré à mesure que la vie max monte.
       yes on garde le pourcentage 
-- [ ] **Trait de l'assassin** : « il ne se fait pas cibler en priorité si un tank est
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Trait de l'assassin** : « il ne se fait pas cibler en priorité si un tank est
       autour mais a moins de PV que la moyenne » — il a debuf de pv max 
-- [ ] Statistiques chiffrées et attaque automatique de chacune des 4 classes
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Statistiques chiffrées et attaque automatique de chacune des 4 classes
 on verra apres 
-- [ ] Niveau maximum de chaque rang au-delà du F (F = 10)
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Niveau maximum de chaque rang au-delà du F (F = 10)
 on fais x 2 
-- [ ] Liste des compétences et de leurs raretés
-- [ ] Ultime de chaque classe
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Liste des compétences et de leurs raretés
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Ultime de chaque classe
 - [x] Comment recrute-t-on un héros ? — **Tranché le 11 août 2026 : on ne le recrute pas.**
       Aucune des trois issues proposées. Le joueur commence **seul**, et tous les autres
       héros **sortent du village** — naissances, **centre d'apprentissage**, gens acceptés à
       la porte ou ramenés du bord de la carte. Ça annule le §4.1 et fait du **bloc 9** la
       seule source de héros du jeu (§4.29, §4.1, §4.18).
-- [ ] Coût du totem d'immortalité (sa consommation à l'usage est tranchée, §4.3)
-- [ ] Peut-on soigner un héros blessé rentré à l'église, et à quel prix ?
-- [ ] **Combien de niveaux a l'église, et que coûte chacun ?** Les quatre axes sont écrits
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Coût du totem d'immortalité (sa consommation à l'usage est tranchée, §4.3)
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Peut-on soigner un héros blessé rentré à l'église, et à quel prix ?
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Combien de niveaux a l'église, et que coûte chacun ?** Les quatre axes sont écrits
       (§4.22), leur découpage en paliers ne l'est pas.
-- [ ] **La liste des traits et des états** (§4.23), et ce que chacun décale exactement.
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **La liste des traits et des états** (§4.23), et ce que chacun décale exactement.
       Un trait ne doit jamais valoir plus qu'un seuil ou un délai.
-- [ ] Les **prix du port** : combien vaut le bois, le minerai, le poisson, et à quelle
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Les **prix du port** : combien vaut le bois, le minerai, le poisson, et à quelle
       fréquence un navire accoste (§4.18) ?
-- [ ] Combien de fous faut-il dans le village pour qu'ils **forment un groupe**, et que
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Combien de fous faut-il dans le village pour qu'ils **forment un groupe**, et que
       fait un groupe exactement (§4.18) ?
-- [ ] La **liste complète des questions** posables à la porte, et ce que chacune révèle.
-- [ ] À quelle vitesse la **jauge de stress** se remplit et se vide, et de combien le rang
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* La **liste complète des questions** posables à la porte, et ce que chacune révèle.
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* À quelle vitesse la **jauge de stress** se remplit et se vide, et de combien le rang
       la ralentit (§4.23). — *Calibré au bloc 5 pour six mauvaises nuits, table
       `REGLAGES_STRESS`. **Mesuré en jeu : une nuit dehors sans se faire toucher ne rend
       que 5 à 8 points**, donc ce sont les coups encaissés qui dominent. Reste à trancher
       sur une partie entière.*
-- [ ] Les **seuils de satisfaction** exigés par chaque niveau d'église (§4.22). — *40 / 55 /
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Les **seuils de satisfaction** exigés par chaque niveau d'église (§4.22). — *40 / 55 /
       70 sont en place et **branchés** depuis le bloc 5. Mesuré : un village calme, nourri
       et sans mort récent tourne autour de 50-51 dès le premier jour, donc le niveau 2 est
       atteignable. Les seuils 55 et 70 n'ont jamais été joués.*
@@ -60,34 +245,34 @@ on fais x 2
       jamais (§4.23) ? — **Réglé** : onze couches, plus de dix millions de combinaisons. La
       vraie contrainte n'était pas le nombre de pièces mais le nombre de **textures
       vivantes**, plafonné à 96.
-- [ ] Combien de temps dure une **rupture**, et le stress doit-il redescendre à 75 % après
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Combien de temps dure une **rupture**, et le stress doit-il redescendre à 75 % après
       (§4.23) ? Les deux valeurs en place — 2 minutes réelles et 75 % — sont des premiers
       jets posés au bloc 5.
-- [ ] Combien de temps l'église met à **purger un état**, et combien de lits il faut
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Combien de temps l'église met à **purger un état**, et combien de lits il faut
       (§4.22). 20 secondes par lit au bloc 5, jamais joué avec une file d'attente.
-- [ ] Un habitant qui défend l'église peut-il y mourir, ou seulement être blessé ?
-- [ ] **Combien vaut un habitant au combat** — PV, dégâts, portée, cadence — au rang F et
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Un habitant qui défend l'église peut-il y mourir, ou seulement être blessé ?
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Combien vaut un habitant au combat** — PV, dégâts, portée, cadence — au rang F et
       niveau 1, et de combien le rang les multiplie (§4.18) ? Les valeurs de départ posées
       au bloc 4 sont volontairement dérisoires, il faudra les régler en jouant.
-- [ ] Ce que coûte **l'entraînement** d'un habitant, et combien de temps il ne produit pas
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Ce que coûte **l'entraînement** d'un habitant, et combien de temps il ne produit pas
       pendant (§4.18).
-- [ ] Combien de **miliciens** avant qu'une milice change une nuit — et le seuil à partir
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Combien de **miliciens** avant qu'une milice change une nuit — et le seuil à partir
       duquel elle remplace le joueur au lieu de l'aider (§4.18).
-- [ ] À quelles conditions un habitant **devient héros**, et quelle classe il obtient
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* À quelles conditions un habitant **devient héros**, et quelle classe il obtient
       (§4.18, jalon 9).
-- [ ] Les **coûts des niveaux 2, 3 et 4 de l'église** en matériaux et en population, et les
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Les **coûts des niveaux 2, 3 et 4 de l'église** en matériaux et en population, et les
       seuils d'argent et de satisfaction qui viendront avec les blocs 5 et 6 (§4.22).
-- [ ] Les paliers d'amélioration du **mur** (bois → fer → pierre) : PV et coût de chacun ;
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Les paliers d'amélioration du **mur** (bois → fer → pierre) : PV et coût de chacun ;
       les PV de la **porte** ; de combien une **douve** ralentit (§4.20).
-- [ ] La limite absolue de population — celle qui n'existe que pour le §4.17. 60 ? 100 ?
-- [ ] Les chemins qui s'usent : au bout de combien de passages, et ils s'effacent en
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* La limite absolue de population — celle qui n'existe que pour le §4.17. 60 ? 100 ?
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Les chemins qui s'usent : au bout de combien de passages, et ils s'effacent en
       combien de jours ? (§4.24)
-- [ ] **30 minutes de jour et 15 de nuit, est-ce le bon chiffre ?** C'est la question du
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **30 minutes de jour et 15 de nuit, est-ce le bon chiffre ?** C'est la question du
       bloc 2, et elle ne se tranche qu'en jouant. Les durées vivent dans une seule table.
-- [ ] **Le blé et le poisson se comportent-ils vraiment différemment ?** S'ils finissent
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Le blé et le poisson se comportent-ils vraiment différemment ?** S'ils finissent
       par se valoir, il faut les fusionner en une seule nourriture (§4.18).
-- [ ] Combien de temps un habitant met-il à grandir avant de pouvoir travailler ?
-- [ ] La cloche de rappel a-t-elle un coût, ou peut-on la sonner en boucle ?
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Combien de temps un habitant met-il à grandir avant de pouvoir travailler ?
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* La cloche de rappel a-t-elle un coût, ou peut-on la sonner en boucle ?
 - ✅ **La sauvegarde** — tranchée le 10 août 2026, et **dans l'autre sens que ce qui était
       écrit ici**. La ligne disait « elle passera par Supabase, pas par `localStorage` ».
       C'est l'inverse : le `localStorage` est la sauvegarde, Supabase en est une **copie**.
@@ -96,45 +281,45 @@ on fais x 2
 
 ### Ouvertes depuis le 10 août 2026
 
-- [ ] **La double spécialisation** (Guerrier + Gardien → Templier, Mage + Chronomancien →
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **La double spécialisation** (Guerrier + Gardien → Templier, Mage + Chronomancien →
       Archimage temporel, Rôdeur + Ingénieur → Chasseur mécanique, Nécromancien + Blood
       Knight → Seigneur de sang). **Non tranchée** : Gardien, Chronomancien, Ingénieur et
       Blood Knight n'existent nulle part dans le document. Trois issues possibles — des
       voies qu'on ne recrute pas, de vraies classes en plus, ou l'abandon parce que les
       fusions du §4.25 font déjà le travail de différenciation.
-- [ ] **Le mot « totem » désigne deux choses différentes** : le totem d'immortalité
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Le mot « totem » désigne deux choses différentes** : le totem d'immortalité
       (§4.3) et le totem de guerre (§4.7). Il faut en renommer un avant de coder.
-- [ ] Le système de **charges** qu'exige la compétence *Réserve* (§4.13) — à coder, ou à
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Le système de **charges** qu'exige la compétence *Réserve* (§4.13) — à coder, ou à
       couper.
-- [ ] Combien de compétences un héros porte-t-il **en pratique** avant que le panneau de
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Combien de compétences un héros porte-t-il **en pratique** avant que le panneau de
       capacités devienne illisible ? Il n'y a pas de limite d'emplacements (§4.25), mais il
       y a une limite de clavier.
-- [ ] À quel palier exactement une **fusion** se propose, et peut-on la refuser
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* À quel palier exactement une **fusion** se propose, et peut-on la refuser
       définitivement ou revient-elle à chaque niveau ?
-- [ ] Combien de **séquelles** différentes faut-il, et à quelle fréquence un sauvetage in
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Combien de **séquelles** différentes faut-il, et à quelle fréquence un sauvetage in
       extremis en donne une — toujours, ou parfois (§4.23) ?
-- [ ] Le seuil de **relation** au-delà duquel une compétence de groupe s'active (§4.25,
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Le seuil de **relation** au-delà duquel une compétence de groupe s'active (§4.25,
       §4.26), et la vitesse à laquelle une relation se gagne et s'oublie.
-- [ ] Combien de **ruptures de stress** avant qu'un héros bascule en antagoniste (§4.12),
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Combien de **ruptures de stress** avant qu'un héros bascule en antagoniste (§4.12),
       et combien d'annonces avant que ça arrive.
-- [ ] Le rechargement des **défenses catastrophiques** en nombre de nuits (§4.7).
-- [ ] À quelle fréquence les **pillards** attaquent, et à partir de quelle richesse du
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Le rechargement des **défenses catastrophiques** en nombre de nuits (§4.7).
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* À quelle fréquence les **pillards** attaquent, et à partir de quelle richesse du
       village ils s'intéressent à lui (§4.18).
-- [ ] Que fait exactement l'**Intelligence** en chiffres : combien de matériaux économisés,
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Que fait exactement l'**Intelligence** en chiffres : combien de matériaux économisés,
       combien d'XP en plus (§4.23) ?
-- [ ] Combien d'**initiatives** par nuit au maximum avant que ça devienne du bruit (§4.27) ?
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* Combien d'**initiatives** par nuit au maximum avant que ça devienne du bruit (§4.27) ?
 
 ### Ouvertes depuis le 11 août 2026 — à régler en jouant le bloc 6c
 
-- [ ] **Combien de lignes le journal garde-t-il** ? Six est un premier jet. Trop peu et une
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Combien de lignes le journal garde-t-il** ? Six est un premier jet. Trop peu et une
       mauvaise nuit efface son propre début ; trop et ça devient un mur de texte (§4.10).
-- [ ] **À quelle vitesse le survivant suit-il** le joueur, et à quelle distance faut-il
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **À quelle vitesse le survivant suit-il** le joueur, et à quelle distance faut-il
       l'approcher pour qu'il se lève ? Deux chiffres inventés au bloc 6c2, jamais joués.
-- [ ] **Un sauvetage sur deux infaisable, est-ce le bon dosage ?** C'est ce que donne le
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Un sauvetage sur deux infaisable, est-ce le bon dosage ?** C'est ce que donne le
       tirage plat 2-40. Assumé hardcore — mais jamais mesuré sur une partie entière (§4.18).
-- [ ] **Le plancher d'un survivant tous les cinq jours suffit-il** à sortir un village d'un
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Le plancher d'un survivant tous les cinq jours suffit-il** à sortir un village d'un
       cul-de-sac de réputation, ou est-ce trop lent pour changer quoi que ce soit (§4.18) ?
-- [ ] **La contagion fongique se voit-elle vraiment** quand on ramène un infecté, ou passe-
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **La contagion fongique se voit-elle vraiment** quand on ramène un infecté, ou passe-
       t-elle inaperçue faute de voisins de travail assez proches (§4.23) ?
 
 ### Le 10 août 2026, au soir — la porte et le port
@@ -304,19 +489,19 @@ Le fichier `design/a-faire.md` a été dépouillé en entier. Ce qui en sort :
 
 ### Ouvertes depuis le 11 août 2026 — le nouveau départ
 
-- [ ] **Combien vaut le budget d'un monde**, et combien coûte chaque cadeau ? Rien n'est
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Combien vaut le budget d'un monde**, et combien coûte chaque cadeau ? Rien n'est
       chiffré, et c'est le cœur du §4.29 : c'est une table entière à écrire, puis à jouer.
-- [ ] **Combien de temps dure l'errance jusqu'au premier village**, et de combien
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Combien de temps dure l'errance jusqu'au premier village**, et de combien
       l'espacement grandit à chaque refus ? « Court » n'est pas un nombre.
-- [ ] **La zone figée tient-elle à ×2 ? à ×3 ?** Jamais mesuré. La grille, la cuisson de la
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **La zone figée tient-elle à ×2 ? à ×3 ?** Jamais mesuré. La grille, la cuisson de la
       carte et tout ce qui balaye le terrain grossissent avec elle (§4.17).
-- [ ] **Que voit-on d'un village avant de décider ?** Tout (population, maladies, défenses) ou
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Que voit-on d'un village avant de décider ?** Tout (population, maladies, défenses) ou
       seulement ce qu'on peut voir de loin ? C'est ce qui décide si le choix est un calcul ou
       un pari.
-- [ ] **Comment se tire une géographie qui reste logique** — une rivière descend vers la mer,
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Comment se tire une géographie qui reste logique** — une rivière descend vers la mer,
       une forêt pousse au pied d'une montagne. Par assemblage de règles, mais lesquelles ?
-- [ ] **Le sous-titre de l'écran-titre** : il n'est pas écrit.
-- [ ] **Une porte s'ouvre-t-elle instantanément**, ou faut-il quelques secondes pendant
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Le sous-titre de l'écran-titre** : il n'est pas écrit.
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Une porte s'ouvre-t-elle instantanément**, ou faut-il quelques secondes pendant
       lesquelles on est vulnérable ? Le deuxième est bien meilleur et coûte un délai de plus.
 
 ### Le 11 août 2026, tard — ce que le bloc 6c2 a tranché en se codant
@@ -407,27 +592,27 @@ Le fichier `design/a-faire.md` a été dépouillé une deuxième fois. Ce qui en
 
 ### Ouvertes depuis le 11 août 2026, tard
 
-- [ ] **À quelle fréquence le Blasphémateur se tire-t-il ?** ⚠️ Il annule le §4.22 à lui
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **À quelle fréquence le Blasphémateur se tire-t-il ?** ⚠️ Il annule le §4.22 à lui
       seul : l'église est le seul lieu de soin du jeu, donc un blasphémateur qui attrape une
       hémorragie est **condamné sans décision**. Il lui faut une fréquence bien plus basse que
       le reste de la table de naissance, et elle n'est pas écrite.
-- [ ] **Le hurlement en chiffres** : combien de points de stress, quel rayon, quel
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Le hurlement en chiffres** : combien de points de stress, quel rayon, quel
       rechargement, quel plafond par nuit, et derrière quel seuil de puissance il apparaît.
-- [ ] **L'étourdissement en chiffres** : durée, de combien la résistance monte à chaque
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **L'étourdissement en chiffres** : durée, de combien la résistance monte à chaque
       répétition, en combien de temps elle s'oublie, et le seuil au-dessus duquel un monstre
       y résiste d'emblée.
-- [ ] **Le Cri** : de combien il fait redescendre le stress, son rayon, son rechargement, et
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Le Cri** : de combien il fait redescendre le stress, son rayon, son rechargement, et
       au-dessus de quel stress *Le Cri du sacre* transcende.
-- [ ] **L'Alcoolique** : combien de stress une cuite rend, et combien de cadence elle coûte
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **L'Alcoolique** : combien de stress une cuite rend, et combien de cadence elle coûte
       le lendemain.
-- [ ] **Le Druide** : la liste de ses bienfaits, leurs chiffres, son ultime, son trait de
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Le Druide** : la liste de ses bienfaits, leurs chiffres, son ultime, son trait de
       classe. Et surtout — **de quoi dépend la puissance d'un bienfait**, puisqu'elle ne doit
       pas être tirée au sort (§4.1).
-- [ ] **Les paliers du mur** (bois → fer → pierre) : PV et coût de chacun ; les **PV de la
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Les paliers du mur** (bois → fer → pierre) : PV et coût de chacun ; les **PV de la
       porte** ; de combien une **douve** ralentit. Bloquant pour le **7b**, pas pour le 7a.
-- [ ] **La touche qui ouvre le mode d'aménagement**, et les chemins qui s'usent : au bout de
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **La touche qui ouvre le mode d'aménagement**, et les chemins qui s'usent : au bout de
       combien de passages, effacés en combien de jours (§4.24).
-- [ ] **Trois cases, est-ce la bonne distance** entre un mur et un bâtiment ? C'est un chiffre
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Trois cases, est-ce la bonne distance** entre un mur et un bâtiment ? C'est un chiffre
       donné à vue, et il décide de la taille de la cour où on se bat (§4.24).
 
 ### Le 11 août 2026, tard — la refonte visuelle (§4.30)
@@ -514,11 +699,11 @@ Une planche de propositions a servi de test, et elle a fait remonter trois défa
       variantes choisies par la position de la case**, et des touffes rares. Et **tout doit
       pouvoir être détruit** : cratères et terres brûlées sont des **états de case**, pas des
       décalques (§4.30, §4.21, §4.24)
-- [ ] **Combien de temps met un arbre à repousser**, et combien de bois donne un arbre ? De ces
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **Combien de temps met un arbre à repousser**, et combien de bois donne un arbre ? De ces
       deux chiffres dépend tout l'équilibre du bois.
-- [ ] **De combien la maison de fermier fait-elle baisser le stress**, et est-ce qu'elle agit
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **De combien la maison de fermier fait-elle baisser le stress**, et est-ce qu'elle agit
       sur celui qui y dort, sur celui qui y travaille, ou sur les deux ?
-- [ ] **À quelle profondeur on se noie**, et au bout de combien de temps après l'avertissement.
+- [x] *(9 sept 2026 - depouille, voir la section en tete)* **À quelle profondeur on se noie**, et au bout de combien de temps après l'avertissement.
 
 ## Tranché récemment
 

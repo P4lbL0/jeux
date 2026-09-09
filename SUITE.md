@@ -907,22 +907,29 @@ n'ont jamais été vus de bout en bout. Le refus d'identifiants et la panne rés
 
 ### Tout de suite
 
-1. **Finir le bloc 7a** (§4.24). Le mode d'aménagement tourne et se joue ; il reste **les
-   bâtiments**. Dans cet ordre :
-   a) les **maisons destructibles** — corps, points de vie, chute, et la ruine qu'on relève
-   (tout le socle est là : `Constructions`, l'occupation `maison`, la ruine rebâtissable) ;
-   b) le village qui **démarre en ruines** — trois maisons debout pour trois habitants, des
-   ruines noircies autour, et chaque arrivant qui en relève une. ⚠️ Ça retire aussi l'anneau
-   de neuf maisons qui a faussé la première mesure des trois cases ;
-   c) le survol qui remplace le texte flottant « LE VILLAGE » ;
-   d) le sol, la place en terre battue et les chemins — **c'est le morceau à couper si le
-   bloc dérape**, il est purement visuel et le §5 dit de livrer la version minimale qui se
-   joue. Décidé : il reste dans le 7a, mais **en dernier**.
-2. **Juger les animations en jouant.** Le mouvement est volontairement discret (1 à 2 px)
-   parce qu'à 32 px, 3 px disloquent le personnage. Amplitudes en haut de
-   `scripts/animer-sprites.ts`.
-4. **Régler le stress sur une vraie partie.** Il n'a jamais tourné plus de deux minutes
-   d'affilée, et personne n'a encore craqué en conditions réelles.
+⚠️ **Avant tout : le visuel n'est pas tranché.** Angelos n'aime pas le rendu actuel et n'a
+pas encore choisi de direction. Tant que ce n'est pas décidé, **ne pas coder d'affichage** —
+c'est exactement le piège qui a fait coder deux fois le bloc 7a.
+
+1. **Appliquer au code ce que le dépouillage a tranché**, du plus structurant au plus petit :
+   a) le cycle 10 + 5 — ✅ **fait le 9 septembre 2026** (`src/core/cycle.ts`), hordes de jour
+   recalées à 2-4 min. ⚠️ **La nuit est trois fois plus courte à effectif constant : elle est
+   donc trois fois plus dense.** À mesurer en jouant avant de toucher `effectifPremiereNuit` ;
+   b) le renommage **totem → Relique d'immortalité** ;
+   c) les **deux cases** au lieu de trois dans le mode d'aménagement ;
+   d) le **seuil de 65 habitants** qui déclenche les attaques de jour ;
+   e) les **quatre compétences actives** au maximum ;
+   f) les **paliers de mur ×4** et l'amélioration par segment.
+2. **Finir le bloc 7z** (étages 4 et 5 : le sol en code, les personnages branchés dans
+   l'arène, l'eau qui noie, la fin des ronds de poste) — **seulement une fois le visuel
+   tranché**, puisque c'est précisément le sujet du désaccord.
+3. **Finir le bloc 7a** : les maisons destructibles, le village qui démarre en ruines, le
+   survol qui remplace le texte « LE VILLAGE », et les quatre défauts d'affichage laissés
+   exprès (`M` qui ne gèle pas les animations, l'outil de construction qui ne s'annule pas, le
+   clic droit qui démolit trop large, ce qu'on ne peut pas déplacer).
+4. **Jouer une vraie partie longue.** C'est ce que le cycle raccourci débloque : le stress,
+   l'église, le port, les arrivées et la folie n'ont jamais tourné assez longtemps pour être
+   jugés. Tous les chiffres du dépouillage sont faits pour être corrigés là.
 5. ✅ **Le `feedback.md` a été traité** (session du 8-9 août). Tout est tranché et écrit
    dans `DESIGN.md` : appétit des héros, totem, fous, humeurs, renommage, options.
 
@@ -1186,39 +1193,37 @@ brancher.
 
 ## Questions encore ouvertes
 
-Listées au §6 (`design/06-questions-ouvertes.md`). Celles qui bloquent les prochains
-blocs :
+**Il n'y en a plus.** Le 9 septembre 2026, tout le stock — une soixantaine de questions
+accumulées depuis le début du projet — a été dépouillé en une seule passe, à la demande
+d'Angelos : « plus AUCUNE question, ne plus devoir faire des allers-retours ».
 
-- **Combien vaut un habitant au combat** (bloc 4, à régler en jouant). Les valeurs posées
-  sont volontairement dérisoires — 30 PV, 3 dégâts, 34 px de portée, 1,4 s de recharge au
-  rang F — et **mesurées trop fragiles** : un défenseur tombe en deux ou trois coups face à
-  des monstres de milieu de partie.
-- **Les coûts des niveaux 2, 3 et 4 de l'église** en matériaux et en population : les
-  chiffres en place (120 bois / 6 habitants, 260 / 12, 500 / 20) sont des premiers jets
-  jamais joués jusque-là.
-- **Les seuils de satisfaction et d'argent** de chaque niveau d'église : écrits, mais
-  neutralisés tant que les blocs 5 et 6 ne les alimentent pas.
-- **La vitesse de la jauge de stress** — combien de temps pour la remplir, pour la vider,
-  et de combien le rang la ralentit (bloc 5).
-- **Combien de pièces de portrait** pour que deux habitants ne se ressemblent jamais
-  (bloc 5).
-- **Les prix du port, l'amplitude du cours et la force de l'impact des ventes** : posés au
-  bloc 6b (minerai 1 pièce pour 2 unités, bois 1 pour 4, blé 1 pour 5, poisson 1 pour 6 ;
-  cours entre 0,6 et 1,6 ; `impactParPiece` à 0,0016). Mesuré une fois, jamais sur une
-  partie longue. Tout est dans `REGLAGES_PORT`.
-- **Une voile sur trois journées calmes** : jamais éprouvé sur la durée. Un village bien
-  tenu pourrait en voir trop, un village qui saigne plus du tout.
-- **La répartition des trois degrés de folie** (45 / 30 / 25 : voleur, saboteur,
-  meurtrier), la **part volée** (35 %) et le **coût d'un mort récent pour la rumeur**
-  (8 points, mémoire de 8 journées) : premiers jets du bloc 6a, jamais joués longtemps.
-- **Le rythme de croisière des arrivées** : le premier visiteur est offert, mais le
-  deuxième arrive au jour 3 ou 4, soit deux heures réelles plus tard. Jamais joué en
-  continu — à revoir quand une vraie partie longue aura tourné.
+Tout est écrit dans [`design/06-questions-ouvertes.md`](design/06-questions-ouvertes.md),
+section **« Le grand dépouillage du 9 septembre 2026 »** en tête de fichier, et répercuté
+dans chaque §4.xx concerné sous le titre *« Tranché le 9 septembre 2026 »*.
 
-Et les vieilles, toujours ouvertes : combien de défaites avant que le héros bascule en
-antagoniste, ce qu'il perd à chaque défaite, comment on recrute un héros.
+Ce que ça change de plus lourd, en une ligne chacun :
 
-**Ne les invente pas — pose-les en questions à choix**, c'est comme ça qu'il travaille.
+| La décision | Ce qu'elle annule |
+|---|---|
+| **Une journée dure 15 minutes** (10 de jour, 5 de nuit) au lieu de 45 | §4.19 — et c'est **déjà appliqué au code**, avec les hordes de jour recalées de 6-12 min à 2-4 min |
+| **Le §4.29 devient le mode principal et le seul** : un héros seul, l'errance, un village aléatoire déjà peuplé | L'ancien démarrage disparaît. C'est le plus gros chantier restant du projet |
+| **On ne devient pas héros, on naît avec un don** (1 habitant sur 10 ; 1 don sur 20 est majeur) | Toute idée qu'un vétéran devienne héros à l'usure (§4.1, §4.18) |
+| **La bascule en antagoniste vient du stress**, jamais des défaites | Le comptage de défaites du §4.12 |
+| **Pas de plafond de population** : au-delà de 65 habitants, les monstres sont attirés et les attaques débordent sur le jour | La limite dure du §4.17, qui devient un plafond technique invisible (120) |
+| **Le totem d'immortalité devient la Relique d'immortalité** | L'ambiguïté du mot totem, employé pour deux objets (§4.3 / §4.7) |
+| **Deux cases entre un mur et un bâtiment** | La règle des trois cases du §4.24 |
+| **Les murs montent ×4 par palier, segment par segment, chantier par bâtisseur** | Les paliers non chiffrés du §4.20 |
+| **La porte examine des papiers**, recoupés avec la mémoire du village ; un imposteur démasqué attaque | Rien — c'est la note brute du 13 août, enfin dépouillée |
+
+⚠️ **Ce qui n'a volontairement pas été tranché**, parce que ce ne sont pas des choix mais du
+contenu à écrire : la liste complète des compétences et des ultimes, les statistiques des
+quatre classes, la liste des questions posables à la porte, et les bienfaits du Druide.
+
+⚠️ **Et ce qui reste vraiment ouvert, mais qui n'est pas une question de design** : Angelos a
+dit ne pas aimer le rendu visuel actuel. Aucune direction n'a été choisie — les options
+posées (reprendre de vrais assets tout faits, faire redessiner la planche par un autre
+modèle, changer de direction artistique, changer de moteur) attendent. **Ne pas coder de
+visuel avant que ce soit tranché.**
 
 ## Pour lancer
 
