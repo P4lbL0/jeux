@@ -1220,17 +1220,32 @@ contenu à écrire : la liste complète des compétences et des ultimes, les sta
 quatre classes, la liste des questions posables à la porte, et les bienfaits du Druide.
 
 ⚠️ **Et ce qui reste vraiment ouvert, mais qui n'est pas une question de design** : Angelos a
-dit ne pas aimer le rendu visuel actuel. Aucune direction n'a été choisie — les options
-posées (reprendre de vrais assets tout faits, faire redessiner la planche par un autre
-modèle, changer de direction artistique, changer de moteur) attendent. **Ne pas coder de
-visuel avant que ce soit tranché.**
+dit ne pas aimer le rendu visuel actuel. Aucune direction artistique n'a été choisie — il reste
+**trois** options posées (reprendre de vrais assets tout faits, faire redessiner la planche par
+un autre modèle, changer de direction artistique). **Ne pas coder de visuel avant que ce soit
+tranché.**
+
+## Tranché le 10 septembre 2026 — le moteur et le périmètre
+
+Deux questions de fond sont fermées, après l'annonce du plugin Unity officiel pour Claude Code
+(9 septembre 2026 : 29 skills, CLI Unity, serveur MCP de contrôle de l'éditeur).
+
+- **On reste sur Phaser.** L'option « changer de moteur » est retirée de la liste ci-dessus. Le
+  plugin Unity est bien réel, mais sans objet ici : le rendu qui déçoit est un problème
+  d'assets, pas de moteur — Unity afficherait les mêmes images. Ne pas rouvrir sans élément neuf.
+- **On ne recrée pas le jeu depuis cette spec.** L'idée de faire tout réécrire d'un bloc par un
+  autre modèle est écartée. `src/core/` (7 804 lignes, 3 944 lignes de tests) **n'est pas remis
+  en cause par le dépouillage du 9 septembre** : les règles de satisfaction, cycle, habitants,
+  port, église et IA restent valables. Le périmètre est donc **garder le core, refaire tout ce
+  qui se voit** : le 7z, puis le §4.29. À l'écran, le résultat est le même qu'une
+  reconstruction — sans jeter le filet des tests.
 
 ## Pour lancer
 
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (282)
+npx vitest run   # les tests (446)
 npm run build    # vérifie les types et construit
 
 npx tsx scripts/animer-sprites.ts --planche   # régénère les planches d'animation
