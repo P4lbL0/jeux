@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { EGLISE } from "../core/carte";
 import { Eglise, PALIERS, type NiveauEglise } from "../core/eglise";
-import { cleEglise } from "./dessin/batiments";
+import { CHANTIERS, cleEglise } from "./dessin/batiments";
 
 /**
  * L'eglise a l'ecran (DESIGN.md §4.22).
@@ -44,6 +44,8 @@ export class BatimentEglise {
   private flashJusqua = 0;
   /** Le rayon de soin, dessine une seule fois par niveau et jamais par image */
   private readonly halo: Phaser.GameObjects.Graphics;
+  /** L'echafaudage du relevement : visible tant que le chantier dure (§4.30) */
+  private readonly echafaudage: Phaser.GameObjects.Image;
 
   private readonly echos: EchosEglise;
 
@@ -55,6 +57,10 @@ export class BatimentEglise {
     this.halo = scene.add.graphics().setDepth(-500);
 
     this.sprite = scene.physics.add.staticImage(EGLISE.x, EGLISE.y, cleEglise(1));
+    this.echafaudage = scene.add
+      .image(EGLISE.x, EGLISE.y, CHANTIERS.eglise.cle)
+      .setDepth(EGLISE.y + 5)
+      .setVisible(false);
     this.redessiner();
   }
 
@@ -157,9 +163,12 @@ export class BatimentEglise {
     this.sprite.setTexture(cleEglise(aTerre ? 1 : this.regles.niveau));
     // L'origine suit la hauteur du sprite pour que le pied reste au meme
     // endroit quand elle grandit : sinon elle semblerait s'enfoncer dans le sol.
-    this.sprite.setOrigin(0.5, 1 - (EGLISE.emprise * 0.3) / this.sprite.height);
+    const origineY = 1 - (EGLISE.emprise * 0.3) / this.sprite.height;
+    this.sprite.setOrigin(0.5, origineY);
     this.sprite.setDepth(EGLISE.y + 4);
     this.sprite.setAlpha(aTerre ? 0.55 : 1);
+    // Le chantier se voit : l'echafaudage monte sur la ruine, au meme pied.
+    this.echafaudage.setOrigin(0.5, origineY).setVisible(this.regles.etat === "relevement");
 
     // Apres le changement de texture : un corps statique ne suit pas tout seul
     // une origine ni une taille qui changent.

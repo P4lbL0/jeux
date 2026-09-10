@@ -162,7 +162,7 @@ class Planche extends Phaser.Scene {
       { cle: "v-blesse", corps: { usure: 0.4, sang: 1 }, titre: "blesse" },
     ];
     etats.forEach((etat, i) => {
-      const modele = villageois(etat.cle, etat.corps);
+      const modele = villageois("mineur", etat.corps);
       cuire(this, modele);
       const x = x0 + 180 + i * 150;
       this.add.sprite(x, y0 + 24, `${modele.famille}-planche`).play(`${modele.famille}-repos`);

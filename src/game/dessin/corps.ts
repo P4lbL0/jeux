@@ -161,6 +161,13 @@ export interface Apparence {
   sang: number;
   /** Un liseré de laiton sur l'epaule. **Le palier 4, et lui seul** (§4.10). */
   laiton?: number;
+  /**
+   * La couleur des yeux. Omise, ils sont du contour — deux points sombres.
+   *
+   * Un mort qui marche a les yeux allumes : c'est la seule chose qui le
+   * distingue d'un vivant a 32 px, et la seule qu'il faut voir la nuit.
+   */
+  yeux?: number;
 }
 
 /** Ou se trouvent les points d'accroche apres coup : la main tient l'arme. */
@@ -322,8 +329,9 @@ function peindreTete(
 
   // Visage degage (§4.30) : deux yeux, et rien d'autre. A 32 px, une bouche
   // dessinee devient une tache des qu'on dezoome.
-  toile.point(x - 1.4, y - 0.4, CONTOUR);
-  toile.point(x + 1.4, y - 0.4, CONTOUR);
+  const oeil = tenue.yeux ?? CONTOUR;
+  toile.point(x - 1.4, y - 0.4, oeil);
+  toile.point(x + 1.4, y - 0.4, oeil);
   if (tenue.usure > 0.35) {
     const cerne = melanger(chair.sombre, CONTOUR, 0.4);
     toile.point(x - 1.4, y + 0.7, cerne);

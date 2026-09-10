@@ -2,6 +2,21 @@ import Phaser from "phaser";
 import { pireEtat } from "../core/etats";
 import { REGLAGES_STRESS, type Personne } from "../core/personne";
 import { SEQUELLES } from "../core/traits";
+import { C } from "./ui/couleurs";
+import {
+  ARDOISE,
+  BOIS,
+  CHAIR,
+  ECORCE,
+  FER,
+  FEUILLE,
+  PIERRE,
+  ROCHE,
+  TISSU,
+  TOILE,
+  melanger as melangerMatiere,
+  palir,
+} from "./dessin/palette";
 
 /**
  * Les portraits, **assembles par morceaux en code** (DESIGN.md §4.23).
@@ -40,19 +55,54 @@ const MAX_PORTRAITS = 96;
 /**
  * Les teints de peau. Ils ne disent rien du personnage : c'est le seul choix
  * purement esthetique du fichier.
+ *
+ * ⚠️ **Tous descendent de la chair du monde** (§4.30), donc de l'os — jamais
+ * une peau rose. Les visages de la fiche et les corps sur le terrain sont de
+ * la meme matiere ; ce fichier avait sa propre palette de huit roses et de onze
+ * chatains, et elle a disparu le 10 septembre 2026.
  */
-const TEINTS = [0xf2d0b0, 0xe8c39a, 0xd9ac86, 0xc08e63, 0xa06f4c, 0x7d5336, 0x5f3d28, 0xefe0cc];
+const TEINTS = [
+  CHAIR.clair,
+  CHAIR.corps,
+  melangerMatiere(CHAIR.corps, BOIS.corps, 0.35),
+  melangerMatiere(CHAIR.corps, C.fer, 0.25),
+  melangerMatiere(CHAIR.corps, C.fer, 0.42),
+  melangerMatiere(CHAIR.corps, C.fer, 0.58),
+  melangerMatiere(CHAIR.clair, C.os, 0.5),
+  palir(CHAIR, 0.5).corps,
+];
 
 const COULEURS_CHEVEUX = [
-  0x2b1d16, 0x4a3423, 0x6b4a2c, 0x8c6239, 0xb07f43, 0xd4b070, 0xe8dcc0, 0x8a8a8a, 0xd8d8d8,
-  0x7a2f28, 0x3a3a4a,
+  C.fer,
+  TISSU.corps,
+  ECORCE.sombre,
+  ECORCE.corps,
+  BOIS.corps,
+  BOIS.clair,
+  melangerMatiere(C.os, C.laiton, 0.3),
+  PIERRE.corps,
+  PIERRE.clair,
+  melangerMatiere(C.sangSeche, C.fer, 0.3),
+  ARDOISE.corps,
 ];
 
-const COULEURS_YEUX = [0x3b2a1a, 0x5a4630, 0x2f5a4a, 0x2f4a6b, 0x6b6b6b, 0x4a2f5a];
+const COULEURS_YEUX = [C.fer, ECORCE.sombre, FEUILLE.sombre, ARDOISE.corps, PIERRE.sombre, TISSU.corps];
 
 const COULEURS_VETEMENT = [
-  0x6b5a44, 0x4a5a6b, 0x5a6b4a, 0x6b4a52, 0x7a6a4a, 0x44506b, 0x5f4a6b, 0x8a7550,
+  TISSU.corps,
+  TOILE.corps,
+  ECORCE.corps,
+  ARDOISE.corps,
+  melangerMatiere(C.bile, C.fer, 0.5),
+  melangerMatiere(C.acier, C.fer, 0.5),
+  melangerMatiere(C.sangSeche, C.fer, 0.5),
+  BOIS.corps,
 ];
+
+/** Le gris d'un mort, et le fond de la plaque derriere le visage. */
+const GRIS_DE_MORT = ROCHE.corps;
+const FOND = C.plaque;
+const FOND_PALE = ARDOISE.sombre;
 
 /**
  * Les coupes de cheveux, decrites en rectangles.
@@ -148,32 +198,32 @@ const COUVRE_CHEFS: { bandes: Bandes; couleur: number }[] = [
       [5, 3, 14, 2],
       [7, 1, 10, 2],
     ],
-    couleur: 0x6b4a2c,
+    couleur: melangerMatiere(C.os, C.laiton, 0.4),
   }, // chapeau de paille
   {
     bandes: [
       [6, 2, 12, 4],
       [4, 5, 16, 1],
     ],
-    couleur: 0x4a4a5a,
+    couleur: TISSU.corps,
   }, // capuche
   {
     bandes: [[6, 3, 12, 3]],
-    couleur: 0x7a2f28,
+    couleur: melangerMatiere(C.sangSeche, C.fer, 0.25),
   }, // bandeau
   {
     bandes: [
       [6, 1, 12, 5],
       [5, 5, 14, 1],
     ],
-    couleur: 0x8a8f9a,
+    couleur: FER.corps,
   }, // casque
   {
     bandes: [
       [6, 2, 12, 4],
       [16, 2, 4, 8],
     ],
-    couleur: 0x5a6b4a,
+    couleur: FEUILLE.sombre,
   }, // bonnet a pan
 ];
 
@@ -232,15 +282,15 @@ const ACCESSOIRES: { bandes: Bandes; couleur: number }[] = [
   { bandes: [], couleur: 0 },
   { bandes: [], couleur: 0 },
   { bandes: [], couleur: 0 },
-  { bandes: [[18, 11, 2, 2]], couleur: 0xd4b070 }, // boucle d'oreille
-  { bandes: [[4, 11, 2, 2]], couleur: 0xd4b070 },
+  { bandes: [[18, 11, 2, 2]], couleur: C.laiton }, // boucle d'oreille
+  { bandes: [[4, 11, 2, 2]], couleur: C.laiton },
   {
     bandes: [
       [6, 10, 5, 4],
       [13, 10, 5, 4],
       [11, 11, 2, 1],
     ],
-    couleur: 0x8a8f9a,
+    couleur: FER.clair,
   }, // besicles
 ];
 
@@ -401,7 +451,7 @@ function dessiner(
   const { largeur, hauteur } = TAILLE_PORTRAIT;
 
   const visage = piece(graine, 1, VISAGES);
-  const teint = melanger(piece(graine, 2, TEINTS), 0x9a94a0, humeur.paleur);
+  const teint = melanger(piece(graine, 2, TEINTS), PIERRE.clair, humeur.paleur);
   const coupe = piece(graine, 3, COUPES);
   const cheveux = piece(graine, 4, COULEURS_CHEVEUX);
   const oeil = piece(graine, 5, COULEURS_YEUX);
@@ -417,36 +467,36 @@ function dessiner(
 
   // Le fond : il fait le cadre, et il change avec l'humeur sans qu'on ait a
   // dessiner un cadre.
-  g.fillStyle(melanger(0x2a2433, 0x3a2f3a, humeur.paleur), 1);
+  g.fillStyle(melanger(FOND, FOND_PALE, humeur.paleur), 1);
   g.fillRect(0, 0, largeur, hauteur);
 
   // Les epaules, sous le menton.
-  g.fillStyle(melanger(vetement, 0x6b6478, gris), 1);
+  g.fillStyle(melanger(vetement, GRIS_DE_MORT, gris), 1);
   g.fillRect(3, 22, largeur - 6, hauteur - 22);
-  g.fillStyle(melanger(teint, 0x6b6478, gris), 1);
+  g.fillStyle(melanger(teint, GRIS_DE_MORT, gris), 1);
   g.fillRect(10, 20, 4, 3); // le cou
 
   // Le visage.
   g.fillRect(visage.x, 6, visage.largeur, visage.hauteur);
 
   // Les cheveux, puis les sourcils, puis les yeux : l'ordre fait la lisibilite.
-  bandes(g, coupe, melanger(cheveux, 0x6b6478, gris));
+  bandes(g, coupe, melanger(cheveux, GRIS_DE_MORT, gris));
   bandes(g, sourcils, melanger(cheveux, 0x000000, 0.25));
 
-  dessinerYeux(g, melanger(oeil, 0x6b6478, gris), humeur);
+  dessinerYeux(g, melanger(oeil, GRIS_DE_MORT, gris), humeur);
 
   bandes(g, nez, melanger(teint, 0x000000, 0.22));
   // La barbe **avant** la bouche : dans l'autre sens elle la recouvrait
   // entierement, et un visage sans bouche ne peut plus rien exprimer.
   bandes(g, barbe, melanger(cheveux, 0x000000, 0.15));
-  bandes(g, humeur.eteint ? BOUCHES[4]! : bouche, 0x7a4a44);
-  if (chapeau.bandes.length > 0) bandes(g, chapeau.bandes, melanger(chapeau.couleur, 0x6b6478, gris));
+  bandes(g, humeur.eteint ? BOUCHES[4]! : bouche, melanger(C.sangSeche, C.fer, 0.5));
+  if (chapeau.bandes.length > 0) bandes(g, chapeau.bandes, melanger(chapeau.couleur, GRIS_DE_MORT, gris));
   if (accessoire.bandes.length > 0) bandes(g, accessoire.bandes, accessoire.couleur);
 
   // La grosse balafre du Miracule : elle passe par-dessus tout le reste, parce
   // que c'est ce qu'on doit voir en premier (§4.23).
   if (humeur.cicatrice) {
-    g.fillStyle(0xb05a54, 1);
+    g.fillStyle(melanger(C.sangSeche, C.os, 0.25), 1);
     for (let i = 0; i < 9; i++) g.fillRect(7 + i, 6 + i, 1, 1);
   }
 
@@ -465,7 +515,7 @@ function dessiner(
 function dessinerYeux(g: Phaser.GameObjects.Graphics, couleur: number, humeur: Humeur): void {
   const haut = humeur.eteint ? 1 : 2;
 
-  g.fillStyle(0xd8d0c4, 1);
+  g.fillStyle(C.os, 1);
   g.fillRect(9, 10, 2, haut);
   g.fillRect(14, 10, 2, haut);
 
@@ -477,7 +527,7 @@ function dessinerYeux(g: Phaser.GameObjects.Graphics, couleur: number, humeur: H
   g.fillRect(14 + decalage, 10, 1, haut);
 
   if (humeur.cernes) {
-    g.fillStyle(0x5a4a58, 0.7);
+    g.fillStyle(melanger(ARDOISE.sombre, C.fer, 0.3), 0.7);
     g.fillRect(9, 12, 2, 1);
     g.fillRect(14, 12, 2, 1);
   }

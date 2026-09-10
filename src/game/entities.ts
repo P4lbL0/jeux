@@ -16,6 +16,9 @@ import { creerPersonne, prenomLibre, type Personne } from "../core/personne";
 import { Rng } from "../core/rng";
 import { nouvellePose } from "./poses";
 import { ARCHETYPE_DEFAUT, type Archetype } from "./ennemis";
+import { familleDeMonstre } from "./dessin/monstres";
+import { familleDeHero } from "./dessin/heros";
+import { assurerHero, plancheDe } from "./dessin/monde";
 
 /**
  * Cale le corps physique au centre de la texture, quelle qu'en soit la taille.
@@ -56,23 +59,31 @@ export function calerCorps(
 const HAUT_DU_CORPS = 4;
 
 /**
- * Echelle d'affichage des personnages et des monstres.
+ * Echelle d'affichage des personnages et des monstres : **un**.
  *
- * Les sprites de `src/assets/` font 32 px ; a 0,75 ils en occupent 24, ce qui
- * les rend un peu moins encombrants sans les rendre illisibles. C'est le seul
- * cran de reduction qui reste propre : a 0,5 la tete des personnages disparait
- * purement et simplement.
- *
- * Le decor, lui, garde sa taille native — c'est bien le rapport entre les
- * personnages et le monde qu'on voulait resserrer.
+ * ⚠️ Elle valait 0,75 du temps des PNG. Sur du pixel-art dessine par le code,
+ * une echelle fractionnaire produit des pixels de tailles inegales — un pixel
+ * sur quatre disparait — et c'est exactement ce qui rendait les personnages
+ * flous sur les captures. Le corps de `corps.ts` est dessine pour tenir dans
+ * ses 32 px a l'echelle 1 ; ce qui doit etre plus gros (une brute, un golem)
+ * est **cuit plus gros**, jamais agrandi.
  *
  * **Aucun effet sur le jeu** : `calerCorps` divise par cette echelle, donc les
  * hitbox gardent exactement la taille qu'elles avaient.
  */
-export const ECHELLE_PERSONNAGE = 0.75;
+export const ECHELLE_PERSONNAGE = 1;
 
 /** Le familier golem est une fois et demie plus gros que les autres. */
 const GROSSEUR_GOLEM = 1.5;
+
+/**
+ * Le palier d'equipement des heros du jalon 5 (§4.30).
+ *
+ * Les paliers suivent les **rangs**, et les rangs arrivent au jalon 8 avec le
+ * recrutement : tout le monde est donc au palier 0, la tenue nue et l'arme de
+ * la classe. Une seule constante a changer le jour ou un heros a un rang.
+ */
+export const PALIER_DE_DEPART = 0;
 
 /**
  * Oriente un sprite a gauche ou a droite, avec une **zone morte**.
@@ -264,8 +275,12 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     rng?: Rng,
     nomsPris: readonly string[] = [],
   ) {
-    super(scene, x, y, `hero-${classe.id}`);
-    this.familleSprite = `hero-${classe.id}`;
+    // La planche est cuite a la demande, avant que le sprite ne la reclame : un
+    // `Sprite` sur une texture inconnue affiche le damier de Phaser.
+    const famille = familleDeHero(classe.id, PALIER_DE_DEPART);
+    assurerHero(scene, classe.id, PALIER_DE_DEPART);
+    super(scene, x, y, plancheDe(famille), 0);
+    this.familleSprite = famille;
     this.classe = classe;
     this.pv = classe.pvMax;
     const graine = rng ?? new Rng(Date.now() + prochainIdentifiant);
@@ -757,8 +772,11 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
     puissance: number,
     archetype: Archetype = ARCHETYPE_DEFAUT,
   ) {
-    super(scene, x, y, archetype.texture);
-    this.familleSprite = archetype.texture;
+    // Chaque archetype a sa propre planche, cuite au demarrage : plus de teinte
+    // ni d'echelle pour les distinguer (§4.30).
+    const famille = familleDeMonstre(archetype.id);
+    super(scene, x, y, plancheDe(famille), 0);
+    this.familleSprite = famille;
     this.archetype = archetype;
     // L'archetype **module** la montee en puissance, il ne la remplace pas :
     // la formule de base est celle d'avant, multipliee ensuite.
@@ -773,10 +791,11 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
     // La mer et la montagne ne laissent passer personne (DESIGN.md §4.6) :
     // un flanc qu'un monstre peut contourner n'est pas un flanc ferme.
     this.setCollideWorldBounds(true);
-    // Meme calage que le golem (l. 732) : l'echelle d'abord, la hitbox recalee
-    // derriere avec elle. Une brute occupe donc plus de place a l'ecran **et**
-    // dans le monde — ce qu'on voit est ce qu'on touche.
-    this.setScale(ECHELLE_PERSONNAGE * archetype.echelle);
+    // ⚠️ **L'echelle de l'archetype ne touche plus au sprite** : une brute est
+    // cuite dans un cadre de 48, nette. Elle ne touche que la hitbox — une
+    // brute occupe plus de place dans le monde, ce qu'on voit est ce qu'on
+    // touche.
+    this.setScale(ECHELLE_PERSONNAGE);
     calerCorps(this, 8 * archetype.echelle, 9 * archetype.echelle);
     if (archetype.teinte !== 0xffffff) {
       this.teinte = archetype.teinte;
@@ -886,9 +905,14 @@ export class Invocation extends Phaser.Physics.Arcade.Sprite {
   readonly familleSprite: string;
   private prochainCoup = 0;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, texture: string, maitre: Hero) {
-    super(scene, x, y, texture);
-    this.familleSprite = texture;
+  /**
+   * @param famille la famille de planche : `mort-vivant`, `familier`,
+   *        `familier-golem`, `familier-spectre`, ou celle d'un heros pour le
+   *        double de l'Assassin.
+   */
+  constructor(scene: Phaser.Scene, x: number, y: number, famille: string, maitre: Hero) {
+    super(scene, x, y, plancheDe(famille), 0);
+    this.familleSprite = famille;
     this.maitre = maitre;
     // Il nait avec l'ordre en cours de son maitre : sans ca, chaque nouveau
     // mort-vivant repartirait au hasard au milieu d'une manoeuvre. L'ancre est
@@ -945,20 +969,16 @@ export class Familier extends Invocation {
     this.provoque = golem;
     this.furtif = spectre;
     this.seuilExecution = spectre ? 0.15 : 0;
-    // Le golem est une masse : une fois et demie les autres, a l'ecran comme
-    // dans le monde. L'echelle se compose avec celle des personnages, et le
-    // corps est recale derriere pour que sa hitbox reste celle d'avant.
-    if (golem) {
-      this.setScale(ECHELLE_PERSONNAGE * GROSSEUR_GOLEM);
-      calerCorps(this, 8 * GROSSEUR_GOLEM, 9 * GROSSEUR_GOLEM);
-    }
+    // Le golem est une masse : une fois et demie les autres dans le monde, et
+    // **cuit** une fois et demie plus grand a l'ecran — jamais agrandi.
+    if (golem) calerCorps(this, 8 * GROSSEUR_GOLEM, 9 * GROSSEUR_GOLEM);
   }
 }
 
 /** Le double de l'Assassin : immobile, il attire tout, puis il explose. */
 export class Double extends Invocation {
   constructor(scene: Phaser.Scene, x: number, y: number, maitre: Hero, palier: number) {
-    super(scene, x, y, `hero-${maitre.classe.id}`, maitre);
+    super(scene, x, y, maitre.familleSprite, maitre);
     this.pvMax = Math.round(maitre.pvMax * 0.3 * palier);
     this.pv = this.pvMax;
     this.degats = 0;

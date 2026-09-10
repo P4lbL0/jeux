@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { PORT } from "../core/carte";
 import { Port, REGLAGES_PORT } from "../core/port";
+import { CHANTIERS, CLES_PORT } from "./dessin/batiments";
 
 /**
  * Le port a l'ecran (DESIGN.md §4.18).
@@ -27,6 +28,8 @@ export class BatimentPort {
   readonly regles = new Port();
 
   private readonly sprite: Phaser.GameObjects.Image;
+  /** L'echafaudage, visible tant que le chantier dure (§4.30, chantiers) */
+  private readonly echafaudage: Phaser.GameObjects.Image;
   /** La voile, cachee tant qu'aucun navire n'est a quai */
   private readonly navire: Phaser.GameObjects.Image;
   private readonly echos: EchosPort;
@@ -34,15 +37,23 @@ export class BatimentPort {
   constructor(scene: Phaser.Scene, echos: EchosPort) {
     this.echos = echos;
 
-    this.sprite = scene.add.image(PORT.x, PORT.y, "port-ruine");
+    this.sprite = scene.add.image(PORT.x, PORT.y, CLES_PORT.ruine);
     // Comme tout le decor : la profondeur suit le pied du sprite, pour qu'un
     // personnage qui passe devant passe bien devant.
     this.sprite.setOrigin(0.5, 0.85).setDepth(PORT.y);
 
+    // Le chantier se voit : des perches et des planches par-dessus la ruine,
+    // le temps qu'il dure. Meme origine que le port, pour tomber au meme pied.
+    this.echafaudage = scene.add
+      .image(PORT.x, PORT.y, CHANTIERS.port.cle)
+      .setOrigin(0.5, 0.85)
+      .setDepth(PORT.y + 1)
+      .setVisible(false);
+
     // Le navire mouille **au large**, a l'ouest du quai : c'est ce qui montre
     // d'ou il vient. Il n'a aucun corps — on ne monte pas dessus.
     this.navire = scene.add
-      .image(PORT.x - 74, PORT.y - 6, "navire")
+      .image(PORT.x - 74, PORT.y - 6, CLES_PORT.navire)
       .setOrigin(0.5, 0.9)
       .setDepth(PORT.y - 8)
       .setVisible(false);
@@ -131,9 +142,10 @@ export class BatimentPort {
    * §4.17 est formel la-dessus.
    */
   private redessiner(): void {
-    this.sprite.setTexture(this.regles.debout ? "port" : "port-ruine");
-    // Un chantier en cours se voit : le bois est la, il n'est pas encore monte.
-    this.sprite.setAlpha(this.regles.etat === "ruine" ? 0.6 : 1);
+    this.sprite.setTexture(this.regles.debout ? CLES_PORT.debout : CLES_PORT.ruine);
+    // Un chantier en cours se voit : l'echafaudage est dresse sur la ruine.
+    this.sprite.setAlpha(this.regles.etat === "ruine" ? 0.7 : 1);
+    this.echafaudage.setVisible(this.regles.etat === "chantier");
   }
 
   /** Ce qu'il faut encore pour le relever, ecrit pour un humain. */

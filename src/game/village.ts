@@ -40,6 +40,8 @@ import { SEQUELLES, idTrait } from "../core/traits";
 import { ORDRE_RANGS } from "../core/classes";
 import { mortsRecents, satisfactionDuVillage } from "../core/satisfaction";
 import { calerCorps, ECHELLE_PERSONNAGE } from "./entities";
+import { assurerVillageois, plancheDe } from "./dessin/monde";
+import { animer, nouvellePose } from "./poses";
 
 /**
  * Le village vivant (DESIGN.md §4.18) : les habitants, leurs postes, la
@@ -92,20 +94,18 @@ export interface ContexteVillage {
 type EtatVillageois = "au-poste" | "en-route" | "fuite" | "abri" | "defend" | "mort";
 
 /**
- * La teinte de chaque metier.
+ * Ce que le corps d'un habitant montre de lui (§4.23, §4.30).
  *
- * Une seule texture, sept couleurs : c'est ce qui evite sept placeholders a
- * dessiner et sept sprites a remplacer le jour ou de vrais PNG arrivent.
+ * L'usure suit le stress : a mi-chemin de la rupture il se voute, a la rupture
+ * il est use jusqu'a la corde. Le sang, c'est l'hemorragie — le seul etat qui
+ * tue en une journee, donc le seul qui ait droit au sang frais (§4.10).
  */
-const TEINTES_METIER: Record<Metier, number> = {
-  pecheur: 0x7fc7e8,
-  fermier: 0xe8d27f,
-  bucheron: 0x9ad17f,
-  mineur: 0xc9a37f,
-  forgeron: 0xe8977f,
-  charpentier: 0xd0b48c,
-  guetteur: 0xb9a6e8,
-};
+function corpsDe(personne: Personne): { usure: number; sang: number } {
+  return {
+    usure: Math.min(1, personne.stress / REGLAGES_STRESS.rupture),
+    sang: personne.etats.some((e) => e.cle === "hemorragie") ? 1 : 0,
+  };
+}
 
 /**
  * Le Bavard, resolu une fois au chargement.
@@ -166,10 +166,17 @@ export class Villageois extends Phaser.Physics.Arcade.Sprite {
   /** Prochain instant ou il peut frapper, quand il defend l'eglise (§4.18) */
   prochainCoup = 0;
 
+  /** Sa planche du moment : son metier, et l'etat de son corps (voir `poses.ts`) */
+  familleSprite: string;
+  /** Le geste en cours, comme pour les combattants */
+  pose = nouvellePose();
+
   constructor(scene: Phaser.Scene, regles: Habitant, poste: PosteTravail | null) {
     // Il nait a l'eglise : c'est de la qu'il part travailler, et c'est la qu'il
     // revient. Tout converge dessus (§4.22).
-    super(scene, EGLISE.x, EGLISE.y, "villageois");
+    const famille = assurerVillageois(scene, regles.metier, corpsDe(regles.personne));
+    super(scene, EGLISE.x, EGLISE.y, plancheDe(famille), 0);
+    this.familleSprite = famille;
     this.regles = regles;
     this.poste = poste;
 
@@ -177,7 +184,23 @@ export class Villageois extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
     this.setScale(ECHELLE_PERSONNAGE);
     calerCorps(this, 8, 10);
-    this.setTint(TEINTES_METIER[regles.metier]);
+  }
+
+  /**
+   * Sa planche suit son metier et son corps.
+   *
+   * ⚠️ Appelee au changement de poste et par battement de moral, jamais par
+   * image : cuire une planche coute, et un habitant ne change de cran d'usure
+   * que quelques fois par partie.
+   */
+  rhabiller(): void {
+    if (!this.regles.vivant) return;
+    const famille = assurerVillageois(this.scene, this.regles.metier, corpsDe(this.regles.personne));
+    if (famille === this.familleSprite) return;
+    this.familleSprite = famille;
+    this.setTexture(plancheDe(famille), 0);
+    // Le geste en cours repart sur la nouvelle planche a la prochaine image.
+    this.pose.type = null;
   }
 
   get nom(): string {
@@ -483,7 +506,7 @@ export class Village {
   changerPoste(villageois: Villageois, poste: PosteTravail): void {
     villageois.poste = poste;
     villageois.regles.metier = poste.metier;
-    villageois.setTint(TEINTES_METIER[poste.metier]);
+    villageois.rhabiller();
     this.contexte.annoncer(`${villageois.nom} part ${poste.nom.toLowerCase()}`);
   }
 
@@ -537,9 +560,27 @@ export class Village {
     for (const villageois of this.habitants) {
       if (!villageois.regles.vivant) continue;
       this.majorerUn(villageois, delta, rappel);
+      this.animerUn(villageois);
     }
 
     this.majorerLeMoral();
+  }
+
+  /**
+   * Le geste d'un habitant, une fois par image (§4.30).
+   *
+   * Au poste, il travaille — c'est le seul moment ou l'outil est en main. Le
+   * reste du temps, il marche ou il respire, exactement comme un combattant :
+   * `animer` ne redemarre rien si l'animation tourne deja.
+   */
+  private animerUn(villageois: Villageois): void {
+    if (villageois.etat === "abri") return;
+    const corps = villageois.body as Phaser.Physics.Arcade.Body | null;
+    if (villageois.etat === "au-poste") {
+      villageois.play(`${villageois.familleSprite}-travail`, true);
+      return;
+    }
+    animer(villageois, villageois.pose, corps ? corps.velocity.length() : 0, this.scene.time.now);
   }
 
   /**
@@ -569,6 +610,9 @@ export class Village {
     for (const villageois of this.habitants) {
       if (!villageois.regles.vivant) continue;
       this.majorerLeMoralDUn(villageois, minutes, apaisement, rayonnement, maintenant);
+      // L'usure se voit sur le corps (§4.30) : c'est ici, par battement, qu'il
+      // change de planche s'il a change de cran.
+      villageois.rhabiller();
     }
 
     if (eglise) this.tenirLInfirmerie(maintenant);
@@ -1007,7 +1051,10 @@ export class Village {
     villageois.etat = "mort";
     villageois.setVelocity(0, 0);
     villageois.disableBody(true, false);
-    villageois.setTint(0x5a4a52).setAlpha(0.45);
+    // Il reste par terre, gris et a moitie efface : on doit reconnaitre celui
+    // qu'on a perdu. Le fer de la palette, jamais une teinte d'ailleurs.
+    villageois.anims.stop();
+    villageois.setTint(0x6b6478).setAlpha(0.45);
 
     this.contexte.annoncer(
       `${villageois.nom}, ${NOMS_METIER[villageois.regles.metier].toLowerCase()}, est mort`,

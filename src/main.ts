@@ -50,4 +50,12 @@ async function attendreLaPolice(): Promise<void> {
   await Promise.race([Promise.all(chargements), delai]);
 }
 
-void attendreLaPolice().then(() => new Phaser.Game(config));
+/**
+ * Le jeu est expose sur `window.__jeu` pour les scripts de capture
+ * (`scripts/capturer.ts`) : ils lancent l'arene, cadrent la camera et ouvrent
+ * la fiche sans cliquer dans les menus. Rien dans le jeu ne le lit.
+ */
+void attendreLaPolice().then(() => {
+  const jeu = new Phaser.Game(config);
+  (window as unknown as { __jeu: Phaser.Game }).__jeu = jeu;
+});

@@ -1,37 +1,41 @@
 import type Phaser from "phaser";
-import { FAMILLES_ANIMEES } from "./assets";
 
 /**
- * Les poses des combattants — desormais de **vraies planches d'animation**.
+ * Les poses des combattants — de **vraies planches d'animation**.
  *
  * Ce fichier annoncait sa propre fin : « le jour ou on les aura, ce fichier
  * disparait au profit de `this.anims` ». On y est. Il ne fait plus tourner les
  * sprites, il choisit quelle animation jouer.
  *
- * Les planches ne viennent pas d'une API : `scripts/animer-sprites.ts` les
- * fabrique hors-ligne en **recomposant** les sprites existants — le corps est
- * coupe a la hanche, et chaque frame incline le buste ou balance les jambes
- * autour de ce pivot. Les pixels affiches sont donc exactement les pixels
- * dessines, et regenerer les planches ne peut pas faire deriver l'allure des
- * personnages.
+ * Les planches sont **cuites au demarrage par le four** (`dessin/four.ts`) :
+ * chaque famille — un heros par classe et palier, un villageois par metier, un
+ * monstre par archetype — porte tous ses gestes bout a bout dans une seule
+ * texture, et une animation par geste. Depuis le 10 septembre 2026 il n'y a
+ * plus de PNG du tout : ce fichier demande donc au gestionnaire d'animations si
+ * la cle existe, au lieu de consulter un manifeste.
  *
  * **Les hitbox ne bougent toujours pas.** Une frame fait la taille de la
- * texture d'origine, et `calerCorps` (entities.ts) se cale dessus : passer d'un
- * PNG fixe a une planche ne deplace pas un seul corps physique. La contrainte
- * qui interdisait `setScale` sur un combattant vivant tient donc encore, mais
- * on n'en a plus besoin — le mouvement est dans les frames.
+ * texture d'origine, et `calerCorps` (entities.ts) se cale dessus. La
+ * contrainte qui interdisait `setScale` sur un combattant vivant tient donc
+ * encore, mais on n'en a plus besoin — le mouvement est dans les frames.
  */
 
 /** Tout ce qui sait s'animer : un sprite, plus la famille de ses planches. */
 export interface Anime extends Phaser.GameObjects.Sprite {
   /**
-   * Le prefixe de ses planches : `hero-guerrier`, `ennemi`, `mort-vivant`...
+   * Le prefixe de ses animations : `hero-guerrier-p0`, `monstre-brute`,
+   * `villageois-mineur-u0-s0`...
    *
-   * On ne peut pas le deduire de `texture.key` : des qu'une animation tourne,
-   * cette cle devient celle de la planche en cours (`hero-guerrier-marche`), et
-   * on ne saurait plus revenir en arriere.
+   * On ne peut pas le deduire de `texture.key` : la planche s'appelle
+   * `<famille>-planche`, et un villageois change de famille quand son corps
+   * s'use — c'est le seul champ qui n'est pas `readonly`.
    */
-  readonly familleSprite: string;
+  familleSprite: string;
+}
+
+/** Une famille est animee si le four a declare sa marche. */
+function estAnimee(sprite: Anime): boolean {
+  return sprite.scene.anims.exists(`${sprite.familleSprite}-marche`);
 }
 
 /** Les poses ponctuelles : elles interrompent la marche, puis lui rendent la main. */
@@ -76,7 +80,7 @@ export function declencher(
   maintenant: number,
   vers?: { x: number },
 ): void {
-  if (!FAMILLES_ANIMEES.has(sprite.familleSprite)) return;
+  if (!estAnimee(sprite)) return;
 
   // Il frappe dans la direction ou il regarde : une fente vers la droite sur un
   // sprite retourne taperait derriere lui.
@@ -99,7 +103,7 @@ export function declencher(
  * @param vitesse norme de la vitesse actuelle, en pixels par seconde
  */
 export function animer(sprite: Anime, pose: Pose, vitesse: number, maintenant: number): void {
-  if (!FAMILLES_ANIMEES.has(sprite.familleSprite)) return;
+  if (!estAnimee(sprite)) return;
 
   // Une pose ponctuelle court : on la laisse aller au bout.
   if (pose.type !== null && maintenant < pose.finPose) return;
@@ -132,7 +136,7 @@ export function animerMort(
   }
 
   const cle = `${sprite.familleSprite}-mort`;
-  if (!FAMILLES_ANIMEES.has(sprite.familleSprite)) {
+  if (!estAnimee(sprite)) {
     // Pas de planche pour lui : il s'eteint sur place, sans ceremonie.
     sprite.setAlpha(0.5);
     options.onFin?.();

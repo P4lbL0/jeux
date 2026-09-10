@@ -190,18 +190,42 @@ export const EAU = matiere(melanger(melanger(C.acier, C.fer, 0.62), C.cielSale, 
 export const SANG = matiere(C.sangFrais);
 
 /**
- * Les deux sols, et **les deux existent expres**.
+ * Le sol : la bile salie, franchement.
  *
- * ⚠️ Le §6 laisse la question ouverte — « un village d'os et de sang sur une
- * prairie eclatante, ca jure, mais un monde entierement gris est deprimant a
- * jouer longtemps » — et demande de trancher **sur image**. La planche du socle
- * est donc coupee en deux, memes sprites de part et d'autre. Celui qui perd se
- * supprime en une ligne.
+ * Tranche sur image le 13 aout 2026 : **le sol reste vert**. Le sol de cendre
+ * qui lui faisait face sur la planche du socle a perdu, et il est supprime — sa
+ * recette est reprise par la roche, a qui elle va mieux.
  */
 export const SOL_VERT = matiere(melanger(C.bile, C.fer, 0.42));
-// La cendre est franchement plus sombre que la pierre des murs : un sol qui a la
-// clarte des murs qu'il porte fait disparaitre le pied des batiments.
-export const SOL_CENDRE = matiere(desaturer(melanger(C.os, C.fer, 0.68), 0.5));
+
+/** La foret : le meme sol, enfonce dans l'ombre des arbres. */
+export const SOUS_BOIS = matiere(melanger(SOL_VERT.corps, C.fer, 0.35));
+
+/**
+ * Le sable : l'os sali et rechauffe au laiton. Plus clair que tout le reste du
+ * sol — c'est la seule plage claire du monde, et elle borde une mer sombre.
+ */
+export const SABLE = matiere(melanger(melanger(C.os, C.fer, 0.32), C.laiton, 0.18));
+
+/**
+ * La roche de la montagne : l'ancienne cendre. Plus sombre que la pierre des
+ * murs, sinon le pied des batiments disparait dedans — mesure au socle.
+ */
+export const ROCHE = matiere(desaturer(melanger(C.os, C.fer, 0.68), 0.5));
+
+/** L'eboulis au pied de la montagne : de la roche cassee, plus claire. */
+export const EBOULIS = matiere(desaturer(melanger(C.os, C.fer, 0.45), 0.7));
+
+/** L'ecorce d'un arbre mort : du bois qui a seche au vent. */
+export const ECORCE = matiere(melanger(BOIS.corps, C.fer, 0.45));
+
+/**
+ * La chair d'un monstre : du sang seche, sali et eteint.
+ *
+ * Ce n'est ni la chair des humains (de l'os), ni le sang frais (reserve a ce
+ * qui tue, donc a leurs yeux) : une viande sombre, qui n'appartient qu'a eux.
+ */
+export const MONSTRE = matiere(desaturer(melanger(C.sangSeche, C.fer, 0.35), 0.45));
 
 /**
  * Le contour de tout sprite, et il n'y en a qu'un : le fer, la plus sombre des
@@ -261,5 +285,10 @@ export const MATIERES: ReadonlyArray<{ nom: string; matiere: Matiere }> = [
   { nom: "feuille", matiere: FEUILLE },
   { nom: "eau", matiere: EAU },
   { nom: "sol vert", matiere: SOL_VERT },
-  { nom: "sol cendre", matiere: SOL_CENDRE },
+  { nom: "sous-bois", matiere: SOUS_BOIS },
+  { nom: "sable", matiere: SABLE },
+  { nom: "roche", matiere: ROCHE },
+  { nom: "eboulis", matiere: EBOULIS },
+  { nom: "ecorce", matiere: ECORCE },
+  { nom: "monstre", matiere: MONSTRE },
 ];

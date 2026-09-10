@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { CASE, Grille } from "../core/grille";
 import { POSTES } from "../core/carte";
 import { cadence, type Habitant, type Stocks } from "../core/habitants";
+import { CLES_CHAMP } from "./dessin/batiments";
 
 /**
  * Les champs de ble (DESIGN.md §4.18).
@@ -43,7 +44,7 @@ export class Champ extends Phaser.Physics.Arcade.Image {
   maturite = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y, "champ-jeune");
+    super(scene, x, y, CLES_CHAMP.jeune);
     scene.add.existing(this);
     scene.physics.add.existing(this, true);
     // Sous les personnages : on marche dedans, on ne se cogne pas contre.
@@ -124,14 +125,14 @@ export class Champs {
     for (const champ of this.liste) {
       const avant = champ.mur;
       champ.maturite = Math.min(1, champ.maturite + pousse);
-      if (champ.mur && !avant) champ.setTexture("champ-mur");
+      if (champ.mur && !avant) champ.setTexture(CLES_CHAMP.mur);
 
       if (champ.mur) {
         // La moisson est automatique : le fermier est deja la, il n'y a aucune
         // decision a prendre a ce moment-la — donc rien a demander au joueur.
         moisson += REGLAGES_CHAMPS.rendement;
         champ.maturite = 0;
-        champ.setTexture("champ-jeune");
+        champ.setTexture(CLES_CHAMP.jeune);
       }
     }
 
@@ -162,11 +163,11 @@ export class Champs {
 
     const avant = champ.mur;
     champ.maturite = Math.min(1, champ.maturite + force);
-    if (champ.mur && !avant) champ.setTexture("champ-mur");
+    if (champ.mur && !avant) champ.setTexture(CLES_CHAMP.mur);
     if (champ.mur) {
       stocks.ble += REGLAGES_CHAMPS.rendement;
       champ.maturite = 0;
-      champ.setTexture("champ-jeune");
+      champ.setTexture(CLES_CHAMP.jeune);
     }
     return true;
   }

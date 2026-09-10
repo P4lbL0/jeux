@@ -1,5 +1,6 @@
 import type Phaser from "phaser";
 import { Toile } from "./pinceau";
+import { bruit } from "./bruit";
 import { EAU, melanger } from "./palette";
 import { C } from "../ui/couleurs";
 
@@ -31,19 +32,6 @@ export const CLE_HOULE = "mer-houle";
 export const ECUME = { largeur: 48, hauteur: 32, frames: 8 };
 export const CLE_ECUME = "mer-ecume";
 export const ANIM_ECUME = "mer-ecume-va-et-vient";
-
-/**
- * Un bruit fixe, entre 0 et 1.
- *
- * `Math.imul` et le `>>> 0` **avant** la division : la meme discipline que
- * partout ailleurs dans `dessin/`, et pour la meme raison — `^` rend un entier
- * signe.
- */
-function bruit(x: number, y: number, sel: number): number {
-  let h = Math.imul(x + sel * 131, 0x27d4eb2d) ^ Math.imul(y + sel * 57, 0x165667b1);
-  h = Math.imul(h ^ (h >>> 15), 0x2545f491);
-  return ((h ^ (h >>> 13)) >>> 0) / 4294967296;
-}
 
 /**
  * Cuit la houle et l'ecume, une fois au demarrage.

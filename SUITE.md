@@ -2,7 +2,18 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-08-11, très tard. **402 tests verts.**
+> Dernière mise à jour : 2026-09-10, au soir. **469 tests verts.**
+>
+> ✅ **Le bloc 7z est fini et branché (10 septembre 2026) : tout ce qui se voit est dessiné
+> par le code, et il n'y a plus un seul PNG.** La direction est tranchée avec Angelos ce
+> jour-là : **fer, os, sang gardés** ; « Clash of Clans » veut dire **comment les
+> constructions bougent** (chantier visible, murs en blocs qui se raccordent, tremblent et
+> s'effondrent, un dessin par palier), pas des couleurs ; l'interface est **gothique
+> apocalyptique** ; **aucune image de référence**, main libre. **Et le sol s'abîme** :
+> cratères, brûlures, terre retournée, écrits dans la carte. Angelos a vu les premières
+> captures : *« dans le global je kiffe »*, sauf les murs, refaits en blocs dans la foulée.
+> Captures avant/après dans `captures/avant-*.png` et `captures/apres-*.png`. Détail à la
+> section « Le bloc 7z, étage 4 ».
 >
 > **Les sept notes brutes de `design/a-faire.md` sont dépouillées** et donnent un **jalon
 > 6.7** neuf (le moral devient une arme : le hurlement, le Cri, l'étourdissement, trois
@@ -844,6 +855,130 @@ silhouette ne prend le dessus qu'en montant le clocher, donc à partir du niveau
 **houle est très discrète** sur la mer d'origine, qui est bien plus saturée que la palette du
 monde.
 
+### Le bloc 7z, étage 4 — tout ce qui se voit passe au code (fait le 10 septembre 2026)
+
+**C'est l'étage qui rend le 7z visible.** Les trois précédents avaient fabriqué un moteur de
+dessin que les PNG masquaient — « le PNG gagne toujours » — et Angelos jugeait donc l'ancien
+rendu. Cet étage jette les PNG et branche tout.
+
+**La direction, tranchée en une passe avec Angelos** (quatre questions, quatre réponses) :
+
+| Question | Réponse |
+|---|---|
+| Le monde quitte-t-il fer/os/sang pour des couleurs WorldBox ? | **Non.** On garde les neuf couleurs. WorldBox reste ce qu'il était au §4.11 : vue de dessus, petits sprites lisibles, nature dense. |
+| Quels écrans passent « façon Clash of Clans » ? | **Aucun.** Clash of Clans, c'est **comment les bâtiments bougent et sont posés, comment les murs réagissent**. L'interface, elle, doit être **gothique apocalyptique**. |
+| « Les différentes façons de construire » ? | **Un dessin par palier de mur** (bois → fer → pierre) et **un chantier visible**. Les dégâts visibles et les modèles de maisons multiples : non retenus. |
+| Les trois images à la racine sont-elles les références ? | **Non, aucune référence.** Main libre : « réfléchis à quel style convient le mieux pour ce monde et ce jeu ». |
+
+**Le style choisi, et pourquoi** : une **gravure sombre**. Le sol est la couche la plus sombre et
+la plus plate ; les bâtiments au milieu ; les personnages sont les points les plus clairs de
+l'écran (visage et tablier en os, ombre portée). La lumière vient d'en haut à gauche partout. La
+forêt est **morte pour moitié** — troncs tordus, branches nues — parce que c'est un monde qui a
+brûlé sans être un désert. Le seul rouge vif du monde, ce sont **les yeux des monstres**.
+
+**Ce qui est neuf dans `src/game/dessin/`** :
+
+- **`bruit.ts`** — le bruit partagé (il vivait en double dans `sol.ts` et `mer.ts`), plus une
+  ligne entière calculée d'un coup : c'est ce qui rend la carte instantanée.
+- **`carte.ts`** — **la carte entière peinte pixel par pixel**, en 300 ms, à partir des formules
+  du core (un test vérifie qu'elle classe le sol exactement comme `terrainEn`). Plus aucun
+  carreau : un bruit continu sur toute la carte, des rivages qui tremblent de quelques pixels
+  au lieu d'un escalier de tuiles, l'écume où le haut-fond touche le sable, une crête claire
+  en haut de la roche, et des détails rares (touffes, cailloux, os, fissures — une case sur six).
+- **`decor.ts`** — quatre arbres morts, trois vivants, deux conifères, trois rochers, une
+  souche, tous tirés de quelques nombres. Chaque décor sait où tombe son pied.
+- **`batiments.ts`** — **les murs refaits deux fois.** D'abord un dessin par palier dans les
+  trois sens du §4.30 (est-ouest, nord-sud, angle) ; vu en jeu par Angelos : *« je n'aime pas
+  du tout comment ils rendent »* — des planches plantées et des clôtures de jardin. Puis
+  **un bloc plein par matière** : la case vue de dessus, soulevée de sa hauteur, comme les
+  murs de Clash of Clans. **C'est la profondeur qui raccorde** — deux blocs côte à côte
+  joignent leurs dessus, et le bloc du bas recouvre la face de celui du haut — donc **un seul
+  dessin par matière, aucun sens, aucun miroir**. Les trois sens sont annulés au §4.30. Le
+  bois montre les bouts de ses pieux, le fer ses plaques rivetées et ses pointes, la pierre son
+  chemin de ronde crénelé ; et une **ruine de mur** (moignons de pieux, pieux couchés) remplit
+  les brèches de l'enceinte de départ au lieu d'un bloc sur trois. Et le **chantier** (perches,
+  planches, tas de bois et de pierres, en trois emprises), la **tour de guet**, les **champs**
+  (jeune / mûr), le **port** (ruine / debout / navire), et l'église de niveau 1 qui **domine
+  enfin** les maisons (nef relevée, vitrail en ogive).
+- **`monstres.ts`** — **une seule bête, et des nombres** : six archétypes qui ne diffèrent que
+  par la longueur du corps, le nombre de pattes et ce qu'ils portent sur le dos. Plus les
+  familiers (feu follet, golem, spectre) et les deux morts (le Revenant aux yeux de sang, le
+  mort-vivant du Nécromancien aux yeux de ciel). **La brute et le golem sont cuits en 48 px**,
+  jamais agrandis. Plus aucune teinte sur un monstre.
+- **`villageois.ts`** — **le métier se lit sur le tablier et sur l'outil** : sept tabliers tirés
+  de l'os, sept outils (canne, houe, hache, pioche, marteau, maillet, bâton) qui n'apparaissent
+  qu'au travail. L'usure du corps est **quantifiée en trois crans** et une planche ne se cuit
+  que quand un habitant change de cran — par battement de moral, jamais par image.
+- **`monde.ts`** — `cuireLeMonde(scene)`, l'unique appel qui cuit tout ; les planches de héros
+  et de villageois se cuisent **à la demande**.
+- **`palette.ts`** — sept matières de plus (sous-bois, sable, roche, éboulis, écorce, monstre),
+  toutes à plus de 24 unités les unes des autres. Le sol de cendre, qui avait perdu le 13 août,
+  est supprimé : sa recette devient la roche.
+
+**Ce qui bouge comme dans Clash of Clans** (`src/game/constructions.ts`) : un mur posé se
+raccorde à ses voisins **par la profondeur seule** ; il passe par **quatre secondes de
+chantier** puis **surgit** avec un rebond ; il **tremble** sous les coups (une secousse à la
+fois, gardée par horodatage) et **s'effondre** quand il tombe (une copie détachée s'écrase).
+L'église en relèvement et le port en chantier portent un **échafaudage** tant que le chantier
+dure.
+
+**Et le sol s'abîme** (`carte.ts`, `abimerLeSol`) — la question d'Angelos en regardant les
+captures : *« est-ce que t'as pensé au fait que le sol peut être abîmé ? feu, cratère ? »*. Le
+§4.30 le promettait comme une écriture dans la grille ; c'est fait, **dans la texture de la
+carte elle-même**, pixel par pixel, avec un bord qui tremble et se fond dans la matière autour.
+Trois dégâts, branchés sur ce qui existe déjà : le **cratère** du météore (rebord clair, fond
+sombre), la **terre brûlée** du Fielleux qui s'ouvre et de l'église qui tombe, la **terre
+retournée** là où un mur tombe ou un champ est piétiné. Un seul renvoi de texture par image,
+quel que soit le nombre de dégâts. Les trois terres de `sol.ts` sont désormais exportées et
+servent à ça.
+
+⚠️ **Ce que le chantier n'est pas** : un temps de construction. Le §4.20 (tranché le 9
+septembre) veut qu'un chantier occupe un bâtisseur et qu'un segment s'améliore bois → fer →
+pierre pour du fer et de la pierre. **Ces règles vivent dans le core et n'y sont pas écrites**
+— pas de ressources fer et pierre, pas de paliers de points de vie, pas de bâtisseur — et le
+core ne se touche pas pour du visuel. Les trois dessins de mur existent ; seul le bois se pose.
+C'est le prochain morceau de règles à écrire, et il est petit.
+
+**L'interface gothique apocalyptique** (`src/game/ui/chrome.ts`) : une **ferrure à rivet** aux
+quatre coins de chaque plaque, une **pointe de banderole** sous chaque barre de titre, et dans la
+fiche, **le portrait dans une ogive** — un visage dans une arche, comme sur une pierre tombale.
+Les portraits eux-mêmes (`portraits.ts`) descendent désormais de la palette : la chair de l'os,
+les cheveux de l'écorce et de la pierre, plus une seule peau rose.
+
+**Ce qui est jeté** : les 30 PNG de `src/assets/`, les 12 planches d'animation et leur
+manifeste, `scripts/animer-sprites.ts`. `assets.ts` garde le glob — un PNG déposé remplacerait
+encore le dessin sous la même clé, et c'est écrit en gros pour qu'on ne le fasse pas sans le
+vouloir. `ECHELLE_PERSONNAGE` passe de 0,75 à **1** : une échelle fractionnaire sur du pixel-art
+dessiné mange un pixel sur quatre.
+
+**Deux scripts neufs, gratuits et reproductibles** : `scripts/capturer.ts` (Playwright, toujours
+le même cadrage, `avant` / `apres`) et `scripts/planche.ts` (les planches PNG sans navigateur —
+c'est avec elles que chaque dessin a été jugé avant d'être branché).
+
+**472 tests verts** (+26 : la carte classe comme le core et se peint en moins d'une seconde ;
+chaque bête, chaque villageois et chaque décor tient dans son cadre pour chaque frame ; les
+trois paliers de mur ont trois silhouettes et couvrent toute leur case ; un dégât s'écrit au
+centre et laisse le sol intact au-delà de son rayon, et un cratère est plus sombre au fond que
+sur son rebord).
+
+| Trouvé par | Le défaut |
+|---|---|
+| **L'image** | La prairie tournait au **camouflage** : trois échelles de taches à 0,5 de sombre. Ramené à 0,4 et un seuil plus bas, plus une quatrième échelle très large |
+| **L'image** | Les fissures de la roche faisaient un **semis de glyphes** — des objets, pas une matière. Une case sur huit, pas une sur trois |
+| Un test | Le museau de la brute, les pattes d'un mort, la queue d'un chien qui recule, la hache d'un bûcheron voûté : **quatre façons de sortir du cadre**, aucune visible à la compilation. Les pattes s'arrêtent désormais **au sol**, calculées d'après la hauteur du corps |
+| Un test | Le fer et la pierre avaient la **même silhouette** par la tranche : les pointes dépassent désormais du côté de la lumière, et les créneaux entaillent la crête |
+
+⚠️ **Ce dont je ne suis pas sûr, à juger sur image** : la taille des personnages par rapport aux
+maisons (un habitant fait 24 px, une maison 38 — c'est plus grand qu'avant) ; l'anneau de
+palissade de départ, qui est un décor posé hors grille (ni corps, ni case) et ne se raccorde
+pas aux murs du joueur ; l'épaisseur des murs en bloc, qui fait toute la case ; les visages de la
+fiche, plus sombres qu'avant ; et les taches du sol, qu'on peut encore adoucir.
+
+⚠️ **Le core nomme encore deux textures qui n'existent plus** (`tour`,
+`bati-mur-est-ouest-bois` dans `core/constructions.ts`) : `textureDe` (`game/constructions.ts`)
+ne lit plus `def.texture`. Le core ne se touche pas pour du visuel ; le jour où on y entre pour
+la règle d'amélioration des murs, ces deux champs sont à retirer.
+
 ### La sauvegarde et le compte The Circle (fait le 10 août 2026, §4.28)
 
 **Rafraîchir la page n'est plus une nouvelle partie.** La sauvegarde vit dans le
@@ -907,9 +1042,9 @@ n'ont jamais été vus de bout en bout. Le refus d'identifiants et la panne rés
 
 ### Tout de suite
 
-⚠️ **Avant tout : le visuel n'est pas tranché.** Angelos n'aime pas le rendu actuel et n'a
-pas encore choisi de direction. Tant que ce n'est pas décidé, **ne pas coder d'affichage** —
-c'est exactement le piège qui a fait coder deux fois le bloc 7a.
+✅ **Le visuel est tranché et livré** (10 septembre 2026, voir « Le bloc 7z, étage 4 »). Ce qui
+reste ouvert n'est plus une direction, ce sont des **retouches sur image** : Angelos juge les
+captures `apres-*` et dit ce qui cloche.
 
 1. **Appliquer au code ce que le dépouillage a tranché**, du plus structurant au plus petit :
    a) le cycle 10 + 5 — ✅ **fait le 9 septembre 2026** (`src/core/cycle.ts`), hordes de jour
@@ -920,9 +1055,9 @@ c'est exactement le piège qui a fait coder deux fois le bloc 7a.
    d) le **seuil de 65 habitants** qui déclenche les attaques de jour ;
    e) les **quatre compétences actives** au maximum ;
    f) les **paliers de mur ×4** et l'amélioration par segment.
-2. **Finir le bloc 7z** (étages 4 et 5 : le sol en code, les personnages branchés dans
-   l'arène, l'eau qui noie, la fin des ronds de poste) — **seulement une fois le visuel
-   tranché**, puisque c'est précisément le sujet du désaccord.
+2. ✅ **Le bloc 7z est fini** (étage 4, le 10 septembre 2026). Ce qui en reste : **l'eau qui
+   noie** (§4.30, une règle, pas un dessin) et **la disparition des ronds de poste** — qui
+   attend que la mine, le ponton et les bûches disent eux-mêmes où l'on travaille.
 3. **Finir le bloc 7a** : les maisons destructibles, le village qui démarre en ruines, le
    survol qui remplace le texte « LE VILLAGE », et les quatre défauts d'affichage laissés
    exprès (`M` qui ne gèle pas les animations, l'outil de construction qui ne s'annule pas, le
@@ -1219,11 +1354,10 @@ Ce que ça change de plus lourd, en une ligne chacun :
 contenu à écrire : la liste complète des compétences et des ultimes, les statistiques des
 quatre classes, la liste des questions posables à la porte, et les bienfaits du Druide.
 
-⚠️ **Et ce qui reste vraiment ouvert, mais qui n'est pas une question de design** : Angelos a
-dit ne pas aimer le rendu visuel actuel. Aucune direction artistique n'a été choisie — il reste
-**trois** options posées (reprendre de vrais assets tout faits, faire redessiner la planche par
-un autre modèle, changer de direction artistique). **Ne pas coder de visuel avant que ce soit
-tranché.**
+✅ **La direction visuelle est tranchée le 10 septembre 2026** (section « Le bloc 7z, étage
+4 ») : on garde fer/os/sang et le dessin par le code, on n'emprunte à Clash of Clans que le
+**comportement** des constructions, et l'interface devient gothique apocalyptique. Ce qui reste
+se juge sur les captures `apres-*`, retouche par retouche.
 
 ## Tranché le 10 septembre 2026 — le moteur et le périmètre
 
@@ -1248,7 +1382,8 @@ npm run dev      # le jeu s'ouvre dans le navigateur
 npx vitest run   # les tests (446)
 npm run build    # vérifie les types et construit
 
-npx tsx scripts/animer-sprites.ts --planche   # régénère les planches d'animation
+npx tsx scripts/capturer.ts apres   # les captures du jeu, par Playwright, toujours au même endroit
+npx tsx scripts/planche.ts          # les planches PNG de la carte, du décor, des bâtiments et des personnages, sans navigateur
 ```
 
 **Commence par me dire ce que tu as compris et ce que tu comptes faire en premier, avant

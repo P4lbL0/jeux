@@ -45,6 +45,24 @@ import { C, T } from "./couleurs";
  */
 const BISEAU = 0x4a3a34;
 const OMBRE = 0x0a0707;
+/** Le rivet : de l'os mat, un point de metal qui accroche la lumiere. */
+const RIVET = 0x8d8172;
+
+/**
+ * La ferrure d'un coin : une equerre de plaque, et un rivet dedans.
+ *
+ * C'est ce qui fait qu'un panneau est **une plaque qu'on a boulonnee** et non un
+ * rectangle sombre pose sur l'image — la direction « gothique apocalyptique »
+ * tranchee le 10 septembre 2026. Quatre par cadre, toujours aux coins : un
+ * rivet au milieu d'un bord se lirait comme une tache.
+ */
+function ferrure(g: Phaser.GameObjects.Graphics, x: number, y: number, dx: number, dy: number): void {
+  g.fillStyle(BISEAU, 1);
+  g.fillRect(x, y, 5 * dx, 1 * dy);
+  g.fillRect(x, y, 1 * dx, 5 * dy);
+  g.fillStyle(RIVET, 1);
+  g.fillRect(x + 2 * dx, y + 2 * dy, 1, 1);
+}
 
 /**
  * **La police du jeu, et il n'y en a qu'une** (§4.10).
@@ -110,6 +128,15 @@ export function cadre(g: Phaser.GameObjects.Graphics, p: Plaque, accent = false)
 
   g.lineStyle(1, accent ? C.sangSeche : 0x000000, 1);
   g.strokeRect(x - 0.5, y - 0.5, l + 1, h + 1);
+
+  // Les quatre ferrures. Elles se dessinent vers l'interieur de la plaque, et
+  // seulement quand elle est assez grande pour ne pas etre mangee.
+  if (l >= 40 && h >= 24) {
+    ferrure(g, x + 2, y + 2, 1, 1);
+    ferrure(g, x + l - 3, y + 2, -1, 1);
+    ferrure(g, x + 2, y + h - 3, 1, -1);
+    ferrure(g, x + l - 3, y + h - 3, -1, -1);
+  }
 }
 
 /**
@@ -126,6 +153,16 @@ export function barreDeTitre(g: Phaser.GameObjects.Graphics, p: Plaque): void {
   // confondent des qu'on regarde l'ecran de loin.
   g.fillStyle(OMBRE, 1);
   g.fillRect(p.x + 1, p.y + 1 + HAUTEUR_TITRE, p.largeur - 2, 1);
+  // Une pointe sous la barre, au milieu : c'est la banderole qui pend, et
+  // c'est le seul ornement que l'interface s'autorise — gothique, pas baroque.
+  const milieu = p.x + p.largeur / 2;
+  const bas = p.y + 2 + HAUTEUR_TITRE;
+  g.fillStyle(C.sangSeche, 1);
+  g.fillTriangle(milieu - 6, bas, milieu + 6, bas, milieu, bas + 5);
+  g.fillStyle(OMBRE, 1);
+  g.fillTriangle(milieu - 6, bas + 1, milieu + 6, bas + 1, milieu, bas + 6);
+  g.fillStyle(C.sangSeche, 1);
+  g.fillTriangle(milieu - 5, bas, milieu + 5, bas, milieu, bas + 4);
 }
 
 /** Ou poser le texte d'une barre de titre, pour qu'il tombe au milieu. */

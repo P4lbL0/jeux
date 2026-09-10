@@ -347,9 +347,23 @@ reecrire les regles.
 
 ## Les sprites
 
-Toutes les images sont pour l'instant generees par code dans
-[src/game/art.ts](src/game/art.ts). Pour mettre un vrai dessin : charger le PNG
-sous la meme cle dans `preload()` et supprimer la fonction correspondante.
+**Tout ce qui se voit est dessine par le code**, dans la palette de neuf couleurs
+du jeu, et cuit en textures au demarrage (`src/game/dessin/`, DESIGN.md §4.30).
+Il n'y a aucun PNG : la carte est peinte pixel par pixel (`carte.ts`), le decor,
+les batiments, les murs, les monstres, les villageois et les heros sont des
+fonctions a parametres (`decor.ts`, `batiments.ts`, `monstres.ts`,
+`villageois.ts`, `heros.ts`), et `monde.ts` cuit le tout d'un seul appel.
+
+Pour juger un dessin, on le regarde — jamais on ne le devine :
+
+```bash
+npx tsx scripts/planche.ts [dossier]   # les planches PNG, sans navigateur
+npx tsx scripts/capturer.ts apres      # le jeu qui tourne, par Playwright
+```
+
+⚠️ Un PNG depose dans `src/assets/` remplace le dessin au code sous la meme
+cle : c'est le mecanisme qui a rendu le moteur de dessin invisible pendant un
+mois. Ne rien y deposer sans le vouloir.
 
 En dessinant, garder en tete que le jeu a un **zoom libre** : un sprite doit
 rester reconnaissable tout petit. C'est la silhouette et la couleur dominante

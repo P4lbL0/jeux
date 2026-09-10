@@ -1,6 +1,8 @@
+import type { Metier } from "../../core/habitants";
+import { C } from "../ui/couleurs";
 import type { Geste, Modele } from "./four";
 import type { Toile } from "./pinceau";
-import { BOIS, FER, TISSU, TOILE } from "./palette";
+import { BOIS, FER, TISSU, TOILE, desaturer, matiere, melanger, type Matiere } from "./palette";
 import {
   CADRE,
   borner,
@@ -24,6 +26,12 @@ import {
  * comme pour les heros. Il ne decrit que ce qu'un villageois **porte** et
  * comment il **bouge**. C'est ce qui rend « un heros est un villageois qui a
  * appris » vrai par construction.
+ *
+ * **Le metier se lit sur deux choses, et deux seulement** : la teinte du
+ * tablier, et l'outil — qui n'est en main qu'au travail (§4.30). L'ancien jeu
+ * teintait tout le sprite d'une couleur vive par metier ; ces couleurs ne sont
+ * pas dans la palette, et un pecheur bleu ciel de la tete aux pieds n'est pas
+ * quelqu'un, c'est une etiquette.
  */
 
 /** Ce qu'un corps porte en plus de son geste. */
@@ -33,6 +41,53 @@ export interface Corps {
   /** De 0 a 1 : le sang d'un blesse. */
   sang: number;
 }
+
+/** Les metiers du village, plus l'inconnu qu'on ramene de la route. */
+export type MetierDessine = Metier | "survivant";
+
+/**
+ * Le tablier de chaque metier : de la toile, poussee vers une teinte des neuf.
+ *
+ * ⚠️ Toutes descendent de l'**os** : un tablier est ce que le corps a de plus
+ * clair, c'est lui qui donne la silhouette a deux valeurs. Le colorer sombre le
+ * ferait disparaitre dans la tunique, et le villageois redeviendrait un bloc.
+ */
+const TABLIERS: Record<MetierDessine, Matiere> = {
+  pecheur: matiere(melanger(C.os, C.acier, 0.45)),
+  fermier: matiere(melanger(C.os, C.laiton, 0.4)),
+  bucheron: matiere(melanger(C.os, C.bile, 0.45)),
+  mineur: matiere(melanger(C.os, BOIS.corps, 0.45)),
+  forgeron: matiere(melanger(C.os, C.sangSeche, 0.35)),
+  charpentier: TOILE,
+  guetteur: matiere(melanger(C.os, C.cielSale, 0.45)),
+  // Un inconnu ne porte pas les couleurs d'un metier : il est delave et sale.
+  survivant: matiere(desaturer(melanger(TOILE.corps, C.fer, 0.28), 0.3)),
+};
+
+/** L'outil de chaque metier. Il n'apparait qu'au travail. */
+type Outil = "pioche" | "hache" | "houe" | "canne" | "marteau" | "maillet" | "baton";
+
+const OUTILS: Record<MetierDessine, Outil> = {
+  pecheur: "canne",
+  fermier: "houe",
+  bucheron: "hache",
+  mineur: "pioche",
+  forgeron: "marteau",
+  charpentier: "maillet",
+  guetteur: "baton",
+  survivant: "baton",
+};
+
+/** Le son de chaque outil. Personne ne l'ecoute encore (§4.30). */
+const BRUITS: Record<Outil, string> = {
+  pioche: "pioche",
+  hache: "hache",
+  houe: "semis",
+  canne: "ligne",
+  marteau: "enclume",
+  maillet: "maillet",
+  baton: "pas",
+};
 
 /**
  * Les deux bornes du coup de pioche, dans l'avancement du geste.
@@ -129,48 +184,130 @@ export const GESTES: readonly Geste[] = [
   { cle: "toux", frames: 4, cadence: 6, boucle: false, evenement: "toux", frameCle: 1 },
 ];
 
-/** Tunique sombre, tablier clair, chapeau a bord plat (§4.30). */
-export function tenueDeVillageois(corps: Corps): Apparence {
+/** Les gestes d'un metier : les memes, avec le son de son outil. */
+export function gestesDeVillageois(metier: MetierDessine): readonly Geste[] {
+  const bruit = BRUITS[OUTILS[metier]];
+  return GESTES.map((g) => (g.cle === "travail" ? { ...g, evenement: bruit } : g));
+}
+
+/** Tunique sombre, tablier du metier, chapeau a bord plat (§4.30). */
+export function tenueDeVillageois(metier: MetierDessine, corps: Corps): Apparence {
   return {
     tunique: TISSU,
-    ventre: TOILE,
-    coiffe: { genre: "chapeau", matiere: BOIS },
+    ventre: TABLIERS[metier],
+    // Le guetteur porte une capuche : il est dehors la nuit. Les autres, le
+    // chapeau a bord plat.
+    coiffe: metier === "guetteur" ? { genre: "casque", matiere: TISSU } : { genre: "chapeau", matiere: BOIS },
     usure: corps.usure,
     sang: corps.sang,
   };
 }
 
+/**
+ * La famille de texture d'un villageois : son metier, et l'etat de son corps.
+ *
+ * L'usure est **quantifiee en trois crans** : neuf, fatigue, use. Cuire une
+ * planche par pourcent de stress reviendrait a cuire par image ; trois crans se
+ * lisent, et une planche ne se cuit que quand un habitant change de cran.
+ */
+export function familleDeVillageois(metier: MetierDessine, corps: Corps): string {
+  return `villageois-${metier}-u${cranDUsure(corps.usure)}-s${corps.sang > 0 ? 1 : 0}`;
+}
+
+/** Le cran d'usure : 0, 1 ou 2. */
+export function cranDUsure(usure: number): number {
+  return Math.max(0, Math.min(2, Math.round(usure * 2)));
+}
+
+/** L'usure que la planche dessine pour un cran. */
+function usureDuCran(cran: number): number {
+  return cran / 2;
+}
+
 /** Un villageois, dans l'etat ou il est. */
-export function villageois(famille: string, corps: Corps): Modele {
-  const tenue = tenueDeVillageois(corps);
+export function villageois(metier: MetierDessine, corps: Corps): Modele {
+  const usure = usureDuCran(cranDUsure(corps.usure));
+  const sang = corps.sang > 0 ? 1 : 0;
+  const tenue = tenueDeVillageois(metier, { usure, sang });
+  const outil = OUTILS[metier];
   return {
-    famille,
+    famille: familleDeVillageois(metier, corps),
     taille: CADRE,
-    gestes: GESTES,
+    gestes: gestesDeVillageois(metier),
     dessiner: (toile, geste, avancement) => {
-      const a = posture(geste, avancement, corps.usure);
+      const a = posture(geste, avancement, usure);
       const attaches = peindreCorps(toile, a, tenue);
       // **L'outil n'est en main que pendant le travail** (§4.30) : c'est ce qui
       // fait qu'on lit *qui travaille*, et pas seulement quel est son metier.
-      if (a.outil) peindrePioche(toile, attaches.main, a.brasAvant);
+      if (a.outil) peindreOutil(toile, outil, attaches.main, a.brasAvant);
     },
   };
 }
 
-function peindrePioche(toile: Toile, main: { x: number; y: number }, angle: number): void {
+// ----------------------------------------------------------------- les outils
+
+/**
+ * L'outil, dans le prolongement du bras.
+ *
+ * C'est ce qui fait qu'il appartient au geste au lieu de flotter a cote de la
+ * main. Chaque outil est un manche et **une seule chose au bout** : a 32 px,
+ * c'est cette chose-la qu'on lit, jamais le detail.
+ */
+function peindreOutil(toile: Toile, outil: Outil, main: { x: number; y: number }, angle: number): void {
   const sin = Math.sin(angle);
   const cos = Math.cos(angle);
-  // Le manche **prolonge le bras**. C'est ce qui fait que l'outil appartient au
-  // geste au lieu de flotter a cote de la main.
-  const bout = { x: main.x + sin * 3.5, y: main.y + cos * 3.5 };
-  toile.segment(main.x - sin * 2, main.y - cos * 2, bout.x, bout.y, 1.4, BOIS.corps);
-  // Le fer en travers du manche, donc perpendiculaire a l'angle du bras.
-  toile.segment(
-    bout.x - cos * 1.4,
-    bout.y + sin * 1.4,
-    bout.x + cos * 1.4,
-    bout.y - sin * 1.4,
-    1.4,
-    FER.clair,
-  );
+  const bout = (longueur: number) => ({ x: main.x + sin * longueur, y: main.y + cos * longueur });
+  const travers = (a: { x: number; y: number }, demi: number, epaisseur: number, couleur: number) =>
+    toile.segment(a.x - cos * demi, a.y + sin * demi, a.x + cos * demi, a.y - sin * demi, epaisseur, couleur);
+  const manche = (longueur: number, arriere = 2) => {
+    const b = bout(longueur);
+    const q = bout(-arriere);
+    toile.segment(q.x, q.y, b.x, b.y, 1.4, BOIS.corps);
+    return b;
+  };
+
+  switch (outil) {
+    case "pioche": {
+      // Le fer en travers du manche, donc perpendiculaire a l'angle du bras.
+      travers(manche(3.5), 1.4, 1.4, FER.clair);
+      break;
+    }
+    case "hache": {
+      // Une tete large d'un seul cote : c'est ce qui la separe de la pioche.
+      // ⚠️ Un manche de 3 et non 3,5 : un bucheron use, voute, frappe plus
+      // loin devant lui, et la hache sortait du carreau d'un pixel.
+      const b = manche(3);
+      toile.segment(b.x, b.y, b.x + cos * 1.8, b.y - sin * 1.8, 2.2, FER.clair);
+      break;
+    }
+    case "houe": {
+      // Une lame plate, en travers, plus courte que la pioche.
+      travers(manche(4), 1, 1.6, FER.corps);
+      break;
+    }
+    case "canne": {
+      // Longue et fine, et un fil qui pend du bout.
+      const b = bout(6);
+      const q = bout(-2);
+      toile.segment(q.x, q.y, b.x, b.y, 1, BOIS.clair);
+      toile.segment(b.x, b.y, b.x, b.y + 3, 1, TOILE.clair);
+      break;
+    }
+    case "marteau": {
+      // Une masse carree au bout d'un manche court.
+      const b = manche(2.5);
+      toile.rect(Math.round(b.x) - 1, Math.round(b.y) - 1, 3, 3, FER.corps);
+      toile.point(Math.round(b.x) - 1, Math.round(b.y) - 1, FER.clair);
+      break;
+    }
+    case "maillet": {
+      const b = manche(2.5);
+      toile.rect(Math.round(b.x) - 1, Math.round(b.y) - 1, 3, 3, BOIS.corps);
+      toile.point(Math.round(b.x) - 1, Math.round(b.y) - 1, BOIS.clair);
+      break;
+    }
+    case "baton":
+      manche(4);
+      break;
+  }
 }

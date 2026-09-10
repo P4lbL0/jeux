@@ -7,6 +7,8 @@ import {
 } from "../core/survivants";
 import type { Rng } from "../core/rng";
 import { calerCorps, ECHELLE_PERSONNAGE } from "./entities";
+import { assurerVillageois, plancheDe } from "./dessin/monde";
+import { animer, nouvellePose } from "./poses";
 
 /**
  * Le survivant a l'ecran (DESIGN.md §4.18).
@@ -30,18 +32,30 @@ export class SpriteSurvivant extends Phaser.Physics.Arcade.Sprite {
   /** Vrai des que le joueur l'a eu dans son rayon de vue : la meute est tiree */
   vu = false;
 
+  /** Sa planche : un inconnu, delave et fatigue par la route (voir `poses.ts`) */
+  readonly familleSprite: string;
+  pose = nouvellePose();
+
   constructor(scene: Phaser.Scene, regles: Survivant) {
-    super(scene, regles.point.x, regles.point.y, "villageois");
+    // Un inconnu ne porte pas les couleurs d'un metier du village : il est
+    // delave, et il a marche. C'est la seule chose qui le distingue d'un
+    // habitant a l'ecran, et ca suffit — on ne le voit jamais a cote des autres.
+    const famille = assurerVillageois(scene, "survivant", { usure: 0.6, sang: 0 });
+    super(scene, regles.point.x, regles.point.y, plancheDe(famille), 0);
+    this.familleSprite = famille;
     this.regles = regles;
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.setScale(ECHELLE_PERSONNAGE);
     calerCorps(this, 8, 10);
-    // Un inconnu ne porte pas les couleurs d'un metier du village : il est
-    // delave. C'est la seule chose qui le distingue d'un habitant a l'ecran,
-    // et ca suffit — on ne le voit jamais a cote des autres.
-    this.setTint(0x9a8f7e);
+  }
+
+  /** Son geste, une fois par image : il marche ou il attend. */
+  animer(maintenant: number): void {
+    if (!this.vivant) return;
+    const corps = this.body as Phaser.Physics.Arcade.Body | null;
+    animer(this, this.pose, corps ? corps.velocity.length() : 0, maintenant);
   }
 
   get nom(): string {
@@ -158,6 +172,7 @@ export class Survivants {
   mettreAJour(): void {
     const sprite = this.courant;
     if (sprite === null || !sprite.vivant) return;
+    sprite.animer(this.scene.time.now);
 
     const heros = this.contexte.positionDuHeros();
     const distance = Phaser.Math.Distance.Between(sprite.x, sprite.y, heros.x, heros.y);

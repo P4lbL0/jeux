@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { CLASSES, ORDRE_CLASSES, type ClassId } from "../core/classes";
 import { creerTexturesPlaceholder, echellePortrait } from "../game/art";
+import { portraitDeHero } from "../game/dessin/monde";
 import type { Emplacement } from "../core/sauvegarde";
 import {
   C,
@@ -205,7 +206,8 @@ export class ChoixClasseScene extends Phaser.Scene {
       largeur: CARTE.portrait,
       hauteur: CARTE.portrait,
     });
-    const portrait = this.add.image(x + largeur / 2, hautPortrait + CARTE.portrait / 2, `hero-${id}`);
+    const { texture, frame } = portraitDeHero(this, id);
+    const portrait = this.add.image(x + largeur / 2, hautPortrait + CARTE.portrait / 2, texture, frame);
     portrait.setScale(echellePortrait(portrait.height, HAUTEUR_PORTRAIT));
 
     this.add

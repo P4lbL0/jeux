@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { ANIMATIONS, ASSETS } from "../game/assets";
+import { ASSETS } from "../game/assets";
 
 /**
  * Le prechargement, avant tout le reste.
@@ -8,10 +8,10 @@ import { ANIMATIONS, ASSETS } from "../game/assets";
  * rend disponibles dans toutes les scenes, sans que ni l'arene ni l'ecran de
  * choix n'aient a s'en occuper.
  *
- * Ce qui n'a pas de PNG n'est pas une erreur : `creerTexturesPlaceholder` (dans
- * `art.ts`) fabrique au code ce qui manque, chaque fonction etant gardee par un
- * `if (scene.textures.exists(cle)) return;`. On migre donc un sprite a la fois,
- * sans jamais casser le jeu entre deux.
+ * ⚠️ Depuis le 10 septembre 2026, il n'y a plus rien a charger : tout le monde
+ * est dessine par le code et cuit au demarrage de chaque scene
+ * (`dessin/monde.ts`). Cette scene ne sert plus qu'a ramasser un eventuel PNG
+ * depose dans `src/assets/` — et a passer la main au menu.
  */
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -20,47 +20,14 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     for (const { cle, url } of ASSETS) this.load.image(cle, url);
-    // Une planche se charge en `spritesheet` et non en `image` : sans les
-    // dimensions d'une frame, Phaser en ferait une seule texture de six
-    // personnages cote a cote. Le manifeste les porte.
-    for (const { cle, url, taille } of ANIMATIONS) {
-      this.load.spritesheet(cle, url, { frameWidth: taille, frameHeight: taille });
-    }
   }
 
   create(): void {
-    const sequences = this.declarerAnimations();
-    console.log(
-      `[boot] ${ASSETS.length} sprite(s), ${ANIMATIONS.length} planche(s), ` +
-        `${sequences} animation(s)`,
-    );
+    if (ASSETS.length > 0) {
+      console.log(`[boot] ${ASSETS.length} PNG depose(s) : ils remplacent le dessin au code`);
+    }
     // L'ecran de depart avant le choix de classe : c'est lui qui dit s'il y a
     // une partie a reprendre (DESIGN.md §4.28).
     this.scene.start("menu");
-  }
-
-  /**
-   * Les animations sont **globales au jeu**, comme les textures : declarees une
-   * fois ici, elles sont jouables depuis n'importe quelle scene.
-   *
-   * Chaque planche en contient plusieurs, reperees par leur plage de frames —
-   * c'est le manifeste, produit avec les PNG, qui donne ces bornes. Rien n'est
-   * ecrit en dur des deux cotes.
-   */
-  private declarerAnimations(): number {
-    let compte = 0;
-    for (const planche of ANIMATIONS) {
-      for (const { cle, debut, fin, cadence, boucle } of planche.animations) {
-        if (this.anims.exists(cle)) continue;
-        this.anims.create({
-          key: cle,
-          frames: this.anims.generateFrameNumbers(planche.cle, { start: debut, end: fin }),
-          frameRate: cadence,
-          repeat: boucle ? -1 : 0,
-        });
-        compte += 1;
-      }
-    }
-    return compte;
   }
 }

@@ -1,5 +1,6 @@
 import type Phaser from "phaser";
 import { Toile } from "./pinceau";
+import { bruit, bruitLisse } from "./bruit";
 import { BOIS, FEUILLE, PIERRE, SOL_VERT, melanger, type Matiere } from "./palette";
 import { C } from "../ui/couleurs";
 
@@ -171,6 +172,10 @@ function terreBrulee(): Matiere {
   };
 }
 
+/** Les trois terres abimees, pour ecrire un degat dans la carte (`carte.ts`). */
+export const TERRE = terreBattue();
+export const BRULE = terreBrulee();
+
 /** La terre retournee d'un cratere : plus sombre et plus froide que la battue. */
 function terreRetournee(): Matiere {
   const base = terreBattue();
@@ -181,6 +186,8 @@ function terreRetournee(): Matiere {
     clair: melanger(corps, PIERRE.clair, 0.28),
   };
 }
+
+export const CRATERE = terreRetournee();
 
 function semer(toile: Toile, sol: Matiere, variante: number, rarete: number): void {
   // Le decalage par variante est ce qui fait que quatre carreaux voisins ne
@@ -221,18 +228,6 @@ function peindreOrnieres(toile: Toile, variante: number): void {
 }
 
 /**
- * Un bruit fixe, de 0 a 1. Il ne depend que de ses entrees.
- *
- * `Math.imul` et le `>>> 0` **avant** la division : la meme discipline que
- * `varianteDe`, et pour la meme raison.
- */
-function bruit(x: number, y: number, sel: number): number {
-  let h = Math.imul(x + sel * 131, 0x27d4eb2d) ^ Math.imul(y + sel * 57, 0x165667b1);
-  h = Math.imul(h ^ (h >>> 15), 0x2545f491);
-  return ((h ^ (h >>> 13)) >>> 0) / 4294967296;
-}
-
-/**
  * Le marbrage : deux echelles de bruit, et **aucun objet**.
  *
  * ⚠️ **C'est la lecon de deux essais rates.** La terre brulee a d'abord ete
@@ -263,38 +258,6 @@ function marbrer(
       else if (v > plafond) toile.point(x, y, sol.clair);
     }
   }
-}
-
-/**
- * Le meme bruit, **interpole** entre ses points de grille.
- *
- * ⚠️ **C'est le troisieme essai de la terre brulee, et le defaut etait la.**
- * Prendre le bruit par blocs (`bruit(floor(x/6), ...)`) donne des **carres a
- * bords francs** : le resultat ne ressemblait plus a de la terre mais a du
- * **camouflage numerique**. Une matiere n'a pas d'aretes droites. On interpole
- * donc entre les quatre coins, avec un adoucissement aux extremites — sans lui,
- * les diagonales de la grille restent visibles.
- */
-function bruitLisse(x: number, y: number, echelle: number, sel: number): number {
-  const fx = x / echelle;
-  const fy = y / echelle;
-  const x0 = Math.floor(fx);
-  const y0 = Math.floor(fy);
-  const tx = adoucir(fx - x0);
-  const ty = adoucir(fy - y0);
-
-  const haut = melangeLineaire(bruit(x0, y0, sel), bruit(x0 + 1, y0, sel), tx);
-  const bas = melangeLineaire(bruit(x0, y0 + 1, sel), bruit(x0 + 1, y0 + 1, sel), tx);
-  return melangeLineaire(haut, bas, ty);
-}
-
-/** La courbe en S qui efface les aretes de la grille du bruit. */
-function adoucir(t: number): number {
-  return t * t * (3 - 2 * t);
-}
-
-function melangeLineaire(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
 }
 
 /**

@@ -9,7 +9,16 @@ import {
   type CompetenceDef,
   type EvolutionDef,
 } from "../core/competences";
-import { ARBRES, creerTexturesPlaceholder } from "../game/art";
+import { creerTexturesPlaceholder } from "../game/art";
+import {
+  ARBRES_MORTS,
+  ARBRES_VIVANTS,
+  CONIFERES,
+  ROCHERS,
+  decorParCle,
+} from "../game/dessin/decor";
+import { textureDe } from "../game/constructions";
+import { abimerLeSol } from "../game/dessin/carte";
 import { oublierLesPortraits } from "../game/portraits";
 import {
   Double,
@@ -159,10 +168,12 @@ import {
   EMPRISE_MAISON,
   MAISON,
   VARIANTES_MAISON,
+  CLES_CHAMP,
+  CLE_MUR_RUINE,
+  ORIGINE_MUR_Y,
   cleMaison,
   cleMur,
   cuireLesBatiments,
-  type SensMur,
 } from "../game/dessin/batiments";
 import { poserLaMer, type MerAnimee } from "../game/dessin/mer";
 import type { EtatEquipe } from "../game/hud";
@@ -942,6 +953,8 @@ export class ArenaScene extends Phaser.Scene {
       effondrement: (x, y) => {
         poufMort(this, x, y, 0x8a7f6d);
         secousse(this, "fort");
+        // Le sol garde la trace : l'eglise a brule (§4.21, §4.24).
+        abimerLeSol(this, x, y, "brule", 46);
         this.village.viderLEglise();
       },
     });
@@ -1025,7 +1038,7 @@ export class ArenaScene extends Phaser.Scene {
     });
 
     this.fantome = this.add
-      .image(0, 0, CONSTRUCTIONS.palissade.texture)
+      .image(0, 0, textureDe(CONSTRUCTIONS.palissade))
       .setAlpha(0.55)
       .setVisible(false)
       .setDepth(880);
@@ -1079,6 +1092,7 @@ export class ArenaScene extends Phaser.Scene {
   private decalerLeTemps(pause: number): void {
     for (const hero of this.heros) hero.decalerRechargements(pause);
     for (const objet of this.ennemis.getChildren()) (objet as Ennemi).decaler(pause);
+    this.constructions.decaler(pause);
     this.prochaineApparition += pause;
     this.prochaineHorde += pause;
     if (this.hordeAuDepart > 0) this.hordeAuDepart += pause;
@@ -1172,15 +1186,20 @@ export class ArenaScene extends Phaser.Scene {
     };
 
     /**
-     * Un element de decor, pose a sa taille native.
+     * Un element de decor, pose a sa taille native, **le pied sur le sol**.
      *
      * Plus de `setScale(rng.range(...))` : une echelle fractionnaire donne des
      * pixels de tailles inegales, ce qui saute aux yeux sur du vrai pixel-art.
-     * La variete vient desormais des cinq silhouettes d'arbre et du miroir
-     * horizontal, qui ne coutent aucun flou.
+     * La variete vient des silhouettes dessinees par le code et du miroir
+     * horizontal, qui ne coutent aucun flou. L'origine est celle du decor : c'est
+     * le pied qui decide de la profondeur, pas le milieu de l'image.
      */
     const poser = (x: number, y: number, cle: string) => {
-      this.add.image(x, y, cle).setDepth(y).setFlipX(rng.next() < 0.5);
+      this.add
+        .image(x, y, cle)
+        .setOrigin(0.5, decorParCle(cle).origineY)
+        .setDepth(y)
+        .setFlipX(rng.next() < 0.5);
     };
 
     /**
@@ -1193,22 +1212,25 @@ export class ArenaScene extends Phaser.Scene {
       Math.round(((MONDE.largeur * MONDE.hauteur) / 1_000_000) * parMegapixel);
 
     // La foret du sud. Elle doit etre **dense** : c'est elle qui rend le flanc
-    // sud credible. Deux fois moins serree qu'au temps des placeholders, parce
-    // que les arbres de `src/assets/` couvrent trois fois plus de surface : a
-    // densite egale, la foret devenait un mur opaque au-dessus du combat.
-    semer(tirages(830), ["sous-bois"], (x, y) => poser(x, y, rng.pick(ARBRES)));
+    // sud credible. Des coniferes sombres pour la moitie, et le reste partage
+    // entre arbres vivants et arbres morts — une foret d'apres la fin du monde.
+    semer(tirages(830), ["sous-bois"], (x, y) => {
+      const tirage = rng.next();
+      poser(x, y, rng.pick(tirage < 0.5 ? CONIFERES : tirage < 0.75 ? ARBRES_VIVANTS : ARBRES_MORTS));
+    });
 
-    // Des bosquets epars sur la prairie : le decor ne doit jamais etre un fond
-    // uni, mais il ne doit pas non plus masquer les personnages (§4.11).
+    // Des bosquets epars sur la prairie, morts pour la plupart : le decor ne
+    // doit jamais etre un fond uni, mais il ne doit pas non plus masquer les
+    // personnages (§4.11).
     semer(tirages(365), ["herbe"], (x, y) => {
       if (rng.next() > 0.22) return;
-      poser(x, y, rng.pick(ARBRES));
+      poser(x, y, rng.pick(rng.next() < 0.65 ? ARBRES_MORTS : ARBRES_VIVANTS));
     });
 
     // Les rochers, sur l'eboulis et au pied de la montagne.
     semer(tirages(470), ["eboulis", "roche"], (x, y) => {
       if (rng.next() > 0.3) return;
-      poser(x, y, "rocher");
+      poser(x, y, rng.pick(ROCHERS));
     });
   }
 
@@ -1244,38 +1266,31 @@ export class ArenaScene extends Phaser.Scene {
     // quelques pixels a chaque pas, et l'enceinte se lisait comme une file de
     // caisses au lieu d'un rempart. Un mur large d'une case ne se raccorde a son
     // voisin que si les deux sont **dans** la case (§4.30).
-    const anneau = new Set<string>();
+    // Vrai quand la case est une breche : la palissade y est tombee.
+    const anneau = new Map<string, boolean>();
     const tours = 240;
     for (let i = 0; i < tours; i++) {
       const a = (i / tours) * Math.PI * 2;
       // Les fronts restent ouverts : c'est par la que ca arrive, et une enceinte
-      // fermee ferait mentir la carte. Une case sur trois y reste debout, pour
-      // que la breche se lise comme une ruine et non comme un bord de dessin.
+      // fermee ferait mentir la carte. Une case sur trois y reste debout, les
+      // deux autres sont **des ruines** — des moignons de pieux qu'on enjambe —
+      // pour que la breche se lise comme un rempart tombe et non comme des
+      // caisses posees en ligne.
       const versLesFronts = Math.cos(a) > 0.55 || Math.sin(a) < -0.55;
       const colonne = Math.floor((CITE.x + Math.cos(a) * CITE.rayon) / CASE);
       const ligne = Math.floor((CITE.y + Math.sin(a) * CITE.rayon) / CASE);
-      if (versLesFronts && (colonne + ligne) % 3 !== 0) continue;
-      anneau.add(`${colonne},${ligne}`);
+      anneau.set(`${colonne},${ligne}`, versLesFronts && (colonne + ligne) % 3 !== 0);
     }
 
-    for (const cle of anneau) {
+    for (const [cle, ruine] of anneau) {
       const [colonne, ligne] = cle.split(",").map(Number) as [number, number];
-      // Le sens d'un carreau se lit sur **ses voisins**, jamais sur sa position :
-      // c'est la seule lecture qui reste juste quand l'enceinte n'est plus un
-      // cercle — et elle ne le sera plus des que le joueur y touchera (§4.24).
-      const est = anneau.has(`${colonne + 1},${ligne}`);
-      const ouest = anneau.has(`${colonne - 1},${ligne}`);
-      const vertical =
-        anneau.has(`${colonne},${ligne - 1}`) || anneau.has(`${colonne},${ligne + 1}`);
-      const sens: SensMur = (est || ouest) && vertical ? "angle" : est || ouest ? "est-ouest" : "nord-sud";
-
+      // Un seul dessin, un bloc plein : c'est la profondeur qui raccorde deux
+      // blocs l'un au-dessus de l'autre (§4.30, les murs en bloc).
       const centre = Grille.centreCase(colonne, ligne);
       this.add
-        .image(centre.x, centre.y, cleMur(sens, "bois"))
-        // La face d'un angle part vers l'est ; quand le mur continue a l'ouest,
-        // c'est le miroir qu'il faut. Il ne deplace pas la lumiere.
-        .setFlipX(sens === "angle" && !est)
-        .setDepth(centre.y - 4);
+        .image(centre.x, centre.y, ruine ? CLE_MUR_RUINE : cleMur("bois"))
+        .setOrigin(0.5, ORIGINE_MUR_Y)
+        .setDepth(centre.y + CASE / 2);
     }
   }
 
@@ -1349,15 +1364,18 @@ export class ArenaScene extends Phaser.Scene {
    * defense devra couvrir.
    */
   private marquerLesPostes(): void {
+    // ⚠️ Discrets, en os mat : un repere qu'on cherche du regard, pas un
+    // panneau. Ils disparaitront quand la mine, le ponton et les buches
+    // diront eux-memes ou l'on travaille (§4.30).
     for (const poste of POSTES) {
       const g = this.add.graphics().setDepth(-945);
-      g.lineStyle(2, 0xd8c48a, 0.5);
+      g.lineStyle(1, 0xd9c9b0, 0.22);
       g.strokeCircle(poste.position.x, poste.position.y, 34);
       this.add
         .text(poste.position.x, poste.position.y - 48, poste.nom.toUpperCase(), {
           fontFamily: POLICE,
           fontSize: "10px",
-          color: "#d8c48a",
+          color: "#8d8172",
         })
         .setOrigin(0.5)
         .setDepth(-930);
@@ -1689,6 +1707,7 @@ export class ArenaScene extends Phaser.Scene {
     this.recolterALaMain(delta);
     this.majFantome();
     this.constructions.majorer(this.time.now);
+    this.constructions.finirLesChantiers(this.time.now);
     // Les champs poussent une fois par seconde, jamais par image (§4.17).
     this.champs.majorer(this.time.now, this.village.auTravail("fermier"), this.village.stocks);
     this.fairePartirLesVagues();
@@ -2690,7 +2709,7 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     if (type === "champ") {
-      this.fantome.setTexture("champ-jeune").setVisible(true);
+      this.fantome.setTexture(CLES_CHAMP.jeune).setOrigin(0.5, 0.5).setVisible(true);
       this.events.emit(
         "annonce",
         `Champ — ${REGLAGES_CHAMPS.coutBois} bois · clic pour semer, pres des champs`,
@@ -2700,7 +2719,10 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     const def = CONSTRUCTIONS[type];
-    this.fantome.setTexture(def.texture).setVisible(true);
+    this.fantome
+      .setTexture(textureDe(def))
+      .setOrigin(0.5, def.occupable ? 0.72 : ORIGINE_MUR_Y)
+      .setVisible(true);
     this.events.emit("annonce", `${def.nom} — ${coutLisible(def)} · clic pour poser`, "toi");
   }
 
@@ -2827,7 +2849,10 @@ export class ArenaScene extends Phaser.Scene {
     if (!prise) return;
     if (prise === this.tourDuHero) this.tourDuHero = null;
     this.deplacee = prise;
-    this.fantome.setTexture(prise.def.texture).setVisible(true);
+    this.fantome
+      .setTexture(textureDe(prise.def, prise.matiere))
+      .setOrigin(0.5, prise.def.occupable ? 0.72 : ORIGINE_MUR_Y)
+      .setVisible(true);
     this.events.emit("annonce", `${prise.def.nom} en main — clic pour la reposer`, "toi");
   }
 
@@ -2875,7 +2900,7 @@ export class ArenaScene extends Phaser.Scene {
     const pose =
       this.enConstruction === "champ"
         ? this.champs.semer(x, y, this.village.stocks)
-        : this.constructions.batir(x, y, this.enConstruction, this.village.stocks);
+        : this.constructions.batir(x, y, this.enConstruction, this.village.stocks, this.time.now);
 
     if (!pose) {
       // Le refus dit ce qui cloche, comme celui de l'eglise (§4.22, §4.24). Un
@@ -2974,6 +2999,8 @@ export class ArenaScene extends Phaser.Scene {
     if (!this.champs.pietiner(champ)) return;
 
     poufMort(this, champ.x, champ.y, 0xd8b64a);
+    // Il ne reste que de la terre pietinee la ou le ble poussait.
+    abimerLeSol(this, champ.x, champ.y, "terre", 18);
     this.events.emit("annonce", "Un champ est ravage", "guet");
   }
 
@@ -2989,6 +3016,8 @@ export class ArenaScene extends Phaser.Scene {
 
     poufMort(this, construction.x, construction.y, 0xbfae8a);
     secousse(this, "fort");
+    // La ou un mur tombe, la terre est retournee : le sol se souvient.
+    abimerLeSol(this, construction.x, construction.y, "terre", 20);
     if (construction.occupant) this.ejecterDeLaTour(construction);
     else this.constructions.detruire(construction);
   }
@@ -4080,6 +4109,8 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     this.effetCercle(cible.x, cible.y, 110, 0xd06bff);
+    // Le cratere du §4.21 : le meteore l'ecrit dans le sol, et il y reste.
+    abimerLeSol(this, cible.x, cible.y, "cratere", 34);
     if (hero.estIncarne) this.cameras.main.shake(180, 0.007);
     for (const e of this.ennemisDansRayon(cible.x, cible.y, 110)) {
       this.blesserEnnemi(e, hero.degats * 4, hero);
@@ -5150,6 +5181,8 @@ export class ArenaScene extends Phaser.Scene {
     poufMort(this, x, y, couleur);
     secousse(this, "moyen");
     hitstop(this, 45);
+    // Il brule le sol en s'ouvrant : c'est la premiere terre brulee du jeu.
+    abimerLeSol(this, x, y, "brule", 30);
 
     for (const hero of this.heros) {
       if (!hero.estAuCombat || hero.estInvisible) continue;

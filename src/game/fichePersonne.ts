@@ -281,18 +281,20 @@ export class FichePersonne {
 
     const cle = portraitDe(this.scene, personne, vivant, seTrahit);
     const echelle = 4;
-    creux(cadre, {
+    const cadrePortrait: Plaque = {
       x: x + 20,
       y: y + 18,
       largeur: TAILLE_PORTRAIT.largeur * echelle,
       hauteur: TAILLE_PORTRAIT.hauteur * echelle,
-    });
+    };
+    creux(cadre, cadrePortrait);
     const portrait = this.scene.add
       .image(x + 20, y + 18, cle)
       .setOrigin(0)
       .setScale(echelle)
       .setDepth(2604);
     this.objets.push(portrait);
+    this.ogive(cadrePortrait);
 
     const gauche = x + 20 + TAILLE_PORTRAIT.largeur * echelle + 16;
 
@@ -1012,6 +1014,33 @@ export class FichePersonne {
       .setDepth(2605);
     this.objets.push(t);
     return t;
+  }
+
+  /**
+   * L'ogive autour du portrait : deux pans de fer qui coupent les coins du
+   * haut en pointe, et un liseré de plaque tout autour.
+   *
+   * C'est la seule chose gothique de la fiche — un visage dans une arche, comme
+   * sur une pierre tombale — et c'est ce qui fait de ce panneau **la fiche d'un
+   * homme** et non un tableau de chiffres (direction du 10 septembre 2026).
+   */
+  private ogive(p: Plaque): void {
+    const g = this.scene.add.graphics().setDepth(2605);
+    g.fillStyle(C.fer, 1);
+    const pointe = p.y - 2;
+    const creux = p.y + p.hauteur * 0.3;
+    g.fillTriangle(p.x - 1, pointe, p.x + p.largeur / 2, pointe, p.x - 1, creux);
+    g.fillTriangle(p.x + p.largeur + 1, pointe, p.x + p.largeur / 2, pointe, p.x + p.largeur + 1, creux);
+    // Le liseré suit l'arche : deux montants, et deux pans qui montent en pointe.
+    g.lineStyle(2, 0x4a3a34, 1);
+    g.beginPath();
+    g.moveTo(p.x, p.y + p.hauteur);
+    g.lineTo(p.x, creux);
+    g.lineTo(p.x + p.largeur / 2, pointe + 1);
+    g.lineTo(p.x + p.largeur, creux);
+    g.lineTo(p.x + p.largeur, p.y + p.hauteur);
+    g.strokePath();
+    this.objets.push(g);
   }
 
   private zone(x: number, y: number, l: number, h: number, depth: number, action: () => void): void {

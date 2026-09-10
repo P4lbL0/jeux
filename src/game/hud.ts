@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { SEUIL_CRITIQUE } from "../core/classes";
 import type { Hero } from "./entities";
+import { plancheDe } from "./dessin/monde";
 import { C, T, cadre, jauge, teindre, texte, type Plaque } from "./ui/chrome";
 
 /**
@@ -137,8 +138,10 @@ export class Hud {
     heros.forEach((hero, i) => {
       const x = MARGE + i * (LARGEUR + ESPACE);
       this.cartes.push({
+        // Le portrait est la premiere frame de sa planche, au repos : la meme
+        // image que sur le terrain, donc la meme classe qu'on reconnait.
         portrait: scene.add
-          .image(x + 7 + CASE_PORTRAIT / 2, MARGE + HAUTEUR / 2, `hero-${hero.classe.id}`)
+          .image(x + 7 + CASE_PORTRAIT / 2, MARGE + HAUTEUR / 2, plancheDe(hero.familleSprite), 0)
           .setDepth(1001),
         titre: this.texte(x + COLONNE, MARGE + 7, 11, T.os),
         etat: this.texte(x + COLONNE, MARGE + 46, 9, T.osMat),

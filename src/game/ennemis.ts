@@ -6,10 +6,9 @@
  * Un archetype **module** cette montee en puissance, il ne la remplace pas —
  * les statistiques restent calculees depuis `puissance`, puis multipliees.
  *
- * Tout est derive de sprites **deja livres** (`ennemi`, `mort-vivant`) par la
- * teinte et l'echelle : aucune generation, aucune API, rien a telecharger. Le
- * jour ou un pack CC0 arrive dans `src/assets/`, il n'y a que le champ
- * `texture` a changer ici.
+ * Chaque archetype a **sa propre silhouette**, dessinee par le code et cuite au
+ * demarrage (`dessin/monstres.ts`) : plus de teinte ni d'echelle pour les
+ * distinguer. Le champ `texture` nomme sa famille de planche.
  *
  * Ce fichier ne connait ni Phaser ni la scene : c'est une table de donnees, et
  * `choisirArchetype` est une fonction pure — donc testable (`ennemis.test.ts`).
@@ -62,16 +61,20 @@ export interface Archetype {
 const BLANC = 0xffffff;
 
 /**
- * Note sur le choix des teintes.
+ * Note sur les teintes : **il n'y en a plus.**
  *
- * Une teinte **multiplie** les pixels du sprite : elle ne peut qu'assombrir, et
- * seulement dans les canaux que la source possede deja. `ennemi.png` est
- * violet — beaucoup de rouge et de bleu, tres peu de vert. Un vert franc y
- * rendrait donc un gris terne, alors qu'eteindre le bleu donne un rouge net et
- * eteindre le rouge un bleu net. Les couleurs ci-dessous sont choisies pour ca,
- * et c'est aussi pourquoi la taille et la silhouette portent autant que la
- * couleur : le revenant, lui, change carrement de sprite.
+ * Les sprites sont dessines dans la palette du monde (§4.30) ; une teinte les
+ * en sortirait. Ce qui distingue les archetypes est leur silhouette, et les
+ * couleurs d'impact ci-dessous sont les seules qui restent — celles des
+ * particules, prises dans les neuf couleurs : le sang frais de ce qui blesse,
+ * l'os de ce qui est mort, la bile de ce qui crache.
  */
+const IMPACT = {
+  sang: 0xe0402a,
+  os: 0xd9c9b0,
+  bile: 0x7f9440,
+  laiton: 0xc99a3a,
+} as const;
 
 /**
  * Portee de frappe au corps a corps.
@@ -87,14 +90,14 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: "fonceur",
     nom: "Rodeur",
-    texture: "ennemi",
+    texture: "monstre-fonceur",
     teinte: BLANC,
     echelle: 1,
     multPv: 1,
     multVitesse: 1,
     multDegats: 1,
     comportement: "fonceur",
-    couleurImpact: 0xff6b5a,
+    couleurImpact: IMPACT.sang,
     armement: 240,
     recuperation: 700,
     portee: CORPS_A_CORPS,
@@ -105,14 +108,14 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: "essaim",
     nom: "Nuee",
-    texture: "ennemi",
-    teinte: 0xd9e6f2,
+    texture: "monstre-essaim",
+    teinte: BLANC,
     echelle: 0.8,
     multPv: 0.55,
     multVitesse: 1.35,
     multDegats: 0.6,
     comportement: "essaim",
-    couleurImpact: 0xd9e6f2,
+    couleurImpact: IMPACT.os,
     // Petit et nerveux : il arme a peine, mais il ne fait pas mal.
     armement: 150,
     recuperation: 420,
@@ -124,14 +127,14 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: "revenant",
     nom: "Revenant",
-    texture: "mort-vivant",
-    teinte: 0x9d8ec9,
+    texture: "monstre-revenant",
+    teinte: BLANC,
     echelle: 1.05,
     multPv: 1.8,
     multVitesse: 0.72,
     multDegats: 1.1,
     comportement: "fonceur",
-    couleurImpact: 0x9d8ec9,
+    couleurImpact: IMPACT.os,
     armement: 320,
     recuperation: 820,
     portee: CORPS_A_CORPS,
@@ -142,16 +145,14 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: "cracheur",
     nom: "Cracheur",
-    texture: "ennemi",
-    // Un turquoise qui eteint le rouge : sur un sprite violet, c'est ce qui
-    // s'eloigne le plus du fonceur (un vert franc y virait au gris).
-    teinte: 0x50ffd0,
+    texture: "monstre-cracheur",
+    teinte: BLANC,
     echelle: 0.95,
     multPv: 0.8,
     multVitesse: 0.85,
     multDegats: 0.85,
     comportement: "cracheur",
-    couleurImpact: 0x7ee0a0,
+    couleurImpact: IMPACT.bile,
     // Le tir se voit venir de loin : c'est ce qui laisse le temps de charger.
     armement: 480,
     recuperation: 1500,
@@ -163,14 +164,14 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: "brute",
     nom: "Brute",
-    texture: "ennemi",
-    teinte: 0x8c2f2f,
+    texture: "monstre-brute",
+    teinte: BLANC,
     echelle: 1.4,
     multPv: 3,
     multVitesse: 0.62,
     multDegats: 2.1,
     comportement: "brute",
-    couleurImpact: 0xff3b30,
+    couleurImpact: IMPACT.sang,
     // Le coup le plus telegraphe du jeu : lourd, lent, et evitable.
     armement: 620,
     recuperation: 1100,
@@ -182,14 +183,14 @@ export const ARCHETYPES: Archetype[] = [
   {
     id: "kamikaze",
     nom: "Fielleux",
-    texture: "ennemi",
-    teinte: 0xff9a3d,
+    texture: "monstre-kamikaze",
+    teinte: BLANC,
     echelle: 0.9,
     multPv: 0.7,
     multVitesse: 1.25,
     multDegats: 1.6,
     comportement: "kamikaze",
-    couleurImpact: 0xffb457,
+    couleurImpact: IMPACT.laiton,
     armement: 520,
     recuperation: 900,
     // Il se colle a sa cible avant de s'ouvrir : il doit arriver au contact.

@@ -12,6 +12,7 @@ import {
 } from "../core/constructions";
 import { CASE, Grille, IMPOSENT_UNE_DISTANCE } from "../core/grille";
 import type { Ressource, Stocks } from "../core/habitants";
+import { CHANTIERS, CLE_TOUR, ORIGINE_MUR_Y, cleMur, type MatiereMur } from "./dessin/batiments";
 
 /**
  * Ce qu'on batit, a l'ecran (DESIGN.md §4.20).
@@ -23,10 +24,39 @@ import type { Ressource, Stocks } from "../core/habitants";
  * La tour a une regle de plus, et c'est celle qui compte : **on peut monter
  * dedans**. Elle ne tire pas, elle ne fait rien ; elle donne une position. C'est
  * l'occupant qui decide de ce qui en sort.
+ *
+ * **Et elle bouge comme dans Clash of Clans** (tranche le 10 septembre 2026) :
+ * un mur qu'on pose se raccorde a ses voisins, passe par un chantier, surgit
+ * quand il est fini, tremble sous les coups et s'effondre quand il tombe. Rien
+ * de tout ca n'est une regle : ce sont des gestes d'affichage, et ils ne
+ * touchent ni aux points de vie, ni a la grille, ni aux corps.
  */
 
 /** Distance a laquelle on peut monter dans une tour, ou en descendre. */
 export const PORTEE_OCCUPATION = 60;
+
+/**
+ * Combien de temps l'echafaudage reste dresse sur ce qu'on vient de poser.
+ *
+ * ⚠️ **Ce n'est pas un temps de construction** — la construction tient, bloque
+ * et encaisse des la pose, comme avant. Le §4.20 (tranche le 9 septembre)
+ * demande qu'un chantier occupe un batisseur et prenne du temps ; cette regle
+ * vit dans le core, et elle n'est pas ecrite. En attendant, le chantier se
+ * **voit** : c'est la moitie de la promesse, et celle qui ne coute rien.
+ */
+export const DUREE_CHANTIER = 4000;
+
+/**
+ * La texture d'une construction, d'apres ce qu'elle est.
+ *
+ * ⚠️ `def.texture` n'est plus lue : le core nomme une `tour` et un
+ * `bati-mur-est-ouest-bois` qui n'existent plus, et le core ne se touche pas
+ * pour du visuel. Un mur a trois dessins selon sa matiere ; un test verifie que
+ * la palissade du joueur prend bien celui du bois.
+ */
+export function textureDe(def: ConstructionDef, matiere: MatiereMur = "bois"): string {
+  return def.occupable ? CLE_TOUR : cleMur(matiere);
+}
 
 export class Construction extends Phaser.Physics.Arcade.Image {
   readonly def: ConstructionDef;
@@ -35,9 +65,18 @@ export class Construction extends Phaser.Physics.Arcade.Image {
   occupant: Phaser.GameObjects.Sprite | null = null;
   /** Eclair blanc quand elle encaisse, gere sans minuterie (§4.17) */
   flashJusqua = 0;
+  /**
+   * Le palier d'un mur (§4.20) : bois, fer, pierre. Les trois sont dessines ;
+   * seul le bois se pose, tant que la regle d'amelioration n'est pas ecrite.
+   */
+  matiere: MatiereMur = "bois";
+  /** Jusqu'a quand l'echafaudage se voit ; 0 quand le chantier est fini. */
+  chantierJusqua = 0;
+  /** Jusqu'a quand elle tremble d'un coup ; un coup par secousse, pas plus. */
+  secoueeJusqua = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, def: ConstructionDef) {
-    super(scene, x, y, def.texture);
+    super(scene, x, y, textureDe(def));
     this.def = def;
     this.pv = def.pvMax;
 
@@ -45,15 +84,41 @@ export class Construction extends Phaser.Physics.Arcade.Image {
     scene.physics.add.existing(this, true); // statique : rien ne la pousse
     // Le corps couvre la case, jamais plus : une tour dessinee haute ne doit pas
     // arreter ce qui passe derriere elle.
+    this.caler();
+    this.habiller();
+  }
+
+  /** Le corps physique, sur sa case. */
+  private caler(): void {
     const corps = this.body as Phaser.Physics.Arcade.StaticBody;
     corps.setSize(CASE, CASE);
-    corps.position.set(x - CASE / 2, y - CASE / 2);
+    corps.position.set(this.x - CASE / 2, this.y - CASE / 2);
     corps.updateCenter();
+  }
 
-    // La profondeur suit le bas de l'objet, comme tout le decor : un personnage
-    // devant une tour doit passer devant.
-    this.setDepth(y + this.height / 2);
-    this.setOrigin(0.5, this.height > CASE ? 0.72 : 0.5);
+  get enChantier(): boolean {
+    return this.chantierJusqua > 0;
+  }
+
+  /**
+   * Texture, origine et profondeur suivent ce qu'elle est.
+   *
+   * Un mur est un bloc dont le dessus couvre la case : son origine met le
+   * centre de la case au sol, et c'est **la profondeur qui raccorde** deux
+   * blocs l'un au-dessus de l'autre — le plus bas se dessine apres et recouvre
+   * la face du plus haut (§4.30, les murs en bloc).
+   */
+  habiller(): void {
+    if (this.enChantier) {
+      this.setTexture(CHANTIERS.case.cle);
+      this.setOrigin(0.5, 0.5);
+    } else {
+      this.setTexture(textureDe(this.def, this.matiere));
+      this.setOrigin(0.5, this.def.occupable ? 0.72 : ORIGINE_MUR_Y);
+    }
+    // La profondeur suit le pied de l'objet, comme tout le decor : un
+    // personnage devant un mur doit passer devant.
+    this.setDepth(this.y + CASE / 2);
   }
 
   get ratioPv(): number {
@@ -125,8 +190,18 @@ export class Constructions {
     return this.refus(x, y, type, stocks) === null;
   }
 
-  /** @returns la construction posee, ou null si c'etait impossible */
-  batir(x: number, y: number, type: TypeConstruction, stocks: Stocks): Construction | null {
+  /**
+   * @param maintenant l'horloge de la scene ; omise, la construction est finie
+   *        d'emblee — c'est le cas d'une partie qu'on reprend (§4.28).
+   * @returns la construction posee, ou null si c'etait impossible
+   */
+  batir(
+    x: number,
+    y: number,
+    type: TypeConstruction,
+    stocks: Stocks,
+    maintenant?: number,
+  ): Construction | null {
     if (!this.possible(x, y, type, stocks)) return null;
 
     const def = CONSTRUCTIONS[type];
@@ -135,9 +210,52 @@ export class Constructions {
     this.grille.poser(centre.x, centre.y, type === "tour" ? "tour" : "mur");
 
     const construction = new Construction(this.scene, centre.x, centre.y, def);
+    if (maintenant !== undefined) {
+      construction.chantierJusqua = maintenant + DUREE_CHANTIER;
+      construction.habiller();
+    }
     this.groupe.add(construction);
     this.liste.push(construction);
     return construction;
+  }
+
+  /**
+   * Elle surgit : un rebond d'echelle, et c'est fini.
+   *
+   * C'est le geste de Clash of Clans a la pose. Le corps physique ne suit pas
+   * l'echelle — il n'a pas a le faire, le rebond dure un quart de seconde.
+   */
+  private surgir(construction: Construction): void {
+    construction.setScale(0.55);
+    this.scene.tweens.add({
+      targets: construction,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 280,
+      ease: "Back.easeOut",
+    });
+  }
+
+  /**
+   * Les chantiers finissent, une fois par image (§4.17 : un horodatage, pas
+   * une minuterie).
+   *
+   * @param actif faux quand la scene est en pause : un chantier n'avance pas
+   *        pendant qu'on amenage.
+   */
+  finirLesChantiers(maintenant: number, actif = true): void {
+    if (!actif) return;
+    for (const c of this.liste) {
+      if (!c.enChantier || maintenant < c.chantierJusqua) continue;
+      c.chantierJusqua = 0;
+      c.habiller();
+      this.surgir(c);
+    }
+  }
+
+  /** Repousse les chantiers du temps passe en pause, comme tout le reste. */
+  decaler(millisecondes: number): void {
+    for (const c of this.liste) if (c.enChantier) c.chantierJusqua += millisecondes;
   }
 
   /**
@@ -148,11 +266,31 @@ export class Constructions {
   blesser(construction: Construction, degats: number, maintenant: number): boolean {
     construction.pv -= degats;
     construction.flashJusqua = maintenant + 90;
-    // L'usure se lit sans barre de vie : une construction qui va ceder s'assombrit.
-    construction.setTint(
-      construction.ratioPv > 0.5 ? 0xffffff : construction.ratioPv > 0.25 ? 0xc98f7a : 0x8c5a4a,
-    );
+    this.secouer(construction, maintenant);
     return construction.pv <= 0;
+  }
+
+  /**
+   * Elle tremble sous le coup : deux pixels, deux allers-retours.
+   *
+   * ⚠️ **Une secousse a la fois.** Vingt monstres sur le meme mur le
+   * frapperaient dix fois par seconde : un tween par coup en empilerait des
+   * dizaines et le mur partirait en vrille. L'horodatage tient la cadence.
+   */
+  private secouer(construction: Construction, maintenant: number): void {
+    if (maintenant < construction.secoueeJusqua) return;
+    construction.secoueeJusqua = maintenant + 160;
+    const x0 = construction.x;
+    this.scene.tweens.add({
+      targets: construction,
+      x: x0 + 2,
+      duration: 40,
+      yoyo: true,
+      repeat: 1,
+      onComplete: () => {
+        if (construction.active) construction.setX(x0);
+      },
+    });
   }
 
   /**
@@ -170,10 +308,40 @@ export class Constructions {
     // voit, et le jalon 8 (restauration) saura quoi en faire.
     this.grille.poser(construction.x, construction.y, "ruine");
 
+    this.effondrer(construction);
+    this.retirer(construction);
+    return occupant;
+  }
+
+  /**
+   * L'effondrement : une copie detachee s'ecrase et s'efface.
+   *
+   * Le vrai objet est detruit dans la foulee — la copie n'a ni corps ni regle,
+   * exactement comme la depouille d'un monstre.
+   */
+  private effondrer(construction: Construction): void {
+    const debris = this.scene.add
+      .image(construction.x, construction.y, construction.texture.key)
+      .setOrigin(construction.originX, construction.originY)
+      .setFlipX(construction.flipX)
+      .setDepth(construction.depth);
+    this.scene.tweens.add({
+      targets: debris,
+      scaleY: 0.15,
+      scaleX: 1.2,
+      alpha: 0,
+      y: construction.y + 6,
+      duration: 260,
+      ease: "Quad.easeIn",
+      onComplete: () => debris.destroy(),
+    });
+  }
+
+  private retirer(construction: Construction): void {
+    this.scene.tweens.killTweensOf(construction);
     const index = this.liste.indexOf(construction);
     if (index >= 0) this.liste.splice(index, 1);
     construction.destroy();
-    return occupant;
   }
 
   /**
@@ -191,10 +359,7 @@ export class Constructions {
 
     construction.occupant = null;
     this.grille.liberer(construction.x, construction.y);
-
-    const index = this.liste.indexOf(construction);
-    if (index >= 0) this.liste.splice(index, 1);
-    construction.destroy();
+    this.retirer(construction);
     return rendu;
   }
 
@@ -217,6 +382,9 @@ export class Constructions {
       return false;
     }
 
+    // Une secousse en cours ramenerait l'objet a son ancienne place.
+    this.scene.tweens.killTweensOf(construction);
+
     const centre = this.grille.centreDe(x, y);
     this.grille.liberer(construction.x, construction.y);
     this.grille.poser(centre.x, centre.y, construction.def.occupable ? "tour" : "mur");
@@ -225,11 +393,12 @@ export class Constructions {
     const corps = construction.body as Phaser.Physics.Arcade.StaticBody;
     corps.position.set(centre.x - CASE / 2, centre.y - CASE / 2);
     corps.updateCenter();
-    construction.setDepth(centre.y + construction.height / 2);
 
     // L'occupant suit sa tour : le laisser dans le vide en ferait une cible
     // isolee sans que le joueur l'ait decide.
     construction.occupant?.setPosition(centre.x, centre.y);
+    construction.habiller();
+    this.surgir(construction);
     return true;
   }
 
@@ -262,12 +431,17 @@ export class Constructions {
     return trouvee;
   }
 
-  /** Repose les teintes d'encaissement, une fois par image (§4.17). */
+  /**
+   * Repose les teintes d'encaissement, une fois par image (§4.17).
+   *
+   * L'usure se lit sans barre de vie : une construction qui va ceder
+   * s'assombrit. Le fer de la palette, jamais une teinte d'ailleurs.
+   */
   majorer(maintenant: number): void {
     for (const c of this.liste) {
       if (maintenant < c.flashJusqua) c.setTintFill(0xffffff);
       else if (c.ratioPv > 0.5) c.clearTint();
-      else c.setTint(c.ratioPv > 0.25 ? 0xc98f7a : 0x8c5a4a);
+      else c.setTint(c.ratioPv > 0.25 ? 0xb0a49a : 0x7a6c66);
     }
   }
 }

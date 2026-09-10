@@ -135,6 +135,18 @@ export class Toile {
     return bout;
   }
 
+  /** Efface un rectangle : ce qui depasse sous le sol, par exemple. */
+  gommer(x: number, y: number, largeur: number, hauteur: number): void {
+    for (let j = 0; j < hauteur; j += 1) {
+      for (let i = 0; i < largeur; i += 1) {
+        const cx = Math.round(x + i);
+        const cy = Math.round(y + j);
+        if (cx < 0 || cy < 0 || cx >= this.largeur || cy >= this.hauteur) continue;
+        this.pixels[(cy * this.largeur + cx) * 4 + 3] = 0;
+      }
+    }
+  }
+
   /**
    * L'ombre portee au sol, en fer translucide.
    *
@@ -205,6 +217,11 @@ export class Toile {
 
   versImageData(): ImageData {
     return new ImageData(this.pixels, this.largeur, this.hauteur);
+  }
+
+  /** Les pixels bruts, RVBA, ligne par ligne. Pour les planches hors navigateur. */
+  donnees(): Uint8ClampedArray {
+    return this.pixels;
   }
 
   /** Combien de pixels appartiennent a la silhouette. Sert aux tests. */
