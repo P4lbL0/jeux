@@ -16,16 +16,41 @@ import { CHAIR, CONTOUR, SANG, melanger, palir, type Matiere } from "./palette";
  * heros, on ne redessine rien, on lui met une arme dans la main.
  */
 
-/** La geometrie, en pixels de la frame. Tout le dessin s'y accroche. */
-export const CADRE = 32;
-const MILIEU = 16;
-const SOL = 28;
-const HANCHE = 21;
-const EPAULE = 14;
+/**
+ * La geometrie, en pixels de la frame. Tout le dessin s'y accroche.
+ *
+ * ⚠️ **Le cadre est passe de 32 a 20 le 11 septembre 2026**, sur les captures :
+ * « les personnages sont trop grands par rapport aux maisons ». Un habitant
+ * faisait 24 px pour une maison de 40 — plus de la moitie d'une facade. Il en
+ * fait desormais 14 : un peu plus du tiers, ce qu'on attend d'un village vu de
+ * haut. Le joueur **zoome** pour les voir de pres ; la carte, elle, ne bouge pas
+ * d'un pixel (la case reste 32, une maison reste deux cases).
+ *
+ * Tout ce qui suit est exprime par `K`, le rapport au dessin d'origine : c'est
+ * ce qui garde les proportions du corps quand on change sa taille. Les
+ * epaisseurs et les details d'un pixel, eux, ne descendent jamais sous un pixel.
+ */
+export const CADRE = 20;
+/** Le rapport au dessin d'origine, qui etait ecrit pour 32. */
+export const K = CADRE / 32;
+/**
+ * Le milieu du corps : un pixel a gauche du centre du cadre. Tout ce qu'on
+ * tient part vers l'avant — la droite — et c'est de ce cote qu'il manque de
+ * place a 20 px ; un corps voute qui frappe de la pioche sortait du cadre.
+ */
+const MILIEU = CADRE / 2 - 1;
+/**
+ * Le sol : trois pixels au-dessus du bord bas. Le pied, son contour, et un
+ * pixel d'air — a 20 px il n'y a plus la marge du dessin de 32, ou le sol
+ * tombait quatre pixels au-dessus du bord.
+ */
+const SOL = CADRE - 3;
+const HANCHE = SOL - 7 * K;
+const EPAULE = HANCHE - 7 * K;
 /** Largeur du torse : elle decide de la carrure, donc de qui est humain. */
-const CARRURE = 9;
+const CARRURE = 6;
 /** Longueur d'un bras. Court : c'est le seul moyen que l'arme tienne dedans. */
-const BRAS = 5.5;
+const BRAS = 5 * K;
 /**
  * A quelle distance du milieu le bras s'attache.
  *
@@ -35,7 +60,16 @@ const BRAS = 5.5;
  * balancement de la marche n'existait pas a l'ecran. Six frames pour rien — et
  * ca ne se voyait qu'en regardant l'image, jamais dans un test.
  */
-const EMMANCHURE = 4.5;
+const EMMANCHURE = CARRURE / 2;
+/**
+ * Le rayon de la tete, et la longueur du cou.
+ *
+ * Le cou est plus court que le rapport ne le voudrait (4 et non 5) : a cette
+ * taille la tete doit **s'asseoir** sur les epaules, sinon un pixel d'air la
+ * detache du corps et le chapeau sort du cadre au moindre sursaut.
+ */
+const TETE = 3.2 * K;
+const COU = 4 * K;
 
 /**
  * La pose du corps a un instant donne.
@@ -175,6 +209,8 @@ export interface Attaches {
   main: { x: number; y: number };
   mainArriere: { x: number; y: number };
   epaule: { x: number; y: number };
+  /** Ou le bras arriere s'attache : le bouclier se porte sur l'avant-bras. */
+  epauleArriere: { x: number; y: number };
 }
 
 /**
@@ -191,7 +227,7 @@ export function peindreCorps(toile: Toile, a: Attitude, tenue: Apparence): Attac
 
   // L'ombre d'abord, et elle **ne suit pas le sursaut** : c'est ce qui fait
   // qu'on voit le personnage decoller au lieu de glisser.
-  toile.ombreAuSol(MILIEU, SOL, 8, 2.5);
+  toile.ombreAuSol(MILIEU, SOL, 8 * K, 2.5 * K);
 
   const hancheY = HANCHE + a.sursaut;
   const buste = HANCHE - EPAULE;
@@ -204,15 +240,18 @@ export function peindreCorps(toile: Toile, a: Attitude, tenue: Apparence): Attac
   // La cape passe derriere tout, jambes comprises : elle tombe des epaules.
   if (tenue.cape) peindreCape(toile, epauleX, epauleY, hancheY, tenue.cape);
 
-  // Les jambes passent sous le torse : la plus eloignee d'abord.
+  // Les jambes passent sous le torse : la plus eloignee d'abord. Deux pixels
+  // d'epaisseur, et **un pixel d'ecart entre les deux** : plus serrees, elles se
+  // fondent en un seul bloc et le pas disparait.
   const jambes = tenue.jambes ?? tunique;
-  toile.membre(MILIEU - 2, hancheY, 7, a.jambeArriere, 3, jambes.sombre);
+  const jambe = 7 * K;
+  toile.membre(MILIEU - 1.5, hancheY, jambe, a.jambeArriere, 1.8, jambes.sombre);
   toile.membre(
-    MILIEU + 2,
+    MILIEU + 1.5,
     hancheY,
-    7,
+    jambe,
     a.jambeAvant,
-    3,
+    1.8,
     melanger(jambes.corps, jambes.sombre, 0.4),
   );
 
@@ -222,17 +261,22 @@ export function peindreCorps(toile: Toile, a: Attitude, tenue: Apparence): Attac
     epauleY,
     BRAS,
     a.brasArriere,
-    2.4,
+    1.4,
     tunique.sombre,
   );
 
   peindreTorse(toile, epauleY, hancheY, penche, tenue);
   peindreTete(toile, epauleX, epauleY, a, chair, tenue);
 
-  const main = toile.membre(epauleX + EMMANCHURE, epauleY, BRAS, a.brasAvant, 2.4, tunique.corps);
-  toile.disque(main.x, main.y, 1.2, chair.corps);
+  const main = toile.membre(epauleX + EMMANCHURE, epauleY, BRAS, a.brasAvant, 1.4, tunique.corps);
+  toile.point(main.x, main.y, chair.corps);
 
-  return { main, mainArriere, epaule: { x: epauleX, y: epauleY } };
+  return {
+    main,
+    mainArriere,
+    epaule: { x: epauleX, y: epauleY },
+    epauleArriere: { x: epauleX - EMMANCHURE, y: epauleY },
+  };
 }
 
 function peindreCape(
@@ -243,11 +287,11 @@ function peindreCape(
   cape: Matiere,
 ): void {
   // Elle s'evase en tombant : une cape a largeur constante est une planche.
-  const bas = Math.round(hancheY) + 5;
+  const bas = Math.round(hancheY + 5 * K);
   const haut = Math.round(epauleY) - 1;
   for (let y = haut; y <= bas; y += 1) {
     const part = (y - haut) / Math.max(1, bas - haut);
-    const demi = 3.5 + part * 2.5;
+    const demi = (3.5 + part * 2.5) * K;
     toile.segment(epauleX - demi, y, epauleX + demi, y, 1, cape.sombre);
     toile.point(epauleX - demi + 1, y, cape.corps);
   }
@@ -281,10 +325,11 @@ function peindreTorse(
     toile.rect(x, y, CARRURE, 1, tunique.corps);
     if (tenue.ventre && y >= ventre) {
       // Le ventre laisse voir la tunique de chaque cote : sans cette bordure il
-      // se confond avec la carrure et on ne voit plus qu'un bloc clair.
-      toile.rect(x + 2, y, CARRURE - 4, 1, tenue.ventre.corps);
-      toile.point(x + 2, y, tenue.ventre.clair);
-      toile.point(x + CARRURE - 3, y, tenue.ventre.sombre);
+      // se confond avec la carrure et on ne voit plus qu'un bloc clair. Un
+      // pixel de chaque cote — a six de carrure, deux ne laisseraient que deux
+      // pixels de tablier, et le tablier est la moitie du signalement.
+      toile.rect(x + 1, y, CARRURE - 2, 1, tenue.ventre.corps);
+      toile.point(x + CARRURE - 2, y, tenue.ventre.sombre);
     } else {
       // La lumiere vient d'en haut a gauche, partout et toujours.
       toile.point(x, y, tunique.clair);
@@ -301,12 +346,11 @@ function peindreTorse(
   }
 
   if (tenue.sang > 0) {
-    // Trois pixels, jamais un aplat (§4.10) : une hemorragie tue en une journee,
+    // Deux pixels, jamais un aplat (§4.10) : une hemorragie tue en une journee,
     // c'est ce qui lui donne droit au sang frais.
     const x = Math.round(MILIEU + penche * 0.4);
-    toile.point(x + 2, ventre - 1, SANG.corps);
-    toile.point(x + 2, ventre, SANG.corps);
-    toile.point(x + 3, ventre + 1, SANG.sombre);
+    toile.point(x + 1, ventre - 1, SANG.corps);
+    toile.point(x + 2, ventre, SANG.sombre);
   }
 }
 
@@ -319,23 +363,25 @@ function peindreTete(
   tenue: Apparence,
 ): void {
   const inclinaison = a.buste + a.tete;
-  const cou = 5;
-  const x = epauleX + Math.sin(inclinaison) * cou;
-  const y = epauleY - Math.cos(inclinaison) * cou;
+  const x = epauleX + Math.sin(inclinaison) * COU;
+  const y = epauleY - Math.cos(inclinaison) * COU;
 
-  toile.disque(x, y, 3.2, chair.corps);
+  toile.disque(x, y, TETE, chair.corps);
   // Le cote droit dans l'ombre : sans lui la tete est une bille plate.
-  toile.segment(x + 2.2, y - 1, x + 2.2, y + 2, 1, chair.sombre);
+  toile.segment(x + TETE - 0.6, y - 0.5, x + TETE - 0.6, y + 1, 1, chair.sombre);
 
-  // Visage degage (§4.30) : deux yeux, et rien d'autre. A 32 px, une bouche
-  // dessinee devient une tache des qu'on dezoome.
+  // Visage degage (§4.30) : deux yeux, et rien d'autre. A cette taille, une
+  // bouche dessinee devient une tache des qu'on dezoome. Les yeux sont a **un
+  // pixel entier** de part et d'autre du milieu : plus pres, ils se touchent.
   const oeil = tenue.yeux ?? CONTOUR;
-  toile.point(x - 1.4, y - 0.4, oeil);
-  toile.point(x + 1.4, y - 0.4, oeil);
+  const cx = Math.round(x);
+  const cy = Math.round(y);
+  toile.point(cx - 1, cy, oeil);
+  toile.point(cx + 1, cy, oeil);
   if (tenue.usure > 0.35) {
     const cerne = melanger(chair.sombre, CONTOUR, 0.4);
-    toile.point(x - 1.4, y + 0.7, cerne);
-    toile.point(x + 1.4, y + 0.7, cerne);
+    toile.point(cx - 1, cy + 1, cerne);
+    toile.point(cx + 1, cy + 1, cerne);
   }
 
   peindreCoiffe(toile, x, y, tenue.coiffe);
@@ -351,21 +397,23 @@ function peindreTete(
 function peindreCoiffe(toile: Toile, x: number, y: number, coiffe: Coiffe): void {
   if (coiffe.genre === "nu") return;
 
-  const haut = y - 3.2;
+  const cx = Math.round(x);
+  const haut = Math.round(y - TETE);
   if (coiffe.genre === "chapeau") {
-    toile.segment(x - 4, haut, x + 4, haut, 1.2, coiffe.matiere.sombre);
-    toile.rect(Math.round(x) - 2, Math.round(haut) - 2, 5, 2, coiffe.matiere.corps);
-    toile.point(Math.round(x) - 2, Math.round(haut) - 2, coiffe.matiere.clair);
+    // Le bord plat : une ligne de cinq, puis la calotte de trois au-dessus.
+    toile.rect(cx - 2, haut, 5, 1, coiffe.matiere.sombre);
+    toile.rect(cx - 1, haut - 1, 3, 1, coiffe.matiere.corps);
+    toile.point(cx - 1, haut - 1, coiffe.matiere.clair);
     return;
   }
 
   // Le casque : pas de bord, mais il **descend sur la nuque et les joues**.
-  // C'est ce qui le distingue d'un chapeau a 32 px, ou deux pixels de bord ne se
-  // voient plus des qu'on dezoome.
-  toile.disque(x, y - 0.8, 3.4, coiffe.matiere.corps);
-  toile.rect(Math.round(x) - 3, Math.round(y) - 1, 7, 2, coiffe.matiere.corps);
-  toile.point(Math.round(x) - 3, Math.round(y) - 3, coiffe.matiere.clair);
-  toile.point(Math.round(x) + 3, Math.round(y) - 1, coiffe.matiere.sombre);
+  // C'est ce qui le distingue d'un chapeau a petite taille, ou un bord d'un
+  // pixel ne se voit plus des qu'on dezoome.
+  toile.disque(x, y - 0.4, TETE + 0.2, coiffe.matiere.corps);
+  toile.rect(cx - 2, Math.round(y), 5, 1, coiffe.matiere.corps);
+  toile.point(cx - 2, Math.round(y) - 1, coiffe.matiere.clair);
+  toile.point(cx + 2, Math.round(y), coiffe.matiere.sombre);
   // La fente des yeux : sans elle le casque est une bille.
-  toile.rect(Math.round(x) - 2, Math.round(y) - 1, 5, 1, CONTOUR);
+  toile.rect(cx - 1, Math.round(y), 3, 1, CONTOUR);
 }

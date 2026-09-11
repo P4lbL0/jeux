@@ -189,6 +189,7 @@ endroit a toucher pour changer le rythme du jeu.
 | `G` | Batir une palissade (le jour seulement) |
 | `H` | Batir une tour de guet |
 | `J` | Semer un champ, pres des champs |
+| `K` | Batir une porte : ouverte le jour, la cloche la ferme, l'aube la rouvre |
 | `T` | Monter dans une tour a portee, ou en descendre |
 | `Y` | Monter l'eglise d'un niveau, ou relancer son chantier |
 | `P` | Au port : relever le chantier, ou commercer avec le navire a quai |
@@ -256,6 +257,17 @@ Deux familles, et c'est toute la regle :
   Sans ca, y poster son meilleur heros serait la strategie definitive du jeu.
 
 Les engins autonomes (baliste, canon) sont du jalon 7 : il n'y en a aucun ici.
+
+**Un mur regarde ses quatre voisines** (11 septembre 2026, `src/game/dessin/murs.ts`) :
+chaque case dessine un poteau, et un pan vers chaque voisine qui est un mur, une tour ou
+une porte — seize raccords par matiere, comme les murs de Clash of Clans. Poser un mur
+redessine ses voisines ; l'apercu de pose montre deja ses raccords.
+
+**La porte** (`K`, 20 bois, 160 PV) prend une case de mur. Ouverte, tout le monde passe,
+monstres compris. **La cloche (`B`) ferme toutes les portes**, et l'aube les rouvre ; une
+porte fermee arrete tout le monde et se fait frapper comme un mur (§4.20). Le village
+demarre avec une enceinte en L sur les deux fronts, deux portes, trois tours et des
+breches.
 
 ## La carte
 
@@ -350,9 +362,14 @@ reecrire les regles.
 **Tout ce qui se voit est dessine par le code**, dans la palette de neuf couleurs
 du jeu, et cuit en textures au demarrage (`src/game/dessin/`, DESIGN.md §4.30).
 Il n'y a aucun PNG : la carte est peinte pixel par pixel (`carte.ts`), le decor,
-les batiments, les murs, les monstres, les villageois et les heros sont des
-fonctions a parametres (`decor.ts`, `batiments.ts`, `monstres.ts`,
+les batiments, l'enceinte, les monstres, les villageois et les heros sont des
+fonctions a parametres (`decor.ts`, `batiments.ts`, `murs.ts`, `monstres.ts`,
 `villageois.ts`, `heros.ts`), et `monde.ts` cuit le tout d'un seul appel.
+
+**Un personnage tient dans un cadre de 20 px** (14 px de haut, contre 40 pour une
+maison) depuis le 11 septembre 2026 ; les betes ordinaires aussi, la brute et le
+golem dans 30. Tout le dessin du corps est exprime par rapport au 32 d'origine
+(`K` dans `corps.ts`) : on change la taille sans toucher aux proportions.
 
 Pour juger un dessin, on le regarde — jamais on ne le devine :
 

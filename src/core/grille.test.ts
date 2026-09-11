@@ -63,6 +63,40 @@ describe("La couche modifiable", () => {
     expect(grille.caseEn(VILLAGE.x, VILLAGE.y)!.terrain).toBe(avant);
   });
 
+  it("laisse passer une porte ouverte, et la ferme avec les autres", () => {
+    // §4.20 : une porte ouverte est un passage pour tout le monde ; la cloche
+    // les ferme toutes, et une porte fermee arrete comme un mur.
+    const grille = new Grille();
+    grille.poser(VILLAGE.x, VILLAGE.y, "porte");
+    expect(grille.bloque(VILLAGE.x, VILLAGE.y)).toBe(false);
+    grille.portesFermees = true;
+    expect(grille.bloque(VILLAGE.x, VILLAGE.y)).toBe(true);
+    grille.portesFermees = false;
+    expect(grille.bloque(VILLAGE.x, VILLAGE.y)).toBe(false);
+  });
+
+  it("dit a une case quelles voisines se raccordent, dans l'ordre nord-est-sud-ouest", () => {
+    // C'est ce que lit le dessin d'un mur (§4.30) : un mur, une tour ou une
+    // porte se raccordent ; une ruine ou un champ, non.
+    const grille = new Grille();
+    const colonne = grille.colonneDe(VILLAGE.x);
+    const ligne = grille.ligneDe(VILLAGE.y);
+    const poser = (dc: number, dl: number, quoi: "mur" | "tour" | "porte" | "ruine" | "champ") => {
+      const centre = Grille.centreCase(colonne + dc, ligne + dl);
+      grille.poser(centre.x, centre.y, quoi);
+    };
+    expect(grille.voisinesRaccordees(colonne, ligne)).toEqual({ nord: false, est: false, sud: false, ouest: false });
+    poser(0, -1, "mur");
+    poser(1, 0, "tour");
+    poser(0, 1, "ruine");
+    poser(-1, 0, "porte");
+    expect(grille.voisinesRaccordees(colonne, ligne)).toEqual({ nord: true, est: true, sud: false, ouest: true });
+    poser(0, 1, "champ");
+    expect(grille.voisinesRaccordees(colonne, ligne).sud).toBe(false);
+    // Le bord de la carte n'est pas un voisin.
+    expect(grille.voisinesRaccordees(0, 0)).toEqual({ nord: false, est: false, sud: false, ouest: false });
+  });
+
   it("bloque le passage sur un mur et une tour, pas sur un champ", () => {
     const grille = new Grille();
     grille.poser(VILLAGE.x, VILLAGE.y, "mur");

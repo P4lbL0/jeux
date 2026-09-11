@@ -5,14 +5,24 @@ import {
   abordable,
   coutLisible,
   crediter,
+  occupationDe,
   payer,
   remboursementDemolition,
   type ConstructionDef,
   type TypeConstruction,
 } from "../core/constructions";
-import { CASE, Grille, IMPOSENT_UNE_DISTANCE } from "../core/grille";
+import { CASE, Grille, IMPOSENT_UNE_DISTANCE, RACCORDABLES } from "../core/grille";
 import type { Ressource, Stocks } from "../core/habitants";
-import { CHANTIERS, CLE_TOUR, ORIGINE_MUR_Y, cleMur, type MatiereMur } from "./dessin/batiments";
+import { CHANTIERS } from "./dessin/batiments";
+import {
+  CLE_TOUR,
+  ORIGINE_MUR_Y,
+  ORIGINE_TOUR_Y,
+  cleMur,
+  clePorte,
+  masqueDe,
+  type MatiereMur,
+} from "./dessin/murs";
 
 /**
  * Ce qu'on batit, a l'ecran (DESIGN.md §4.20).
@@ -25,11 +35,17 @@ import { CHANTIERS, CLE_TOUR, ORIGINE_MUR_Y, cleMur, type MatiereMur } from "./d
  * dedans**. Elle ne tire pas, elle ne fait rien ; elle donne une position. C'est
  * l'occupant qui decide de ce qui en sort.
  *
- * **Et elle bouge comme dans Clash of Clans** (tranche le 10 septembre 2026) :
- * un mur qu'on pose se raccorde a ses voisins, passe par un chantier, surgit
- * quand il est fini, tremble sous les coups et s'effondre quand il tombe. Rien
- * de tout ca n'est une regle : ce sont des gestes d'affichage, et ils ne
- * touchent ni aux points de vie, ni a la grille, ni aux corps.
+ * La porte en a une autre : **ouverte, tout le monde passe** — les habitants qui
+ * sortent travailler, et les monstres s'ils sont la. La cloche la ferme, l'aube
+ * la rouvre. Fermee, elle arrete tout le monde et se fait frapper comme un mur.
+ *
+ * **Et tout ca bouge comme dans Clash of Clans** (tranche le 10 septembre 2026,
+ * refait le 11) : un mur qu'on pose **regarde ses quatre voisines** et prend le
+ * dessin qui se raccorde a elles — et ses voisines se redessinent pour se
+ * raccorder a lui. Il passe par un chantier, surgit quand il est fini, tremble
+ * sous les coups et s'effondre quand il tombe. Rien de tout ca n'est une
+ * regle : ce sont des gestes d'affichage, et ils ne touchent ni aux points de
+ * vie, ni a la grille, ni aux corps.
  */
 
 /** Distance a laquelle on peut monter dans une tour, ou en descendre. */
@@ -47,15 +63,25 @@ export const PORTEE_OCCUPATION = 60;
 export const DUREE_CHANTIER = 4000;
 
 /**
- * La texture d'une construction, d'apres ce qu'elle est.
+ * La texture d'une construction, d'apres ce qu'elle est et ce qui l'entoure.
  *
- * ⚠️ `def.texture` n'est plus lue : le core nomme une `tour` et un
- * `bati-mur-est-ouest-bois` qui n'existent plus, et le core ne se touche pas
- * pour du visuel. Un mur a trois dessins selon sa matiere ; un test verifie que
- * la palissade du joueur prend bien celui du bois.
+ * `def.texture` n'est que le prefixe de la famille : c'est ici qu'on choisit
+ * le dessin, d'apres le raccord aux voisines et, pour une porte, son etat.
  */
-export function textureDe(def: ConstructionDef, matiere: MatiereMur = "bois"): string {
-  return def.occupable ? CLE_TOUR : cleMur(matiere);
+export function textureDe(
+  def: ConstructionDef,
+  matiere: MatiereMur = "bois",
+  masque = 0,
+  ouverte = true,
+): string {
+  if (def.id === "tour") return CLE_TOUR;
+  if (def.id === "porte") return clePorte(matiere, masque, ouverte);
+  return cleMur(matiere, masque);
+}
+
+/** L'origine verticale du sprite : le centre de la case tombe au sol. */
+export function origineDe(def: ConstructionDef): number {
+  return def.id === "tour" ? ORIGINE_TOUR_Y : ORIGINE_MUR_Y;
 }
 
 export class Construction extends Phaser.Physics.Arcade.Image {
@@ -70,6 +96,10 @@ export class Construction extends Phaser.Physics.Arcade.Image {
    * seul le bois se pose, tant que la regle d'amelioration n'est pas ecrite.
    */
   matiere: MatiereMur = "bois";
+  /** Le raccord aux voisines : nord 1, est 2, sud 4, ouest 8 (§4.30). */
+  masque = 0;
+  /** Une porte est-elle ouverte ? Sans effet sur le reste. */
+  ouverte = true;
   /** Jusqu'a quand l'echafaudage se voit ; 0 quand le chantier est fini. */
   chantierJusqua = 0;
   /** Jusqu'a quand elle tremble d'un coup ; un coup par secousse, pas plus. */
@@ -89,7 +119,7 @@ export class Construction extends Phaser.Physics.Arcade.Image {
   }
 
   /** Le corps physique, sur sa case. */
-  private caler(): void {
+  caler(): void {
     const corps = this.body as Phaser.Physics.Arcade.StaticBody;
     corps.setSize(CASE, CASE);
     corps.position.set(this.x - CASE / 2, this.y - CASE / 2);
@@ -100,21 +130,25 @@ export class Construction extends Phaser.Physics.Arcade.Image {
     return this.chantierJusqua > 0;
   }
 
+  /** Vrai si on passe a travers : une porte ouverte, et rien d'autre. */
+  get laissePasser(): boolean {
+    return this.def.id === "porte" && this.ouverte;
+  }
+
   /**
    * Texture, origine et profondeur suivent ce qu'elle est.
    *
-   * Un mur est un bloc dont le dessus couvre la case : son origine met le
-   * centre de la case au sol, et c'est **la profondeur qui raccorde** deux
-   * blocs l'un au-dessus de l'autre — le plus bas se dessine apres et recouvre
-   * la face du plus haut (§4.30, les murs en bloc).
+   * Le centre de la case tombe au sol, et c'est **la profondeur qui raccorde**
+   * deux cases l'une au-dessus de l'autre — la plus basse se dessine apres et
+   * recouvre la face de la plus haute (§4.30).
    */
   habiller(): void {
     if (this.enChantier) {
       this.setTexture(CHANTIERS.case.cle);
       this.setOrigin(0.5, 0.5);
     } else {
-      this.setTexture(textureDe(this.def, this.matiere));
-      this.setOrigin(0.5, this.def.occupable ? 0.72 : ORIGINE_MUR_Y);
+      this.setTexture(textureDe(this.def, this.matiere, this.masque, this.ouverte));
+      this.setOrigin(0.5, origineDe(this.def));
     }
     // La profondeur suit le pied de l'objet, comme tout le decor : un
     // personnage devant un mur doit passer devant.
@@ -135,11 +169,14 @@ export class Construction extends Phaser.Physics.Arcade.Image {
  *
  * Il tient la grille a jour : poser un mur, c'est **ecrire dans la carte**
  * (§4.21), pas seulement ajouter un sprite. C'est ce qui fera que les crateres
- * du jalon 6 se poseront exactement de la meme facon.
+ * du jalon 6 se poseront exactement de la meme facon. Et c'est la grille qu'il
+ * relit pour raccorder chaque mur a ses voisines.
  */
 export class Constructions {
   readonly groupe: Phaser.Physics.Arcade.StaticGroup;
   private readonly liste: Construction[] = [];
+  /** La construction de chaque case, par `colonne,ligne`. */
+  private readonly parCase = new Map<string, Construction>();
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -150,6 +187,56 @@ export class Constructions {
 
   get toutes(): Construction[] {
     return this.liste;
+  }
+
+  /** Les portes sont-elles fermees ? C'est la grille qui le sait. */
+  get portesFermees(): boolean {
+    return this.grille.portesFermees;
+  }
+
+  private cleDe(x: number, y: number): string {
+    return `${this.grille.colonneDe(x)},${this.grille.ligneDe(y)}`;
+  }
+
+  /** Ce qui est bati sur la case de ce point, s'il y a quelque chose. */
+  en(x: number, y: number): Construction | null {
+    return this.parCase.get(this.cleDe(x, y)) ?? null;
+  }
+
+  /**
+   * Le raccord d'une case : quelles voisines portent un mur, une tour ou une
+   * porte. C'est ce que lit le dessin, et c'est aussi ce que voit l'apercu de
+   * pose — un mur qu'on s'apprete a poser montre deja ses raccords (§4.30).
+   */
+  masqueEn(x: number, y: number): number {
+    const v = this.grille.voisinesRaccordees(this.grille.colonneDe(x), this.grille.ligneDe(y));
+    return masqueDe(v.nord, v.est, v.sud, v.ouest);
+  }
+
+  /**
+   * Redessine ce qui est bati sur cette case et sur ses quatre voisines : c'est
+   * le raccord de Clash of Clans. A la pose, a la chute, au deplacement — jamais
+   * par image.
+   */
+  private rehabillerAutour(x: number, y: number): void {
+    for (const [dx, dy] of [
+      [0, 0],
+      [0, -CASE],
+      [CASE, 0],
+      [0, CASE],
+      [-CASE, 0],
+    ] as const) {
+      const c = this.en(x + dx, y + dy);
+      if (!c) continue;
+      c.masque = this.masqueEn(c.x, c.y);
+      c.habiller();
+    }
+  }
+
+  private inscrire(construction: Construction): void {
+    this.groupe.add(construction);
+    this.liste.push(construction);
+    this.parCase.set(this.cleDe(construction.x, construction.y), construction);
   }
 
   /**
@@ -171,7 +258,7 @@ export class Constructions {
     if (!c) return "Hors de la carte.";
     if (c.occupation === "batiment") return "Il y a deja un batiment ici.";
     if (c.occupation === "maison") return "Il y a une maison ici.";
-    if (c.occupation === "mur" || c.occupation === "tour") return "Il y a deja quelque chose ici.";
+    if (RACCORDABLES.includes(c.occupation)) return "Il y a deja quelque chose ici.";
     if (c.occupation === "champ") return "Un champ est seme ici.";
     if (!this.grille.constructible(x, y)) return "Le sol ne porte pas.";
     if (
@@ -207,15 +294,38 @@ export class Constructions {
     const def = CONSTRUCTIONS[type];
     const centre = this.grille.centreDe(x, y);
     payer(def, stocks);
-    this.grille.poser(centre.x, centre.y, type === "tour" ? "tour" : "mur");
+    this.grille.poser(centre.x, centre.y, occupationDe(type));
 
     const construction = new Construction(this.scene, centre.x, centre.y, def);
-    if (maintenant !== undefined) {
-      construction.chantierJusqua = maintenant + DUREE_CHANTIER;
-      construction.habiller();
-    }
-    this.groupe.add(construction);
-    this.liste.push(construction);
+    construction.ouverte = !this.grille.portesFermees;
+    if (maintenant !== undefined) construction.chantierJusqua = maintenant + DUREE_CHANTIER;
+    this.inscrire(construction);
+    this.rehabillerAutour(centre.x, centre.y);
+    return construction;
+  }
+
+  /**
+   * Dresse une construction **sans rien payer ni verifier de stocks** : c'est
+   * l'enceinte de depart, celle que le village avait deja quand on arrive.
+   *
+   * Le terrain et les cases prises se verifient quand meme — on ne dresse pas
+   * un mur dans la mer ni sur une maison. Pas de chantier : elle etait la.
+   *
+   * @returns la construction, ou null si la case ne s'y pretait pas
+   */
+  dresser(x: number, y: number, type: TypeConstruction, matiere: MatiereMur = "bois"): Construction | null {
+    const c = this.grille.caseEn(x, y);
+    if (!c || !this.grille.constructible(x, y)) return null;
+
+    const def = CONSTRUCTIONS[type];
+    const centre = this.grille.centreDe(x, y);
+    this.grille.poser(centre.x, centre.y, occupationDe(type));
+
+    const construction = new Construction(this.scene, centre.x, centre.y, def);
+    construction.matiere = matiere;
+    construction.ouverte = !this.grille.portesFermees;
+    this.inscrire(construction);
+    this.rehabillerAutour(centre.x, centre.y);
     return construction;
   }
 
@@ -256,6 +366,28 @@ export class Constructions {
   /** Repousse les chantiers du temps passe en pause, comme tout le reste. */
   decaler(millisecondes: number): void {
     for (const c of this.liste) if (c.enChantier) c.chantierJusqua += millisecondes;
+  }
+
+  /**
+   * La cloche ferme les portes (§4.20). Toutes, d'un coup : plus personne ne
+   * passe, dans un sens comme dans l'autre.
+   */
+  fermerLesPortes(): void {
+    this.reglerLesPortes(true);
+  }
+
+  /** L'aube les rouvre : on ressort travailler. */
+  ouvrirLesPortes(): void {
+    this.reglerLesPortes(false);
+  }
+
+  private reglerLesPortes(fermees: boolean): void {
+    this.grille.portesFermees = fermees;
+    for (const c of this.liste) {
+      if (c.def.id !== "porte") continue;
+      c.ouverte = !fermees;
+      c.habiller();
+    }
   }
 
   /**
@@ -341,7 +473,12 @@ export class Constructions {
     this.scene.tweens.killTweensOf(construction);
     const index = this.liste.indexOf(construction);
     if (index >= 0) this.liste.splice(index, 1);
+    const cle = this.cleDe(construction.x, construction.y);
+    if (this.parCase.get(cle) === construction) this.parCase.delete(cle);
+    const { x, y } = construction;
     construction.destroy();
+    // Les voisines perdent un raccord : elles se redessinent.
+    this.rehabillerAutour(x, y);
   }
 
   /**
@@ -385,19 +522,22 @@ export class Constructions {
     // Une secousse en cours ramenerait l'objet a son ancienne place.
     this.scene.tweens.killTweensOf(construction);
 
+    const depart = { x: construction.x, y: construction.y };
     const centre = this.grille.centreDe(x, y);
-    this.grille.liberer(construction.x, construction.y);
-    this.grille.poser(centre.x, centre.y, construction.def.occupable ? "tour" : "mur");
+    this.grille.liberer(depart.x, depart.y);
+    this.parCase.delete(this.cleDe(depart.x, depart.y));
+    this.grille.poser(centre.x, centre.y, occupationDe(construction.def.id));
 
     construction.setPosition(centre.x, centre.y);
-    const corps = construction.body as Phaser.Physics.Arcade.StaticBody;
-    corps.position.set(centre.x - CASE / 2, centre.y - CASE / 2);
-    corps.updateCenter();
+    construction.caler();
+    this.parCase.set(this.cleDe(centre.x, centre.y), construction);
 
     // L'occupant suit sa tour : le laisser dans le vide en ferait une cible
     // isolee sans que le joueur l'ait decide.
     construction.occupant?.setPosition(centre.x, centre.y);
-    construction.habiller();
+    // L'ancien voisinage perd un raccord, le nouveau en gagne un.
+    this.rehabillerAutour(depart.x, depart.y);
+    this.rehabillerAutour(centre.x, centre.y);
     this.surgir(construction);
     return true;
   }

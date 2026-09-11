@@ -979,6 +979,80 @@ fiche, plus sombres qu'avant ; et les taches du sol, qu'on peut encore adoucir.
 ne lit plus `def.texture`. Le core ne se touche pas pour du visuel ; le jour où on y entre pour
 la règle d'amélioration des murs, ces deux champs sont à retirer.
 
+### Le bloc 7z, étage 5 — les murs en poteaux et pans, les gens au tiers (fait le 11 septembre 2026)
+
+**Le retour d'Angelos sur `apres-village.png`**, en trois points : les personnages sont
+trop grands par rapport aux maisons (« je zoomerai pour les voir ») ; les murs en bloc font
+bizarre dans les coins — « catastrophique (mur, tour et porte) » ; et les maisons en cercle
+autour de l'église ne sont pas du Clash of Clans, tous les villages ne doivent pas être
+identiques. **Ordre imposé : les murs d'abord, à valider sur image ; le générateur de
+villages après.** Cet étage fait les deux premiers points et s'arrête là.
+
+**Les gens au tiers** (`corps.ts`) : le cadre passe de **32 à 20 px**. Un habitant fait 14 px
+pour une maison de 40 — un peu plus du tiers, contre plus de la moitié. Toute la géométrie du
+corps est exprimée par `K = 20/32` ; les outils, les armes, le bouclier et les bêtes suivent
+(`CADRE_BETE = 20`, `CADRE_GROSSE_BETE = 30` pour la brute et le golem). Ce qui a dû plier
+pour tenir : le cou plus court, l'épée et le bâton un peu moins longs, le bouclier porté sur
+l'avant-bras, le museau du Rôdeur et du Cracheur raccourcis, le corps de la brute aussi, la
+chute d'un mort qui ne descend plus d'un pixel. Trouvé par les tests de cadre, pas à l'œil.
+La carte, la case de 32 et les bâtiments n'ont pas bougé.
+
+**Les murs regardent leurs voisines** (`src/game/dessin/murs.ts`, neuf) : le bloc plein du
+10 septembre est annulé. Une case de mur, c'est **un poteau, et un pan vers chaque voisine
+qui est un mur, une tour ou une porte** — seize raccords, un dessin chacun, par matière
+(48 textures). Le poteau est plus large et plus haut que le pan : c'est lui qui donne le rythme.
+Une case seule est une borne, un angle est un poteau d'où partent deux pans, un escalier se
+raccorde de marche en marche. La vue est de trois quarts : le dessus soulevé de la hauteur, la
+face sud dessous, et c'est la profondeur qui raccorde deux cases l'une au-dessus de l'autre.
+Bois : pieux liés par une corde, pointes inégales sur la crête ; fer : plaques rivetées, bossage
+sur le poteau, pointes ; pierre : appareil de blocs, chemin de ronde, merlons, tourelle sur le
+poteau. Un rempart **s'épaissit et monte** à chaque palier (pan 12/14/16, face 13/15/17).
+
+`game/constructions.ts` lit la grille (`voisinesRaccordees`) et **redessine les quatre voisines**
+à la pose, à la chute, à la démolition et au déplacement — jamais par image. L'aperçu de pose
+montre déjà ses raccords. La **ruine** n'a plus ses pieux « couchés en travers » (des antennes,
+vus en jeu) : moignons autour de l'ancien poteau, un pieu à plat.
+
+**La tour** occupe désormais toute sa case — c'est ce qui fait qu'un pan voisin bute contre
+son flanc sans trou, quelle que soit la matière — et monte à 30 px : socle de pierre, cordon,
+meurtrière, porte, parapet crénelé, plateforme vide. L'occupant se tient **sur** la plateforme
+(`OCCUPANT_TOUR_Y`) et prend la profondeur de la tour, sinon ses pieds, plus hauts dans
+l'image, le faisaient passer derrière.
+
+**La porte existe** (§4.20, `K`, 20 bois, 160 PV). Elle prend une case de mur ; les poteaux
+des cases voisines lui servent de montants, elle ne dessine que le linteau et les vantaux.
+Est-ouest : une arche avec ses vantaux rabattus, ou fermés (planches, deux bandes de fer) ;
+nord-sud : la poutre qui franchit le passage, ou la cloison en travers. **Règle v1, à valider** :
+ouverte, tout le monde passe, monstres compris (c'est le dilemme du §4.20) ; **la cloche ferme
+toutes les portes**, l'aube les rouvre ; fermée, elle arrête tout le monde et se fait frapper.
+Le core porte `Occupation = "porte"`, `Grille.portesFermees`, `bloque()` qui en tient compte,
+et la définition dans `CONSTRUCTIONS`. La physique laisse traverser une porte ouverte par un
+`processCallback` sur les trois colliders.
+
+**L'enceinte de départ** n'est plus un décor posé hors grille : ce sont de **vraies
+constructions** (corps, points de vie, raccords), en **L sur les deux fronts** — mur nord de
+la plage à l'angle, mur est de l'angle à la forêt, une tour à chaque bout et à l'angle, une porte
+au milieu de chaque mur, deux brèches en ruine par mur. ⚠️ **Provisoire et écrit comme tel** :
+c'est la disposition d'un seul village, faite à la main pour juger les murs en jeu. Les maisons
+en cercle sont laissées telles quelles, exprès.
+
+**Ce qui attend la validation d'Angelos** : le générateur de villages par graine (formes variées,
+portes et tours placées selon le terrain, plus de cercle de maisons) — demandé, et
+explicitement **après** que les murs sont validés.
+
+**Ce dont je ne suis pas sûr, à juger sur `captures/murs-*.png`** : la porte est-ouest ouverte,
+qui se lit comme une encoche dans le mur plus que comme une porte ; la tour, un cube de pierre
+de toute la case, peut-être trop massif ; la colonne nord-sud, où chaque poteau montre ses deux
+épaulements et fait un chapelet ; les 14 px d'un habitant, à la limite du lisible au zoom de
+départ (1,7) — c'est voulu, on zoome.
+
+**479 tests verts** (+7 : les seize raccords ont seize dessins, un pan est-ouest touche ses deux
+bords et une borne aucun, un pan nord-sud est une colonne continue, une porte ouverte laisse
+voir le sol et pas fermée, la grille laisse passer une porte ouverte et raccorde mur/tour/porte
+mais pas une ruine). `npm run build` passe. Nouvelles captures : `murs-enceinte.png` (l'angle
+nord-est de près) et `murs-gens.png` (la place au zoom maximal), ajoutées à `scripts/capturer.ts` ;
+`planche-murs-{bois,fer,pierre}.png` et `planche-echelle.png` dans `scripts/planche.ts`.
+
 ### La sauvegarde et le compte The Circle (fait le 10 août 2026, §4.28)
 
 **Rafraîchir la page n'est plus une nouvelle partie.** La sauvegarde vit dans le
@@ -1044,7 +1118,14 @@ n'ont jamais été vus de bout en bout. Le refus d'identifiants et la panne rés
 
 ✅ **Le visuel est tranché et livré** (10 septembre 2026, voir « Le bloc 7z, étage 4 »). Ce qui
 reste ouvert n'est plus une direction, ce sont des **retouches sur image** : Angelos juge les
-captures `apres-*` et dit ce qui cloche.
+captures et dit ce qui cloche. **Première passe faite le 11 septembre** (étage 5 : gens au tiers,
+murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
+
+0. ⏳ **Après validation des murs par Angelos : le générateur de villages.** Une graine, des
+   formes variées (pas deux villages identiques), des tours et des portes placées selon le
+   terrain, plus de maisons en cercle autour de l'église. Supprimer la disposition à la main de
+   `dresserLEnceinte` et `poserLesMaisons` en même temps. Demandé le 11 septembre, à faire
+   **seulement une fois les murs validés**.
 
 1. **Appliquer au code ce que le dépouillage a tranché**, du plus structurant au plus petit :
    a) le cycle 10 + 5 — ✅ **fait le 9 septembre 2026** (`src/core/cycle.ts`), hordes de jour
@@ -1379,7 +1460,7 @@ Deux questions de fond sont fermées, après l'annonce du plugin Unity officiel 
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (446)
+npx vitest run   # les tests (479)
 npm run build    # vérifie les types et construit
 
 npx tsx scripts/capturer.ts apres   # les captures du jeu, par Playwright, toujours au même endroit

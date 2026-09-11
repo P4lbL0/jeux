@@ -17,7 +17,7 @@ import {
   ROCHERS,
   decorParCle,
 } from "../game/dessin/decor";
-import { textureDe } from "../game/constructions";
+import { origineDe, textureDe } from "../game/constructions";
 import { abimerLeSol } from "../game/dessin/carte";
 import { oublierLesPortraits } from "../game/portraits";
 import {
@@ -112,7 +112,7 @@ import {
   coutLisible,
   type TypeConstruction,
 } from "../core/constructions";
-import { Constructions, PORTEE_OCCUPATION, type Construction } from "../game/constructions";
+import { Construction, Constructions, PORTEE_OCCUPATION } from "../game/constructions";
 import { Champs, REGLAGES_CHAMPS, type Champ } from "../game/champs";
 import { NOMS_METIER, NOMS_POSTURE_CIVILE, NOMS_RESSOURCE, RESSOURCES } from "../core/habitants";
 import {
@@ -169,12 +169,10 @@ import {
   MAISON,
   VARIANTES_MAISON,
   CLES_CHAMP,
-  CLE_MUR_RUINE,
-  ORIGINE_MUR_Y,
   cleMaison,
-  cleMur,
   cuireLesBatiments,
 } from "../game/dessin/batiments";
+import { CLE_MUR_RUINE, OCCUPANT_TOUR_Y, ORIGINE_MUR_Y } from "../game/dessin/murs";
 import { poserLaMer, type MerAnimee } from "../game/dessin/mer";
 import type { EtatEquipe } from "../game/hud";
 import type { EtatOrdres } from "../game/panneauOrdres";
@@ -1009,11 +1007,22 @@ export class ArenaScene extends Phaser.Scene {
     this.physics.add.overlap(this.ennemis, this.champs.groupe, (_e, c) =>
       this.pietinerChamp(c as Champ),
     );
-    this.physics.add.collider(this.ennemis, this.constructions.groupe, (e, c) =>
-      this.cognerConstruction(e as Ennemi, c as Construction),
+    // ⚠️ **Une porte ouverte ne cogne personne** (§4.20) : le test de passage
+    // laisse traverser tout le monde, monstres compris. On ne suppose pas
+    // l'ordre des deux arguments, Phaser le decide selon les operandes.
+    const barre: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (a, b) => {
+      const construction = (a instanceof Construction ? a : b) as Construction;
+      return !construction.laissePasser;
+    };
+    this.physics.add.collider(
+      this.ennemis,
+      this.constructions.groupe,
+      (e, c) => this.cognerConstruction(e as Ennemi, c as Construction),
+      barre,
     );
-    this.physics.add.collider(this.equipe, this.constructions.groupe);
-    this.physics.add.collider(this.village.groupe, this.constructions.groupe);
+    this.physics.add.collider(this.equipe, this.constructions.groupe, undefined, barre);
+    this.physics.add.collider(this.village.groupe, this.constructions.groupe, undefined, barre);
+    this.dresserLEnceinte();
 
     // Les monstres butent sur l'eglise et la frappent : c'est leur cap, c'est ce
     // qu'ils viennent detruire (§4.22).
@@ -1180,7 +1189,9 @@ export class ArenaScene extends Phaser.Scene {
         const y = rng.range(cadre.y0, cadre.y1);
         if (!sols.includes(terrainEn(x, y))) continue;
         // Le village est une place, pas une clairiere : rien n'y pousse.
-        if (Phaser.Math.Distance.Between(x, y, CITE.x, CITE.y) < CITE.rayon + 26) continue;
+        // Assez large pour que l'enceinte (six cases du centre) n'ait pas un
+        // arbre plante dans son mur.
+        if (Phaser.Math.Distance.Between(x, y, CITE.x, CITE.y) < CITE.rayon + 90) continue;
         poser(x, y);
       }
     };
@@ -1242,7 +1253,9 @@ export class ArenaScene extends Phaser.Scene {
   private construireVillage(): void {
     const rng = new Rng(20260808);
 
-    this.dresserLaPalissade();
+    // ⚠️ L'enceinte n'est plus posee ici : elle est faite de **vraies
+    // constructions** (corps, points de vie, raccords), donc elle attend que le
+    // parc existe — voir `dresserLEnceinte`, appele depuis le village vivant.
     this.poserLesMaisons(rng);
 
     // ⚠️ **Plus de texte « LE VILLAGE » qui flotte, et plus de disque de terre
@@ -1252,45 +1265,64 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   /**
-   * La palissade, ouverte au nord et a l'est : c'est par la que ca arrive, et
-   * une enceinte fermee ferait mentir la carte.
+   * L'enceinte de depart : ce que le village avait deja quand on arrive.
    *
-   * ⚠️ **Chaque carreau choisit son dessin selon la direction du mur** (§4.30) :
-   * un mur qui court vers l'horizon montre son arete, pas sa face, et la ou il
-   * tourne c'est un angle qu'il faut. Poser partout le meme bloc, c'est
-   * exactement ce que le §4.30 refuse — et ca se voyait.
+   * **En L, sur les deux fronts** (§4.6) : un mur au nord et un mur a l'est,
+   * la mer et la foret gardant les deux autres flancs. Une tour a chaque bout et
+   * a l'angle, une porte au milieu de chaque mur — c'est par la qu'on sort
+   * travailler. Et parce que le village est en ruine (§4.6), **deux breches par
+   * mur** : des ruines qu'on enjambe, la ou la palissade est tombee.
+   *
+   * Ce sont de **vraies constructions** — corps, points de vie, raccords entre
+   * voisines — et plus un decor pose hors grille : un mur du joueur qui vient
+   * s'y accoler se raccorde, et les monstres doivent l'abattre ou passer par les
+   * breches.
+   *
+   * ⚠️ **Provisoire** : c'est la disposition d'un seul village, dessinee a la
+   * main pour juger les murs en jeu. Le generateur de villages (graine, formes
+   * variees, tours et portes placees selon le terrain) la remplacera.
    */
-  private dresserLaPalissade(): void {
-    // ⚠️ **Sur la grille, et pas sur le cercle.** Les carreaux etaient poses a
-    // trente angles reguliers : ils tombaient entre les cases, se decalaient de
-    // quelques pixels a chaque pas, et l'enceinte se lisait comme une file de
-    // caisses au lieu d'un rempart. Un mur large d'une case ne se raccorde a son
-    // voisin que si les deux sont **dans** la case (§4.30).
-    // Vrai quand la case est une breche : la palissade y est tombee.
-    const anneau = new Map<string, boolean>();
-    const tours = 240;
-    for (let i = 0; i < tours; i++) {
-      const a = (i / tours) * Math.PI * 2;
-      // Les fronts restent ouverts : c'est par la que ca arrive, et une enceinte
-      // fermee ferait mentir la carte. Une case sur trois y reste debout, les
-      // deux autres sont **des ruines** — des moignons de pieux qu'on enjambe —
-      // pour que la breche se lise comme un rempart tombe et non comme des
-      // caisses posees en ligne.
-      const versLesFronts = Math.cos(a) > 0.55 || Math.sin(a) < -0.55;
-      const colonne = Math.floor((CITE.x + Math.cos(a) * CITE.rayon) / CASE);
-      const ligne = Math.floor((CITE.y + Math.sin(a) * CITE.rayon) / CASE);
-      anneau.set(`${colonne},${ligne}`, versLesFronts && (colonne + ligne) % 3 !== 0);
-    }
+  private dresserLEnceinte(): void {
+    const colonne = this.grille.colonneDe(CITE.x);
+    const ligne = this.grille.ligneDe(CITE.y);
+    const rayon = 6;
+    const nord = ligne - rayon;
+    const est = colonne + rayon;
 
-    for (const [cle, ruine] of anneau) {
-      const [colonne, ligne] = cle.split(",").map(Number) as [number, number];
-      // Un seul dessin, un bloc plein : c'est la profondeur qui raccorde deux
-      // blocs l'un au-dessus de l'autre (§4.30, les murs en bloc).
-      const centre = Grille.centreCase(colonne, ligne);
+    const ruines = new Set<string>([
+      `${colonne - 3},${nord}`,
+      `${colonne - 2},${nord}`,
+      `${est},${ligne + 2}`,
+      `${est},${ligne + 3}`,
+    ]);
+    const poserRuine = (c: number, l: number) => {
+      const centre = Grille.centreCase(c, l);
+      if (!this.grille.constructible(centre.x, centre.y)) return;
+      this.grille.poser(centre.x, centre.y, "ruine");
       this.add
-        .image(centre.x, centre.y, ruine ? CLE_MUR_RUINE : cleMur("bois"))
+        .image(centre.x, centre.y, CLE_MUR_RUINE)
         .setOrigin(0.5, ORIGINE_MUR_Y)
         .setDepth(centre.y + CASE / 2);
+    };
+    const dresser = (c: number, l: number, type: TypeConstruction) => {
+      if (ruines.has(`${c},${l}`)) {
+        poserRuine(c, l);
+        return;
+      }
+      const centre = Grille.centreCase(c, l);
+      this.constructions.dresser(centre.x, centre.y, type);
+    };
+
+    // Le mur nord, de la plage a l'angle.
+    for (let c = colonne - rayon; c <= est; c += 1) {
+      const type: TypeConstruction =
+        c === colonne - rayon || c === est ? "tour" : c === colonne ? "porte" : "palissade";
+      dresser(c, nord, type);
+    }
+    // Le mur est, de l'angle a la foret.
+    for (let l = nord + 1; l <= ligne + rayon; l += 1) {
+      const type: TypeConstruction = l === ligne + rayon ? "tour" : l === ligne ? "porte" : "palissade";
+      dresser(est, l, type);
     }
   }
 
@@ -1556,7 +1588,7 @@ export class ArenaScene extends Phaser.Scene {
       // La cloche : une touche, tout le monde rentre. C'est l'outil de
       // l'urgence — quand une horde tombe, on n'a pas le temps de changer sept
       // postures une par une (DESIGN.md §4.18).
-      [K.B, () => this.village.sonnerCloche()],
+      [K.B, () => this.sonnerLaCloche()],
       // Le tableau du village. L'ecran reste degage : tout ce qui n'est pas la
       // population se lit ici, a la demande.
       [K.F, () => this.events.emit("basculer-village")],
@@ -1565,6 +1597,7 @@ export class ArenaScene extends Phaser.Scene {
       [K.G, () => this.basculerConstruction("palissade")],
       [K.H, () => this.basculerConstruction("tour")],
       [K.J, () => this.basculerConstruction("champ")],
+      [K.K, () => this.basculerConstruction("porte")],
       [K.T, () => this.basculerTour()],
       // L'eglise : une seule touche pour les deux gestes qu'on peut lui faire —
       // la monter d'un niveau, ou relancer son chantier quand elle est a terre.
@@ -2546,7 +2579,11 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private trierProfondeurs(): void {
-    for (const hero of this.heros) hero.setDepth(hero.y);
+    // L'occupant d'une tour est **sur** elle : sa profondeur est celle de la
+    // tour, pas celle de ses pieds, qui sont plus haut dans l'image que le pied
+    // de la tour et le feraient passer derriere.
+    const perche = this.tourDuHero?.occupant ?? null;
+    for (const hero of this.heros) hero.setDepth(hero === perche ? this.tourDuHero!.depth + 1 : hero.y);
     for (const objet of this.ennemis.getChildren()) {
       const e = objet as Ennemi;
       e.setDepth(e.y);
@@ -2719,11 +2756,21 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     const def = CONSTRUCTIONS[type];
-    this.fantome
-      .setTexture(textureDe(def))
-      .setOrigin(0.5, def.occupable ? 0.72 : ORIGINE_MUR_Y)
-      .setVisible(true);
+    this.fantome.setTexture(textureDe(def)).setOrigin(0.5, origineDe(def)).setVisible(true);
     this.events.emit("annonce", `${def.nom} — ${coutLisible(def)} · clic pour poser`, "toi");
+  }
+
+  /**
+   * La cloche (§4.18, §4.20) : tout le monde rentre, **et les portes se
+   * ferment**. Plus personne ne passe, dans un sens comme dans l'autre, jusqu'a
+   * l'aube — c'est le dilemme des portes, et il commence ici.
+   */
+  private sonnerLaCloche(): void {
+    this.village.sonnerCloche();
+    if (this.constructions.toutes.some((c) => c.def.id === "porte") && !this.constructions.portesFermees) {
+      this.constructions.fermerLesPortes();
+      this.events.emit("annonce", "Les portes se ferment", "guet");
+    }
   }
 
   // ------------------------------------------------- le mode d'amenagement
@@ -2760,7 +2807,7 @@ export class ArenaScene extends Phaser.Scene {
     this.debutAmenagement = this.time.now;
     this.physics.pause();
     this.montrerLaGrille(true);
-    this.events.emit("annonce", "Amenagement — G/H/J pour choisir, clic droit pour demolir", "toi");
+    this.events.emit("annonce", "Amenagement — G/H/J/K pour choisir, clic droit pour demolir", "toi");
   }
 
   private fermerAmenagement(): void {
@@ -2850,8 +2897,8 @@ export class ArenaScene extends Phaser.Scene {
     if (prise === this.tourDuHero) this.tourDuHero = null;
     this.deplacee = prise;
     this.fantome
-      .setTexture(textureDe(prise.def, prise.matiere))
-      .setOrigin(0.5, prise.def.occupable ? 0.72 : ORIGINE_MUR_Y)
+      .setTexture(textureDe(prise.def, prise.matiere, prise.masque, prise.ouverte))
+      .setOrigin(0.5, origineDe(prise.def))
       .setVisible(true);
     this.events.emit("annonce", `${prise.def.nom} en main — clic pour la reposer`, "toi");
   }
@@ -2892,6 +2939,18 @@ export class ArenaScene extends Phaser.Scene {
 
     this.fantome.setPosition(centre.x, centre.y);
     this.fantome.setTint(possible ? 0x7ee0a0 : 0xff6b5a);
+
+    // L'apercu montre deja ses raccords : un mur qu'on s'apprete a poser entre
+    // deux autres apparait relie aux deux (§4.30). La cle ne change qu'au
+    // passage d'une case a l'autre — Phaser ne fait rien si elle est la meme.
+    const def =
+      this.deplacee?.def ?? (this.enConstruction !== "champ" ? CONSTRUCTIONS[this.enConstruction!] : null);
+    if (def && def.id !== "tour") {
+      const masque = this.constructions.masqueEn(centre.x, centre.y);
+      const matiere = this.deplacee?.matiere ?? "bois";
+      const ouverte = this.deplacee?.ouverte ?? !this.constructions.portesFermees;
+      this.fantome.setTexture(textureDe(def, matiere, masque, ouverte));
+    }
   }
 
   private batirIci(x: number, y: number): boolean {
@@ -2943,7 +3002,7 @@ export class ArenaScene extends Phaser.Scene {
 
     tour.occupant = hero;
     this.tourDuHero = tour;
-    hero.setPosition(tour.x, tour.y - 18);
+    hero.setPosition(tour.x, tour.y + OCCUPANT_TOUR_Y);
     hero.setVelocity(0, 0);
     // Intouchable au corps a corps : ce n'est pas une invulnerabilite, c'est de
     // la hauteur. Les monstres s'en prendront a la tour.
@@ -4402,6 +4461,8 @@ export class ArenaScene extends Phaser.Scene {
     // Ce qui restait de l'effectif ne poursuit pas la journee : la nuit est
     // finie, ceux qui sont encore debout finissent la leur.
     this.resteDeLaNuit = 0;
+    // Les portes se rouvrent : on ressort travailler (§4.20).
+    if (this.constructions.portesFermees) this.constructions.ouvrirLesPortes();
     this.village.seLever(this.cycle.jour);
     this.passerLaJourneeDesHeros();
     this.programmerHorde();

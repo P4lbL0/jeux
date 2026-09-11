@@ -9,23 +9,29 @@ import {
   EGLISE,
   FERME,
   MAISON,
-  MATIERES_MUR,
-  MUR,
   NAVIRE,
   PORT_DESSIN,
-  TOUR,
   VARIANTES_MAISON,
   peindreChamp,
   peindreChantier,
   peindreEglise,
   peindreFerme,
   peindreMaison,
-  peindreMur,
-  peindreMurRuine,
   peindreNavire,
   peindrePort,
-  peindreTour,
 } from "../src/game/dessin/batiments";
+import {
+  MATIERES_MUR,
+  MUR,
+  PORTE,
+  TOUR,
+  masqueDe,
+  peindreMur,
+  peindreMurRuine,
+  peindrePorte,
+  peindreTour,
+  sensDePorte,
+} from "../src/game/dessin/murs";
 import { Toile } from "../src/game/dessin/pinceau";
 import { avancementDe, type Modele } from "../src/game/dessin/four";
 import { BETES, GESTES_MONSTRE, bete, mort } from "../src/game/dessin/monstres";
@@ -134,51 +140,78 @@ ecrire("planche-carte-zoom", fondDeCarte(300, 950, 640, 400, 2));
 // -------------------------------------------------------------- les batiments
 
 /** Dessine dans une toile neuve, cerne, et rend la toile. */
-function toile(largeur: number, hauteur: number, tracer: (t: Toile) => void, cerner = true): Toile {
+function toile(
+  largeur: number,
+  hauteur: number,
+  tracer: (t: Toile) => void,
+  cerner = true,
+  avertir = true,
+): Toile {
   const t = new Toile(largeur, hauteur);
   tracer(t);
   if (cerner) t.contour();
   const bord = t.pixelsDuBord();
-  if (bord > 0) console.log(`[planche] une toile ${largeur}x${hauteur} touche le bord : ${bord} px`);
+  if (bord > 0 && avertir) console.log(`[planche] une toile ${largeur}x${hauteur} touche le bord : ${bord} px`);
   return t;
 }
 
-{
-  // Les murs : un bloc par matiere, seul, en ligne, en colonne et en angle —
-  // c'est la profondeur qui raccorde, on la reproduit en dessinant du haut
-  // vers le bas.
-  const image = fondDeCarte(500, 1000, 640, 420, 2);
-  MATIERES_MUR.forEach((matiere, i) => {
-    const bloc = toile(MUR.largeur, MUR.hauteur, (t) => peindreMur(t, matiere));
-    const y0 = 40 + i * 270;
-    // Seul, a l'echelle 2.
-    coller(image, bloc, 16, y0, 2);
-    // Une enceinte en L : trois en ligne, trois en colonne, du haut vers le bas.
-    const poserSurCase = (cx: number, cy: number) =>
-      coller(image, bloc, cx * 2 - bloc.largeur, (cy + 16) * 2 - (MUR.hauteur - 2) * 2, 2);
-    const ox = 120;
-    const oy = y0 / 2 - 8;
-    poserSurCase(ox, oy);
-    poserSurCase(ox + 32, oy);
-    poserSurCase(ox + 64, oy);
-    poserSurCase(ox, oy + 32);
-    poserSurCase(ox, oy + 64);
-    // La meme, a l'echelle 1.
-    const poserUn = (cx: number, cy: number) =>
-      coller(image, bloc, cx - bloc.largeur / 2, cy + 16 - (MUR.hauteur - 2), 1);
-    const px = 560;
-    const py = y0 + 8;
-    poserUn(px, py);
-    poserUn(px + 32, py);
-    poserUn(px + 64, py);
-    poserUn(px, py + 32);
-    poserUn(px, py + 64);
-  });
-  // La ruine, pour les breches de l'enceinte.
-  const ruine = toile(MUR.largeur, MUR.hauteur, (t) => peindreMurRuine(t, 0));
-  coller(image, ruine, 16, 40 + 3 * 270 - 40, 2);
-  coller(image, ruine, 16 + MUR.largeur * 2 + 12, 40 + 3 * 270 - 40, 1);
-  ecrire("planche-murs", image);
+/**
+ * Le plan de demonstration des murs : une enceinte avec ses tours et ses
+ * portes, une ruine, un T, une croix, un escalier, une borne. `#` mur, `T` tour,
+ * `P` porte, `r` ruine. Chaque case lit ses voisines, exactement comme en jeu.
+ */
+const PLAN_MURS = [
+  "T####P####T....#.....",
+  "#.........#....#.....",
+  "#....T....#..#####...",
+  "#.........#....#.....",
+  "P.........#....#.....",
+  "#....##...#..........",
+  "#....#..r.#....#..##.",
+  "T####P####T....#...##",
+  ".....................",
+  "..#...###...#........",
+  "......#.#...#.#......",
+  "......###...#.#......",
+];
+
+for (const matiere of MATIERES_MUR) {
+  // Les murs : chaque case du plan, dessinee du nord au sud pour que la
+  // profondeur raccorde, a l'echelle 2 — celle du jeu au zoom de depart.
+  const echelle = 2;
+  const colonnes = PLAN_MURS[0]!.length;
+  const lignes = PLAN_MURS.length;
+  const image = fondDeCarte(500, 1000, colonnes * 32, lignes * 32 + 40, echelle);
+  const bati = (l: number, c: number) => {
+    const ch = PLAN_MURS[l]?.[c];
+    return ch === "#" || ch === "T" || ch === "P";
+  };
+  for (let l = 0; l < lignes; l += 1) {
+    for (let c = 0; c < colonnes; c += 1) {
+      const ch = PLAN_MURS[l]![c]!;
+      if (ch === ".") continue;
+      const masque = masqueDe(bati(l - 1, c), bati(l, c + 1), bati(l + 1, c), bati(l, c - 1));
+      let t: Toile;
+      // Un mur va jusqu'au bord de sa case par construction : pas d'alerte.
+      if (ch === "T") t = toile(TOUR.largeur, TOUR.hauteur, (x) => peindreTour(x), true, false);
+      else if (ch === "P") {
+        t = toile(
+          PORTE.largeur,
+          PORTE.hauteur,
+          (x) => peindrePorte(x, matiere, sensDePorte(masque), (l + c) % 2 === 0),
+          true,
+          false,
+        );
+      } else if (ch === "r") t = toile(MUR.largeur, MUR.hauteur, (x) => peindreMurRuine(x, 0));
+      else t = toile(MUR.largeur, MUR.hauteur, (x) => peindreMur(x, matiere, masque), true, false);
+      // Le pied de la texture est deux pixels sous le bord sud de la case.
+      coller(image, t, c * 32 * echelle, (l * 32 + 32 + 2 + 20 - t.hauteur) * echelle, echelle);
+    }
+  }
+  // Un villageois devant la porte du bas, pour l'echelle.
+  const v = frame(villageois("mineur", { usure: 0, sang: 0 }), "marche", 1);
+  coller(image, v, (5 * 32 + 6) * echelle, (7 * 32 + 20 + 12) * echelle, echelle);
+  ecrire(`planche-murs-${matiere}`, image);
 }
 
 {
@@ -197,7 +230,7 @@ function toile(largeur: number, hauteur: number, tracer: (t: Toile) => void, cer
   for (let n = 1; n <= 4; n += 1) {
     rangee(toile(EGLISE.largeur, EGLISE.hauteur, (t) => peindreEglise(t, n)));
   }
-  rangee(toile(TOUR.largeur, TOUR.hauteur, (t) => peindreTour(t)));
+  rangee(toile(TOUR.largeur, TOUR.hauteur, (t) => peindreTour(t), true, false));
 
   x = 16;
   const bas = (t: Toile, echelle = 2) => {
@@ -270,4 +303,34 @@ function frame(modele: Modele, cle: string, index: number): Toile {
     coller(image, frame(modele, "attaque", 3), 16 + i * 78 + 36, 214, 1);
   });
   ecrire("planche-personnages", image);
+}
+
+{
+  // L'echelle : une maison, l'eglise, et les gens a cote, agrandis quatre fois.
+  // C'est la planche qui repond a « les personnages sont trop grands par
+  // rapport aux maisons » — on ne juge une proportion qu'en les posant l'un
+  // contre l'autre, sur le meme sol.
+  const echelle = 4;
+  const image = fondDeCarte(500, 1000, 200, 70, echelle);
+  const solY = 62;
+  const auSol = (t: Toile, x: number, pied: number) =>
+    coller(image, t, x * echelle, (solY - pied) * echelle, echelle);
+  auSol(toile(MAISON.largeur, MAISON.hauteur, (t) => peindreMaison(t, 0)), 4, MAISON.hauteur - 2);
+  auSol(toile(EGLISE.largeur, EGLISE.hauteur, (t) => peindreEglise(t, 1)), 52, EGLISE.hauteur - 2);
+  const gens: Modele[] = [
+    villageois("mineur", { usure: 0, sang: 0 }),
+    villageois("fermier", { usure: 1, sang: 0 }),
+    hero("guerrier", 2),
+    hero("mage", 4),
+    bete("fonceur"),
+    bete("brute"),
+  ];
+  let x = 122;
+  for (const modele of gens) {
+    const t = frame(modele, modele.famille.startsWith("monstre") ? "marche" : "travail", 2);
+    // Le sol d'un personnage est a trois pixels du bas de son cadre.
+    auSol(t, x, modele.taille - 3);
+    x += modele.taille - 4;
+  }
+  ecrire("planche-echelle", image);
 }

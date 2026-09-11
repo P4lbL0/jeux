@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { ARCHETYPES } from "../ennemis";
 import { avancementDe, type Modele } from "./four";
+import { CADRE } from "./corps";
 import {
   BETES,
+  CADRE_BETE,
+  CADRE_GROSSE_BETE,
   GESTES_MONSTRE,
   MORTS,
   allure,
@@ -13,18 +16,8 @@ import {
 } from "./monstres";
 import { Toile } from "./pinceau";
 import { cranDUsure, familleDeVillageois, villageois, type MetierDessine } from "./villageois";
-import {
-  CHANTIERS,
-  CLES_CHAMP,
-  HAUTEUR_MUR,
-  MATIERES_MUR,
-  MUR,
-  TOUR,
-  peindreChamp,
-  peindreChantier,
-  peindreMur,
-  peindreTour,
-} from "./batiments";
+import { CHANTIERS, CLES_CHAMP, peindreChamp, peindreChantier } from "./batiments";
+import { EST, HAUTEUR_MUR, MATIERES_MUR, MUR, OUEST, TOUR, peindreMur, peindreTour } from "./murs";
 
 /** Chaque frame d'un modele, dessinee et cernee comme le four le ferait. */
 function chaqueFrame(modele: Modele, verifier: (toile: Toile, geste: string, i: number) => void): void {
@@ -65,16 +58,23 @@ describe("Les monstres — une bete, et des nombres", () => {
     // bondit, les pattes d'un mort qui s'ecartent. Jamais a la compilation.
     for (const modele of tousLesMonstres()) {
       chaqueFrame(modele, (toile, geste, i) => {
-        expect(toile.compterOpaques(), `${modele.famille} ${geste} ${i}`).toBeGreaterThan(30);
+        // Assez de pixels pour etre quelque chose : trente dans un cadre de
+        // 32, et la meme part de la surface dans un cadre plus petit.
+        const minimum = Math.round(30 * (modele.taille / 32) ** 2);
+        expect(toile.compterOpaques(), `${modele.famille} ${geste} ${i}`).toBeGreaterThan(minimum);
         expect(toile.pixelsDuBord(), `${modele.famille} ${geste} ${i} touche le bord`).toBe(0);
       });
     }
   });
 
   it("cuit la brute et le golem plus grands, jamais agrandis", () => {
-    expect(BETES.brute!.cadre).toBe(48);
-    expect(BETES["familier-golem"]!.cadre).toBe(48);
-    expect(bete("fonceur").taille).toBe(32);
+    // Une fois et demie le cadre ordinaire, qui est celui des humains : la
+    // brute doit dominer un habitant, et elle est cuite a cette taille, pas
+    // agrandie.
+    expect(BETES.brute!.cadre).toBe(CADRE_GROSSE_BETE);
+    expect(BETES["familier-golem"]!.cadre).toBe(CADRE_GROSSE_BETE);
+    expect(CADRE_GROSSE_BETE).toBe(CADRE_BETE * 1.5);
+    expect(bete("fonceur").taille).toBe(CADRE);
   });
 
   it("se jette en avant a l'attaque, et le coup est le point le plus avance", () => {
@@ -173,9 +173,10 @@ describe("Les murs — un palier est un autre mur", () => {
     expect(HAUTEUR_MUR.fer).toBeLessThan(HAUTEUR_MUR.pierre);
     for (const matiere of MATIERES_MUR) {
       const toile = new Toile(MUR.largeur, MUR.hauteur);
-      peindreMur(toile, matiere);
+      peindreMur(toile, matiere, EST | OUEST);
       toile.contour();
-      expect(toile.compterOpaques(), matiere).toBeGreaterThan(MUR.largeur * 40);
+      expect(toile.compterOpaques(), matiere).toBeGreaterThan(MUR.largeur * 20);
+      expect(toile.rendu().split("\n")[0]!.includes("#"), `${matiere} deborde en haut`).toBe(false);
     }
   });
 

@@ -115,6 +115,15 @@ try {
   await cadrer(1000, 1220, 1.7);
   await capturer("foret");
 
+  // L'angle nord-est de l'enceinte, de pres : les murs, la tour, la porte de
+  // l'est. C'est la vue qui juge les raccords (§4.30).
+  await cadrer(600, 960, 2.6);
+  await capturer("enceinte");
+
+  // La place, au zoom maximal : les gens a cote des maisons.
+  await cadrer(470, 1060, 3.4);
+  await capturer("gens");
+
   // Le mode d'amenagement : la grille et l'apercu de pose.
   await cadrer(470, 1050, 1.7);
   await page.keyboard.press("KeyM");

@@ -48,13 +48,22 @@ export type Occupation =
   | "libre"
   | "mur"
   | "tour"
+  | "porte"
   | "champ"
   | "ruine"
   | "batiment"
   | "maison";
 
-/** Les occupations qui arretent un corps. */
+/** Les occupations qui arretent un corps, quoi qu'il arrive. */
 const BLOQUANTES: Occupation[] = ["mur", "tour", "batiment", "maison"];
+
+/**
+ * Ce qui se raccorde : un mur regarde ses quatre voisines et dessine un pan
+ * vers chacune qui porte l'une de ces occupations (§4.30, les murs en poteaux
+ * et pans). Une ruine n'en fait pas partie — un mur ne se raccorde pas a ce
+ * qui est tombe.
+ */
+export const RACCORDABLES: Occupation[] = ["mur", "tour", "porte"];
 
 /**
  * Ce qui exige trois cases libres autour de soi (§4.24).
@@ -91,6 +100,16 @@ export interface Case {
  */
 export class Grille {
   private readonly cases: Case[] = [];
+
+  /**
+   * Les portes du village sont-elles fermees ? (§4.20)
+   *
+   * **Toutes ensemble** : c'est la cloche qui les ferme, et l'aube qui les
+   * rouvre. Une porte ouverte est un passage pour tout le monde, monstres
+   * compris — c'est le dilemme du §4.20, pas un oubli. Une porte fermee arrete
+   * tout le monde, et les monstres la frappent comme un mur.
+   */
+  portesFermees = false;
 
   constructor() {
     for (let ligne = 0; ligne < LIGNES; ligne++) {
@@ -213,7 +232,27 @@ export class Grille {
 
   /** Vrai si un corps ne peut pas traverser ce point. */
   bloque(x: number, y: number): boolean {
-    return BLOQUANTES.includes(this.occupationEn(x, y));
+    const occupation = this.occupationEn(x, y);
+    if (occupation === "porte") return this.portesFermees;
+    return BLOQUANTES.includes(occupation);
+  }
+
+  /**
+   * Le raccord d'une case : quelles voisines portent un mur, une tour ou une
+   * porte — nord, est, sud, ouest. C'est ce que le dessin d'un mur lit pour
+   * choisir son raccord (§4.30). En cases, jamais en pixels.
+   */
+  voisinesRaccordees(colonne: number, ligne: number): { nord: boolean; est: boolean; sud: boolean; ouest: boolean } {
+    const raccorde = (c: number, l: number) => {
+      const voisine = this.case(c, l);
+      return voisine !== null && RACCORDABLES.includes(voisine.occupation);
+    };
+    return {
+      nord: raccorde(colonne, ligne - 1),
+      est: raccorde(colonne + 1, ligne),
+      sud: raccorde(colonne, ligne + 1),
+      ouest: raccorde(colonne - 1, ligne),
+    };
   }
 
   /** Toutes les cases portant une occupation donnee. Pour l'affichage, hors boucle. */

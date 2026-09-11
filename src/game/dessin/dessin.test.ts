@@ -17,14 +17,32 @@ import {
 } from "./palette";
 import { Toile } from "./pinceau";
 import { avancementDe, type Geste } from "./four";
+import { CADRE } from "./corps";
 import { GESTES, posture, villageois } from "./villageois";
 import { PALIERS, familleDeHero, hero, palierDeRang, posture as postureHero } from "./heros";
 import { VARIANTES, varianteDe } from "./sol";
-import { HAUTEUR_MUR, MATIERES_MUR, MUR, ORIGINE_MUR_Y, cleMur, peindreMur } from "./batiments";
+import {
+  EST,
+  HAUTEUR_MUR,
+  MASQUES,
+  MATIERES_MUR,
+  MUR,
+  NORD,
+  ORIGINE_MUR_Y,
+  OUEST,
+  PORTE,
+  SUD,
+  cleMur,
+  clePorte,
+  masqueDe,
+  peindreMur,
+  peindrePorte,
+  sensDePorte,
+} from "./murs";
 import { rebaser } from "./palette";
 import { C } from "../ui/couleurs";
 import { CLASSES, ORDRE_CLASSES, ORDRE_RANGS } from "../../core/classes";
-import { CONSTRUCTIONS } from "../../core/constructions";
+import { CONSTRUCTIONS, occupationDe } from "../../core/constructions";
 
 describe("Palette — l'arithmetique", () => {
   it("melange sans deborder de ses bornes", () => {
@@ -199,9 +217,12 @@ describe("Villageois — un geste est un angle", () => {
     expect(travail?.frameCle).toBe(travail!.frames - 1);
   });
 
-  it("tient dans son carreau de 32", () => {
+  it("tient dans son carreau", () => {
+    // Le cadre est celui de `corps.ts` — 20 px depuis le 11 septembre 2026, un
+    // habitant devait faire le tiers d'une maison et non la moitie.
     const modele = villageois("mineur", { usure: 0, sang: 0 });
-    expect(modele.taille).toBe(32);
+    expect(modele.taille).toBe(CADRE);
+    expect(CADRE).toBe(20);
 
     // Le vrai risque du dessin parametrique : un bras a 40 degres qui sort du
     // cadre. On dessine chaque frame et on verifie qu'aucun pixel ne touche le
@@ -374,42 +395,121 @@ describe("Les heros — un palier tous les deux rangs", () => {
   });
 });
 
-describe("Les murs — un bloc par matiere", () => {
+describe("Les murs — un poteau, et un pan vers chaque voisine", () => {
+  const SOL = MUR.hauteur - 2;
+  const opaque = (toile: Toile, x: number, y: number) =>
+    (toile.donnees()[(y * toile.largeur + x) * 4 + 3] ?? 0) >= 250;
+
   it("dessine trois matieres, et trois silhouettes", () => {
     // Le §4.20 fait monter le meme mur de bois a fer puis a pierre : si les
     // trois se dessinaient pareil en changeant de couleur, le joueur ne verrait
     // jamais ce qu'il a paye. Pointes de pieux, pointes de fer, creneaux.
     const rendus = MATIERES_MUR.map((matiere) => {
       const toile = new Toile(MUR.largeur, MUR.hauteur);
-      peindreMur(toile, matiere);
+      peindreMur(toile, matiere, EST | OUEST);
       return toile.rendu();
     });
     expect(new Set(rendus).size).toBe(MATIERES_MUR.length);
   });
 
-  it("couvre toute la largeur de sa case, pour se joindre a son voisin sans couture", () => {
+  it("donne un dessin different a chacun des seize raccords", () => {
+    // C'est tout le principe : une case seule est une borne, une case entre
+    // deux autres est un pan, un angle est un poteau d'ou partent deux pans.
     for (const matiere of MATIERES_MUR) {
-      const toile = new Toile(MUR.largeur, MUR.hauteur);
-      peindreMur(toile, matiere);
-      const ligne = toile.rendu().split("\n")[MUR.hauteur - 6]!;
-      expect(ligne.startsWith("X"), matiere).toBe(true);
-      expect(ligne.endsWith("X"), matiere).toBe(true);
+      const rendus = MASQUES.map((masque) => {
+        const toile = new Toile(MUR.largeur, MUR.hauteur);
+        peindreMur(toile, matiere, masque);
+        return toile.rendu();
+      });
+      expect(new Set(rendus).size, matiere).toBe(MASQUES.length);
     }
   });
 
-  it("met le centre de la case au sol, sous le dessus du bloc", () => {
-    // Deux blocs l'un au-dessus de l'autre ne se raccordent que si le dessus
-    // du plus bas recouvre la face du plus haut : le dessus fait toute la case.
-    expect(ORIGINE_MUR_Y * MUR.hauteur).toBe(MUR.hauteur - 2 - 16);
-    for (const matiere of MATIERES_MUR) expect(HAUTEUR_MUR[matiere] + 32).toBeLessThan(MUR.hauteur);
+  it("pousse un pan est-ouest jusqu'aux deux bords, et rien quand il est seul", () => {
+    // Deux cases cote a cote ne se raccordent que si chacune va jusqu'a son
+    // bord ; une borne, elle, ne touche rien.
+    for (const matiere of MATIERES_MUR) {
+      const y = SOL - 32 + 16 - HAUTEUR_MUR[matiere];
+      const pan = new Toile(MUR.largeur, MUR.hauteur);
+      peindreMur(pan, matiere, EST | OUEST);
+      expect(opaque(pan, 0, y), `${matiere} ouest`).toBe(true);
+      expect(opaque(pan, MUR.largeur - 1, y), `${matiere} est`).toBe(true);
+
+      const borne = new Toile(MUR.largeur, MUR.hauteur);
+      peindreMur(borne, matiere, 0);
+      expect(opaque(borne, 0, y), `${matiere} borne ouest`).toBe(false);
+      expect(opaque(borne, MUR.largeur - 1, y), `${matiere} borne est`).toBe(false);
+      expect(borne.compterOpaques()).toBeLessThan(pan.compterOpaques());
+    }
   });
 
-  it("cuit le mur de bois sous la cle que la palissade du joueur reclame", () => {
-    // ⚠️ Le core nomme encore `bati-mur-est-ouest-bois`, une cle qui n'existe
-    // plus : c'est `textureDe` (constructions.ts) qui decide, et il ne lit plus
-    // `def.texture`. Ce test garde au moins la cle de cuisson stable.
-    expect(cleMur("bois")).toBe("bati-mur-bois");
-    expect(CONSTRUCTIONS.palissade.id).toBe("palissade");
+  it("fait d'un pan nord-sud une colonne continue, du bord nord au pied", () => {
+    // Le pan nord monte jusqu'au bord de la case (souleve de sa hauteur), le
+    // pan sud descend jusqu'au pied : la case suivante posera son dessus la ou
+    // celle-ci finit, et la colonne n'aura pas de fente.
+    for (const matiere of MATIERES_MUR) {
+      const toile = new Toile(MUR.largeur, MUR.hauteur);
+      peindreMur(toile, matiere, NORD | SUD);
+      const haut = SOL - 32 - HAUTEUR_MUR[matiere];
+      for (let y = haut; y < SOL; y += 1) {
+        expect(opaque(toile, 16, y), `${matiere} ligne ${y}`).toBe(true);
+      }
+      expect(opaque(toile, 16, haut - 1), `${matiere} deborde au nord`).toBe(false);
+    }
+  });
+
+  it("met le centre de la case au sol, sous le dessus", () => {
+    expect(ORIGINE_MUR_Y * MUR.hauteur).toBe(MUR.hauteur - 2 - 16);
+    for (const matiere of MATIERES_MUR) expect(HAUTEUR_MUR[matiere] + 32 + 4).toBeLessThan(MUR.hauteur);
+  });
+
+  it("nomme ses textures par matiere et par raccord, et lit le masque dans l'ordre nord-est-sud-ouest", () => {
+    expect(cleMur("bois", 0)).toBe("bati-mur-bois-0");
+    expect(cleMur("pierre", NORD | SUD)).toBe("bati-mur-pierre-5");
+    expect(masqueDe(true, false, false, false)).toBe(NORD);
+    expect(masqueDe(false, true, false, false)).toBe(EST);
+    expect(masqueDe(false, false, true, false)).toBe(SUD);
+    expect(masqueDe(false, false, false, true)).toBe(OUEST);
+    expect(masqueDe(true, true, true, true)).toBe(15);
+    expect(CONSTRUCTIONS.palissade.texture).toBe("bati-mur-bois");
+  });
+});
+
+describe("La porte — ouverte on passe, fermee on frappe", () => {
+  const SOL = MUR.hauteur - 2;
+  const opaque = (toile: Toile, x: number, y: number) =>
+    (toile.donnees()[(y * toile.largeur + x) * 4 + 3] ?? 0) >= 250;
+
+  it("prend le sens de ses voisines, est-ouest par defaut", () => {
+    expect(sensDePorte(EST | OUEST)).toBe("est-ouest");
+    expect(sensDePorte(EST)).toBe("est-ouest");
+    expect(sensDePorte(NORD | SUD)).toBe("nord-sud");
+    expect(sensDePorte(NORD)).toBe("nord-sud");
+    // Un angle n'est pas une porte : elle se dessine est-ouest, et tant pis.
+    expect(sensDePorte(NORD | EST)).toBe("est-ouest");
+    expect(sensDePorte(0)).toBe("est-ouest");
+  });
+
+  it("laisse voir le sol a travers une porte est-ouest ouverte, et pas fermee", () => {
+    for (const matiere of MATIERES_MUR) {
+      const ouverte = new Toile(PORTE.largeur, PORTE.hauteur);
+      peindrePorte(ouverte, matiere, "est-ouest", true);
+      const fermee = new Toile(PORTE.largeur, PORTE.hauteur);
+      peindrePorte(fermee, matiere, "est-ouest", false);
+      // Au milieu du passage, juste au-dessus du sol.
+      const y = SOL - 32 + 16 + 6 - 3;
+      expect(opaque(ouverte, 16, y), `${matiere} ouverte`).toBe(false);
+      expect(opaque(fermee, 16, y), `${matiere} fermee`).toBe(true);
+      expect(clePorte(matiere, EST | OUEST, true)).not.toBe(clePorte(matiere, EST | OUEST, false));
+    }
+  });
+
+  it("est une construction a part entiere, plus solide qu'une palissade", () => {
+    expect(CONSTRUCTIONS.porte.pvMax).toBeGreaterThan(CONSTRUCTIONS.palissade.pvMax);
+    expect(CONSTRUCTIONS.porte.occupable).toBe(false);
+    expect(occupationDe("porte")).toBe("porte");
+    expect(occupationDe("palissade")).toBe("mur");
+    expect(occupationDe("tour")).toBe("tour");
   });
 });
 

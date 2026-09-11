@@ -4,6 +4,7 @@ import type { Toile } from "./pinceau";
 import { BOIS, CHAIR, FER, LAITON, PIERRE, TISSU, TOILE, melanger, rebaser } from "./palette";
 import {
   CADRE,
+  K,
   borner,
   debout,
   peindreCorps,
@@ -217,9 +218,10 @@ export function posture(geste: string, avancement: number, usure = 0): Attitude 
         // ressemble quelqu'un qui s'effondre.
         jambeAvant: chute * 1.0,
         jambeArriere: -chute * 0.85,
-        // Il descend au lieu de monter : c'est le seul geste ou le sursaut est
-        // positif.
-        sursaut: Math.round(chute * 2),
+        // ⚠️ Il ne descend plus : il n'y a que trois pixels sous les pieds a
+        // 20 px, et le pied de la jambe ecartee y touchait le bord. C'est le
+        // pliage du buste et l'ecart des jambes qui font la chute.
+        sursaut: 0,
         outil: chute < 0.5,
       });
     }
@@ -272,7 +274,9 @@ export function hero(classe: ClassId, palier: number, usure = 0, sang = 0): Mode
     dessiner: (toile, geste, avancement) => {
       const a = posture(geste, avancement, usure);
       const attaches = peindreCorps(toile, a, tenue);
-      if (arme === "epee-bouclier") peindreBouclier(toile, attaches.mainArriere, palier);
+      if (arme === "epee-bouclier") {
+        peindreBouclier(toile, attaches.epauleArriere, attaches.mainArriere, palier);
+      }
       if (a.outil) peindreArme(toile, arme, attaches.main, a.brasAvant, palier);
     },
   };
@@ -302,26 +306,35 @@ function peindreArme(
   // qui vaut quelque chose (§4.30).
   const eclat = palier >= LAITON_DES ? LAITON : FER;
 
+  // Les longueurs sont celles du dessin d'origine, ramenees au cadre (`K`) ; la
+  // rallonge du palier reste **un pixel entier**, c'est un pixel qu'on compte.
   const bout = (longueur: number) => ({
-    x: main.x + sin * longueur,
-    y: main.y + cos * longueur,
+    x: main.x + sin * longueur * K,
+    y: main.y + cos * longueur * K,
   });
   const travers = (a: { x: number; y: number }, demi: number, epaisseur: number, couleur: number) =>
-    toile.segment(a.x - cos * demi, a.y + sin * demi, a.x + cos * demi, a.y - sin * demi, epaisseur, couleur);
+    toile.segment(
+      a.x - cos * demi * K,
+      a.y + sin * demi * K,
+      a.x + cos * demi * K,
+      a.y - sin * demi * K,
+      epaisseur,
+      couleur,
+    );
 
   switch (arme) {
     case "epee":
     case "epee-bouclier": {
-      const pointe = bout(5 + rallonge);
-      toile.segment(main.x, main.y, pointe.x, pointe.y, 1.6, eclat.clair);
+      const pointe = bout(5 + rallonge / K);
+      toile.segment(main.x, main.y, pointe.x, pointe.y, 1, eclat.clair);
       // La garde, en travers : sans elle une epee est un baton gris.
-      travers(bout(0.6), 1.6, 1.2, palier >= LAITON_DES ? LAITON.corps : BOIS.corps);
+      travers(bout(0.6), 1.8, 1, palier >= LAITON_DES ? LAITON.corps : BOIS.corps);
       break;
     }
 
     case "dague": {
-      const pointe = bout(3 + rallonge);
-      toile.segment(main.x, main.y, pointe.x, pointe.y, 1.4, eclat.clair);
+      const pointe = bout(3 + rallonge / K);
+      toile.segment(main.x, main.y, pointe.x, pointe.y, 1, eclat.clair);
       break;
     }
 
@@ -330,18 +343,20 @@ function peindreArme(
       // Le baton depasse **des deux cotes** de la main : c'est ce qui le rend
       // lisible quand le bras est leve, ou une simple tige disparait derriere la
       // tete.
-      const haut = bout(5 + rallonge);
+      // Quatre et non cinq : a l'incantation, le bras monte presque a la
+      // verticale et la tete du baton sortait du cadre de 20 par le haut.
+      const haut = bout(4 + rallonge / K);
       const bas = bout(-2.5);
-      toile.segment(bas.x, bas.y, haut.x, haut.y, 1.4, BOIS.corps);
+      toile.segment(bas.x, bas.y, haut.x, haut.y, 1, BOIS.corps);
       const tete = arme === "baton-os" ? melanger(CHAIR.clair, PIERRE.clair, 0.5) : eclat.clair;
-      toile.disque(haut.x, haut.y, palier >= LAITON_DES ? 1.8 : 1.4, tete);
+      toile.disque(haut.x, haut.y, palier >= LAITON_DES ? 1.2 : 0.9, tete);
       break;
     }
 
     case "sceptre": {
-      const haut = bout(3.5 + rallonge);
-      toile.segment(main.x, main.y, haut.x, haut.y, 1.4, BOIS.corps);
-      toile.disque(haut.x, haut.y, 1.6, palier >= LAITON_DES ? LAITON.clair : TOILE.clair);
+      const haut = bout(3.5 + rallonge / K);
+      toile.segment(main.x, main.y, haut.x, haut.y, 1, BOIS.corps);
+      toile.disque(haut.x, haut.y, 1, palier >= LAITON_DES ? LAITON.clair : TOILE.clair);
       break;
     }
 
@@ -356,7 +371,7 @@ function peindreArme(
       // palier 2 sortait du carreau a la derniere frame de son tir. Le palier se
       // lit sur la corde, pas sur l'envergure.
       const centre = bout(0.8);
-      travers(centre, 3.6, 1.2, BOIS.clair);
+      travers(centre, 3.6, 1, BOIS.clair);
       travers(bout(-0.2), 3.2, 1, palier >= LAITON_DES ? LAITON.corps : PIERRE.sombre);
       break;
     }
@@ -365,12 +380,17 @@ function peindreArme(
 
 function peindreBouclier(
   toile: Toile,
-  mainArriere: { x: number; y: number },
+  epaule: { x: number; y: number },
+  main: { x: number; y: number },
   palier: number,
 ): void {
   // Le bouclier appartient au **bras arriere**, donc il se peint derriere le
   // corps : un bouclier devant le torse cacherait la couleur de classe, qui est
-  // la seule chose qui dit qui c'est.
-  toile.disque(mainArriere.x, mainArriere.y - 1, palier >= PLASTRON_DES ? 3.4 : 2.8, FER.corps);
-  toile.disque(mainArriere.x, mainArriere.y - 1, 1.2, palier >= LAITON_DES ? LAITON.corps : FER.clair);
+  // la seule chose qui dit qui c'est. Il se porte **sur l'avant-bras**, aux
+  // deux tiers du bras et non au bout de la main : c'est la qu'on tient un
+  // bouclier, et c'est ce qui le garde dans le cadre quand le bras monte.
+  const x = epaule.x + (main.x - epaule.x) * 0.65;
+  const y = epaule.y + (main.y - epaule.y) * 0.65;
+  toile.disque(x, y, palier >= PLASTRON_DES ? 1.9 : 1.5, FER.corps);
+  toile.point(x, y, palier >= LAITON_DES ? LAITON.corps : FER.clair);
 }

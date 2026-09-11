@@ -43,10 +43,15 @@ import { posture as postureHumaine } from "./heros";
 /** Ce qu'une bete porte sur le dos. */
 type Dos = "lisse" | "epines" | "plaques" | "pustules";
 
-/** Les nombres qui font une bete. Tout est en pixels d'un cadre de 32. */
+/**
+ * Les nombres qui font une bete. Tout est en pixels **d'un dessin de 32**, et
+ * ramene au cadre a la peinture (`peindreBete`) : le cadre a suivi celui des
+ * humains quand ils sont passes de 32 a 20 (11 septembre 2026), sans qu'un
+ * seul de ces nombres ne bouge.
+ */
 export interface Bete {
   famille: string;
-  /** Cote du cadre : 32, ou 48 pour ce qui est cuit plus gros. */
+  /** Cote du cadre : `CADRE_BETE`, ou `CADRE_GROSSE_BETE` pour ce qui est cuit plus gros. */
   cadre: number;
   /** Le corps : sa longueur, sa hauteur, sa matiere. */
   corps: { longueur: number; hauteur: number; matiere: Matiere };
@@ -63,15 +68,25 @@ export interface Bete {
   flotte?: boolean;
 }
 
+/** Le cadre d'une bete ordinaire : celui des humains. */
+export const CADRE_BETE = CADRE;
+/**
+ * Le cadre de ce qui est cuit plus gros — la brute, le golem. Une fois et demie
+ * l'ordinaire, comme le 48 l'etait du 32 : la brute doit dominer un habitant.
+ */
+export const CADRE_GROSSE_BETE = 30;
+
 /** Les archetypes de `ennemis.ts`, dans le langage d'une bete. */
 export const BETES: Record<string, Bete> = {
   /** Le Rodeur : un chien de guerre efflanque, qui court. */
   fonceur: {
     famille: "monstre-fonceur",
-    cadre: 32,
-    corps: { longueur: 14, hauteur: 7, matiere: MONSTRE },
+    cadre: CADRE_BETE,
+    corps: { longueur: 13, hauteur: 7, matiere: MONSTRE },
     pattes: { nombre: 4, longueur: 6, epaisseur: 2 },
-    tete: { rayon: 3.2, museau: 4 },
+    // ⚠️ Museau de 3 et non 4 : au bond de l'attaque, le museau sortait du
+    // cadre de 20 — il avait un pixel de marge dans celui de 32, il n'en a plus.
+    tete: { rayon: 3.2, museau: 3 },
     dos: "epines",
     queue: 4,
     yeux: C.sangFrais,
@@ -79,7 +94,7 @@ export const BETES: Record<string, Bete> = {
   /** La Nuee : petit, six pattes, pale. Ce qu'on ecrase et qui revient. */
   essaim: {
     famille: "monstre-essaim",
-    cadre: 32,
+    cadre: CADRE_BETE,
     corps: { longueur: 8, hauteur: 5, matiere: palir(MONSTRE, 0.5) },
     pattes: { nombre: 6, longueur: 5, epaisseur: 1 },
     tete: { rayon: 2.2, museau: 2 },
@@ -90,21 +105,24 @@ export const BETES: Record<string, Bete> = {
   /** Le Cracheur : un crapaud, large et bas, la gueule toujours ouverte. */
   cracheur: {
     famille: "monstre-cracheur",
-    cadre: 32,
-    corps: { longueur: 13, hauteur: 9, matiere: matiere(melanger(MONSTRE.corps, C.bile, 0.35)) },
+    cadre: CADRE_BETE,
+    corps: { longueur: 12, hauteur: 9, matiere: matiere(melanger(MONSTRE.corps, C.bile, 0.35)) },
     pattes: { nombre: 4, longueur: 3.5, epaisseur: 2.4 },
-    tete: { rayon: 4, museau: 5 },
+    // Museau de 4 et non 5 : la gueule ouverte au bond sortait du cadre de 20.
+    tete: { rayon: 4, museau: 4 },
     dos: "pustules",
     queue: 0,
     yeux: C.sangFrais,
   },
-  /** La Brute : une masse a plaques d'os, la tete basse. Cuite en 48. */
+  /** La Brute : une masse a plaques d'os, la tete basse. Cuite plus grosse. */
   brute: {
     famille: "monstre-brute",
-    cadre: 48,
-    corps: { longueur: 20, hauteur: 13, matiere: matiere(melanger(MONSTRE.corps, C.fer, 0.25)) },
+    cadre: CADRE_GROSSE_BETE,
+    // Corps de 18 et non 20 : au bond de l'attaque, le museau sortait du
+    // cadre de 30 — il avait sa marge dans celui de 48.
+    corps: { longueur: 18, hauteur: 13, matiere: matiere(melanger(MONSTRE.corps, C.fer, 0.25)) },
     pattes: { nombre: 4, longueur: 8, epaisseur: 3.5 },
-    tete: { rayon: 4.5, museau: 3 },
+    tete: { rayon: 4.5, museau: 2.5 },
     dos: "plaques",
     queue: 0,
     yeux: C.sangFrais,
@@ -112,7 +130,7 @@ export const BETES: Record<string, Bete> = {
   /** Le Fielleux : une outre gonflee sur des pattes greles, qui va eclater. */
   kamikaze: {
     famille: "monstre-kamikaze",
-    cadre: 32,
+    cadre: CADRE_BETE,
     corps: { longueur: 11, hauteur: 11, matiere: matiere(melanger(MONSTRE.corps, C.sangSeche, 0.3)) },
     pattes: { nombre: 4, longueur: 6, epaisseur: 1.2 },
     tete: { rayon: 2.6, museau: 2 },
@@ -123,7 +141,7 @@ export const BETES: Record<string, Bete> = {
   /** Le familier du Mage : une flamme froide qui flotte. */
   familier: {
     famille: "familier",
-    cadre: 32,
+    cadre: CADRE_BETE,
     corps: { longueur: 8, hauteur: 10, matiere: matiere(desaturer(melanger(C.cielSale, C.fer, 0.3), 0.25)) },
     pattes: { nombre: 4, longueur: 0, epaisseur: 0 },
     tete: { rayon: 0, museau: 0 },
@@ -132,10 +150,10 @@ export const BETES: Record<string, Bete> = {
     yeux: C.os,
     flotte: true,
   },
-  /** Le golem : un bloc de pierre qui marche. Cuit en 48. */
+  /** Le golem : un bloc de pierre qui marche. Cuit plus gros. */
   "familier-golem": {
     famille: "familier-golem",
-    cadre: 48,
+    cadre: CADRE_GROSSE_BETE,
     corps: { longueur: 18, hauteur: 16, matiere: PIERRE },
     pattes: { nombre: 4, longueur: 7, epaisseur: 4.5 },
     tete: { rayon: 3.5, museau: 1 },
@@ -146,7 +164,7 @@ export const BETES: Record<string, Bete> = {
   /** Le spectre : le meme feu follet, en os, plus effile. */
   "familier-spectre": {
     famille: "familier-spectre",
-    cadre: 32,
+    cadre: CADRE_BETE,
     corps: { longueur: 6, hauteur: 12, matiere: matiere(melanger(C.os, C.fer, 0.3)) },
     pattes: { nombre: 4, longueur: 0, epaisseur: 0 },
     tete: { rayon: 0, museau: 0 },
@@ -247,16 +265,20 @@ export function allure(geste: string, avancement: number): Allure {
 // -------------------------------------------------------------- la peinture
 
 /**
- * Peint une bete, dans son cadre. La geometrie est ecrite pour un cadre de 32
- * et **mise a l'echelle** pour les cadres plus grands : c'est ce qui permet de
- * cuire une brute nette au lieu d'agrandir un sprite.
+ * Peint une bete, dans son cadre. La geometrie est ecrite pour un dessin de 32
+ * et **mise a l'echelle** du cadre : c'est ce qui permet de cuire une brute
+ * nette au lieu d'agrandir un sprite — et de descendre toutes les betes d'un
+ * cran quand les humains descendent.
  */
 export function peindreBete(toile: Toile, bete: Bete, geste: string, avancement: number): void {
-  const a = allure(geste, avancement);
+  const brute = allure(geste, avancement);
   const f = bete.cadre / 32;
-  // ⚠️ Les deplacements de l'allure sont en pixels, **pas mis a l'echelle** :
-  // un bond de trois pixels reste un bond de trois pixels, sinon la brute sort
-  // de son cadre.
+  // ⚠️ Les deplacements de l'allure sont **des pixels entiers** : ils suivent
+  // l'echelle, mais arrondis — un bond d'un demi-pixel decalerait une moitie
+  // de la bete et pas l'autre. Et jamais moins d'un pixel quand il y en avait
+  // un : la respiration doit rester visible.
+  const entier = (v: number) => (v === 0 ? 0 : Math.sign(v) * Math.max(1, Math.round(Math.abs(v) * f)));
+  const a: Allure = { ...brute, avancee: entier(brute.avancee), hauteur: entier(brute.hauteur) };
   const sol = 28 * f;
   const m = bete.corps.matiere;
 
@@ -407,7 +429,9 @@ function peindreFlamme(toile: Toile, bete: Bete, milieu: number, sol: number, a:
   const ondulation = Math.sin(a.pas * Math.PI * 2) * 1.5 * f;
   const hauteur = bete.corps.hauteur * (1 - a.affaissement * 0.7) * f;
   const largeur = bete.corps.longueur * f;
-  const bas = sol - 6 * f + a.hauteur + a.affaissement * 2 * f;
+  // Elle s'eteint en descendant, mais son disque du bas ne passe jamais sous
+  // le sol : un pixel de marge, comme tout ce qui meurt.
+  const bas = Math.min(sol - largeur / 2 - 1, sol - 6 * f + a.hauteur + a.affaissement * 2 * f);
 
   // La flamme : des disques de plus en plus petits en montant, decales par
   // l'ondulation.

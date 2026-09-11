@@ -16,12 +16,19 @@
 
 import type { Ressource, Stocks } from "./habitants";
 
-export type TypeConstruction = "palissade" | "tour";
+export type TypeConstruction = "palissade" | "porte" | "tour";
 
 export interface ConstructionDef {
   id: TypeConstruction;
   nom: string;
-  /** Cle de texture */
+  /**
+   * Le prefixe de la famille de textures.
+   *
+   * ⚠️ Un mur a **seize dessins par matiere** depuis le 11 septembre 2026 — un
+   * par raccord a ses voisines — et une porte en a quatre : c'est
+   * `game/constructions.ts` qui choisit lequel, d'apres la grille. Le core ne
+   * nomme que la famille.
+   */
   texture: string;
   /** Ce qu'elle coute a batir, et la moitie de ca a reparer entierement */
   cout: Partial<Record<Ressource, number>>;
@@ -42,21 +49,31 @@ export const CONSTRUCTIONS: Record<TypeConstruction, ConstructionDef> = {
   palissade: {
     id: "palissade",
     nom: "Palissade",
-    // ⚠️ **La cle est celle que `dessin/batiments.ts` cuit au demarrage**, plus
-    // celle du PNG : le §4.30 refait les murs en code. Elle est ecrite en clair
-    // et non importee — `core/` ne remonte jamais vers `game/` — et un test la
-    // compare a `cleMur("est-ouest", "bois")` pour que les deux ne derivent pas.
-    texture: "bati-mur-est-ouest-bois",
+    // La famille que `dessin/murs.ts` cuit au demarrage. Ecrite en clair et
+    // non importee — `core/` ne remonte jamais vers `game/`.
+    texture: "bati-mur-bois",
     cout: { bois: 12 },
     pvMax: 120,
     occupable: false,
     bonusPortee: 0,
     description: "Bloque le passage. Les monstres la frappent — et elle cede.",
   },
+  porte: {
+    id: "porte",
+    nom: "Porte",
+    texture: "bati-porte-bois",
+    // Plus chere qu'une palissade, et plus solide : c'est le point faible qu'on
+    // a choisi soi-meme, il doit valoir qu'on le defende (§4.20).
+    cout: { bois: 20 },
+    pvMax: 160,
+    occupable: false,
+    bonusPortee: 0,
+    description: "Ouverte le jour, tout le monde passe. La cloche la ferme ; l'aube la rouvre.",
+  },
   tour: {
     id: "tour",
     nom: "Tour de guet",
-    texture: "tour",
+    texture: "bati-tour",
     cout: { bois: 40, minerai: 15 },
     pvMax: 260,
     occupable: true,
@@ -67,7 +84,12 @@ export const CONSTRUCTIONS: Record<TypeConstruction, ConstructionDef> = {
   },
 };
 
-export const ORDRE_CONSTRUCTIONS: TypeConstruction[] = ["palissade", "tour"];
+export const ORDRE_CONSTRUCTIONS: TypeConstruction[] = ["palissade", "porte", "tour"];
+
+/** L'occupation qu'une construction ecrit dans la grille. */
+export function occupationDe(type: TypeConstruction): "mur" | "porte" | "tour" {
+  return type === "palissade" ? "mur" : type;
+}
 
 /**
  * Cases vides exigees entre ce qu'on batit et un batiment (§4.24).

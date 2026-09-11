@@ -5,6 +5,7 @@ import type { Toile } from "./pinceau";
 import { BOIS, FER, TISSU, TOILE, desaturer, matiere, melanger, type Matiere } from "./palette";
 import {
   CADRE,
+  K,
   borner,
   debout,
   peindreCorps,
@@ -256,58 +257,69 @@ export function villageois(metier: MetierDessine, corps: Corps): Modele {
 function peindreOutil(toile: Toile, outil: Outil, main: { x: number; y: number }, angle: number): void {
   const sin = Math.sin(angle);
   const cos = Math.cos(angle);
-  const bout = (longueur: number) => ({ x: main.x + sin * longueur, y: main.y + cos * longueur });
+  // Les longueurs sont celles du dessin d'origine, ramenees au cadre (`K`) :
+  // l'outil garde sa proportion avec le bras qui le tient.
+  const bout = (longueur: number) => ({ x: main.x + sin * longueur * K, y: main.y + cos * longueur * K });
   const travers = (a: { x: number; y: number }, demi: number, epaisseur: number, couleur: number) =>
-    toile.segment(a.x - cos * demi, a.y + sin * demi, a.x + cos * demi, a.y - sin * demi, epaisseur, couleur);
+    toile.segment(
+      a.x - cos * demi * K,
+      a.y + sin * demi * K,
+      a.x + cos * demi * K,
+      a.y - sin * demi * K,
+      epaisseur,
+      couleur,
+    );
   const manche = (longueur: number, arriere = 2) => {
     const b = bout(longueur);
     const q = bout(-arriere);
-    toile.segment(q.x, q.y, b.x, b.y, 1.4, BOIS.corps);
+    toile.segment(q.x, q.y, b.x, b.y, 1, BOIS.corps);
     return b;
   };
 
   switch (outil) {
     case "pioche": {
       // Le fer en travers du manche, donc perpendiculaire a l'angle du bras.
-      travers(manche(3.5), 1.4, 1.4, FER.clair);
+      travers(manche(3), 1.4, 1, FER.clair);
       break;
     }
     case "hache": {
       // Une tete large d'un seul cote : c'est ce qui la separe de la pioche.
-      // ⚠️ Un manche de 3 et non 3,5 : un bucheron use, voute, frappe plus
-      // loin devant lui, et la hache sortait du carreau d'un pixel.
-      const b = manche(3);
-      toile.segment(b.x, b.y, b.x + cos * 1.8, b.y - sin * 1.8, 2.2, FER.clair);
+      // ⚠️ Un manche de 2,5 et non 3,5 : un bucheron use, voute, frappe plus
+      // loin devant lui, et la hache sortait du carreau d'un pixel — a 32
+      // comme a 20.
+      const b = manche(2.5);
+      toile.segment(b.x, b.y, b.x + cos * 1.5 * K, b.y - sin * 1.5 * K, 1.6, FER.clair);
       break;
     }
     case "houe": {
       // Une lame plate, en travers, plus courte que la pioche.
-      travers(manche(4), 1, 1.6, FER.corps);
+      travers(manche(3.5), 1.2, 1, FER.corps);
       break;
     }
     case "canne": {
-      // Longue et fine, et un fil qui pend du bout.
-      const b = bout(6);
+      // Longue et fine, et un fil qui pend du bout. Cinq et non six : un
+      // pecheur voute la tendait hors du cadre de 20.
+      const b = bout(4.5);
       const q = bout(-2);
       toile.segment(q.x, q.y, b.x, b.y, 1, BOIS.clair);
-      toile.segment(b.x, b.y, b.x, b.y + 3, 1, TOILE.clair);
+      toile.segment(b.x, b.y, b.x, b.y + 3 * K, 1, TOILE.clair);
       break;
     }
     case "marteau": {
       // Une masse carree au bout d'un manche court.
       const b = manche(2.5);
-      toile.rect(Math.round(b.x) - 1, Math.round(b.y) - 1, 3, 3, FER.corps);
+      toile.rect(Math.round(b.x) - 1, Math.round(b.y) - 1, 2, 2, FER.corps);
       toile.point(Math.round(b.x) - 1, Math.round(b.y) - 1, FER.clair);
       break;
     }
     case "maillet": {
       const b = manche(2.5);
-      toile.rect(Math.round(b.x) - 1, Math.round(b.y) - 1, 3, 3, BOIS.corps);
+      toile.rect(Math.round(b.x) - 1, Math.round(b.y) - 1, 2, 2, BOIS.corps);
       toile.point(Math.round(b.x) - 1, Math.round(b.y) - 1, BOIS.clair);
       break;
     }
     case "baton":
-      manche(4);
+      manche(3.5);
       break;
   }
 }

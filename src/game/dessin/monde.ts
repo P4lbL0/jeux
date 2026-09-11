@@ -6,6 +6,7 @@ import { cuireLeDecor } from "./decor";
 import { cuire, type Cuisson } from "./four";
 import { familleDeHero, hero } from "./heros";
 import { cuireLaMer } from "./mer";
+import { cuireLesMurs } from "./murs";
 import { tousLesMonstres } from "./monstres";
 import { cuireLesSols } from "./sol";
 import { familleDeVillageois, villageois, type Corps, type MetierDessine } from "./villageois";
@@ -29,6 +30,7 @@ export function cuireLeMonde(scene: Phaser.Scene): void {
   cuireLesSols(scene);
   cuireLeDecor(scene);
   cuireLesBatiments(scene);
+  cuireLesMurs(scene);
   cuireLaMer(scene);
 
   for (const modele of tousLesMonstres()) cuire(scene, modele);
