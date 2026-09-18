@@ -24,8 +24,9 @@
  *    a chaque poste (§4.18) et la porte est la ou il croise le mur. Un mur sans
  *    porte en recoit une au milieu (§4.24 : une enceinte a toujours une porte).
  * 5. **Les breches** : le village est en ruine (§4.6), une ou deux par pan.
- * 6. **Les maisons**, le long des rues qui vont de l'eglise aux portes, avec
- *    une case de jardin entre elles. Jamais sur la rue, jamais contre l'eglise.
+ * 6. **Les maisons**, serrees autour de la place et le long des rues qui vont
+ *    de l'eglise aux portes. Jamais sur la rue, jamais contre l'eglise, jamais
+ *    trois a la file.
  *
  * Il ne connait pas Phaser. Il lit la grille pour le terrain et rend un
  * **plan** ; c'est la scene qui pose les images et les corps.
@@ -102,22 +103,28 @@ const PAN_SANS_TOUR = 10;
 /** Deux portes sur le meme pan ne sont jamais plus proches que ca. */
 const ECART_ENTRE_PORTES = 4;
 
-const MAISONS_MIN = 9;
-const MAISONS_MAX = 12;
+const MAISONS_MIN = 12;
+const MAISONS_MAX = 15;
 /**
  * Une maison se tient a une case au moins de l'emprise de l'eglise : c'est le
  * parvis. Trois cases depuis la case centrale, l'emprise en prenant une.
  */
 const MARGE_EGLISE = 3;
 /**
- * Deux emprises qui se touchent, c'est permis, mais pas la regle : le village
- * respire. Trois a la file, jamais — ce serait une rangee, donc un lotissement.
+ * Deux emprises qui se touchent, c'est la regle plus que l'exception : le
+ * jardin de l'emprise ecarte deja les toits, et des maisons trop separees « ne
+ * font pas village » (Angelos, 18 septembre 2026). Trois a la file, jamais —
+ * ce serait une rangee, donc un lotissement.
  */
-const CHANCE_DE_SE_TOUCHER = 0.25;
+const CHANCE_DE_SE_TOUCHER = 0.85;
+/** Une maison prefere etre pres de l'eglise : le village se serre autour de sa place. */
+const PORTEE_DU_COEUR = 4;
 /** Une maison dans les arbres, c'est possible, mais l'herbe passe avant. */
 const PENALITE_SOUS_BOIS = 0.3;
-/** Trois maisons alignees a moins de ca, c'est une rangee : on refuse la troisieme. */
-const PORTEE_RANGEE = 6;
+/** Trois maisons collees a la file, c'est une rangee : on refuse la troisieme. */
+const PORTEE_RANGEE = 2;
+/** Au-dela, la maison serait cernee : deux voisines qui la touchent, pas trois. */
+const VOISINES_QUI_TOUCHENT = 2;
 
 /** Ce sur quoi un mur tient de lui-meme. */
 const SOL_DES_MURS: Terrain[] = ["herbe"];
@@ -495,11 +502,10 @@ function distanceAuSegment(p: Point, a: Point, b: Point): number {
 }
 
 /**
- * Une maison de plus ici ferait-elle trois maisons alignees, a portee de
- * rangee l'une de l'autre ? On regarde depuis chaque maison deja posee sur la
- * meme ligne (ou colonne), pas seulement depuis la candidate : deux maisons a
- * six cases l'une de l'autre et une troisieme entre les deux, c'est une rangee
- * vue du milieu.
+ * Une maison de plus ici ferait-elle trois maisons collees a la file ? On
+ * regarde depuis chaque maison deja posee sur la meme ligne (ou colonne), pas
+ * seulement depuis la candidate : deux maisons a quatre cases l'une de l'autre
+ * et une troisieme entre les deux, c'est une rangee vue du milieu.
  */
 function feraitUneRangee(maisons: MaisonPlan[], c: number, l: number): boolean {
   const toutes = [...maisons, { colonne: c, ligne: l }];
@@ -563,10 +569,16 @@ function loger(
     const dansLesArbres = [terrainDe(grille, c, l), terrainDe(grille, c + 1, l), terrainDe(grille, c, l + 1), terrainDe(grille, c + 1, l + 1)].includes("sous-bois");
     const aLaRue = rues.length === 0 ? CASE * 2 : Math.min(...rues.map((r) => distanceAuSegment(milieu, centrePx, r)));
     // Sur la rue, on ne bati pas ; juste a cote, c'est la meilleure place ; loin,
-    // c'est possible mais moins probable. Le bruit casse les alignements.
+    // c'est possible mais moins probable. Et pres de l'eglise avant loin d'elle :
+    // c'est ce qui serre le village autour de sa place au lieu de l'eparpiller.
+    // Le bruit casse les alignements.
     if (aLaRue < CASE * 1.5) continue;
+    const auCoeur = Math.hypot(c + 0.5 - centre.colonne, l + 0.5 - centre.ligne);
     const score =
-      Math.exp(-(aLaRue - CASE * 1.5) / (CASE * 2)) + rng.range(0, 0.8) - (dansLesArbres ? PENALITE_SOUS_BOIS : 0);
+      Math.exp(-(aLaRue - CASE * 1.5) / (CASE * 2)) +
+      Math.exp(-auCoeur / PORTEE_DU_COEUR) +
+      rng.range(0, 0.6) -
+      (dansLesArbres ? PENALITE_SOUS_BOIS : 0);
     candidates.push({ c, l, score });
   }
   candidates.sort((a, b) => b.score - a.score);
@@ -584,8 +596,8 @@ function loger(
       const chevauche = maisons.some((m) => Math.abs(m.colonne - candidate.c) < 2 && Math.abs(m.ligne - candidate.l) < 2);
       if (chevauche) continue;
       const touchees = maisons.filter((m) => Math.abs(m.colonne - candidate.c) < 3 && Math.abs(m.ligne - candidate.l) < 3);
-      if (touchees.length > 1) continue;
-      if (touchees.length === 1 && !serree && !rng.chance(CHANCE_DE_SE_TOUCHER)) continue;
+      if (touchees.length > VOISINES_QUI_TOUCHENT) continue;
+      if (touchees.length > 0 && !serree && !rng.chance(CHANCE_DE_SE_TOUCHER)) continue;
       // Jamais trois sur la meme ligne ni la meme colonne : c'est un alignement,
       // et un alignement se lit comme un lotissement, quel que soit l'ecart.
       if (feraitUneRangee(maisons, candidate.c, candidate.l)) continue;

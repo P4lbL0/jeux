@@ -1005,10 +1005,12 @@ que poser. Dans l'ordre :
    il croise le mur, à deux cases près. Un pan sans porte en reçoit une au milieu (§4.24).
 5. **Les brèches** : une par pan (deux au-delà de 12 cases), d'une ou deux cases, jamais contre
    une porte, une tour ou une autre brèche.
-6. **Les maisons** : 9 à 12 visées, 7 au moins (la place est ce qu'elle est) ; elles bordent
-   les rues (église → portes) sans être dessus, jamais contre une porte, ni dans un bastion ni
-   dans sa bouche, jamais trois alignées ; deux emprises ne se touchent qu'une fois sur quatre.
-   La ferme est la plus à l'écart.
+6. **Les maisons** : 12 à 15 visées, 9 au moins (la place est ce qu'elle est) ; serrées
+   autour de la place et le long des rues (église → portes) sans être dessus, jamais contre
+   une porte, ni dans un bastion ni dans sa bouche ; les emprises se touchent (deux voisines
+   au plus, jamais trois collées à la file). La ferme est la plus à l'écart. ⚠️ Première
+   version à 9-12 maisons espacées, refusée par Angelos : « trop séparées, ça fait pas
+   village ». Resserrée dans la foulée.
 
 **Branché** : `ArenaScene` tire le plan avant le décor (les arbres ne poussent pas dans
 l'emprise), `poserLesMaisons(plan)` et `dresserLEnceinte(plan)` remplacent la disposition à la
@@ -1028,10 +1030,12 @@ graine (le village entier, l'angle nord-est de près), dans
 `captures/jeu/2026-09-18-villages-generes/`. `init` de l'arène accepte `graineVillage` pour
 rejouer un village précis.
 
-**Ce qu'Angelos doit juger sur ces captures** : la porte est-ouest (une encoche plus qu'une
-porte), la colonne nord-sud en chapelet de poteaux, la jonction mur / bastion aux angles
-rentrants, la masse des tours. Sa question du jour — « pourquoi tous les villages sont au
-même endroit ? » — a sa réponse au §4.29 : l'église, le port et les postes sont des constantes.
+**Verdict d'Angelos sur les murs, tours et portes (18 septembre, sur ces captures)** : « rien,
+on est bon ». Les quatre doutes (porte est-ouest en encoche, colonne nord-sud en chapelet,
+jonction mur / bastion, masse des tours) restent notés, et le dessin se change quand on veut
+sans toucher au générateur ni à la sauvegarde — `murs.ts` ne connaît que des raccords. Sa
+question du jour — « pourquoi tous les villages sont au même endroit ? » — a sa réponse au
+§4.29 : l'église, le port et les postes sont des constantes.
 
 **497 tests verts** (+12). `tsc` passe.
 

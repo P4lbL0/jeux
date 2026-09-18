@@ -61,11 +61,11 @@ describe("Le generateur de villages", () => {
     }
   });
 
-  it("n'aligne jamais trois maisons", () => {
+  it("ne colle jamais trois maisons a la file", () => {
     for (const plan of plans.values()) {
       for (const m of plan.maisons) {
-        const ligne = plan.maisons.filter((a) => a.ligne === m.ligne && Math.abs(a.colonne - m.colonne) <= 6);
-        const colonne = plan.maisons.filter((a) => a.colonne === m.colonne && Math.abs(a.ligne - m.ligne) <= 6);
+        const ligne = plan.maisons.filter((a) => a.ligne === m.ligne && Math.abs(a.colonne - m.colonne) <= 2);
+        const colonne = plan.maisons.filter((a) => a.colonne === m.colonne && Math.abs(a.ligne - m.ligne) <= 2);
         expect(ligne.length).toBeLessThanOrEqual(2);
         expect(colonne.length).toBeLessThanOrEqual(2);
       }
@@ -108,11 +108,11 @@ describe("Le generateur de villages", () => {
     }
   });
 
-  it("pose au moins sept maisons et douze au plus, une seule ferme, sans se chevaucher ni toucher un mur", () => {
+  it("pose au moins neuf maisons et quinze au plus, une seule ferme, sans se chevaucher ni toucher un mur", () => {
     for (const plan of plans.values()) {
-      // Neuf visees, mais la place est ce qu'elle est : entre la mer et la foret.
-      expect(plan.maisons.length).toBeGreaterThanOrEqual(7);
-      expect(plan.maisons.length).toBeLessThanOrEqual(12);
+      // Douze visees, mais la place est ce qu'elle est : entre la mer et la foret.
+      expect(plan.maisons.length).toBeGreaterThanOrEqual(9);
+      expect(plan.maisons.length).toBeLessThanOrEqual(15);
       expect(plan.maisons.filter((m) => m.ferme).length).toBe(1);
 
       const murs = new Set(plan.enceinte.map((m) => cleCase(m.colonne, m.ligne)));
