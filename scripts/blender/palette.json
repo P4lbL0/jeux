@@ -1,0 +1,81 @@
+{
+  "contour": 1314832,
+  "ombre": 1314832,
+  "matieres": {
+    "pierre": {
+      "sombre": 4736065,
+      "corps": 6841439,
+      "clair": 9077367
+    },
+    "bois": {
+      "sombre": 5720630,
+      "corps": 8416590,
+      "clair": 10193259
+    },
+    "fer": {
+      "sombre": 3816513,
+      "corps": 5330783,
+      "clair": 8026487
+    },
+    "ardoise": {
+      "sombre": 2960688,
+      "corps": 3948099,
+      "clair": 7039076
+    },
+    "toit_eglise": {
+      "sombre": 5119771,
+      "corps": 7481377,
+      "clair": 9525324
+    },
+    "laiton": {
+      "sombre": 8676906,
+      "corps": 13212218,
+      "clair": 13543517
+    },
+    "toile": {
+      "sombre": 7563614,
+      "corps": 11444365,
+      "clair": 12299416
+    },
+    "feuille": {
+      "sombre": 4409637,
+      "corps": 6253618,
+      "clair": 8685656
+    },
+    "ecorce": {
+      "sombre": 3747877,
+      "corps": 5194546,
+      "clair": 7891800
+    },
+    "roche": {
+      "sombre": 3749171,
+      "corps": 5262408,
+      "clair": 7959143
+    },
+    "sol_vert": {
+      "sombre": 3817505,
+      "corps": 5397804,
+      "clair": 8093012
+    },
+    "sous_bois": {
+      "sombre": 2961179,
+      "corps": 3949090,
+      "clair": 7039821
+    },
+    "sable": {
+      "sombre": 7102284,
+      "corps": 10653809,
+      "clair": 11772292
+    },
+    "eau": {
+      "sombre": 4606802,
+      "corps": 6647674,
+      "clair": 8948362
+    },
+    "trou": {
+      "sombre": 4210497,
+      "corps": 4210497,
+      "clair": 4210497
+    }
+  }
+}

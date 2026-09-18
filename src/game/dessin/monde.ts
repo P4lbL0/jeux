@@ -19,11 +19,11 @@ import { familleDeVillageois, villageois, type Corps, type MetierDessine } from 
  * gardee par l'existence de sa texture : rappeler cette fonction depuis une
  * autre scene ne recuit rien — les textures de Phaser sont globales au jeu.
  *
- * ⚠️ **Il n'y a plus de PNG.** Les trente sprites et les quatre-vingt-quatre
- * animations generees par l'API en aout ont ete jetes le 10 septembre 2026 : ils
- * masquaient le moteur de dessin, et « le PNG gagne toujours » etait devenu le
- * piege qui rendait invisible tout ce qui avait ete fait. Ce fichier est
- * desormais **la seule source des textures du monde**.
+ * ⚠️ **Les batiments et le decor viennent de Blender** depuis le 18 septembre
+ * 2026 (`scripts/blender/`, charges par `BootScene`) : leurs cles existent deja
+ * quand ce fichier passe, et chaque cuisson les saute. Ce qui est cuit ici
+ * pour eux n'est plus qu'un secours. La carte, les murs, la mer et tous les
+ * personnages restent dessines par le code.
  */
 export function cuireLeMonde(scene: Phaser.Scene): void {
   cuireLaCarte(scene);

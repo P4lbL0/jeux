@@ -1,12 +1,12 @@
 /**
  * L'inventaire des PNG livres avec le jeu.
  *
- * ⚠️ **Il est vide, et c'est voulu** (10 septembre 2026). Tout ce qui se voit
- * est dessine par le code et cuit au demarrage (`dessin/monde.ts`). Le
- * mecanisme reste : Vite ramasse tout ce qui traine dans `src/assets/`, et le
- * nom du fichier est la cle de texture. Mais **un PNG depose ici remplace le
- * dessin au code sous la meme cle** — c'est exactement le piege qui a rendu le
- * moteur de dessin invisible pendant un mois. Ne rien deposer sans le vouloir.
+ * Depuis le 18 septembre 2026, ce sont les **batiments et le decor rendus en
+ * low-poly par Blender** (`scripts/blender/`, `npm run sprites`) : Vite ramasse
+ * tout ce qui traine dans `src/assets/`, et le nom du fichier est la cle de
+ * texture. **Un PNG depose ici remplace le dessin au code sous la meme cle** —
+ * le code reste le secours de toute cle sans PNG. `sprites-blender.test.ts`
+ * refuse un fichier qui ne correspond a aucune cle du jeu.
  */
 
 const FICHIERS = import.meta.glob("../assets/*.png", {

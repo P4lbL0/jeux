@@ -166,7 +166,6 @@ import { enregistrerPartie } from "../en-ligne/parties";
 import {
   CLE_FERME,
   EMPRISE_MAISON,
-  MAISON,
   VARIANTES_MAISON,
   CLES_CHAMP,
   cleMaison,
@@ -1365,12 +1364,12 @@ export class ArenaScene extends Phaser.Scene {
       // La ferme remplace une maison ordinaire (§4.30). Une seule : c'est le
       // premier batiment qui agit sur le moral, il ne doit pas etre la norme.
       const texture = i === 4 ? CLE_FERME : cleMaison(i % VARIANTES_MAISON);
-      this.add
-        .image(gauche, haut, texture)
-        .setOrigin(0)
-        // La profondeur suit le **pied** du batiment, pas son ancre : un
-        // habitant qui passe devant doit passer devant.
-        .setDepth(haut + MAISON.hauteur);
+      const bati = this.add.image(gauche, haut, texture).setOrigin(0);
+      // La profondeur suit le **pied** du batiment, pas son ancre : un
+      // habitant qui passe devant doit passer devant. La hauteur est lue sur
+      // l'image, pas sur `MAISON` : le sprite rendu par Blender (50 px, on voit
+      // son emprise) n'a pas la taille du dessin au code (40 px).
+      bati.setDepth(haut + bati.height);
 
       // Elles entrent dans la grille en `maison` et non en `batiment` : leur
       // case est prise, mais elles n'imposent **aucune distance**. Mesure en

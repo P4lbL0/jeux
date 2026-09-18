@@ -34,7 +34,10 @@ export interface Decor {
  * deux pixels, et le contour en prend un de plus. Un pied pose au bord bas sort
  * du cadre, son contour est coupe, et le test du bord le dit.
  */
-const ARBRE = { largeur: 30, hauteur: 42, pied: 37 };
+// Le cadre de l'arbre est celui du sprite rendu par Blender (bloc 7z, etage 6) :
+// l'ombre portee deborde a droite, et le chene y est plus large. Le dessin au
+// code, qui sert encore de secours, s'y centre sans changer de taille.
+const ARBRE = { largeur: 40, hauteur: 46, pied: 40 };
 const ROCHER = { largeur: 28, hauteur: 20, pied: 16 };
 const SOUCHE = { largeur: 14, hauteur: 14, pied: 10 };
 

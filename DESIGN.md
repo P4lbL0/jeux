@@ -93,7 +93,7 @@ Détail complet : [§1 Pitch](design/01-pitch.md).
 | **4.21** | [Le ciel : la météo et les catastrophes](design/4.21-le-ciel-la-meteo-et-les-catastrophes.md) |
 | **4.28** | [**La sauvegarde et le compte**](design/4.28-la-sauvegarde-et-le-compte.md) |
 | **4.29** | [**Le nouveau départ : le monde qu'on traverse, le village qu'on choisit**](design/4.29-le-nouveau-depart.md) |
-| **4.30** | [**La refonte visuelle : tout est dessiné par le code**](design/4.30-la-refonte-visuelle.md) |
+| **4.30** | [**La refonte visuelle : dessinée par le code, puis low-poly Blender (18 sept.)**](design/4.30-la-refonte-visuelle.md) |
 
 ### Le plan
 

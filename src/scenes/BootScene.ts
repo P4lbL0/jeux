@@ -8,10 +8,10 @@ import { ASSETS } from "../game/assets";
  * rend disponibles dans toutes les scenes, sans que ni l'arene ni l'ecran de
  * choix n'aient a s'en occuper.
  *
- * ⚠️ Depuis le 10 septembre 2026, il n'y a plus rien a charger : tout le monde
- * est dessine par le code et cuit au demarrage de chaque scene
- * (`dessin/monde.ts`). Cette scene ne sert plus qu'a ramasser un eventuel PNG
- * depose dans `src/assets/` — et a passer la main au menu.
+ * Elle charge les PNG de `src/assets/` : depuis le 18 septembre 2026, les
+ * batiments et le decor rendus par Blender. Tout le reste est dessine par le
+ * code et cuit au demarrage de chaque scene (`dessin/monde.ts`), qui saute
+ * toute cle deja chargee ici.
  */
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -24,7 +24,7 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     if (ASSETS.length > 0) {
-      console.log(`[boot] ${ASSETS.length} PNG depose(s) : ils remplacent le dessin au code`);
+      console.log(`[boot] ${ASSETS.length} sprite(s) Blender : ils remplacent le dessin au code`);
     }
     // L'ecran de depart avant le choix de classe : c'est lui qui dit s'il y a
     // une partie a reprendre (DESIGN.md §4.28).

@@ -979,6 +979,43 @@ fiche, plus sombres qu'avant ; et les taches du sol, qu'on peut encore adoucir.
 ne lit plus `def.texture`. Le core ne se touche pas pour du visuel ; le jour où on y entre pour
 la règle d'amélioration des murs, ces deux champs sont à retirer.
 
+### Le bloc 7z, étage 6 — les bâtiments et le décor en low-poly Blender (fait le 18 septembre 2026)
+
+**Le retour d'Angelos**, sur des planches rendues dans Blender : « franchement j'aime beaucoup,
+intègre-les dans le jeu », avec le **biais léger** (on voit le flanc droit) et jamais de maison
+en diagonale, puisqu'on les place sur des cases. Décision au §4.30, dernière section.
+
+**Ce qui est fait** :
+
+- `scripts/blender/` : `monde.py` (maisons, ferme, église à quatre niveaux, chênes,
+  conifères, arbres morts, rochers, souche, en pièces nommées par matière), `rendre.py`
+  (deux passes dans Blender : la matière de chaque pixel, puis la lumière sur une scène toute
+  blanche), `reduire.py` (réduction x8 → x1, repeinte dans la palette du jeu, ombre portée,
+  contour de fer), `palette.ts` (exporte la palette du jeu en JSON), `tout.ts` (**`npm run
+  sprites`**, ou `npm run sprites -- bati-eglise` pour une famille).
+- 21 PNG dans `src/assets/`, chargés par `BootScene` : ils remplacent le dessin au code sous
+  la même clé, le code restant le secours. Rendu complet en ~25 s.
+- La profondeur d'une maison se lit sur **la hauteur de son image**, plus sur `MAISON` : le
+  sprite fait 50 px (on voit son emprise), le dessin au code 40. Le cadre de l'arbre passe à
+  40 × 46 (`decor.ts`), parce que l'ombre déborde à droite.
+- `sprites-blender.test.ts` : un PNG doit porter une clé du jeu, et un décor doit avoir la
+  taille de `decor.ts` (sinon son pied tombe à côté du sol).
+
+**Ce qui a été vérifié en jouant** (`captures/jeu/2026-09-18-lowpoly-batiments/`, avant et
+après) : tsc, 481 tests, build.
+
+| Où | Problème → correction |
+|---|---|
+| L'image | Décaler ce qui monte selon la **hauteur** penchait toutes les verticales : les maisons tombaient. Retour à la caméra penchée de la planche validée, plus une cisaille selon la profondeur, pivotée sur le bord sud pour que le pied ne bouge pas |
+| L'image | Les ombres portées n'apparaissaient pas : le sol en plein soleil vaut 1,18 et l'ombre 0,66, le seuil était à 0,55. Seuil à 0,9 |
+| L'image | Le soleil trop bas étirait les ombres de 30 px à droite. Remonté |
+| En jeu | Tout tombait sur le ton « clair » : le décor sortait pâle sur un sol volontairement sombre. Marches de lumière remontées, et le feuillage descend d'une marche |
+| Windows | `npx` lancé depuis un script échoue : la palette s'exporte par import |
+
+**Ce qui n'est pas fait** : les murs, la tour, les portes, le port, le navire, les chantiers et
+les champs sont toujours dessinés par le code ; les personnages aussi. **Le sol est le prochain
+chantier** — c'est le reproche principal : « on dirait que c'est tout plat ».
+
 ### Le bloc 7z, étage 5 — les murs en poteaux et pans, les gens au tiers (fait le 11 septembre 2026)
 
 **Le retour d'Angelos sur `apres-village.png`**, en trois points : les personnages sont
