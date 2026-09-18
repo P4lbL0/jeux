@@ -106,6 +106,7 @@ import {
 } from "../core/cycle";
 import { Village, type Villageois } from "../game/village";
 import { CASE, COLONNES, Grille, IMPOSENT_UNE_DISTANCE, LIGNES } from "../core/grille";
+import { cleCase, genererVillage, graineDeVillage, type PlanVillage } from "../core/village";
 import {
   CASES_LIBRES_AUTOUR_DES_BATIMENTS,
   CONSTRUCTIONS,
@@ -518,6 +519,10 @@ export class ArenaScene extends Phaser.Scene {
 
   /** La carte en grille modifiable : c'est elle qu'on batit (DESIGN.md §4.21) */
   grille = new Grille();
+  /** La graine du village de cette partie : elle traverse la sauvegarde (§4.24) */
+  private graineVillage = 0;
+  /** Le village tire de la graine : l'enceinte, les maisons, la place (§4.24) */
+  private planVillage!: PlanVillage;
   /** Les murs et les tours (DESIGN.md §4.20) */
   constructions!: Constructions;
   /** Les champs de ble : ils poussent, et une horde les ruine (§4.18) */
@@ -580,10 +585,25 @@ export class ArenaScene extends Phaser.Scene {
     super("arena");
   }
 
-  init(data: { classe?: ClassId; emplacement?: Emplacement; reprise?: Sauvegarde }): void {
+  init(data: {
+    classe?: ClassId;
+    emplacement?: Emplacement;
+    reprise?: Sauvegarde;
+    /** Pour rejouer un village precis (les captures) ; sinon, tiree au sort */
+    graineVillage?: number;
+  }): void {
     this.registry.set("classe", data.classe ?? "guerrier");
     this.emplacement = data.emplacement ?? 1;
     this.reprise = data.reprise ?? null;
+    // Une partie neuve tire son village ; une partie reprise garde le sien.
+    // Une sauvegarde d'avant le generateur (18 septembre 2026) n'a pas de
+    // graine : elle prend zero, toujours la meme, plutot qu'un village qui
+    // changerait a chaque rechargement.
+    this.graineVillage = data.graineVillage ?? (data.reprise ? (data.reprise.graineVillage ?? 0) : graineDeVillage());
+    // La grille repart de zero : la scene est reutilisee d'une partie a
+    // l'autre, et le plan lit le terrain libre — une grille qui garderait les
+    // murs de la partie d'avant donnerait un autre village pour la meme graine.
+    this.grille = new Grille();
     // Une partie neuve prend une identite neuve ; une partie reprise garde la
     // sienne, et c'est elle qui permet de reconnaitre la meme lignee d'un
     // appareil a l'autre (§4.28).
@@ -745,6 +765,10 @@ export class ArenaScene extends Phaser.Scene {
     // Les emetteurs de particules sont crees une fois pour toute la partie :
     // il y a jusqu'a MAX_ENNEMIS combattants, on n'en fabrique pas un par coup.
     preparerEffets(this);
+    // Le village de cette partie, tire de sa graine avant tout le reste : le
+    // decor doit savoir ou est la place pour n'y rien planter (§4.24).
+    this.planVillage = genererVillage(this.grille, this.graineVillage, EGLISE);
+    console.log(`[arene] village = ${this.graineVillage}`);
     this.construireDecor();
 
     this.equipe = this.physics.add.group();
@@ -854,6 +878,7 @@ export class ArenaScene extends Phaser.Scene {
       dureeJouee: this.dureeJouee + (this.time.now - this.debut),
       partie: this.identitePartie,
       revision: this.revision,
+      graineVillage: this.graineVillage,
     };
   }
 
@@ -1021,7 +1046,7 @@ export class ArenaScene extends Phaser.Scene {
     );
     this.physics.add.collider(this.equipe, this.constructions.groupe, undefined, barre);
     this.physics.add.collider(this.village.groupe, this.constructions.groupe, undefined, barre);
-    this.dresserLEnceinte();
+    this.dresserLEnceinte(this.planVillage, this.reprise !== null);
 
     // Les monstres butent sur l'eglise et la frappent : c'est leur cap, c'est ce
     // qu'ils viennent detruire (§4.22).
@@ -1163,7 +1188,9 @@ export class ArenaScene extends Phaser.Scene {
 
     this.semerLeDecor();
     this.construireVillage();
-    this.marquerLesPostes();
+    // ⚠️ Plus de ronds ni de noms au sol pour la plage, les champs, la mine et
+    // la foret (18 septembre 2026, §4.30) : on reconnait un lieu a ce qu'il y a
+    // dessus, et ce qui manque encore (mine, ponton, buches) viendra au bloc 7a.
   }
 
   /**
@@ -1187,10 +1214,10 @@ export class ArenaScene extends Phaser.Scene {
         const x = rng.range(cadre.x0, cadre.x1);
         const y = rng.range(cadre.y0, cadre.y1);
         if (!sols.includes(terrainEn(x, y))) continue;
-        // Le village est une place, pas une clairiere : rien n'y pousse.
-        // Assez large pour que l'enceinte (six cases du centre) n'ait pas un
-        // arbre plante dans son mur.
-        if (Phaser.Math.Distance.Between(x, y, CITE.x, CITE.y) < CITE.rayon + 90) continue;
+        // Le village est une place, pas une clairiere : rien n'y pousse. C'est
+        // le plan qui dit ou elle s'arrete — murs compris, avec une case de
+        // marge pour qu'aucun arbre ne pousse dans un pan.
+        if (this.planVillage.emprise.has(cleCase(this.grille.colonneDe(x), this.grille.ligneDe(y)))) continue;
         poser(x, y);
       }
     };
@@ -1245,17 +1272,14 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   /**
-   * Le village. Encore un cercle de pierre : ses batiments et ses habitants
-   * arrivent au bloc suivant du jalon 5. Ce qui change deja, c'est qu'il n'est
-   * plus au centre — il est adosse a la mer et a la montagne.
+   * Le village : ce que le plan de la graine en dit (§4.24). Il est adosse a
+   * la mer et a la montagne, et ses habitants arrivent avec le village vivant.
    */
   private construireVillage(): void {
-    const rng = new Rng(20260808);
-
     // ⚠️ L'enceinte n'est plus posee ici : elle est faite de **vraies
     // constructions** (corps, points de vie, raccords), donc elle attend que le
     // parc existe — voir `dresserLEnceinte`, appele depuis le village vivant.
-    this.poserLesMaisons(rng);
+    this.poserLesMaisons(this.planVillage);
 
     // ⚠️ **Plus de texte « LE VILLAGE » qui flotte, et plus de disque de terre
     // battue** (§4.24, §4.30) : on reconnait un lieu a ce qu'il y a dessus. Le
@@ -1266,69 +1290,38 @@ export class ArenaScene extends Phaser.Scene {
   /**
    * L'enceinte de depart : ce que le village avait deja quand on arrive.
    *
-   * **En L, sur les deux fronts** (§4.6) : un mur au nord et un mur a l'est,
-   * la mer et la foret gardant les deux autres flancs. Une tour a chaque bout et
-   * a l'angle, une porte au milieu de chaque mur — c'est par la qu'on sort
-   * travailler. Et parce que le village est en ruine (§4.6), **deux breches par
-   * mur** : des ruines qu'on enjambe, la ou la palissade est tombee.
+   * Elle vient du **plan** (`core/village.ts`) : la forme, une tour a chaque
+   * angle et a chaque bout, les portes la ou l'on sort travailler, et des
+   * breches — le village est en ruine (§4.6). Ce sont de **vraies
+   * constructions** (corps, points de vie, raccords), pas un decor : un mur du
+   * joueur qui s'y accole se raccorde, et les monstres doivent l'abattre ou
+   * passer par les breches.
    *
-   * Ce sont de **vraies constructions** — corps, points de vie, raccords entre
-   * voisines — et plus un decor pose hors grille : un mur du joueur qui vient
-   * s'y accoler se raccorde, et les monstres doivent l'abattre ou passer par les
-   * breches.
-   *
-   * ⚠️ **Provisoire** : c'est la disposition d'un seul village, dessinee a la
-   * main pour juger les murs en jeu. Le generateur de villages (graine, formes
-   * variees, tours et portes placees selon le terrain) la remplacera.
+   * ⚠️ **Sur une partie reprise, on ne dresse que les breches.** Les murs, les
+   * tours et les portes reviennent par la sauvegarde, avec leurs points de vie
+   * et sans ceux qui sont tombes : les redresser ici les ferait renaitre.
    */
-  private dresserLEnceinte(): void {
-    const colonne = this.grille.colonneDe(CITE.x);
-    const ligne = this.grille.ligneDe(CITE.y);
-    const rayon = 6;
-    const nord = ligne - rayon;
-    const est = colonne + rayon;
-
-    const ruines = new Set<string>([
-      `${colonne - 3},${nord}`,
-      `${colonne - 2},${nord}`,
-      `${est},${ligne + 2}`,
-      `${est},${ligne + 3}`,
-    ]);
-    const poserRuine = (c: number, l: number) => {
-      const centre = Grille.centreCase(c, l);
-      if (!this.grille.constructible(centre.x, centre.y)) return;
-      this.grille.poser(centre.x, centre.y, "ruine");
-      this.add
-        .image(centre.x, centre.y, CLE_MUR_RUINE)
-        .setOrigin(0.5, ORIGINE_MUR_Y)
-        .setDepth(centre.y + CASE / 2);
-    };
-    const dresser = (c: number, l: number, type: TypeConstruction) => {
-      if (ruines.has(`${c},${l}`)) {
-        poserRuine(c, l);
-        return;
+  private dresserLEnceinte(plan: PlanVillage, seulementLesRuines: boolean): void {
+    for (const piece of plan.enceinte) {
+      const centre = Grille.centreCase(piece.colonne, piece.ligne);
+      if (piece.piece === "ruine") {
+        if (!this.grille.constructible(centre.x, centre.y)) continue;
+        this.grille.poser(centre.x, centre.y, "ruine");
+        this.add
+          .image(centre.x, centre.y, CLE_MUR_RUINE)
+          .setOrigin(0.5, ORIGINE_MUR_Y)
+          .setDepth(centre.y + CASE / 2);
+        continue;
       }
-      const centre = Grille.centreCase(c, l);
-      this.constructions.dresser(centre.x, centre.y, type);
-    };
-
-    // Le mur nord, de la plage a l'angle.
-    for (let c = colonne - rayon; c <= est; c += 1) {
-      const type: TypeConstruction =
-        c === colonne - rayon || c === est ? "tour" : c === colonne ? "porte" : "palissade";
-      dresser(c, nord, type);
-    }
-    // Le mur est, de l'angle a la foret.
-    for (let l = nord + 1; l <= ligne + rayon; l += 1) {
-      const type: TypeConstruction = l === ligne + rayon ? "tour" : l === ligne ? "porte" : "palissade";
-      dresser(est, l, type);
+      if (seulementLesRuines) continue;
+      this.constructions.dresser(centre.x, centre.y, piece.piece);
     }
   }
 
   /**
-   * Les maisons, en couronne autour de la place centrale. Elles sont posees une
-   * fois pour toutes : le village en ruine et sa restauration arrivent au
-   * jalon 7.
+   * Les maisons, la ou le plan les met : le long des rues, jamais en cercle
+   * (§4.24, §4.30). Elles sont posees une fois pour toutes : le village en
+   * ruine et sa restauration arrivent au bloc 7a.
    *
    * ⚠️ **Une maison se cale contre le coin haut-gauche de son emprise de 2 x 2
    * et laisse le reste en jardin** (§4.30, planche du 11 aout). C'est une regle
@@ -1336,34 +1329,14 @@ export class ArenaScene extends Phaser.Scene {
    * touchent jamais et que le village respire. Centrees dans leur emprise, elles
    * donneraient une rangee reguliere, c'est-a-dire un lotissement.
    */
-  private poserLesMaisons(rng: Rng): void {
+  private poserLesMaisons(plan: PlanVillage): void {
     const cotes = EMPRISE_MAISON / CASE;
-    const prises = new Set<string>();
-    const casesDe = (colonne: number, ligne: number) => {
-      const cles: string[] = [];
-      for (let dl = 0; dl < cotes; dl++) {
-        for (let dc = 0; dc < cotes; dc++) cles.push(`${colonne + dc},${ligne + dl}`);
-      }
-      return cles;
-    };
-
-    for (let i = 0; i < 9; i++) {
-      const a = (i / 9) * Math.PI * 2 + 0.4;
-      const rayon = CITE.rayon * rng.range(0.55, 0.78);
-      // L'emprise tombe dans la grille : deux cases sur deux, jamais a cheval.
-      const colonne = Math.floor((CITE.x + Math.cos(a) * rayon) / CASE);
-      const ligne = Math.floor((CITE.y + Math.sin(a) * rayon) / CASE);
-      const cles = casesDe(colonne, ligne);
-      // Deux tirages voisins peuvent se chevaucher : on perd la maison plutot
-      // que d'en empiler deux au meme endroit.
-      if (cles.some((c) => prises.has(c))) continue;
-      for (const c of cles) prises.add(c);
-
-      const gauche = colonne * CASE;
-      const haut = ligne * CASE;
+    for (const maison of plan.maisons) {
+      const gauche = maison.colonne * CASE;
+      const haut = maison.ligne * CASE;
       // La ferme remplace une maison ordinaire (§4.30). Une seule : c'est le
       // premier batiment qui agit sur le moral, il ne doit pas etre la norme.
-      const texture = i === 4 ? CLE_FERME : cleMaison(i % VARIANTES_MAISON);
+      const texture = maison.ferme ? CLE_FERME : cleMaison(Math.floor(maison.variante * VARIANTES_MAISON));
       const bati = this.add.image(gauche, haut, texture).setOrigin(0);
       // La profondeur suit le **pied** du batiment, pas son ancre : un
       // habitant qui passe devant doit passer devant. La hauteur est lue sur
@@ -1372,11 +1345,9 @@ export class ArenaScene extends Phaser.Scene {
       bati.setDepth(haut + bati.height);
 
       // Elles entrent dans la grille en `maison` et non en `batiment` : leur
-      // case est prise, mais elles n'imposent **aucune distance**. Mesure en
-      // jouant : neuf maisons en couronne, chacune avec trois cases interdites
-      // autour, repoussaient la palissade a 256 px du centre contre 82 px avant
-      // (§4.24). Seule leur emprise au sol compte — un toit qui monte haut
-      // n'occupe pas le terrain sous lui.
+      // case est prise, mais elles n'imposent **aucune distance** (§4.24).
+      // Seule leur emprise au sol compte — un toit qui monte haut n'occupe pas
+      // le terrain sous lui.
       //
       // ⚠️ Case par case, et **pas** `poserEmprise` : celui-ci prend toutes les
       // cases que le rectangle **touche**, donc une emprise de 64 posee sur une
@@ -1386,30 +1357,6 @@ export class ArenaScene extends Phaser.Scene {
           this.grille.poser(gauche + dc * CASE + CASE / 2, haut + dl * CASE + CASE / 2, "maison");
         }
       }
-    }
-  }
-
-  /**
-   * Les postes de travail (DESIGN.md §4.18). Ils ne produisent encore rien :
-   * ce sont pour l'instant des reperes, mais ce sont deja les endroits que la
-   * defense devra couvrir.
-   */
-  private marquerLesPostes(): void {
-    // ⚠️ Discrets, en os mat : un repere qu'on cherche du regard, pas un
-    // panneau. Ils disparaitront quand la mine, le ponton et les buches
-    // diront eux-memes ou l'on travaille (§4.30).
-    for (const poste of POSTES) {
-      const g = this.add.graphics().setDepth(-945);
-      g.lineStyle(1, 0xd9c9b0, 0.22);
-      g.strokeCircle(poste.position.x, poste.position.y, 34);
-      this.add
-        .text(poste.position.x, poste.position.y - 48, poste.nom.toUpperCase(), {
-          fontFamily: POLICE,
-          fontSize: "10px",
-          color: "#8d8172",
-        })
-        .setOrigin(0.5)
-        .setDepth(-930);
     }
   }
 

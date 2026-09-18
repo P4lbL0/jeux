@@ -381,6 +381,7 @@ Pour juger un dessin, on le regarde — jamais on ne le devine :
 ```bash
 npx tsx scripts/planche.ts [dossier]   # les planches PNG, sans navigateur
 npx tsx scripts/capturer.ts apres      # le jeu qui tourne, par Playwright
+npx tsx scripts/capturer-villages.ts 1,7,42 # trois villages tires au sort, deux vues chacun
 npx tsx scripts/capturer-titre.ts apres # l'ecran-titre : film, meteorite, menu, emplacements
 npm run intro                          # refait le film d'ouverture (Blender + ffmpeg)
 ```

@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { EGLISE } from "../core/carte";
-import { Eglise, PALIERS, type NiveauEglise } from "../core/eglise";
+import { Eglise, type NiveauEglise } from "../core/eglise";
 import { CHANTIERS, cleEglise } from "./dessin/batiments";
 
 /**
@@ -43,7 +43,6 @@ export class BatimentEglise {
   /** Eclair blanc quand elle encaisse, pilote par horodatage (§4.17) */
   private flashJusqua = 0;
   /** Le rayon de soin, dessine une seule fois par niveau et jamais par image */
-  private readonly halo: Phaser.GameObjects.Graphics;
   /** L'echafaudage du relevement : visible tant que le chantier dure (§4.30) */
   private readonly echafaudage: Phaser.GameObjects.Image;
 
@@ -52,9 +51,6 @@ export class BatimentEglise {
   constructor(scene: Phaser.Scene, echos: EchosEglise) {
     this.echos = echos;
 
-    // Sous les personnages : le halo dit ou l'on se soigne, il ne doit jamais
-    // masquer un monstre qui arrive.
-    this.halo = scene.add.graphics().setDepth(-500);
 
     this.sprite = scene.physics.add.staticImage(EGLISE.x, EGLISE.y, cleEglise(1));
     this.echafaudage = scene.add
@@ -174,11 +170,5 @@ export class BatimentEglise {
     // une origine ni une taille qui changent.
     this.callerLeCorps();
 
-    this.halo.clear();
-    if (aTerre) return;
-
-    const rayon = PALIERS[this.regles.niveau].rayonSoin;
-    this.halo.fillStyle(0xf0e3b8, 0.06).fillCircle(EGLISE.x, EGLISE.y, rayon);
-    this.halo.lineStyle(1, 0xf0e3b8, 0.22).strokeCircle(EGLISE.x, EGLISE.y, rayon);
   }
 }

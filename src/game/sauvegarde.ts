@@ -76,6 +76,8 @@ export interface PartieEnCours {
   /** L'identite de la partie : elle traverse les enregistrements sans changer */
   partie: string;
   revision: number;
+  /** La graine du village : elle non plus ne change jamais (§4.24) */
+  graineVillage: number;
 }
 
 /** La memoire des morts qu'on garde : au-dela, la satisfaction ne la lit plus. */
@@ -91,6 +93,7 @@ export function capturer(partie: PartieEnCours, maintenant: number): Sauvegarde 
     horodatage: Date.now(),
     dureeJouee: partie.dureeJouee,
     rng: partie.rng.instantane,
+    graineVillage: partie.graineVillage,
     cycle: {
       jour: partie.cycle.jour,
       phase: partie.cycle.phase,

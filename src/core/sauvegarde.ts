@@ -169,6 +169,12 @@ export interface Sauvegarde {
   dureeJouee: number;
   /** L'etat du tirage, pour que la reprise continue la suite exacte */
   rng: number;
+  /**
+   * La graine du village (§4.24) : c'est elle qui redonne la meme enceinte et
+   * les memes maisons a la reprise. **Optionnelle** : une partie d'avant le
+   * generateur (18 septembre 2026) n'en a pas, et prend la graine zero.
+   */
+  graineVillage?: number;
   cycle: EtatCycle;
   stocks: Stocks;
   kills: number;

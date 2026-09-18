@@ -2,7 +2,7 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-09-10, au soir. **469 tests verts.**
+> Dernière mise à jour : 2026-09-18, au soir. **497 tests verts.**
 >
 > ✅ **Le bloc 7z est fini et branché (10 septembre 2026) : tout ce qui se voit est dessiné
 > par le code, et il n'y a plus un seul PNG.** La direction est tranchée avec Angelos ce
@@ -979,6 +979,62 @@ fiche, plus sombres qu'avant ; et les taches du sol, qu'on peut encore adoucir.
 ne lit plus `def.texture`. Le core ne se touche pas pour du visuel ; le jour où on y entre pour
 la règle d'amélioration des murs, ces deux champs sont à retirer.
 
+### Le générateur de villages par graine (fait le 18 septembre 2026)
+
+**La demande d'Angelos** : « commence par me faire valider le nouveau design des murs en me
+montrant 3 ou 4 villages générés aléatoirement, puis on règle les soucis visuels, ensuite tu
+codes tout ». Le générateur est donc codé d'abord, pour produire les captures ; ce qui reste
+à trancher, c'est le dessin des murs.
+
+**`src/core/village.ts`** (neuf, pur, 12 tests) : `genererVillage(grille, graine, EGLISE)` rend
+un **plan** — l'enceinte case par case (palissade, tour, porte, ruine), les maisons (coin
+haut-gauche de l'emprise 2 × 2, variante, la ferme) et l'emprise de la place. La scène ne fait
+que poser. Dans l'ordre :
+
+1. **La forme** : un rectangle autour de l'église (5 à 7 cases au nord, à l'est et à l'ouest,
+   4 au sud), plus zéro, un ou deux **bastions** de 2-3 cases de profondeur, au nord et/ou à
+   l'est. La réunion est la place, son bord l'enceinte. Jamais un cercle.
+2. **Le terrain** : un mur ne tient que sur l'herbe ; la mer et la forêt gardent leurs flancs.
+   Un bout de mur qui arrive au sable continue jusqu'à l'eau (la jetée du nord). Les moignons
+   de moins de 4 cases sont jetés. ⚠️ Sur cette carte, ça donne toujours un L nord + est : la
+   mer est à 5 cases de l'église, la forêt à 2. La variété de forme viendra du §4.29.
+3. **Les tours** aux bouts et aux **angles saillants** seulement — un angle rentrant reste un
+   mur : essayé avec une tour à chaque coude, ça faisait une forteresse —, plus une par
+   tronçon de plus de 10 cases.
+4. **Les portes** : un trait de l'église à chaque poste (§4.18) et au port ; la porte est là où
+   il croise le mur, à deux cases près. Un pan sans porte en reçoit une au milieu (§4.24).
+5. **Les brèches** : une par pan (deux au-delà de 12 cases), d'une ou deux cases, jamais contre
+   une porte, une tour ou une autre brèche.
+6. **Les maisons** : 9 à 12 visées, 7 au moins (la place est ce qu'elle est) ; elles bordent
+   les rues (église → portes) sans être dessus, jamais contre une porte, ni dans un bastion ni
+   dans sa bouche, jamais trois alignées ; deux emprises ne se touchent qu'une fois sur quatre.
+   La ferme est la plus à l'écart.
+
+**Branché** : `ArenaScene` tire le plan avant le décor (les arbres ne poussent pas dans
+l'emprise), `poserLesMaisons(plan)` et `dresserLEnceinte(plan)` remplacent la disposition à la
+main. La grille est recréée à chaque `init` : c'était un champ, elle gardait les murs de la
+partie d'avant, et le même tirage aurait donné un autre village. **La graine traverse la
+sauvegarde** (`graineVillage`, optionnelle : une sauvegarde d'avant prend zéro).
+⚠️ **Sur une reprise, seules les brèches sont posées** : les murs reviennent par la sauvegarde
+avec leurs PV. Avant, l'enceinte était redressée puis les constructions sauvées échouaient
+dessus — un mur tombé renaissait au rechargement. C'est aussi pour ça que l'enceinte reste
+à 4 cases au moins de l'église : `batir` applique la règle des trois cases (§4.24).
+
+**Retirés à la demande d'Angelos, le même jour** : les ronds et les noms au sol des quatre
+postes (`marquerLesPostes`, supprimé) et le halo de soin autour de l'église (`eglise.ts`).
+
+**Captures** : `npx tsx scripts/capturer-villages.ts 1,7,42,1234 <dossier>` — deux vues par
+graine (le village entier, l'angle nord-est de près), dans
+`captures/jeu/2026-09-18-villages-generes/`. `init` de l'arène accepte `graineVillage` pour
+rejouer un village précis.
+
+**Ce qu'Angelos doit juger sur ces captures** : la porte est-ouest (une encoche plus qu'une
+porte), la colonne nord-sud en chapelet de poteaux, la jonction mur / bastion aux angles
+rentrants, la masse des tours. Sa question du jour — « pourquoi tous les villages sont au
+même endroit ? » — a sa réponse au §4.29 : l'église, le port et les postes sont des constantes.
+
+**497 tests verts** (+12). `tsc` passe.
+
 ### Le bloc 7z, étage 7 — le sol prend du relief (fait le 18 septembre 2026)
 
 **Le retour d'Angelos** : « change le sol, on dirait que c'est tout plat, j'aime pas du tout,
@@ -1179,11 +1235,11 @@ reste ouvert n'est plus une direction, ce sont des **retouches sur image** : Ang
 captures et dit ce qui cloche. **Première passe faite le 11 septembre** (étage 5 : gens au tiers,
 murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
 
-0. ⏳ **Après validation des murs par Angelos : le générateur de villages.** Une graine, des
-   formes variées (pas deux villages identiques), des tours et des portes placées selon le
-   terrain, plus de maisons en cercle autour de l'église. Supprimer la disposition à la main de
-   `dresserLEnceinte` et `poserLesMaisons` en même temps. Demandé le 11 septembre, à faire
-   **seulement une fois les murs validés**.
+0. ✅ **Le générateur de villages est codé** (18 septembre 2026, voir sa section) : une
+   graine, des formes variées, des tours et des portes selon le terrain, plus de cercle. ⏳ **Ce
+   qui attend Angelos** : le verdict sur les murs, tours et portes, sur les captures de
+   `captures/jeu/2026-09-18-villages-generes/` — il a demandé à voir 3-4 villages générés
+   avant de trancher, puis « on règle les soucis visuels ».
 
 1. **Appliquer au code ce que le dépouillage a tranché**, du plus structurant au plus petit :
    a) le cycle 10 + 5 — ✅ **fait le 9 septembre 2026** (`src/core/cycle.ts`), hordes de jour
