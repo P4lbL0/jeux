@@ -9,6 +9,7 @@ import {
 } from "../../core/carte";
 import { C } from "../ui/couleurs";
 import { bruit, bruitLisse, ligneDeBruit } from "./bruit";
+import { releverLeRelief } from "./relief";
 import { BRULE, CRATERE, TERRE } from "./sol";
 import {
   EAU,
@@ -37,9 +38,10 @@ import {
  *
  * Trois couches, de la plus grande a la plus petite :
  *
- * 1. **Le sol** : le corps de la matiere, et de larges taches a peine plus
- *    sombres ou plus claires, aux bords doux. C'est ce qui fait qu'une prairie
- *    n'est pas un aplat sans etre un bruit.
+ * 1. **Le sol** : la matiere, dans le ton de sa **facette de relief**
+ *    (`relief.ts`, depuis le 18 septembre 2026) — des collines et une montagne
+ *    eclairees par le soleil des sprites Blender. Les larges taches d'avant ne
+ *    restent que sur l'eau, qui est plate.
  * 2. **Les lisieres** : le rivage tremble d'un pixel ou deux au lieu de suivre
  *    un escalier de tuiles ; l'ecume se pose ou le haut-fond touche le sable ;
  *    une crete claire souligne le haut de la roche.
@@ -99,6 +101,17 @@ const TERRAINS: readonly Terrain[] = [
 const INDEX: Record<Terrain, number> = Object.fromEntries(
   TERRAINS.map((t, i) => [t, i]),
 ) as Record<Terrain, number>;
+
+/**
+ * Les cinq tons d'une matiere, du plus sombre au plus clair : c'est ce que le
+ * relief choisit pour chaque facette. Les memes marches que `reduire.py` pour
+ * les sprites Blender, pour que le sol et ce qui est pose dessus s'eclairent
+ * pareil.
+ */
+function cinqTons(m: Matiere): readonly number[] {
+  return [m.sombre, melanger(m.sombre, m.corps, 0.5), m.corps, melanger(m.corps, m.clair, 0.5), m.clair];
+}
+const TONS: readonly (readonly number[])[] = TERRAINS.map((t) => cinqTons(MATIERES[t]));
 
 /** L'ecume du rivage : de l'eau claire poussee vers l'os. */
 const ECUME = melanger(HAUT_FOND.clair, C.os, 0.55);
@@ -186,6 +199,7 @@ export function peindreLaCarte(largeur = MONDE.largeur, hauteur = MONDE.hauteur)
   const terrains = new Uint8Array(largeur * hauteur);
 
   const carte: CartePeinte = { largeur, hauteur, pixels, terrains };
+  const relief = releverLeRelief(largeur, hauteur);
 
   // Les tampons d'une rangee : le tremblement des lisieres, les deux echelles
   // de taches. Alloues une fois, remplis a chaque rangee.
@@ -224,8 +238,15 @@ export function peindreLaCarte(largeur = MONDE.largeur, hauteur = MONDE.hauteur)
       // 0,36, la prairie tournait au camouflage.
       const eau = rangee[x]! <= 2;
       let couleur = m.corps;
-      if (v < (eau ? 0.3 : 0.35)) couleur = melanger(m.corps, m.sombre, eau ? 0.35 : 0.4);
-      else if (v > (eau ? 0.74 : 0.68)) couleur = melanger(m.corps, m.clair, eau ? 0.22 : 0.26);
+      if (eau) {
+        // L'eau garde ses taches : elle est plate, et elle bouge par-dessus
+        // (`mer.ts`).
+        if (v < 0.3) couleur = melanger(m.corps, m.sombre, 0.35);
+        else if (v > 0.74) couleur = melanger(m.corps, m.clair, 0.22);
+      } else {
+        // La terre prend le ton de sa facette : c'est le relief (`relief.ts`).
+        couleur = TONS[rangee[x]!]![relief.marche(x, y) + 2]!;
+      }
 
       // La crete de la montagne : la roche accroche la lumiere la ou elle
       // sort de l'eboulis. C'est ce qui fait lire une falaise et non une bande.

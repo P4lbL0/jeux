@@ -979,6 +979,27 @@ fiche, plus sombres qu'avant ; et les taches du sol, qu'on peut encore adoucir.
 ne lit plus `def.texture`. Le core ne se touche pas pour du visuel ; le jour où on y entre pour
 la règle d'amélioration des murs, ces deux champs sont à retirer.
 
+### Le bloc 7z, étage 7 — le sol prend du relief (fait le 18 septembre 2026)
+
+**Le retour d'Angelos** : « change le sol, on dirait que c'est tout plat, j'aime pas du tout,
+je préfère qu'il y ait plus de forme ». C'était son seul point bloquant après l'étage 6.
+
+**Ce qui est fait** : `src/game/dessin/relief.ts` donne au sol une **altitude** (la terre
+monte depuis le rivage, des collines de 230 px et de 90 px, la montagne en crêtes à partir de
+son pied), la découpe en **facettes triangulaires** de 26 px (rangées décalées d'un demi-pas)
+et donne à chacune une **marche de lumière** de -2 à 2, avec le soleil des sprites Blender.
+`carte.ts` peint la terre dans le ton de sa facette ; l'eau garde ses taches. Ombrage
+seulement : aucun pixel ne bouge pour le jeu. `relief.test.ts` (4 tests).
+
+**Ce qui a été vérifié** (`captures/jeu/2026-09-18-relief-du-sol/`, avant = après l'étage 6) :
+tsc, 485 tests, la carte se peint toujours en moins d'une seconde, build.
+
+| Où | Problème → correction |
+|---|---|
+| L'image | Premier essai : un **camouflage de triangles**, chaque facette sautait de ton. Collines plus larges, moins de bruit fin, seuils des tons extrêmes relevés (0,16 → 0,24) |
+| L'image | La montagne était un aplat sombre : une pente unique tournée vers le nord, à contre-jour. Rampe adoucie et **crêtes** (bruit replié) par-dessus |
+| L'image | Une bande sombre uniforme dans le sous-bois : la rampe de la montagne commençait 70 px avant son pied. Elle commence au pied |
+
 ### Le bloc 7z, étage 6 — les bâtiments et le décor en low-poly Blender (fait le 18 septembre 2026)
 
 **Le retour d'Angelos**, sur des planches rendues dans Blender : « franchement j'aime beaucoup,
@@ -1013,8 +1034,8 @@ après) : tsc, 481 tests, build.
 | Windows | `npx` lancé depuis un script échoue : la palette s'exporte par import |
 
 **Ce qui n'est pas fait** : les murs, la tour, les portes, le port, le navire, les chantiers et
-les champs sont toujours dessinés par le code ; les personnages aussi. **Le sol est le prochain
-chantier** — c'est le reproche principal : « on dirait que c'est tout plat ».
+les champs sont toujours dessinés par le code ; les personnages aussi. Le sol a été fait juste
+après (étage 7).
 
 ### Le bloc 7z, étage 5 — les murs en poteaux et pans, les gens au tiers (fait le 11 septembre 2026)
 
