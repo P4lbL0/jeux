@@ -23,7 +23,7 @@ npm test        # lance les tests de la logique de jeu
 npm run build   # verifie les types et construit la version finale
 ```
 
-Le jeu s'ouvre sur **l'ecran-titre** (§4.10) : six secondes de village en feu rendues par
+Le jeu s'ouvre sur **l'ecran-titre** (§4.10) : neuf secondes de village en feu rendues par
 Blender — un clic ou une touche les sautent —, puis le titre et **JOUER**, qui mene aux
 trois emplacements de sauvegarde. Le film se refait avec `npm run intro` (voir « Les
 sprites » plus bas).

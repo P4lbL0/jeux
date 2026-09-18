@@ -17,8 +17,8 @@ import boucleMp4 from "../assets/intro/boucle.mp4?url";
  * le raccord.
  */
 export const INTRO = {
-  /** La camera qui remonte le chemin vers l'eglise : 6 secondes, jouee une fois. */
-  approche: { cle: "intro-approche", urls: [approcheWebm, approcheMp4], duree: 6 },
+  /** Le travelling vers l'eglise, celui du premier jet : 9 secondes, joue une fois. */
+  approche: { cle: "intro-approche", urls: [approcheWebm, approcheMp4], duree: 9 },
   /** Ce qui continue de bruler derriere le menu : 4 secondes, en boucle. */
   boucle: { cle: "intro-boucle", urls: [boucleWebm, boucleMp4], duree: 4 },
   /** La taille de rendu : la video couvre la fenetre sans se deformer. */

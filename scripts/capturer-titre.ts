@@ -9,7 +9,7 @@ import { createServer } from "vite";
  *     npx tsx scripts/capturer-titre.ts apres
  *
  * Quatre images dans `captures/jeu/<date du jour>-titre/<prefixe>-titre-*.png` : le
- * film au depart, la meteorite, le menu sur le fond flou, puis les
+ * film au depart, le film a mi-chemin, le menu sur le fond flou, puis les
  * emplacements par-dessus. C'est la seule facon de juger la transition du net
  * au flou et la lisibilite du menu dessus : une compilation qui passe ne dit
  * rien d'une image.
@@ -84,12 +84,11 @@ try {
   await attendreJusqua(1500);
   await capturer("depart");
 
-  // La meteorite traverse le ciel entre 1,2 et 3,4 s.
-  await attendreJusqua(2400);
-  await capturer("meteorite");
+  await attendreJusqua(4500);
+  await capturer("milieu");
 
-  // L'approche dure 6 s ; le trouble et le menu prennent 1,5 s de plus.
-  await attendreJusqua(8200);
+  // L'approche dure 9 s ; le trouble et le menu prennent 1,5 s de plus.
+  await attendreJusqua(11200);
   await capturer("menu");
 
   await page.keyboard.press("Enter");

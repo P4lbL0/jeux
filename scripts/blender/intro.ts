@@ -12,8 +12,8 @@ import { resolve } from "node:path";
  * 1. Blender rend `scripts/blender/intro.py` dans `.tmp/intro/frames/` ;
  * 2. ffmpeg en tire **deux videos** pour le jeu, chacune en WebM (VP9) et en MP4
  *    (H.264, pour les navigateurs sans VP9), dans `src/assets/intro/` :
- *      - `approche` : les images 1 a 144, la camera qui remonte le chemin (6 s) ;
- *      - `boucle`   : les images 145 a 240, ce qui tourne derriere le menu (4 s,
+ *      - `approche` : les images 1 a 216, le travelling du premier jet (9 s) ;
+ *      - `boucle`   : les images 217 a 312, ce qui tourne derriere le menu (4 s,
  *        sans couture — voir `intro.py`) ;
  * 3. une copie complete en MP4 et deux images fixes partent dans
  *    `captures/blender/<date>-cinematique/`, pour juger sur image.
@@ -29,8 +29,8 @@ const SORTIE = resolve("src/assets/intro");
 const CAPTURES = resolve(`captures/blender/${new Date().toISOString().slice(0, 10)}-cinematique`);
 
 const FPS = 24;
-const APPROCHE: [number, number] = [1, 144];
-const BOUCLE: [number, number] = [145, 240];
+const APPROCHE: [number, number] = [1, 216];
+const BOUCLE: [number, number] = [217, 312];
 
 const args = process.argv.slice(2);
 const encoderSeulement = args.includes("--encoder-seulement");
@@ -92,5 +92,5 @@ for (const [nom, [de, a]] of Object.entries({ approche: APPROCHE, boucle: BOUCLE
 // pour ne pas ecraser les jets faits a la main dans le meme dossier.
 encoder(APPROCHE[0], BOUCLE[1], `${CAPTURES}/intro-rendu.mp4`, H264);
 copyFileSync(`${FRAMES}/f_0001.png`, `${CAPTURES}/intro-rendu-debut.png`);
-copyFileSync(`${FRAMES}/f_0144.png`, `${CAPTURES}/intro-rendu-fin-approche.png`);
+copyFileSync(`${FRAMES}/f_0216.png`, `${CAPTURES}/intro-rendu-fin-approche.png`);
 console.log(`[intro] captures -> ${CAPTURES}`);
