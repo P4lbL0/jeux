@@ -23,6 +23,11 @@ npm test        # lance les tests de la logique de jeu
 npm run build   # verifie les types et construit la version finale
 ```
 
+Le jeu s'ouvre sur **l'ecran-titre** (§4.10) : six secondes de village en feu rendues par
+Blender — un clic ou une touche les sautent —, puis le titre et **JOUER**, qui mene aux
+trois emplacements de sauvegarde. Le film se refait avec `npm run intro` (voir « Les
+sprites » plus bas).
+
 ### La sauvegarde et le compte (§4.28)
 
 La partie s'enregistre **sur cet appareil**, dans le `localStorage`, sur trois
@@ -376,6 +381,8 @@ Pour juger un dessin, on le regarde — jamais on ne le devine :
 ```bash
 npx tsx scripts/planche.ts [dossier]   # les planches PNG, sans navigateur
 npx tsx scripts/capturer.ts apres      # le jeu qui tourne, par Playwright
+npx tsx scripts/capturer-titre.ts apres # l'ecran-titre : film, meteorite, menu, emplacements
+npm run intro                          # refait le film d'ouverture (Blender + ffmpeg)
 ```
 
 ⚠️ Un PNG depose dans `src/assets/` remplace le dessin au code sous la meme

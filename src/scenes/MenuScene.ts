@@ -28,7 +28,12 @@ import {
 } from "../game/ui/chrome";
 
 /**
- * L'ecran de depart : les trois emplacements, et le compte (DESIGN.md §4.28).
+ * Les trois emplacements, et le compte (DESIGN.md §4.28).
+ *
+ * Depuis le 18 septembre 2026 cet ecran n'est plus le premier : il s'ouvre par
+ * JOUER, **par-dessus** l'ecran-titre (`TitreScene`, §4.10), qui continue de
+ * faire bruler son village derriere les plaques. Il sait aussi tourner seul,
+ * sur l'herbe, comme avant — c'est ce que font les scripts de capture.
  *
  * ⚠️ **Le compte est une option, jamais une porte d'entree.** Cet ecran est
  * jouable de bout en bout sans reseau : les trois emplacements viennent du
@@ -74,8 +79,17 @@ export class MenuScene extends Phaser.Scene {
   private clavier: ((e: KeyboardEvent) => void) | null = null;
   private connexionEnCours = false;
 
+  /** Lance par-dessus l'ecran-titre : pas de fond a soi, et un retour possible */
+  private surLeTitre = false;
+
   constructor() {
     super("menu");
+  }
+
+  init(data: { surLeTitre?: boolean } | undefined): void {
+    this.surLeTitre = data?.surLeTitre ?? false;
+    this.mode = "emplacements";
+    this.message = "";
   }
 
   create(): void {
@@ -121,21 +135,27 @@ export class MenuScene extends Phaser.Scene {
 
   private construire(): void {
     this.children.removeAll();
-    // ⚠️ **Le premier ecran du jeu est pose sur de l'herbe**, et c'est voulu :
-    // c'est ce qui fait que le menu appartient au jeu. Ce qui n'etait pas voulu,
-    // c'est qu'on ecrive du texte dessus sans fond. Les plaques qui suivent sont
-    // opaques, comme partout ailleurs (§4.10).
-    this.add.tileSprite(0, 0, this.scale.width, this.scale.height, "carte")
-      .setOrigin(0)
-      .setAlpha(0.5);
-    // Un voile de fer par-dessus : sans lui, l'herbe saturee de midi tire tout
-    // l'ecran vers le vert et le titre perd son ombre de sang. Trop epais, en
-    // revanche, et le monde disparait — or c'est lui qui fait que ce menu
-    // appartient au jeu (§4.10). Vu sur une capture : 0,55 sur 0,22 d'herbe ne
-    // laissait plus qu'un fond noir.
-    const voile = this.add.graphics();
-    voile.fillStyle(C.fer, 0.42);
-    voile.fillRect(0, 0, this.scale.width, this.scale.height);
+    if (this.surLeTitre) {
+      // Le village en feu de l'ecran-titre est deja la, flou et voile : on ne
+      // pose rien dessus. Les plaques sont opaques, elles se lisent (§4.10).
+      this.lien(44, 22, "< Retour", () => this.retourAuTitre()).setOrigin(0, 0.5);
+    } else {
+      // ⚠️ **Cet ecran, seul, est pose sur de l'herbe**, et c'est voulu : c'est
+      // ce qui fait que le menu appartient au jeu. Ce qui n'etait pas voulu,
+      // c'est qu'on ecrive du texte dessus sans fond. Les plaques qui suivent
+      // sont opaques, comme partout ailleurs (§4.10).
+      this.add.tileSprite(0, 0, this.scale.width, this.scale.height, "carte")
+        .setOrigin(0)
+        .setAlpha(0.5);
+      // Un voile de fer par-dessus : sans lui, l'herbe saturee de midi tire tout
+      // l'ecran vers le vert et le titre perd son ombre de sang. Trop epais, en
+      // revanche, et le monde disparait — or c'est lui qui fait que ce menu
+      // appartient au jeu (§4.10). Vu sur une capture : 0,55 sur 0,22 d'herbe ne
+      // laissait plus qu'un fond noir.
+      const voile = this.add.graphics();
+      voile.fillStyle(C.fer, 0.42);
+      voile.fillRect(0, 0, this.scale.width, this.scale.height);
+    }
 
     titreDuJeu(this, this.scale.width / 2, this.scale.height * 0.12);
 
@@ -218,7 +238,18 @@ export class MenuScene extends Phaser.Scene {
         const emplacement = EMPLACEMENTS[i];
         if (emplacement) clavier.addKey(code).once("down", () => this.ouvrir(emplacement));
       });
+      if (this.surLeTitre) {
+        clavier.addKey(Phaser.Input.Keyboard.KeyCodes.ESC).once("down", () => {
+          if (this.mode === "emplacements") this.retourAuTitre();
+        });
+      }
     }
+  }
+
+  /** Retour a l'ecran-titre : cette scene s'arrete, et le titre remontre son menu. */
+  private retourAuTitre(): void {
+    this.arreterLaSaisie();
+    this.scene.stop();
   }
 
   /**
@@ -792,13 +823,25 @@ export class MenuScene extends Phaser.Scene {
     this.construire();
   }
 
-  private nouvellePartie(emplacement: Emplacement): void {
+  /**
+   * On entre dans le jeu : l'ecran-titre s'arrete d'abord.
+   *
+   * ⚠️ Il tourne encore derriere cette scene, et il ecoute son arret pour
+   * remontrer son menu. Il faut donc l'eteindre **avant** de partir, sinon le
+   * film continuerait de se decoder sous l'arene, et son menu reviendrait.
+   */
+  private quitterLeTitre(): void {
     this.arreterLaSaisie();
+    if (this.surLeTitre) this.scene.stop("titre");
+  }
+
+  private nouvellePartie(emplacement: Emplacement): void {
+    this.quitterLeTitre();
     this.scene.start("choix-classe", { emplacement });
   }
 
   private reprendre(emplacement: Emplacement, sauvegarde: Sauvegarde, venuDuCloud: boolean): void {
-    this.arreterLaSaisie();
+    this.quitterLeTitre();
     // Ce qu'on reprend devient la sauvegarde locale : c'est elle la reference,
     // et la partie qui suit doit repartir de la (§4.28).
     if (venuDuCloud) ecrireEnLocal(emplacement, sauvegarde);

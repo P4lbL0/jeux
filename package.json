@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "sprites": "tsx scripts/blender/tout.ts"
+    "sprites": "tsx scripts/blender/tout.ts",
+    "intro": "tsx scripts/blender/intro.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.2",

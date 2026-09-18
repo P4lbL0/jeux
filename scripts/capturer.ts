@@ -57,15 +57,16 @@ page.on("pageerror", (e) => console.log(`[erreur] ${e.message}`));
 try {
   await page.goto(`http://localhost:${PORT}/`);
   await page.waitForFunction(
-    () => (window as unknown as Fenetre).__jeu?.scene.isActive("menu") === true,
+    () => (window as unknown as Fenetre).__jeu?.scene.isActive("titre") === true,
     null,
     { timeout: 30_000 },
   );
 
-  // On saute les menus : la scene se lance avec la classe de depart.
+  // On saute le film et les menus : la scene se lance avec la classe de depart.
   await page.evaluate(() => {
     const jeu = (window as unknown as Fenetre).__jeu!;
-    jeu.scene.stop("menu");
+    jeu.scene.stop("titre");
+    if (jeu.scene.isActive("menu")) jeu.scene.stop("menu");
     jeu.scene.start("arena", { classe: "guerrier", emplacement: 1 });
   });
   await page.waitForFunction(

@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import "./police.css";
 import { POLICE } from "./game/ui/chrome";
 import { BootScene } from "./scenes/BootScene";
+import { TitreScene } from "./scenes/TitreScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { ChoixClasseScene } from "./scenes/ChoixClasseScene";
 import { ArenaScene } from "./scenes/ArenaScene";
@@ -24,8 +25,10 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   // BootScene charge les PNG avant tout le monde : les textures Phaser etant
   // globales, les scenes suivantes les trouvent deja la.
-  // UiScene tourne en parallele de l'arene, avec sa propre camera non zoomee.
-  scene: [BootScene, MenuScene, ChoixClasseScene, ArenaScene, UiScene],
+  // TitreScene joue le film d'ouverture ; MenuScene (les emplacements) se lance
+  // par-dessus elle. UiScene tourne en parallele de l'arene, avec sa propre
+  // camera non zoomee.
+  scene: [BootScene, TitreScene, MenuScene, ChoixClasseScene, ArenaScene, UiScene],
 };
 
 /**
