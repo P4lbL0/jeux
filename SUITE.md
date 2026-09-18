@@ -1239,11 +1239,10 @@ reste ouvert n'est plus une direction, ce sont des **retouches sur image** : Ang
 captures et dit ce qui cloche. **Première passe faite le 11 septembre** (étage 5 : gens au tiers,
 murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
 
-0. ✅ **Le générateur de villages est codé** (18 septembre 2026, voir sa section) : une
-   graine, des formes variées, des tours et des portes selon le terrain, plus de cercle. ⏳ **Ce
-   qui attend Angelos** : le verdict sur les murs, tours et portes, sur les captures de
-   `captures/jeu/2026-09-18-villages-generes/` — il a demandé à voir 3-4 villages générés
-   avant de trancher, puis « on règle les soucis visuels ».
+0. ✅ **Le générateur de villages est codé et validé** (18 septembre 2026, voir sa section) :
+   une graine, des formes variées, des tours et des portes selon le terrain, plus de cercle.
+   Angelos a validé les murs tels quels et la densité des maisons sur les captures de
+   `captures/jeu/2026-09-18-villages-generes/`. **Le prochain morceau est le bloc 7a** (point 3).
 
 1. **Appliquer au code ce que le dépouillage a tranché**, du plus structurant au plus petit :
    a) le cycle 10 + 5 — ✅ **fait le 9 septembre 2026** (`src/core/cycle.ts`), hordes de jour
