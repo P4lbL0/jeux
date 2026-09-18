@@ -12,7 +12,7 @@
 > apocalyptique** ; **aucune image de référence**, main libre. **Et le sol s'abîme** :
 > cratères, brûlures, terre retournée, écrits dans la carte. Angelos a vu les premières
 > captures : *« dans le global je kiffe »*, sauf les murs, refaits en blocs dans la foulée.
-> Captures avant/après dans `captures/avant-*.png` et `captures/apres-*.png`. Détail à la
+> Captures avant/après dans `captures/jeu/2026-09-10-bloc-7z-etage-4/avant-*.png` et `captures/jeu/2026-09-10-bloc-7z-etage-4/apres-*.png`. Détail à la
 > section « Le bloc 7z, étage 4 ».
 >
 > **Les sept notes brutes de `design/a-faire.md` sont dépouillées** et donnent un **jalon
@@ -32,7 +32,7 @@
 > ✅ **Les étages 1 et 2 du 7z sont livrés (12-13 août 2026) : le socle, les héros, le sol.** `src/game/dessin/` porte la
 > palette dérivée des neuf, le pinceau à angles, le four à frames et un villageois cobaye —
 > **426 tests verts**. Rien n'est branché sur le jeu, et c'est voulu : la planche
-> (`captures/planche-socle-*.png`) se juge d'abord. **Deux réponses attendues sur image** : le
+> (`captures/planches/2026-08-12-socle/planche-socle-*.png`) se juge d'abord. **Deux réponses attendues sur image** : le
 > sol vert ou cendre, et la lisibilité du villageois à 32 px.
 >
 > **Pourquoi avant le 7a** : le 7a pose les bâtiments, les maisons destructibles et le sol.
@@ -711,7 +711,7 @@ trois seulement en regardant l'image :
 | **L'image** | **Toutes les lignes de la planche montraient les mêmes frames.** Une planche porte tous les gestes bout à bout ; demander « la frame 2 » sans la plage du geste donne la frame 2 du **premier** geste. `cuire` rend les plages depuis |
 | **L'image** | Le chapeau faisait **15 px de large pour une carrure de 10** — le villageois était un champignon —, et le tablier mangeait tout le buste, donc la tunique sombre avait disparu |
 
-**Ce qui a été vérifié en regardant** (`captures/planche-socle-1.png` et `-2.png`, Playwright,
+**Ce qui a été vérifié en regardant** (`captures/planches/2026-08-12-socle/planche-socle-1.png` et `-2.png`, Playwright,
 aucune erreur console) : les quatre gestes tournent, la pioche monte derrière la tête et
 retombe, la toux plie le corps, les frames diffèrent d'une capture à l'autre, et le sang du
 blessé se voit à 32 px.
@@ -765,7 +765,7 @@ est qui — et on lui donne la matière du monde.
 | Un test | **L'arc du Rôdeur sortait du cadre** au palier 2 : une arme perpendiculaire prend sa longueur en **largeur**, la dimension où il reste le moins de place. Le palier se lit sur la corde |
 | **L'image** | **Les héros se lisaient comme des pâtes de couleur.** Peints d'une seule teinte du col aux pieds, on ne voyait ni leur taille ni leur pas. Des **jambes sombres** leur rendent la structure à deux valeurs qui rend le villageois lisible |
 
-**Ce qui a été vérifié en regardant** (`captures/planche-7z-1.png` et `-2.png`, aucune erreur
+**Ce qui a été vérifié en regardant** (`captures/planches/2026-08-13-heros/planche-7z-1.png` et `-2.png`, aucune erreur
 console) : la répétition de l'herbe a disparu, les cinq paliers se lisent, les sept classes se
 distinguent, les sept gestes tournent.
 
@@ -833,7 +833,7 @@ planche ; celui-ci remplace ce que l'arène affiche.
 | **L'image** | **La palissade se lisait comme une file de caisses.** Elle était posée à trente angles réguliers sur un cercle : chaque carreau tombait **entre** les cases et se décalait de quelques pixels. Un mur large d'une case ne se raccorde à son voisin que s'il est **dans** la case — elle est désormais tracée sur la grille, et chaque carreau choisit son dessin d'après **ses voisins** et non d'après sa position |
 | Le code | `poserEmprise` prend toutes les cases que le rectangle **touche** : une emprise de 64 posée sur une frontière de case en marquait **neuf** au lieu de quatre. Les maisons posent case par case |
 
-**Ce qui a été vérifié en jouant** (`captures/7z-village-1.png`, `-2.png`, `7z-mer-1.png` et
+**Ce qui a été vérifié en jouant** (`captures/jeu/2026-08-13-bloc-7z-etage-3/7z-village-1.png`, `-2.png`, `7z-mer-1.png` et
 `-2.png`) : les maisons, la ferme, l'église et la palissade sont bien les textures cuites, le
 mur ouest fait une ligne continue, les brèches des fronts restent ouvertes, et l'écume bouge
 d'une capture à l'autre.
@@ -1040,7 +1040,7 @@ en cercle sont laissées telles quelles, exprès.
 portes et tours placées selon le terrain, plus de cercle de maisons) — demandé, et
 explicitement **après** que les murs sont validés.
 
-**Ce dont je ne suis pas sûr, à juger sur `captures/murs-*.png`** : la porte est-ouest ouverte,
+**Ce dont je ne suis pas sûr, à juger sur `captures/jeu/2026-09-11-bloc-7z-etage-5/murs-*.png`** : la porte est-ouest ouverte,
 qui se lit comme une encoche dans le mur plus que comme une porte ; la tour, un cube de pierre
 de toute la case, peut-être trop massif ; la colonne nord-sud, où chaque poteau montre ses deux
 épaulements et fait un chapelet ; les 14 px d'un habitant, à la limite du lisible au zoom de

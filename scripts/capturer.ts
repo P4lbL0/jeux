@@ -9,7 +9,7 @@ import { createServer } from "vite";
  *     npx tsx scripts/capturer.ts avant
  *     npx tsx scripts/capturer.ts apres
  *
- * Elles tombent dans `captures/<prefixe>-<scene>.png` : village, mer, mode
+ * Elles tombent dans `captures/jeu/<date du jour>/<prefixe>-<scene>.png` : village, mer, mode
  * d'amenagement, fiche de personnage. Meme cadrage, meme zoom, meme moment de la
  * journee (le premier matin) — c'est ce qui rend une comparaison honnete.
  *
@@ -19,8 +19,9 @@ import { createServer } from "vite";
 
 const prefixe = process.argv[2] ?? "capture";
 // Un dossier de sortie facultatif : les essais intermediaires n'ont rien a
-// faire dans `captures/`, qui ne garde que l'avant et l'apres.
-const dossier = resolve(process.argv[3] ?? "captures");
+// faire dans `captures/`, qui ne garde que l'avant et l'apres. Par defaut, un
+// dossier par jour (voir `captures/README.md`).
+const dossier = resolve(process.argv[3] ?? `captures/jeu/${new Date().toISOString().slice(0, 10)}`);
 mkdirSync(dossier, { recursive: true });
 
 const PORT = 5199;

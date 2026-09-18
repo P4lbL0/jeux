@@ -50,7 +50,11 @@ import { ORDRE_CLASSES } from "../src/core/classes";
  * l'image (§4.30).
  */
 
-const dossier = resolve(process.argv[2] ?? "captures");
+// Par defaut dans `captures/planches/<date du jour>/` : une seance, un dossier
+// (voir `captures/README.md`).
+const dossier = resolve(
+  process.argv[2] ?? `captures/planches/${new Date().toISOString().slice(0, 10)}`,
+);
 mkdirSync(dossier, { recursive: true });
 
 // ------------------------------------------------------------------ outils
