@@ -38,6 +38,7 @@ import { Hero } from "./entities";
 import type { BatimentEglise } from "./eglise";
 import type { Champs } from "./champs";
 import type { Constructions } from "./constructions";
+import type { Maisons } from "./maisons";
 import type { Village } from "./village";
 import { EGLISE } from "../core/carte";
 
@@ -78,6 +79,8 @@ export interface PartieEnCours {
   revision: number;
   /** La graine du village : elle non plus ne change jamais (§4.24) */
   graineVillage: number;
+  /** Les maisons, debout ou en ruine : la scene les reprend a la construction (§4.24) */
+  maisons: Maisons;
 }
 
 /** La memoire des morts qu'on garde : au-dela, la satisfaction ne la lit plus. */
@@ -132,6 +135,14 @@ export function capturer(partie: PartieEnCours, maintenant: number): Sauvegarde 
       y: construction.y,
       type: construction.def.id,
       pv: construction.pv,
+    })),
+    maisons: partie.maisons.toutes.map((maison) => ({
+      colonne: maison.colonne,
+      ligne: maison.ligne,
+      variante: maison.variante,
+      ferme: maison.ferme,
+      pv: maison.pv,
+      debout: maison.debout,
     })),
     champs: partie.champs.tous.map((champ) => ({
       x: champ.x,

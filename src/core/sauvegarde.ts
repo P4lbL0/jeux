@@ -152,6 +152,16 @@ export interface EtatChamp {
   maturite: number;
 }
 
+/** Une maison du village : debout avec ses points de vie, ou en ruine (§4.24). */
+export interface EtatMaison {
+  colonne: number;
+  ligne: number;
+  variante: number;
+  ferme: boolean;
+  pv: number;
+  debout: boolean;
+}
+
 /** Une partie enregistree, en entier. */
 export interface Sauvegarde {
   version: number;
@@ -226,6 +236,11 @@ export interface Sauvegarde {
   eglise: EtatEgliseSauvee;
   constructions: EtatConstruction[];
   champs: EtatChamp[];
+  /**
+   * Les maisons, debout ou en ruine (§4.24). **Optionnel** : une partie d'avant
+   * le 19 septembre 2026 n'en a pas, et reprend alors celles de son plan.
+   */
+  maisons?: EtatMaison[];
 }
 
 // ------------------------------------------------------------ ecrire et relire

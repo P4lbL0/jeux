@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import type { Maison } from "./maisons";
 import type { ClasseDef, EtatHero } from "../core/classes";
 import { SEUIL_CRITIQUE, donneUnChoix, xpPourNiveauSuivant } from "../core/classes";
 import {
@@ -761,6 +762,12 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
   instantFrappe = 0;
   /** Qui il visait au moment de s'armer ; il peut la rater si elle s'ecarte */
   cibleArmee: Hero | null = null;
+  /**
+   * La maison qu'il vient piller, s'il en vise une (§4.24, 19 septembre 2026).
+   * Une part des monstres se detourne de l'eglise pour la maison debout la plus
+   * proche ; quand elle tombe, il en prend une autre, et l'eglise en dernier.
+   */
+  cibleMaison: Maison | null = null;
 
   private facteurRalenti = 0.5;
   private prochainCoup = 0;

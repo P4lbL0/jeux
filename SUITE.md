@@ -2,7 +2,7 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-09-18, au soir. **497 tests verts.**
+> Dernière mise à jour : 2026-09-19. **498 tests verts.**
 >
 > ✅ **Le bloc 7z est fini et branché (10 septembre 2026) : tout ce qui se voit est dessiné
 > par le code, et il n'y a plus un seul PNG.** La direction est tranchée avec Angelos ce
@@ -646,7 +646,8 @@ l'ouvrir en pleine nuit serait une réparation gratuite au milieu d'un assaut.
 
 ⚠️ **Quatre défauts trouvés en jouant, et NON corrigés — c'est volontaire.** Ils touchent tous
 l'affichage, et le bloc 7z va le refaire entièrement : les corriger maintenant serait du
-travail fait deux fois. À reprendre à la fin du 7z.
+travail fait deux fois. À reprendre à la fin du 7z. ✅ **Corrigés le 19 septembre 2026** (voir
+« Le bloc 7a, seconde moitié »).
 
 1. **`M` ne met pas vraiment en pause.** `physics.pause()` arrête les corps, pas les
    **animations** Phaser : les personnages continuent de bouger les jambes pendant que le temps
@@ -979,6 +980,54 @@ fiche, plus sombres qu'avant ; et les taches du sol, qu'on peut encore adoucir.
 ne lit plus `def.texture`. Le core ne se touche pas pour du visuel ; le jour où on y entre pour
 la règle d'amélioration des murs, ces deux champs sont à retirer.
 
+### Le bloc 7a, seconde moitié — les maisons se cassent, le village démarre en ruines (fait le 19 septembre 2026)
+
+**Les décisions d'Angelos, avant de coder** : trois maisons debout au départ, les plus près de
+l'église ; **tout se démolit sauf l'église**, pour modeler son village comme on veut (donc pas
+de ruine qui se relève toute seule : c'est le joueur, avec `L`) ; les monstres **visent les
+maisons exprès** ; la ruine en **low-poly Blender**. Détail au §4.24, dernière section.
+
+**`src/game/maisons.ts`** (neuf) : le parc des maisons, même forme que `Champs` et
+`Constructions`. Une `Maison` est une image physique statique de 2 × 2 cases, coin haut-gauche,
+200 PV, debout ou en ruine. Le parc tient la grille : `maison` debout, **`decombres`** tombée —
+occupation neuve, non bloquante, sur laquelle on ne bâtit qu'une maison. `batir` (20 bois, sur
+quatre cases libres, ou sur une ruine pour la relever), `demolir` (la moitié de ce qui tient,
+rien pour une ruine, les cases redeviennent libres), `deplacer` (gratuit, PV gardés, une ruine
+aussi), `blesser` → `tomber`. Le plan (`core/village.ts`) porte `debout` : les trois plus près
+de l'église (`MAISONS_DEBOUT_AU_DEPART`), testé.
+
+**Dans la scène** : `Maisons` remplace `poserLesMaisons` ; colliders avec les monstres
+(`cognerMaison`, brûlure au sol quand elle tombe), l'équipe et les habitants ; **40 % des
+monstres sont des pillards** (`PART_DE_PILLARDS`, `Ennemi.cibleMaison`) et prennent la maison
+debout la plus proche pour cap, puis la suivante, puis l'église ; touche `L` ; en aménagement,
+le clic droit démolit aussi une maison ou ses décombres, le clic gauche les prend et les
+repose, le fantôme se cale sur la case visée coin haut-gauche. **Sauvegarde** : `maisons`
+(optionnel : une partie d'avant reprend celles du plan), reprises à la construction du village.
+
+**Le survol** (§4.24) : un seul objet Texte, `majSurvol` sur le mouvement de la souris — maison
+(PV, ou « en ruine — L pour la relever »), mur / tour / porte (PV), église (niveau, PV, ou « à
+terre — Y »), port.
+
+**Les quatre défauts du 11 août, corrigés** : toute pause gèle aussi les animations
+(`anims.pauseAll` derrière chaque `physics.pause`) ; toute touche hors G/H/J/K/L lâche l'outil
+de construction (`lacherLOutil`, la cloche comprise) ; le clic droit démolit à une demi-case ;
+les maisons se déplacent — l'église et le port restent fixes (§4.29).
+
+**Blender** : `monde.maison_ruine` (dalle, pignon cassé, murs à moitié, poteaux et poutres
+calcinés en `fer`, ardoises tombées, gravats), clé `bati-maison-ruine`, 56 × 50. `npm run
+sprites -- bati-maison-ruine`.
+
+**Vérifié en jouant** (Playwright, graine 42, aucune erreur console) : 3 debout / 12 ; survol
+d'une ruine ; `M` + `L` + clic sur une ruine → 4 debout, 20 bois payés ; clic droit sur une
+maison → 11 maisons, 10 bois rendus ; une ruine prise et reposée sur la place libérée ; clic
+droit dans le vide → rien ; survol maison « 200/200 » et église « niveau 1 — 1200 PV » ; sur 20
+monstres surgis, 9 visent une maison. Captures dans `captures/jeu/2026-09-19-bloc-7a-maisons/`.
+**498 tests verts**, `tsc` passe.
+
+⚠️ **Ce qui n'est pas fait du 7a** : le sol du village (place en terre battue, chemins,
+détails de vie) — purement visuel, à couper si ça dérape. Et **un habitant sans toit ne
+bloque rien** : il n'y a pas encore de naissances à bloquer.
+
 ### Le générateur de villages par graine (fait le 18 septembre 2026)
 
 **La demande d'Angelos** : « commence par me faire valider le nouveau design des murs en me
@@ -1256,10 +1305,9 @@ murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
 2. ✅ **Le bloc 7z est fini** (étage 4, le 10 septembre 2026). Ce qui en reste : **l'eau qui
    noie** (§4.30, une règle, pas un dessin) et **la disparition des ronds de poste** — qui
    attend que la mine, le ponton et les bûches disent eux-mêmes où l'on travaille.
-3. **Finir le bloc 7a** : les maisons destructibles, le village qui démarre en ruines, le
-   survol qui remplace le texte « LE VILLAGE », et les quatre défauts d'affichage laissés
-   exprès (`M` qui ne gèle pas les animations, l'outil de construction qui ne s'annule pas, le
-   clic droit qui démolit trop large, ce qu'on ne peut pas déplacer).
+3. ✅ **Le bloc 7a est fini, sauf le sol** (19 septembre 2026, voir sa section) : maisons
+   destructibles, village en ruines au départ, survol, les quatre défauts d'affichage corrigés.
+   Reste le sol du village (place, chemins, détails de vie), purement visuel.
 4. **Jouer une vraie partie longue.** C'est ce que le cycle raccourci débloque : le stress,
    l'église, le port, les arrivées et la folie n'ont jamais tourné assez longtemps pour être
    jugés. Tous les chiffres du dépouillage sont faits pour être corrigés là.

@@ -115,6 +115,7 @@ import {
 } from "../core/constructions";
 import { Construction, Constructions, PORTEE_OCCUPATION } from "../game/constructions";
 import { Champs, REGLAGES_CHAMPS, type Champ } from "../game/champs";
+import { Maison, Maisons, REGLAGES_MAISONS } from "../game/maisons";
 import { NOMS_METIER, NOMS_POSTURE_CIVILE, NOMS_RESSOURCE, RESSOURCES } from "../core/habitants";
 import {
   EFFETS_RUPTURE,
@@ -165,9 +166,6 @@ import type { Emplacement, Sauvegarde } from "../core/sauvegarde";
 import { effacer as effacerCloud, envoyer } from "../en-ligne/sauvegardeCloud";
 import { enregistrerPartie } from "../en-ligne/parties";
 import {
-  CLE_FERME,
-  EMPRISE_MAISON,
-  VARIANTES_MAISON,
   CLES_CHAMP,
   cleMaison,
   cuireLesBatiments,
@@ -280,6 +278,8 @@ const CHOISIR_QUOI_POSER: number[] = [
   Phaser.Input.Keyboard.KeyCodes.G,
   Phaser.Input.Keyboard.KeyCodes.H,
   Phaser.Input.Keyboard.KeyCodes.J,
+  Phaser.Input.Keyboard.KeyCodes.K,
+  Phaser.Input.Keyboard.KeyCodes.L,
 ];
 
 /**
@@ -289,7 +289,14 @@ const CHOISIR_QUOI_POSER: number[] = [
  * de vie, et on le traverse. Mais il se pose exactement de la meme facon, alors
  * il partage le meme mode et le meme apercu.
  */
-type ModeBati = TypeConstruction | "champ";
+type ModeBati = TypeConstruction | "champ" | "maison";
+
+/**
+ * La part des monstres qui viennent piller (§4.24, 19 septembre 2026) : ils
+ * visent la maison debout la plus proche au lieu de l'eglise. Le reste marche
+ * sur l'eglise comme avant — c'est elle le cap, et la ligne a tenir (§4.22).
+ */
+const PART_DE_PILLARDS = 0.4;
 
 /** Ce que chaque poste donne au joueur qui y frappe (DESIGN.md §4.18). */
 const RECOLTE_DU_POSTE: Record<"pecheur" | "bucheron" | "mineur", Ressource> = {
@@ -549,7 +556,11 @@ export class ArenaScene extends Phaser.Scene {
   /** La grille du mode d'amenagement, dessinee **une seule fois** (§4.17) */
   private calqueGrille?: Phaser.GameObjects.Graphics;
   /** Ce qu'on a pris en main pour le reposer ailleurs ; null la plupart du temps */
-  private deplacee: Construction | null = null;
+  private deplacee: Construction | Maison | null = null;
+  /** Les maisons du village : debout ou en ruine, batissables, demolissables (§4.24) */
+  maisons!: Maisons;
+  /** Le survol (§4.24) : un seul objet Texte, cree une fois, deplace a la demande */
+  private survol!: Phaser.GameObjects.Text;
   /** Le temps ou le mode d'amenagement s'est ouvert, pour rendre la pause */
   private debutAmenagement = 0;
 
@@ -879,6 +890,7 @@ export class ArenaScene extends Phaser.Scene {
       partie: this.identitePartie,
       revision: this.revision,
       graineVillage: this.graineVillage,
+      maisons: this.maisons,
     };
   }
 
@@ -1046,6 +1058,16 @@ export class ArenaScene extends Phaser.Scene {
     );
     this.physics.add.collider(this.equipe, this.constructions.groupe, undefined, barre);
     this.physics.add.collider(this.village.groupe, this.constructions.groupe, undefined, barre);
+    // Les maisons arretent les corps et se font piller (§4.24). Une ruine n'a
+    // plus de corps : on marche dans les decombres. L'ordre des deux arguments
+    // n'est pas suppose, Phaser le decide selon les operandes.
+    this.physics.add.collider(this.ennemis, this.maisons.groupe, (a, b) => {
+      const maison = (a instanceof Maison ? a : b) as Maison;
+      const monstre = (a instanceof Maison ? b : a) as Ennemi;
+      this.cognerMaison(monstre, maison);
+    });
+    this.physics.add.collider(this.equipe, this.maisons.groupe);
+    this.physics.add.collider(this.village.groupe, this.maisons.groupe);
     this.dresserLEnceinte(this.planVillage, this.reprise !== null);
 
     // Les monstres butent sur l'eglise et la frappent : c'est leur cap, c'est ce
@@ -1076,6 +1098,21 @@ export class ArenaScene extends Phaser.Scene {
       .setVisible(false)
       .setDepth(880);
 
+    // On ne nomme plus rien par du texte flottant (§4.24) : passer la souris
+    // sur une maison, un mur, l'eglise ou le port dit son nom et son etat. Un
+    // seul objet, cree une fois, deplace a la demande (§4.17).
+    this.survol = this.add
+      .text(0, 0, "", {
+        fontFamily: POLICE,
+        fontSize: "10px",
+        color: "#e8dcc4",
+        backgroundColor: "#141018",
+        padding: { x: 4, y: 2 },
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(950)
+      .setVisible(false);
+
     this.voile = this.add
       .rectangle(0, 0, MONDE.largeur, MONDE.hauteur, 0x0a0a1e)
       .setOrigin(0)
@@ -1103,6 +1140,7 @@ export class ArenaScene extends Phaser.Scene {
     this.pauseHorsFocus = true;
     this.debutPause = this.time.now;
     this.physics.pause();
+    this.anims.pauseAll();
   }
 
   private reprendre(): void {
@@ -1112,6 +1150,7 @@ export class ArenaScene extends Phaser.Scene {
     // c'est exactement le decalage que le menu de choix applique deja.
     this.decalerLeTemps(this.time.now - this.debutPause);
     this.physics.resume();
+    this.anims.resumeAll();
     this.enPause = false;
   }
 
@@ -1279,7 +1318,13 @@ export class ArenaScene extends Phaser.Scene {
     // ⚠️ L'enceinte n'est plus posee ici : elle est faite de **vraies
     // constructions** (corps, points de vie, raccords), donc elle attend que le
     // parc existe — voir `dresserLEnceinte`, appele depuis le village vivant.
-    this.poserLesMaisons(this.planVillage);
+    //
+    // Les maisons, elles, sont un parc a part (§4.24) : debout ou en ruine
+    // selon le plan, ou telles que la sauvegarde les a laissees. Une sauvegarde
+    // d'avant le 19 septembre 2026 n'en a pas : elle reprend celles du plan.
+    this.maisons = new Maisons(this, this.grille);
+    if (this.reprise?.maisons) this.maisons.reprendre(this.reprise.maisons);
+    else this.maisons.poserLePlan(this.planVillage.maisons);
 
     // ⚠️ **Plus de texte « LE VILLAGE » qui flotte, et plus de disque de terre
     // battue** (§4.24, §4.30) : on reconnait un lieu a ce qu'il y a dessus. Le
@@ -1319,45 +1364,46 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   /**
-   * Les maisons, la ou le plan les met : le long des rues, jamais en cercle
-   * (§4.24, §4.30). Elles sont posees une fois pour toutes : le village en
-   * ruine et sa restauration arrivent au bloc 7a.
-   *
-   * ⚠️ **Une maison se cale contre le coin haut-gauche de son emprise de 2 x 2
-   * et laisse le reste en jardin** (§4.30, planche du 11 aout). C'est une regle
-   * de **pose**, pas de dessin : c'est elle qui fait que deux voisines ne se
-   * touchent jamais et que le village respire. Centrees dans leur emprise, elles
-   * donneraient une rangee reguliere, c'est-a-dire un lotissement.
+   * Ce qu'il y a sous la souris, et son etat (§4.24) : une maison, un mur, une
+   * tour, une porte, l'eglise ou le port. Rien d'autre ne porte de nom ecrit.
    */
-  private poserLesMaisons(plan: PlanVillage): void {
-    const cotes = EMPRISE_MAISON / CASE;
-    for (const maison of plan.maisons) {
-      const gauche = maison.colonne * CASE;
-      const haut = maison.ligne * CASE;
-      // La ferme remplace une maison ordinaire (§4.30). Une seule : c'est le
-      // premier batiment qui agit sur le moral, il ne doit pas etre la norme.
-      const texture = maison.ferme ? CLE_FERME : cleMaison(Math.floor(maison.variante * VARIANTES_MAISON));
-      const bati = this.add.image(gauche, haut, texture).setOrigin(0);
-      // La profondeur suit le **pied** du batiment, pas son ancre : un
-      // habitant qui passe devant doit passer devant. La hauteur est lue sur
-      // l'image, pas sur `MAISON` : le sprite rendu par Blender (50 px, on voit
-      // son emprise) n'a pas la taille du dessin au code (40 px).
-      bati.setDepth(haut + bati.height);
+  private majSurvol(p: Phaser.Input.Pointer): void {
+    if (this.termine) return;
+    const monde = this.cameras.main.getWorldPoint(p.x, p.y);
+    let texte: string | null = null;
+    let x = monde.x;
+    let y = monde.y;
 
-      // Elles entrent dans la grille en `maison` et non en `batiment` : leur
-      // case est prise, mais elles n'imposent **aucune distance** (§4.24).
-      // Seule leur emprise au sol compte — un toit qui monte haut n'occupe pas
-      // le terrain sous lui.
-      //
-      // ⚠️ Case par case, et **pas** `poserEmprise` : celui-ci prend toutes les
-      // cases que le rectangle **touche**, donc une emprise de 64 posee sur une
-      // frontiere de case en marque neuf au lieu de quatre.
-      for (let dl = 0; dl < cotes; dl++) {
-        for (let dc = 0; dc < cotes; dc++) {
-          this.grille.poser(gauche + dc * CASE + CASE / 2, haut + dl * CASE + CASE / 2, "maison");
-        }
-      }
+    const maison = this.maisons.en(monde.x, monde.y);
+    const construction = this.constructions.en(monde.x, monde.y);
+    if (maison) {
+      const c = maison.centre;
+      x = c.x;
+      y = maison.y;
+      texte = maison.debout
+        ? `${maison.nom} — ${Math.ceil(maison.pv)}/${REGLAGES_MAISONS.pvMax}`
+        : `${maison.nom} en ruine — L pour la relever, ${REGLAGES_MAISONS.coutBois} bois`;
+    } else if (construction) {
+      x = construction.x;
+      y = construction.y - CASE / 2;
+      texte = `${construction.def.nom} — ${Math.ceil(construction.pv)}/${construction.def.pvMax}`;
+    } else if (Phaser.Math.Distance.Between(monde.x, monde.y, EGLISE.x, EGLISE.y) <= EGLISE.emprise) {
+      x = EGLISE.x;
+      y = EGLISE.y - EGLISE.emprise;
+      texte = this.eglise.fonctionne
+        ? `Eglise, niveau ${this.eglise.niveau} — ${Math.ceil(this.eglise.regles.pv)} PV`
+        : "Eglise a terre — Y pour la relever";
+    } else if (Phaser.Math.Distance.Between(monde.x, monde.y, PORT.x, PORT.y) <= PORT.emprise) {
+      x = PORT.x;
+      y = PORT.y - PORT.emprise;
+      texte = this.port.regles.etat === "debout" ? "Le port — P pour vendre" : "Le port, en ruine — P pour le relever";
     }
+
+    if (!texte) {
+      this.survol.setVisible(false);
+      return;
+    }
+    this.survol.setText(texte).setPosition(x, y - 4).setVisible(true);
   }
 
   // -------------------------------------------------------------- controles
@@ -1406,11 +1452,10 @@ export class ArenaScene extends Phaser.Scene {
       else viser(p);
     });
     // Maintenir guide le heros ; le clic droit, lui, ne se maintient pas.
-    this.input.on(
-      "pointermove",
-      (p: Phaser.Input.Pointer) =>
-        p.isDown && !p.rightButtonDown() && !this.enConstruction && viser(p),
-    );
+    this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
+      if (p.isDown && !p.rightButtonDown() && !this.enConstruction) viser(p);
+      this.majSurvol(p);
+    });
   }
 
   // ------------------------------------------------------------ commandement
@@ -1544,6 +1589,7 @@ export class ArenaScene extends Phaser.Scene {
       [K.H, () => this.basculerConstruction("tour")],
       [K.J, () => this.basculerConstruction("champ")],
       [K.K, () => this.basculerConstruction("porte")],
+      [K.L, () => this.basculerConstruction("maison")],
       [K.T, () => this.basculerTour()],
       // L'eglise : une seule touche pour les deux gestes qu'on peut lui faire —
       // la monter d'un niveau, ou relancer son chantier quand elle est a terre.
@@ -1561,6 +1607,9 @@ export class ArenaScene extends Phaser.Scene {
         // cloche, les postures, l'eglise, le port — reste bloque, comme sous
         // n'importe quelle autre pause.
         if (this.enPause && !(this.amenagement && CHOISIR_QUOI_POSER.includes(code))) return;
+        // Toute autre touche lache l'outil de construction : on choisit une
+        // palissade, on sonne la cloche, et le fantome ne doit plus etre la.
+        if (!CHOISIR_QUOI_POSER.includes(code)) this.lacherLOutil();
         action();
       });
     }
@@ -1648,6 +1697,7 @@ export class ArenaScene extends Phaser.Scene {
     // Un reglage de propriete, pas un redessin : c'est tout ce que coute la mer
     // qui bouge (§4.17 regle 3).
     this.mer.deriver(delta);
+    this.maisons.teinter(this.time.now);
 
     this.majEtats(delta);
     this.majAffinites();
@@ -2343,9 +2393,13 @@ export class ArenaScene extends Phaser.Scene {
     // Repousse : son impulsion a la priorite sur sa volonte.
     if (maintenant < e.reculJusqua) return;
 
-    // Faute de heros a portee de vue, il marche sur l'eglise : c'est son cap,
-    // et c'est ce qui donne enfin une ligne a tenir (§4.22).
-    const cible = this.cibleDe(e) ?? EGLISE;
+    // Faute de heros a portee de vue, il marche sur son cap : l'eglise (§4.22),
+    // ou la maison qu'il vient piller (§4.24). Quand elle tombe, il en prend une
+    // autre ; quand il n'y en a plus, l'eglise.
+    if (e.cibleMaison && (!e.cibleMaison.debout || !e.cibleMaison.active)) {
+      e.cibleMaison = this.maisons.laPlusProcheDebout(e.x, e.y);
+    }
+    const cible = this.cibleDe(e) ?? e.cibleMaison?.centre ?? EGLISE;
     const angle = Phaser.Math.Angle.Between(e.x, e.y, cible.x, cible.y);
     orienter(e, cible.x - e.x, SEUIL_REGARD_PIXELS);
 
@@ -2691,6 +2745,16 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
 
+    if (type === "maison") {
+      this.fantome.setTexture(cleMaison(0)).setOrigin(0).setVisible(true);
+      this.events.emit(
+        "annonce",
+        `Maison — ${REGLAGES_MAISONS.coutBois} bois · clic pour batir, ou sur une ruine pour la relever`,
+        "toi",
+      );
+      return;
+    }
+
     if (type === "champ") {
       this.fantome.setTexture(CLES_CHAMP.jeune).setOrigin(0.5, 0.5).setVisible(true);
       this.events.emit(
@@ -2711,7 +2775,15 @@ export class ArenaScene extends Phaser.Scene {
    * ferment**. Plus personne ne passe, dans un sens comme dans l'autre, jusqu'a
    * l'aube — c'est le dilemme des portes, et il commence ici.
    */
+  /** On lache l'outil de construction : plus de fantome au bout du curseur. */
+  private lacherLOutil(): void {
+    if (!this.enConstruction) return;
+    this.enConstruction = null;
+    this.fantome.setVisible(false).clearTint();
+  }
+
   private sonnerLaCloche(): void {
+    this.lacherLOutil();
     this.village.sonnerCloche();
     if (this.constructions.toutes.some((c) => c.def.id === "porte") && !this.constructions.portesFermees) {
       this.constructions.fermerLesPortes();
@@ -2752,6 +2824,7 @@ export class ArenaScene extends Phaser.Scene {
     this.enPause = true;
     this.debutAmenagement = this.time.now;
     this.physics.pause();
+    this.anims.pauseAll();
     this.montrerLaGrille(true);
     this.events.emit("annonce", "Amenagement — G/H/J/K pour choisir, clic droit pour demolir", "toi");
   }
@@ -2764,6 +2837,7 @@ export class ArenaScene extends Phaser.Scene {
     this.montrerLaGrille(false);
     this.decalerLeTemps(this.time.now - this.debutAmenagement);
     this.physics.resume();
+    this.anims.resumeAll();
     this.enPause = false;
     this.events.emit("annonce", "Le village reprend son souffle", "toi");
   }
@@ -2803,9 +2877,18 @@ export class ArenaScene extends Phaser.Scene {
 
     if (demolir) {
       this.deplacee = null;
-      const cible = this.constructions.laPlusProche(centre.x, centre.y, CASE);
+      // ⚠️ Une demi-case, pas une entiere : on aimante deja sur le centre, et
+      // un rayon d'une case demolissait le mur d'a cote en cliquant du vide.
+      const cible = this.constructions.laPlusProche(centre.x, centre.y, CASE / 2);
       if (!cible) {
-        this.events.emit("annonce", "Rien a demolir ici", "toi");
+        // Tout se demolit sauf l'eglise (§4.24) : une maison, ou ses decombres.
+        const maison = this.maisons.en(x, y);
+        if (!maison) {
+          this.events.emit("annonce", "Rien a demolir ici", "toi");
+          return;
+        }
+        const rendu = this.maisons.demolir(maison, this.village.stocks);
+        this.events.emit("annonce", `${maison.nom} demolie — ${rendu > 0 ? `${rendu} bois` : "rien"} recupere`, "toi");
         return;
       }
       if (cible === this.tourDuHero) this.tourDuHero = null;
@@ -2821,7 +2904,11 @@ export class ArenaScene extends Phaser.Scene {
 
     // On tient quelque chose : on le repose.
     if (this.deplacee) {
-      if (!this.constructions.deplacer(this.deplacee, centre.x, centre.y)) {
+      const posee =
+        this.deplacee instanceof Maison
+          ? this.maisons.deplacer(this.deplacee, x, y)
+          : this.constructions.deplacer(this.deplacee, centre.x, centre.y);
+      if (!posee) {
         this.events.emit("annonce", "On ne peut pas la poser la", "toi");
         return;
       }
@@ -2838,8 +2925,16 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     // Rien en main, rien a poser : on prend ce qui est sous le curseur.
-    const prise = this.constructions.laPlusProche(centre.x, centre.y, CASE);
-    if (!prise) return;
+    const prise = this.constructions.laPlusProche(centre.x, centre.y, CASE / 2);
+    if (!prise) {
+      // Une maison se prend aussi, debout ou en ruine : le village se range.
+      const maison = this.maisons.en(x, y);
+      if (!maison) return;
+      this.deplacee = maison;
+      this.fantome.setTexture(maison.texture.key).setOrigin(0).setVisible(true);
+      this.events.emit("annonce", `${maison.nom} en main — clic pour la reposer`, "toi");
+      return;
+    }
     if (prise === this.tourDuHero) this.tourDuHero = null;
     this.deplacee = prise;
     this.fantome
@@ -2863,6 +2958,17 @@ export class ArenaScene extends Phaser.Scene {
     const monde = this.cameras.main.getWorldPoint(pointeur.x, pointeur.y);
     const centre = this.grille.centreDe(monde.x, monde.y);
 
+    // Une maison : l'emprise de 2 x 2 se cale sur la case visee, coin haut-gauche.
+    if (this.deplacee instanceof Maison || this.enConstruction === "maison") {
+      const possible =
+        this.deplacee instanceof Maison
+          ? this.maisons.peutAller(this.deplacee, monde.x, monde.y)
+          : this.maisons.possible(monde.x, monde.y, this.village.stocks);
+      this.fantome.setPosition(this.grille.colonneDe(monde.x) * CASE, this.grille.ligneDe(monde.y) * CASE);
+      this.fantome.setTint(possible ? 0x7ee0a0 : 0xff6b5a);
+      return;
+    }
+
     // Deplacer ne coute rien : on ne juge donc que le terrain et la place, sans
     // regarder les stocks (§4.24). Les juger ferait refuser un deplacement
     // gratuit faute d'argent, ce qui n'aurait aucun sens.
@@ -2879,7 +2985,7 @@ export class ArenaScene extends Phaser.Scene {
         : this.constructions.possible(
             centre.x,
             centre.y,
-            this.enConstruction!,
+            this.enConstruction as TypeConstruction,
             this.village.stocks,
           );
 
@@ -2889,12 +2995,14 @@ export class ArenaScene extends Phaser.Scene {
     // L'apercu montre deja ses raccords : un mur qu'on s'apprete a poser entre
     // deux autres apparait relie aux deux (§4.30). La cle ne change qu'au
     // passage d'une case a l'autre — Phaser ne fait rien si elle est la meme.
+    const tenue = this.deplacee instanceof Construction ? this.deplacee : null;
     const def =
-      this.deplacee?.def ?? (this.enConstruction !== "champ" ? CONSTRUCTIONS[this.enConstruction!] : null);
+      tenue?.def ??
+      (this.enConstruction !== "champ" ? CONSTRUCTIONS[this.enConstruction as TypeConstruction] : null);
     if (def && def.id !== "tour") {
       const masque = this.constructions.masqueEn(centre.x, centre.y);
-      const matiere = this.deplacee?.matiere ?? "bois";
-      const ouverte = this.deplacee?.ouverte ?? !this.constructions.portesFermees;
+      const matiere = tenue?.matiere ?? "bois";
+      const ouverte = tenue?.ouverte ?? !this.constructions.portesFermees;
       this.fantome.setTexture(textureDe(def, matiere, masque, ouverte));
     }
   }
@@ -2905,7 +3013,9 @@ export class ArenaScene extends Phaser.Scene {
     const pose =
       this.enConstruction === "champ"
         ? this.champs.semer(x, y, this.village.stocks)
-        : this.constructions.batir(x, y, this.enConstruction, this.village.stocks, this.time.now);
+        : this.enConstruction === "maison"
+          ? this.maisons.batir(x, y, this.village.stocks)
+          : this.constructions.batir(x, y, this.enConstruction, this.village.stocks, this.time.now);
 
     if (!pose) {
       // Le refus dit ce qui cloche, comme celui de l'eglise (§4.22, §4.24). Un
@@ -2914,8 +3024,10 @@ export class ArenaScene extends Phaser.Scene {
       const raison =
         this.enConstruction === "champ"
           ? "Impossible de semer ici"
-          : (this.constructions.refus(x, y, this.enConstruction, this.village.stocks) ??
-            "Impossible de poser ici");
+          : this.enConstruction === "maison"
+            ? (this.maisons.refus(x, y, this.village.stocks) ?? "Impossible de batir ici")
+            : (this.constructions.refus(x, y, this.enConstruction, this.village.stocks) ??
+              "Impossible de poser ici");
       this.events.emit("annonce", raison, "toi");
       return true;
     }
@@ -3025,6 +3137,27 @@ export class ArenaScene extends Phaser.Scene {
     abimerLeSol(this, construction.x, construction.y, "terre", 20);
     if (construction.occupant) this.ejecterDeLaTour(construction);
     else this.constructions.detruire(construction);
+  }
+
+  /**
+   * Les monstres cognent une maison (§4.24). Meme forme que
+   * `cognerConstruction` : la cadence du monstre sert de garde.
+   */
+  private cognerMaison(e: Ennemi, maison: Maison): void {
+    if (!e.active || this.termine || this.enPause || !maison.debout) return;
+    if (!e.peutFrapper(this.time.now)) return;
+
+    e.marquerCoup(this.time.now);
+    declencher(e.pose, e, "attaque", this.time.now, maison);
+    const centre = maison.centre;
+    eclatImpact(this, centre.x, centre.y, 0xbfae8a);
+
+    if (!this.maisons.blesser(maison, e.degats, this.time.now)) return;
+
+    poufMort(this, centre.x, centre.y, 0xbfae8a);
+    secousse(this, "fort");
+    abimerLeSol(this, centre.x, centre.y, "brule", 26);
+    this.events.emit("annonce", `Une ${maison.nom.toLowerCase()} est tombee — L pour la relever`, "village");
   }
 
   /**
@@ -3392,6 +3525,7 @@ export class ArenaScene extends Phaser.Scene {
     this.enPause = true;
     this.debutPause = this.time.now;
     this.physics.pause();
+    this.anims.pauseAll();
     this.effacerDestination();
     this.modeChoix = "competence";
 
@@ -4457,6 +4591,7 @@ export class ArenaScene extends Phaser.Scene {
     this.enPause = true;
     this.debutPause = this.time.now;
     this.physics.pause();
+    this.anims.pauseAll();
     this.effacerDestination();
     this.events.emit("arrivant", this.arrivantALaPorte);
   }
@@ -4545,6 +4680,7 @@ export class ArenaScene extends Phaser.Scene {
     this.enPause = true;
     this.debutPause = this.time.now;
     this.physics.pause();
+    this.anims.pauseAll();
     this.effacerDestination();
 
     const etat = sprite.regles.etat;
@@ -4880,6 +5016,7 @@ export class ArenaScene extends Phaser.Scene {
   private reprendreLeJeu(): void {
     this.decalerLeTemps(this.time.now - this.debutPause);
     this.physics.resume();
+    this.anims.resumeAll();
     this.enPause = false;
   }
 
@@ -4994,6 +5131,9 @@ export class ArenaScene extends Phaser.Scene {
     const archetype = choisirArchetype(puissance, this.rng.next());
     const point = pointDApparition(front, this.rng.next());
     const e = new Ennemi(this, point.x, point.y, puissance, archetype);
+    // Une part vient piller : la maison debout la plus proche de la ou il
+    // surgit, pas de l'eglise — c'est ce qui etale la menace sur le village.
+    if (this.rng.chance(PART_DE_PILLARDS)) e.cibleMaison = this.maisons.laPlusProcheDebout(point.x, point.y);
     this.ennemis.add(e);
     this.annoncerNouveaute(archetype.id, archetype.nom);
   }
@@ -5273,6 +5413,7 @@ export class ArenaScene extends Phaser.Scene {
     // micro-gel en cours resterait en place pour de bon.
     majEffets(this, this.time.now, false);
     this.physics.pause();
+    this.anims.pauseAll();
     this.effacerDestination();
     const resume = this.resume;
     this.events.emit("fin-de-partie", resume.secondes, resume.kills);

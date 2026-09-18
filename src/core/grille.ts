@@ -52,7 +52,13 @@ export type Occupation =
   | "champ"
   | "ruine"
   | "batiment"
-  | "maison";
+  | "maison"
+  /**
+   * Une maison tombee (§4.24, 19 septembre 2026). Elle ne bloque plus, on n'y
+   * bati rien d'autre qu'une maison — la relever — et la demolir rend la place.
+   * Distincte de `ruine` (un mur tombe, sur lequel on rebatit ce qu'on veut).
+   */
+  | "decombres";
 
 /** Les occupations qui arretent un corps, quoi qu'il arrive. */
 const BLOQUANTES: Occupation[] = ["mur", "tour", "batiment", "maison"];

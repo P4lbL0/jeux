@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EGLISE, POSTES, terrainEn } from "./carte";
 import { Grille } from "./grille";
-import { cleCase, genererVillage, type PlanVillage } from "./village";
+import { cleCase, genererVillage, MAISONS_DEBOUT_AU_DEPART, type PlanVillage } from "./village";
 
 const grille = new Grille();
 // L'eglise est dans la grille avant le village, comme dans la scene.
@@ -129,6 +129,20 @@ describe("Le generateur de villages", () => {
           }
         }
       }
+    }
+  });
+
+  it("laisse trois maisons debout, les plus pres de l'eglise, et le reste en ruines (§4.24)", () => {
+    for (const plan of plans.values()) {
+      const distance = (m: { colonne: number; ligne: number }) =>
+        Math.max(Math.abs(m.colonne - plan.centre.colonne), Math.abs(m.ligne - plan.centre.ligne));
+      const debout = plan.maisons.filter((m) => m.debout);
+      const ruines = plan.maisons.filter((m) => !m.debout);
+      expect(debout.length).toBe(MAISONS_DEBOUT_AU_DEPART);
+      expect(ruines.length).toBeGreaterThan(0);
+      const plusLoinDebout = Math.max(...debout.map(distance));
+      const plusPresEnRuine = Math.min(...ruines.map(distance));
+      expect(plusLoinDebout).toBeLessThanOrEqual(plusPresEnRuine);
     }
   });
 

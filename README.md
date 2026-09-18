@@ -195,6 +195,7 @@ endroit a toucher pour changer le rythme du jeu.
 | `H` | Batir une tour de guet |
 | `J` | Semer un champ, pres des champs |
 | `K` | Batir une porte : ouverte le jour, la cloche la ferme, l'aube la rouvre |
+| `L` | Batir une maison, ou **relever une ruine** en cliquant dessus (20 bois) |
 | `T` | Monter dans une tour a portee, ou en descendre |
 | `Y` | Monter l'eglise d'un niveau, ou relancer son chantier |
 | `P` | Au port : relever le chantier, ou commercer avec le navire a quai |
@@ -208,9 +209,16 @@ passe dedans est **rendu** a la fermeture.
 
 | Geste | Effet |
 |---|---|
-| `G` / `H` / `J` | Choisir quoi poser. Ce sont les **seules** touches vivantes sous cette pause |
-| **Clic gauche** | Poser si un outil est choisi ; sinon **prendre** ce qui est sous le curseur ; et si on tient quelque chose, le **reposer** |
-| **Clic droit** | Demolir — ca rend **la moitie** de ce qui tenait encore debout |
+| `G` / `H` / `J` / `K` / `L` | Choisir quoi poser. Ce sont les **seules** touches vivantes sous cette pause |
+| **Clic gauche** | Poser si un outil est choisi ; sinon **prendre** ce qui est sous le curseur (mur, tour, porte, maison, ruine) ; et si on tient quelque chose, le **reposer** |
+| **Clic droit** | Demolir — ca rend **la moitie** de ce qui tenait encore debout, rien pour une ruine |
+
+**Tout se demolit sauf l'eglise** (et le port) : le joueur modele son village.
+Le village **demarre en ruines** — trois maisons debout pres de l'eglise, les
+autres en decombres, a relever avec `L` ou a demolir pour recuperer la place.
+Une maison a 200 points de vie ; une part des monstres vient la piller au lieu
+de marcher sur l'eglise. Passer la souris sur une maison, un mur, l'eglise ou
+le port affiche son nom et son etat.
 
 **Deplacer est gratuit et instantane**, et la construction **garde ses points de
 vie** : sinon deplacer reparerait.

@@ -192,6 +192,43 @@ def maison(a, variante=0, annexe=False):
     return (0, -P / 2)
 
 
+def maison_ruine(a, variante=0):
+    """Ce qu'il reste d'une maison : les murs éventrés, plus de toit, des poutres
+    noircies et les ardoises tombées. Même emprise, même pied que la maison
+    debout — on la relève au même endroit (§4.24)."""
+    L, P, H = 3.4, 2.2, 1.7
+    rnd = random.Random(variante)
+    # la dalle et la souche de cheminée : ce que le feu ne prend pas
+    a.boite("pierre", (L + 0.2, P + 0.2, 0.14), (0, 0, 0.07))
+    a.boite("pierre", (0.42, 0.42, 1.35), ([1.0, -1.1, 0.6][variante % 3], 0.45, 0.14 + 0.67))
+    # le pignon gauche, cassé en biseau ; le mur du fond, à moitié ; la façade, basse
+    hg = 0.9 + rnd.uniform(-0.15, 0.2)
+    a.boite("toile", (0.16, P, hg), (-L/2 + 0.08, 0, 0.14 + hg / 2))
+    a.boite("toile", (0.16, P * 0.45, 1.25), (-L/2 + 0.08, P * 0.27, 0.14 + 0.62))
+    a.boite("toile", (L * 0.62, 0.16, 1.15), (-L * 0.19, P/2 - 0.08, 0.14 + 0.57))
+    a.boite("toile", (L, 0.16, 0.42), (0, -P/2 + 0.08, 0.14 + 0.21))
+    a.boite("toile", (0.16, P * 0.5, 0.55), (L/2 - 0.08, -P * 0.25, 0.14 + 0.27))
+    # les poteaux de la façade, calcinés : un debout, un cassé
+    yF = -P / 2 - 0.03
+    a.boite("fer", (0.13, 0.08, 1.1), (-L/2 + 0.07, yF, 0.14 + 0.55))
+    a.boite("fer", (0.13, 0.08, 0.5), (L/2 - 0.07, yF, 0.14 + 0.25))
+    # deux poutres du toit, tombées en travers, et une qui tient encore au pignon
+    a.boite("fer", (2.1, 0.11, 0.11), (0.1, 0.2, 0.14 + 0.32), rot=(0, 0.22, 0.5))
+    a.boite("fer", (1.6, 0.11, 0.11), (0.5, -0.4, 0.14 + 0.2), rot=(0, 0.1, -0.35))
+    a.boite("fer", (0.11, 0.11, 1.7), (-L/2 + 0.35, 0.1, 0.14 + 0.7), rot=(0.3, 0.55, 0))
+    # les ardoises tombées, à plat ou de guingois
+    for i in range(4):
+        x = rnd.uniform(-L/2 + 0.4, L/2 - 0.4)
+        y = rnd.uniform(-P/2 + 0.3, P/2 - 0.3)
+        a.boite("ardoise", (0.55, 0.4, 0.06), (x, y, 0.14 + 0.05), rot=(0, 0, rnd.uniform(-0.8, 0.8)))
+    # les gravats
+    for i in range(5):
+        x = rnd.uniform(-L/2 + 0.2, L/2 - 0.2)
+        y = rnd.uniform(-P/2 + 0.2, P/2 - 0.2)
+        a.boule("pierre", rnd.uniform(0.12, 0.22), (x, y, 0.14 + 0.1), graine=variante * 7 + i, bosses=0.3)
+    return (0, -P / 2)
+
+
 def eglise(a, niveau=1):
     """La nef en pierre, et un clocher qui monte à chaque niveau (§4.22)."""
     L, P, H, F = 3.6, 2.3, 1.9, 1.2

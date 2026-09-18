@@ -55,6 +55,7 @@ def sprites():
     for v in range(3):
         s[f"bati-maison-{v}"] = (lambda a, v=v: monde.maison(a, v), 56, 50, 48, 24)
     s["bati-ferme"] = (lambda a: monde.maison(a, 1, annexe=True), 70, 50, 48, 28)
+    s["bati-maison-ruine"] = (lambda a: monde.maison_ruine(a, 0), 56, 50, 48, 24)
     for n in range(1, 5):
         s[f"bati-eglise-{n}"] = (lambda a, n=n: monde.eglise(a, n), 72, 64, 60)
     for i in range(4):

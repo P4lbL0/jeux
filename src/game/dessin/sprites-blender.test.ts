@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { cleEglise, cleMaison, CLE_FERME, VARIANTES_MAISON } from "./batiments";
+import { cleEglise, cleMaison, CLE_FERME, CLE_MAISON_RUINE, VARIANTES_MAISON } from "./batiments";
 import { DECORS } from "./decor";
 
 /**
@@ -28,6 +28,7 @@ const CLES_CONNUES = new Set<string>([
   ...DECORS.map((d) => d.cle),
   ...Array.from({ length: VARIANTES_MAISON }, (_, v) => cleMaison(v)),
   CLE_FERME,
+  CLE_MAISON_RUINE,
   ...[1, 2, 3, 4].map(cleEglise),
 ]);
 

@@ -500,6 +500,11 @@ export function cleEglise(niveau: number): string {
   return `bati-eglise-${niveau}`;
 }
 export const CLE_FERME = "bati-ferme";
+/**
+ * Une maison tombee (§4.24). Rendue par Blender seulement (`monde.maison_ruine`),
+ * pas de dessin au code derriere : le PNG est dans le depot.
+ */
+export const CLE_MAISON_RUINE = "bati-maison-ruine";
 
 /** Combien de maisons differentes. Trois suffisent a casser la rangee de copies. */
 export const VARIANTES_MAISON = 3;

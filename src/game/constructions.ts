@@ -258,6 +258,7 @@ export class Constructions {
     if (!c) return "Hors de la carte.";
     if (c.occupation === "batiment") return "Il y a deja un batiment ici.";
     if (c.occupation === "maison") return "Il y a une maison ici.";
+    if (c.occupation === "decombres") return "Une maison en ruine : releve-la (L), ou demolis-la.";
     if (RACCORDABLES.includes(c.occupation)) return "Il y a deja quelque chose ici.";
     if (c.occupation === "champ") return "Un champ est seme ici.";
     if (!this.grille.constructible(x, y)) return "Le sol ne porte pas.";

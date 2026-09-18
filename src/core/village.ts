@@ -55,7 +55,16 @@ export interface MaisonPlan extends CasePlan {
   variante: number;
   /** La seule ferme du village (§4.30) */
   ferme: boolean;
+  /**
+   * Debout au depart, ou en ruine. Le village demarre en ruines (§4.6, §4.24) :
+   * trois maisons debout pour trois habitants, les plus pres de l'eglise, et
+   * des decombres autour, que le joueur releve ou demolit.
+   */
+  debout: boolean;
 }
+
+/** Combien de maisons sont debout quand on arrive : une par habitant du depart. */
+export const MAISONS_DEBOUT_AU_DEPART = 3;
 
 export interface PlanVillage {
   graine: number;
@@ -601,9 +610,17 @@ function loger(
       // Jamais trois sur la meme ligne ni la meme colonne : c'est un alignement,
       // et un alignement se lit comme un lotissement, quel que soit l'ecart.
       if (feraitUneRangee(maisons, candidate.c, candidate.l)) continue;
-      maisons.push({ colonne: candidate.c, ligne: candidate.l, variante: rng.next(), ferme: false });
+      maisons.push({ colonne: candidate.c, ligne: candidate.l, variante: rng.next(), ferme: false, debout: false });
     }
   }
+
+  // Les plus pres de l'eglise tiennent encore debout : le coeur du village a
+  // resiste, les ruines sont vers les murs. Lisible, et pareil d'une graine a
+  // l'autre.
+  [...maisons]
+    .sort((a, b) => distanceCases(a, centre) - distanceCases(b, centre))
+    .slice(0, MAISONS_DEBOUT_AU_DEPART)
+    .forEach((m) => (m.debout = true));
 
   // La ferme est la maison la plus a l'ecart : c'est la ou il y a de la terre.
   let plusLoin = -1;
