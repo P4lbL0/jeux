@@ -2,5 +2,9 @@
   "musique-guerre": {
     "depuis": 28.565,
     "jusqua": 148.565
+  },
+  "musique-calme": {
+    "depuis": 63.893,
+    "jusqua": 114.496
   }
 }

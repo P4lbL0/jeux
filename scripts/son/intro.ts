@@ -38,14 +38,16 @@ import { cloche, grondement } from "./synthese";
  * 2. La cloche et le grondement du feu sont fabriques (`synthese.ts`).
  * 3. Tout est mixe en memoire (`dsp.ts`) et encode en OGG et en MP3 dans
  *    `src/assets/son/` : la piste du film, le glas du titre, le feu du menu,
- *    la musique de guerre, les deux bruits de l'interface.
+ *    les deux musiques (guerre et calme), les deux bruits de l'interface.
  * 4. Chaque musique est **preparee pour tourner sans fin** (`raccord.ts`) : on
  *    cherche deux instants ou elle joue la meme chose, on coupe au second et
  *    on fond la couture ; les deux points partent dans `boucles.json`, que le
  *    jeu donne a la Web Audio.
  * 5. Des fichiers d'ecoute partent dans `captures/son/<date>-musiques/` : chaque
  *    musique jouee jusqu'a sa couture, puis 30 s de plus apres le saut — c'est la
- *    que l'oreille doit chercher la coupure, et ne pas la trouver.
+ *    que l'oreille doit chercher la coupure, et ne pas la trouver. Et les deux
+ *    fondus enchaines de la partie (`partie-*.mp3`) : la guerre qui arrive sur un
+ *    combat de jour, puis le calme qui revient ; la guerre qui monte au crepuscule.
  * 6. `src/assets/son/CREDITS.md` est reecrit a partir de SOURCES.
  *
  * ⚠️ **Les niveaux se reglent ici, pas dans le jeu.** `son.ts` joue chaque
@@ -172,7 +174,7 @@ const SOURCES = {
     auteur: "Cethiel",
     licence: "CC0",
     page: "https://opengameart.org/content/laments-of-the-war",
-    role: "la musique de guerre : sous le titre, et plus tard pendant les attaques",
+    role: "la musique de guerre : sous le titre, puis en partie toute la nuit et des qu'un heros se bat",
   },
   calme1: {
     fichier: "calme-1.ogg",
@@ -181,7 +183,7 @@ const SOURCES = {
     auteur: "isaiah658",
     licence: "CC0",
     page: "https://opengameart.org/content/village-ruins",
-    role: "musique calme n° 1, a l'essai",
+    role: "musique calme n° 1, ecoutee puis ecartee",
   },
   calme2: {
     fichier: "calme-2.mp3",
@@ -190,7 +192,7 @@ const SOURCES = {
     auteur: "RandomMind",
     licence: "CC0",
     page: "https://opengameart.org/content/fantasy-lament-for-a-warriors-soul",
-    role: "musique calme n° 2, a l'essai",
+    role: "la musique calme : le jour, en partie, tant que personne ne se bat",
   },
   calme3: {
     fichier: "calme-3.wav",
@@ -199,7 +201,7 @@ const SOURCES = {
     auteur: "RandomMind",
     licence: "CC0",
     page: "https://opengameart.org/content/medieval-exploration",
-    role: "musique calme n° 3, a l'essai",
+    role: "musique calme n° 3, ecoutee puis ecartee",
   },
 } satisfies Record<string, Source>;
 
@@ -209,8 +211,9 @@ const SOURCES = {
  * (`--chercher`) ; on les garde serrees pour que le script reste rapide. Une
  * fenetre a zero veut dire « pas encore cherche » : on cherche large.
  *
- * `livree` : dans le jeu. Les autres ne partent qu'en fichiers d'ecoute, en
- * attendant qu'Angelos choisisse.
+ * `livree` : dans le jeu. Les autres ne partent qu'en fichiers d'ecoute : Angelos
+ * a choisi la n° 2 a l'oreille le 19 septembre 2026, les deux autres restent la
+ * au cas ou.
  */
 interface Musique {
   nom: string;
@@ -226,8 +229,9 @@ const MUSIQUES: Musique[] = [
   { nom: "musique-guerre", source: SOURCES.guerre, a: [28, 30], b: [148, 150], livree: true },
   // 26,1 s et 93,8 s (0,87).
   { nom: "calme-1-village-en-ruines", source: SOURCES.calme1, a: [25, 27], b: [93, 95], livree: false },
-  // 63,5 s et 114,1 s (0,61) : couture moins sure, fondu long.
-  { nom: "calme-2-complainte", source: SOURCES.calme2, a: [62.5, 64.5], b: [113, 115], livree: false },
+  // 63,5 s et 114,1 s (0,61) : couture moins sure, fondu long. C'est celle
+  // qu'Angelos a gardee (19 septembre 2026) : elle devient `musique-calme`.
+  { nom: "musique-calme", source: SOURCES.calme2, a: [62.5, 64.5], b: [113, 115], livree: true },
   // 83,5 s et 162,0 s (0,34, le meilleur du morceau entier) : couture la plus fragile.
   { nom: "calme-3-exploration", source: SOURCES.calme3, a: [82.5, 84.5], b: [161, 163], livree: false },
 ];
@@ -402,6 +406,49 @@ function ecouteDeLaBoucle(s: Son, r: Raccord, apres: number, avant?: number): So
   return tout;
 }
 
+/** Un morceau de musique dans un enchainement : d'ou il part, combien il dure, a quelle vitesse il bouge. */
+interface Etape {
+  son: Son;
+  depuis: number;
+  pendant: number;
+  /** En combien de secondes ce morceau monte, et descend (`core/musique.ts`). */
+  fondu: number;
+}
+
+/**
+ * Les fondus enchaines de la partie, a l'oreille : ce que `game/musique.ts` fait
+ * quand la guerre arrive et quand le calme revient. Meme courbe qu'en jeu — a
+ * puissance constante (l'une monte en sinus pendant que l'autre descend en
+ * cosinus), pour que la force ne se creuse pas au milieu du fondu — chacun a sa
+ * vitesse. Une etape commence quand la precedente se met a descendre, c'est-a-
+ * dire `fondu` secondes (celui de la precedente) avant sa fin ; la derniere
+ * s'eteint en deux secondes.
+ */
+function enchainer(etapes: Etape[]): Son {
+  const debuts: number[] = [];
+  let fin = 0;
+  etapes.forEach((e, i) => {
+    const debut = i === 0 ? 0 : fin - etapes[i - 1].fondu;
+    debuts.push(debut);
+    fin = debut + e.pendant;
+  });
+  const tout = silence(fin);
+  etapes.forEach((e, i) => {
+    const morceau = decouper(e.son, e.depuis, e.pendant);
+    const entree = i === 0 ? 0 : e.fondu;
+    const sortie = i === etapes.length - 1 ? 2 : e.fondu;
+    const D = e.pendant;
+    enveloppe(morceau, (t) => {
+      let k = 1;
+      if (t < entree) k *= Math.sin(((t / entree) * Math.PI) / 2);
+      if (t > D - sortie) k *= Math.cos((((t - (D - sortie)) / sortie) * Math.PI) / 2);
+      return k;
+    });
+    poser(tout, morceau, debuts[i]);
+  });
+  return tout;
+}
+
 const minutes = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
 // ----------------------------------------------------------------- credits
@@ -457,8 +504,10 @@ async function main(): Promise<void> {
 
   console.log("[son] musiques");
   const boucles: Record<string, { depuis: number; jusqua: number }> = {};
+  const preparees: Record<string, { son: Son; raccord: Raccord }> = {};
   for (const m of MUSIQUES) {
     const { son, raccord } = preparerMusique(m, chercher);
+    preparees[m.nom] = { son, raccord };
     const r3 = (x: number) => Math.round(x * 1000) / 1000;
     console.log(
       `[son] ${m.nom} : ${minutes(duree(son))}, boucle de ${minutes(raccord.debut)} a ${minutes(raccord.fin)} ` +
@@ -477,6 +526,47 @@ async function main(): Promise<void> {
   }
   writeFileSync(`${SORTIE}/boucles.json`, JSON.stringify(boucles, null, 2) + "\n");
   writeFileSync(`${SORTIE}/CREDITS.md`, credits());
+
+  // Les fondus enchaines de la partie, avec les memes chiffres que le jeu
+  // (`core/musique.ts`) : la guerre monte et descend en 3 s, le calme en 6 s.
+  console.log("[son] fondus de la partie");
+  const calme = preparees["musique-calme"];
+  const guerre = preparees["musique-guerre"];
+  if (calme && guerre) {
+    const CODEC = ["-c:a", "libmp3lame", "-b:a", "160k"];
+    // Un combat de jour : la guerre part au corps du morceau (son point de
+    // boucle), pas a son introduction ; puis le calme repart du debut.
+    ecrire(
+      enchainer([
+        { son: calme.son, depuis: 0, pendant: 22, fondu: 6 },
+        { son: guerre.son, depuis: guerre.raccord.debut, pendant: 30, fondu: 3 },
+        { son: calme.son, depuis: 0, pendant: 22, fondu: 6 },
+      ]),
+      `${ECOUTE}/partie-jour-un-combat.mp3`,
+      CODEC,
+    );
+    // Le crepuscule : la guerre part de son debut, son introduction monte
+    // pendant que le jour tombe (c'est ce que le jeu fait).
+    ecrire(
+      enchainer([
+        { son: calme.son, depuis: 0, pendant: 22, fondu: 6 },
+        { son: guerre.son, depuis: 0, pendant: 42, fondu: 3 },
+      ]),
+      `${ECOUTE}/partie-crepuscule.mp3`,
+      CODEC,
+    );
+    // La variante a comparer : la guerre part au corps du morceau, comme sur un
+    // combat de jour. Une ligne a changer dans `game/musique.ts` si elle plait mieux.
+    ecrire(
+      enchainer([
+        { son: calme.son, depuis: 0, pendant: 22, fondu: 6 },
+        { son: guerre.son, depuis: guerre.raccord.debut, pendant: 30, fondu: 3 },
+      ]),
+      `${ECOUTE}/partie-crepuscule-sans-intro.mp3`,
+      CODEC,
+    );
+    console.log(`[son]   ecoute : ${ECOUTE.replace(RACINE, ".")}/partie-*.mp3`);
+  }
 }
 
 void main().catch((e) => {

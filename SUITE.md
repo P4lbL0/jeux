@@ -2,7 +2,7 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-09-19. **498 tests verts.**
+> Dernière mise à jour : 2026-09-19, au soir. **504 tests verts.**
 >
 > ✅ **Le bloc 7z est fini et branché (10 septembre 2026) : tout ce qui se voit est dessiné
 > par le code, et il n'y a plus un seul PNG.** La direction est tranchée avec Angelos ce
@@ -1019,6 +1019,60 @@ demi-seconde. Un craquement du feu, 20 dB au-dessus du souffle, sonnait aussi fo
 cloche et dictait le volume de tout : les crêtes du feu sont arrondies (`adoucir`). **C'est à
 l'oreille d'Angelos de trancher le reste**, sur les trois vidéos d'écoute.
 
+### La musique en partie (fait le 19 septembre 2026, au soir)
+
+**Les décisions d'Angelos, avant de coder** : la musique calme est la **n° 2, « Lament for a
+Warrior's Soul »** (RandomMind, CC0), choisie à l'oreille parmi les trois de
+`captures/son/2026-09-19-musiques/` ; la guerre joue **toute la nuit** et le jour **dès qu'un
+héros se bat** ; et surtout **jamais de bascule brutale** entre les deux. Détail au §4.10,
+« Le son », dernier paragraphe.
+
+**`src/core/musique.ts`** (neuf, pur, 6 tests) : la règle. `ChoixDeMusique` tient une horloge
+que la scène fait avancer **hors pause seulement**, et l'instant du dernier coup donné ou reçu
+par un héros ; `morceau(nuit)` répond « guerre » la nuit ou dans les **15 s** qui suivent un
+coup (`REGLAGES_MUSIQUE.maintien` — un combat haché reste une seule bataille), « calme »
+sinon. Chaque morceau a **sa vitesse de fondu** : la guerre monte et descend en 3 s, le calme
+en 6 s.
+
+**`src/game/musique.ts`** (neuf) : `MORCEAUX` (les deux fichiers et leurs boucles, que
+`intro.ts` réutilise pour le titre) et `Musique`, qui joue ce que la règle dit avec `son.ts` :
+un fondu enchaîné **à puissance constante** (sinus à la montée, cosinus à la descente — deux
+rampes droites creusent 6 dB au milieu). La guerre appelée par la nuit **part de son début**,
+son intro monte pendant que le jour tombe ; appelée par un combat de jour elle **part au corps
+du morceau**, ses dix premières secondes étant 8 à 10 dB sous le reste (mesuré). Si le fichier
+n'est pas encore là ou le son verrouillé, ce qui joue continue et on réessaie à l'image
+suivante. `son.ts` gagne `depuis` (un départ dans le fichier) et `courbe: "puissance"`, avec
+`cancelAndHoldAtTime` pour un arrêt propre au milieu d'une montée.
+
+**Dans la scène** : `preload` charge les deux musiques si le titre n'a pas eu le temps (il
+charge maintenant la calme pendant le film, avec la guerre) ; `maj` à chaque image hors pause ;
+`combat()` dans `blesserEnnemi` (un héros ou son invocation frappe) et dans `encaisser` (un
+héros est frappé) ; tout s'éteint en 4 s à la fin de partie, en 0,3 s quand la scène s'arrête
+(une voix Web Audio ne meurt pas avec la scène). En pause hors focus, Phaser suspend le
+contexte audio : la musique aussi.
+
+**`npm run son`** livre `musique-calme` (couture à 63,9 → 114,5 s, ressemblance 0,69, fondu
+de 4 s) et fabrique trois **fichiers d'écoute des fondus** dans
+`captures/son/2026-09-19-musiques/` : `partie-jour-un-combat.mp3` (calme → guerre au corps →
+calme), `partie-crepuscule.mp3` (calme → guerre depuis son début : ce que le jeu fait) et
+`partie-crepuscule-sans-intro.mp3` (la variante — une ligne à changer dans `game/musique.ts`,
+`depuis`, si elle plaît mieux). ⚠️ **Mesuré, pas écouté** : niveaux par tranche de 2 s — le
+fondu du combat de jour ne creuse rien ; au crépuscule, l'intro de la guerre est 8 dB plus
+basse pendant 4 s, et c'est à l'oreille d'Angelos de dire si c'est une montée ou un trou.
+
+⚠️ **Pièges** : l'encodeur Vorbis tire un numéro de série à chaque passage, donc `npm run son`
+marque **tous** les `.ogg` modifiés sans que le son change — on remet ceux qui n'ont pas
+changé avec `git checkout`. Un villageois qui se bat seul (les portes, l'église) ne réveille
+pas la guerre : c'est un héros qui compte, comme demandé. Et `scripts/verifier-musique.ts`
+(Playwright) lit l'état de la musique à chaque étape, faute d'oreille.
+
+**Vérifié en jouant** (`npx tsx scripts/verifier-musique.ts`, Playwright, autoplay permis et
+un clic pour déverrouiller, aucune erreur console) : le premier matin joue le calme, une voix
+Web Audio bien lancée ; un coup → guerre ; 10 s après, la guerre tient ; 16 s après, le calme
+est revenu ; la nuit tombée → guerre sans un coup ; une aube qui tombe 0,8 s après, au milieu
+de la montée de la guerre → calme, sans erreur (l'arrêt au milieu d'un fondu). **504 tests
+verts** (+6), `tsc` passe.
+
 ### Le bloc 7a, seconde moitié — les maisons se cassent, le village démarre en ruines (fait le 19 septembre 2026)
 
 **Les décisions d'Angelos, avant de coder** : trois maisons debout au départ, les plus près de
@@ -1342,18 +1396,20 @@ murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
    e) les **quatre compétences actives** au maximum ;
    f) les **paliers de mur ×4** et l'amélioration par segment.
 2. ✅ **Le bloc 7z est fini** (étage 4, le 10 septembre 2026). Ce qui en reste : **l'eau qui
-   noie** (§4.30, une règle, pas un dessin) et **la disparition des ronds de poste** — qui
-   attend que la mine, le ponton et les bûches disent eux-mêmes où l'on travaille.
+   noie** (§4.30, une règle, pas un dessin). Les ronds de poste, eux, **sont déjà partis** (le
+   18 septembre, avec le générateur) ; ce qui manque encore, c'est ce qui devait les
+   remplacer — la mine, le ponton et les bûches qui disent eux-mêmes où l'on travaille.
 3. ✅ **Le bloc 7a est fini, sauf le sol** (19 septembre 2026, voir sa section) : maisons
    destructibles, village en ruines au départ, survol, les quatre défauts d'affichage corrigés.
    Reste le sol du village (place, chemins, détails de vie), purement visuel.
 3b. ✅ **L'écran-titre a du son** (19 septembre 2026, voir sa section) : la musique de guerre
    (« Lament of the War ») est choisie, bouclée sans couture, réglable à part dans
-   PARAMÈTRES (trois curseurs). **Reste à choisir les musiques calmes** parmi les trois de
-   `captures/son/2026-09-19-musiques/`. **Phase 2** : le son de la partie — calme le jour,
-   guerre pendant les attaques, en fondu enchaîné ; cris et coups de hache sur les
-   événements que les animations émettent déjà. Tout ce qui reste à coder est rassemblé
-   dans **`PROMPT-SUITE.md`**.
+   PARAMÈTRES (trois curseurs). ✅ **La musique en partie est livrée** (le soir même, voir sa
+   section) : la calme choisie (n° 2), la guerre la nuit et dès qu'un héros se bat, fondus
+   enchaînés. **Reste à juger à l'oreille** les trois `partie-*.mp3`. **Phase 2, ce qui
+   reste** : les bruits de la partie — cris et coups de hache sur les événements que les
+   animations émettent déjà. Tout ce qui reste à coder est rassemblé dans
+   **`PROMPT-SUITE.md`**.
 4. **Jouer une vraie partie longue.** C'est ce que le cycle raccourci débloque : le stress,
    l'église, le port, les arrivées et la folie n'ont jamais tourné assez longtemps pour être
    jugés. Tous les chiffres du dépouillage sont faits pour être corrigés là.
@@ -1671,7 +1727,7 @@ Deux questions de fond sont fermées, après l'annonce du plugin Unity officiel 
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (479)
+npx vitest run   # les tests (504)
 npm run build    # vérifie les types et construit
 
 npx tsx scripts/capturer.ts apres   # les captures du jeu, par Playwright, toujours au même endroit

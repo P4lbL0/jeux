@@ -175,6 +175,7 @@ import { poserLaMer, type MerAnimee } from "../game/dessin/mer";
 import type { EtatEquipe } from "../game/hud";
 import type { EtatOrdres } from "../game/panneauOrdres";
 import type { GroupeAffiche } from "../game/fichePersonne";
+import { MORCEAUX, Musique } from "../game/musique";
 
 /**
  * L'arene : combat, equipe, IA, progression.
@@ -565,6 +566,8 @@ export class ArenaScene extends Phaser.Scene {
   private debutAmenagement = 0;
 
   private enPause = false;
+  /** La musique de la partie : le calme le jour, la guerre la nuit et des qu'un heros se bat (§4.10). */
+  private musique!: Musique;
   /**
    * Vrai pendant qu'on renomme quelqu'un dans la fiche (DESIGN.md §4.18).
    *
@@ -754,6 +757,16 @@ export class ArenaScene extends Phaser.Scene {
 
   // ----------------------------------------------------------- construction
 
+  /**
+   * Les deux musiques, si l'ecran-titre n'a pas eu le temps de les charger
+   * pendant le film (§4.10). Une cle deja en cache ne se recharge pas.
+   */
+  preload(): void {
+    for (const { cle, urls } of Object.values(MORCEAUX)) {
+      if (!this.cache.audio.exists(cle)) this.load.audio(cle, [...urls]);
+    }
+  }
+
   create(): void {
     const graine = Date.now() % 1_000_000;
     this.rng = new Rng(graine);
@@ -768,6 +781,11 @@ export class ArenaScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.events.off("annonce", this.consignerAuJournal, this);
     });
+    // La musique de la partie : elle demarre a la premiere image, et s'eteint
+    // avec la scene — une voix Web Audio ne s'arrete pas toute seule quand on
+    // change d'ecran.
+    this.musique = new Musique(this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.musique.eteindre(0.3));
 
     creerTexturesPlaceholder(this);
     // Les visages de la partie precedente n'ont plus personne derriere eux :
@@ -1693,6 +1711,8 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
     if (this.enPause) return;
+
+    this.musique.maj(delta, this.cycle.phase === "nuit");
 
     // Un reglage de propriete, pas un redessin : c'est tout ce que coute la mer
     // qui bouge (§4.17 regle 3).
@@ -3423,6 +3443,7 @@ export class ArenaScene extends Phaser.Scene {
 
   private blesserEnnemi(e: Ennemi, degats: number, auteur: Hero, volDeVieSup = 0): void {
     if (!e.active) return;
+    this.musique.combat();
     const inflige = Math.min(degats, e.pv);
     e.pv -= degats;
     // Pas de minuterie ici : avec les degats de zone et les chaines, on en
@@ -5242,6 +5263,7 @@ export class ArenaScene extends Phaser.Scene {
     couleur: number,
   ): void {
     const maintenant = this.time.now;
+    this.musique.combat();
 
     // Martyre : le Chevalier Sacre encaisse a la place de toute l'equipe.
     if (this.martyr && this.martyr !== hero && this.martyr.etat !== "mort") {
@@ -5409,6 +5431,8 @@ export class ArenaScene extends Phaser.Scene {
 
   private finDePartie(): void {
     this.termine = true;
+    // La musique s'eteint avec la partie : le silence apres la chute.
+    this.musique.eteindre(4);
     // `update` ne tournera plus : on rend la main au monde ici, sinon un
     // micro-gel en cours resterait en place pour de bon.
     majEffets(this, this.time.now, false);

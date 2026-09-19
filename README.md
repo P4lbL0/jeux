@@ -33,8 +33,10 @@ le titre. Le navigateur refusant tout son avant un premier clic, un ecran « cli
 pour entrer » passe avant le film quand il l'exige. Le haut-parleur en bas a gauche, ou la
 touche **M**, coupe le son ; **PARAMETRES** regle a part la musique, l'ambiance et les
 effets. La musique (« Lament of the War ») boucle sans couture : son intro passe une fois,
-puis deux minutes tournent sans fin. La bande-son se refait avec `npm run son` (sons libres
-de droits, credits dans `src/assets/son/CREDITS.md`).
+puis deux minutes tournent sans fin. En partie, une musique **calme** joue le jour, et la
+musique de guerre **toute la nuit** et **des qu'un heros se bat**, en fondu enchaine — jamais
+une coupure. La bande-son se refait avec `npm run son` (sons libres de droits, credits dans
+`src/assets/son/CREDITS.md`).
 
 ### La sauvegarde et le compte (§4.28)
 

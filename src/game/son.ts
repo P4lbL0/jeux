@@ -7,9 +7,10 @@ import clicMp3 from "../assets/son/ui-clic.mp3?url";
 /**
  * Le son du jeu : trois pistes et un bouton muet (DESIGN.md §4.10).
  *
- * Il commence le 19 septembre 2026 par l'ecran-titre ; le reste du jeu est
- * encore muet, mais passera par ici le jour ou il parlera (musique, cris, coups
- * de hache — les animations emettent deja leurs evenements, §4.30).
+ * Il commence le 19 septembre 2026 par l'ecran-titre, puis la musique de la
+ * partie le soir meme (`game/musique.ts`) ; les bruits de la partie (cris, coups
+ * de hache — les animations emettent deja leurs evenements, §4.30) passeront
+ * par ici aussi.
  *
  * Phaser charge et decode les fichiers (`load.audio`), et deverrouille le son au
  * premier clic. Ce module ne fait que **brancher** :
@@ -78,6 +79,14 @@ export interface Boucle {
   jusqua: number;
 }
 
+/**
+ * La forme d'un fondu. `lineaire` : une rampe droite, pour un son qui part ou
+ * s'arrete seul. `puissance` : un quart de sinus a la montee, de cosinus a la
+ * descente — deux sons qui se croisent ainsi gardent une force constante, la ou
+ * deux rampes droites creusent un trou de 6 dB au milieu du fondu enchaine.
+ */
+export type Courbe = "lineaire" | "puissance";
+
 export interface OptionsDeVoix {
   /** Le volume de cette voix, de 0 a 1 (defaut 1). */
   volume?: number;
@@ -95,6 +104,10 @@ export interface OptionsDeVoix {
   boucle?: boolean | Boucle;
   /** Monte depuis le silence en `fondu` secondes plutot que de partir d'un coup. */
   fondu?: number;
+  /** Commence a cette seconde du fichier plutot qu'a son debut (une musique reprise a son corps, sans son introduction). */
+  depuis?: number;
+  /** La forme du fondu d'entree et de celui d'`arreter` (defaut : lineaire). */
+  courbe?: Courbe;
 }
 
 interface Branchements {
@@ -165,10 +178,11 @@ export function jouer(
   }
   const gain = contexte.createGain();
   const volume = options.volume ?? 1;
+  const courbe = options.courbe ?? "lineaire";
   const maintenant = contexte.currentTime;
   if (options.fondu && options.fondu > 0) {
     gain.gain.setValueAtTime(0, maintenant);
-    gain.gain.linearRampToValueAtTime(volume, maintenant + options.fondu);
+    fondre(gain.gain, courbe, 0, volume, maintenant, options.fondu);
   } else {
     gain.gain.value = volume;
   }
@@ -177,7 +191,7 @@ export function jouer(
     source.disconnect();
     gain.disconnect();
   });
-  source.start(maintenant);
+  source.start(maintenant, Math.max(0, Math.min(options.depuis ?? 0, tampon.duration)));
 
   let arretee = false;
   return {
@@ -185,12 +199,46 @@ export function jouer(
       if (arretee) return;
       arretee = true;
       const t = contexte.currentTime;
-      gain.gain.cancelScheduledValues(t);
-      gain.gain.setValueAtTime(gain.gain.value, t);
-      gain.gain.linearRampToValueAtTime(0, t + fondu);
+      // On part du niveau de l'instant, meme au milieu d'une montee : deux
+      // musiques qui se croisent vite ne doivent pas sauter.
+      const depuis = gain.gain.value;
+      tenir(gain.gain, t);
+      fondre(gain.gain, courbe, depuis, 0, t, fondu);
       source.stop(t + fondu + 0.02);
     },
   };
+}
+
+/** Les points d'une courbe de fondu : assez pour une sinusoide lisse sur quelques secondes. */
+const POINTS_DE_COURBE = 64;
+
+/**
+ * Coupe ce qui etait programme sur ce parametre et le tient a sa valeur de
+ * l'instant. `cancelAndHoldAtTime` le fait proprement ; la ou il manque, on
+ * annule puis on repose la valeur lue, ce qui revient au meme a un bloc pres.
+ */
+function tenir(param: AudioParam, t: number): void {
+  if (typeof param.cancelAndHoldAtTime === "function") {
+    param.cancelAndHoldAtTime(t);
+  } else {
+    const valeur = param.value;
+    param.cancelScheduledValues(t);
+    param.setValueAtTime(valeur, t);
+  }
+}
+
+/** Mene `param` de `de` a `a` en `duree` secondes a partir de `t`, selon la courbe. */
+function fondre(param: AudioParam, courbe: Courbe, de: number, a: number, t: number, duree: number): void {
+  if (courbe === "lineaire") {
+    param.linearRampToValueAtTime(a, t + duree);
+    return;
+  }
+  const points = new Float32Array(POINTS_DE_COURBE);
+  for (let i = 0; i < POINTS_DE_COURBE; i++) {
+    const u = (i / (POINTS_DE_COURBE - 1)) * (Math.PI / 2);
+    points[i] = a >= de ? de + (a - de) * Math.sin(u) : a + (de - a) * Math.cos(u);
+  }
+  param.setValueCurveAtTime(points, t, Math.max(duree, 0.01));
 }
 
 /** Le petit son d'une entree survolee ou cliquee. */

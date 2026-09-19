@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { INTRO, SON_INTRO } from "../game/intro";
+import { MORCEAUX } from "../game/musique";
 import { enLigneConfigure } from "../en-ligne/client";
 import { sessionCourante } from "../en-ligne/compte";
 import { C, T, POLICE, espacer, titreDuJeu } from "../game/ui/chrome";
@@ -428,11 +429,12 @@ export class TitreScene extends Phaser.Scene {
   /**
    * La musique et le feu du menu : plus lourds que tout le reste, et inutiles
    * avant la fin du film. On les charge pendant qu'il passe (ou pendant l'ecran
-   * d'entree), jamais avant.
+   * d'entree), jamais avant. La musique calme de la partie vient avec eux, pour
+   * que la partie parte sans attendre ; l'arene la recharge si on l'a devancee.
    */
   private chargerLeFond(): void {
     let manque = false;
-    for (const { cle, urls } of [SON_INTRO.feu, SON_INTRO.musique]) {
+    for (const { cle, urls } of [SON_INTRO.feu, SON_INTRO.musique, MORCEAUX.calme]) {
       if (this.cache.audio.exists(cle)) continue;
       this.load.audio(cle, [...urls]);
       manque = true;

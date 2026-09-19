@@ -30,7 +30,11 @@ Ce qui tourne vraiment, et qui est récent :
   boucle sans couture ; écran « clic ou touche pour entrer » quand le navigateur bloque le
   son ; haut-parleur et touche M ; **PARAMÈTRES** règle trois volumes (musique, ambiance,
   effets), retenus d'une visite à l'autre.
-- En dessous, un noyau de règles pur (`src/core/`) couvert par **498 tests**.
+- **La musique en partie** (19 septembre, au soir) : la calme le jour (« Lament for a
+  Warrior's Soul », choisie à l'oreille), la guerre toute la nuit et dès qu'un héros se bat,
+  en fondu enchaîné à puissance constante ; les fondus s'écoutent dans
+  `captures/son/2026-09-19-musiques/partie-*.mp3`.
+- En dessous, un noyau de règles pur (`src/core/`) couvert par **504 tests**.
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
 
@@ -71,12 +75,12 @@ Dans l'ordre où je te le suggère ; c'est à moi de trancher l'ordre, propose-l
 Tout le socle existe (`src/game/son.ts`, `src/game/panneauSon.ts`, `scripts/son/`,
 `npm run son`) ; voir `SUITE.md`, « Le son de l'écran-titre », et le §4.10, « Le son ».
 
-4. **La musique en partie** : une musique **calme** le jour, la **musique de guerre**
-   (`musique-guerre`, déjà livrée et bouclée) pendant les attaques — hordes de nuit, et
-   attaques de jour au-delà de 65 habitants — avec un **fondu enchaîné** de quelques
-   secondes, jamais une coupure. Trois musiques calmes attendent mon choix dans
-   `captures/son/2026-09-19-musiques/` (bouclées elles aussi) : demande-moi lesquelles je
-   garde avant de les livrer (`livree: true` dans `scripts/son/intro.ts`).
+4. ✅ **La musique en partie** — fait le 19 septembre au soir (`SUITE.md`, « La musique en
+   partie ») : calme le jour, guerre toute la nuit et dès qu'un héros se bat, 15 s de maintien
+   après le dernier coup, fondus à puissance constante (guerre 3 s, calme 6 s). Reste à
+   **juger à l'oreille** les trois `partie-*.mp3` — en particulier `partie-crepuscule.mp3`
+   (la guerre part de son intro) contre `partie-crepuscule-sans-intro.mp3` (une ligne à
+   changer dans `src/game/musique.ts` si elle plaît mieux).
 5. **Les bruits de la partie**, branchés sur les **événements nommés** que les animations
    émettent déjà (coup de pioche, hache, toux, semis, chute d'arbre) ; puis les coups, les
    morts, les cris des villageois et des monstres (le §4.23 prévoit que les monstres

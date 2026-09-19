@@ -19,4 +19,5 @@ libre de droits propre.
 | le coup sourd sous le glas du titre | [Muffled Distant Explosion](https://opengameart.org/content/muffled-distant-explosion) | NenadSimic | CC0 |
 | le survol d'une entree du menu | [Impact Sounds (impactMetal_light_002)](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 |
 | le clic d'une entree du menu | [RPG Audio (metalLatch)](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 |
-| la musique de guerre : sous le titre, et plus tard pendant les attaques | [Lament of the War](https://opengameart.org/content/laments-of-the-war) | Cethiel | CC0 |
+| la musique de guerre : sous le titre, puis en partie toute la nuit et des qu'un heros se bat | [Lament of the War](https://opengameart.org/content/laments-of-the-war) | Cethiel | CC0 |
+| la musique calme : le jour, en partie, tant que personne ne se bat | [Fantasy: Lament for a Warrior's Soul](https://opengameart.org/content/fantasy-lament-for-a-warriors-soul) | RandomMind | CC0 |
