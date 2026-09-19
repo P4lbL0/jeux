@@ -1,4 +1,4 @@
-# Les sons de l'ecran-titre
+# Les sons du jeu
 
 Fabriques par `npm run son` (`scripts/son/intro.ts`). Ce fichier est reecrit a chaque
 passage : ne pas le modifier a la main.
@@ -19,4 +19,4 @@ libre de droits propre.
 | le coup sourd sous le glas du titre | [Muffled Distant Explosion](https://opengameart.org/content/muffled-distant-explosion) | NenadSimic | CC0 |
 | le survol d'une entree du menu | [Impact Sounds (impactMetal_light_002)](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 |
 | le clic d'une entree du menu | [RPG Audio (metalLatch)](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 |
-| musique n° 1 : la nappe sombre | [The World Fell Silent (version en boucle)](https://opengameart.org/content/the-world-fell-silent) | Tsorthan Grove | CC0 |
+| la musique de guerre : sous le titre, et plus tard pendant les attaques | [Lament of the War](https://opengameart.org/content/laments-of-the-war) | Cethiel | CC0 |

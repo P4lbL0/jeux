@@ -8,8 +8,9 @@ import sonTitreOgg from "../assets/son/titre-glas.ogg?url";
 import sonTitreMp3 from "../assets/son/titre-glas.mp3?url";
 import sonFeuOgg from "../assets/son/titre-feu.ogg?url";
 import sonFeuMp3 from "../assets/son/titre-feu.mp3?url";
-import musiqueOgg from "../assets/son/titre-musique.ogg?url";
-import musiqueMp3 from "../assets/son/titre-musique.mp3?url";
+import musiqueOgg from "../assets/son/musique-guerre.ogg?url";
+import musiqueMp3 from "../assets/son/musique-guerre.mp3?url";
+import boucles from "../assets/son/boucles.json";
 
 /**
  * La cinematique d'ouverture, rendue par Blender (`scripts/blender/intro.py`,
@@ -59,6 +60,12 @@ export const SON_INTRO = {
   titre: { cle: "son-titre-glas", urls: [sonTitreOgg, sonTitreMp3] },
   /** Le feu et le vent derriere le menu, en boucle sans couture. Charge pendant le film. */
   feu: { cle: "son-titre-feu", urls: [sonFeuOgg, sonFeuMp3] },
-  /** La musique du titre, en boucle. Chargee pendant le film. */
-  musique: { cle: "son-titre-musique", urls: [musiqueOgg, musiqueMp3] },
+  /**
+   * La musique de guerre (« Lament of the War », choisie a l'oreille le 19
+   * septembre 2026) : sous le titre, et plus tard pendant les attaques. Son
+   * introduction (une demi-minute) ne passe qu'une fois ; ensuite deux minutes tournent
+   * sans fin, raccordees la ou le morceau rejoue la meme mesure. Chargee
+   * pendant le film.
+   */
+  musique: { cle: "musique-guerre", urls: [musiqueOgg, musiqueMp3], boucle: boucles["musique-guerre"] },
 } as const;

@@ -31,13 +31,23 @@ import clicMp3 from "../assets/son/ui-clic.mp3?url";
 
 export type Piste = "musique" | "ambiance" | "effets";
 
+export const PISTES: readonly Piste[] = ["musique", "ambiance", "effets"];
+
 /**
- * Le volume de chaque piste, en plus du volume de chaque voix. Les fichiers
- * sont deja equilibres entre eux (`scripts/son/intro.ts`) ; la musique est un
- * cran plus bas pour laisser passer le feu et le glas. Le menu PARAMETRES
- * (§4.10) viendra regler ces trois chiffres.
+ * Le volume de base de chaque piste. Les fichiers sont deja equilibres entre
+ * eux (`scripts/son/intro.ts`) ; la musique est un cran plus bas pour laisser
+ * passer le feu et le glas.
+ *
+ * Le joueur regle ensuite chaque piste de 0 a 100 % dans PARAMETRES (§4.10) :
+ * son reglage **multiplie** ce volume de base, il ne le remplace pas — a 100 %,
+ * on entend le mixage tel qu'il a ete fait.
  */
 const VOLUME_DES_PISTES: Record<Piste, number> = { musique: 0.7, ambiance: 1, effets: 1 };
+
+/** Les reglages du joueur, retenus d'une visite a l'autre. */
+const CLE_VOLUMES = "protecteur:son:volumes";
+
+const reglages: Record<Piste, number> = { musique: 1, ambiance: 1, effets: 1 };
 
 /** L'etouffoir ouvert : au-dessus de tout ce qu'une oreille entend. */
 const OUVERT = 20000;
@@ -62,11 +72,27 @@ export interface Voix {
   arreter(fondu?: number): void;
 }
 
+/** Les deux points d'une boucle, en secondes, dans le fichier livre. */
+export interface Boucle {
+  depuis: number;
+  jusqua: number;
+}
+
 export interface OptionsDeVoix {
   /** Le volume de cette voix, de 0 a 1 (defaut 1). */
   volume?: number;
-  /** Rejoue sans fin, sans couture : les boucles sont coupees pour ca. */
-  boucle?: boolean;
+  /**
+   * Rejoue sans fin, sans couture. `true` : tout le fichier en boucle.
+   * `{ depuis, jusqua }` : le fichier se joue une fois jusqu'a `jusqua`, puis
+   * repart de `depuis` secondes, sans fin — une introduction qui ne revient
+   * pas, un corps qui tourne. Le fichier est coupe et fondu pour ca
+   * (`scripts/son/raccord.ts`).
+   *
+   * ⚠️ `jusqua` est donne, pas deduit de la duree : un MP3 decode garde
+   * quelques millisecondes de silence en fin de fichier, qu'on entendrait a
+   * chaque tour.
+   */
+  boucle?: boolean | Boucle;
   /** Monte depuis le silence en `fondu` secondes plutot que de partir d'un coup. */
   fondu?: number;
 }
@@ -88,7 +114,7 @@ function brancher(scene: Phaser.Scene): Branchements | null {
   const contexte = son.context;
   const piste = (p: Piste) => {
     const gain = contexte.createGain();
-    gain.gain.value = VOLUME_DES_PISTES[p];
+    gain.gain.value = VOLUME_DES_PISTES[p] * reglages[p];
     return gain;
   };
   const pistes: Record<Piste, GainNode> = {
@@ -132,7 +158,11 @@ export function jouer(
   const { contexte } = b;
   const source = contexte.createBufferSource();
   source.buffer = tampon;
-  source.loop = options.boucle ?? false;
+  source.loop = Boolean(options.boucle);
+  if (typeof options.boucle === "object") {
+    source.loopStart = options.boucle.depuis;
+    source.loopEnd = Math.min(options.boucle.jusqua, tampon.duration);
+  }
   const gain = contexte.createGain();
   const volume = options.volume ?? 1;
   const maintenant = contexte.currentTime;
@@ -186,6 +216,45 @@ export function etouffer(scene: Phaser.Scene, sourd: boolean, duree: number, dan
   frequence.exponentialRampToValueAtTime(sourd ? SOURD : OUVERT, t + Math.max(duree, 0.01));
 }
 
+// ---------------------------------------------------------------- les volumes
+
+/** Le reglage du joueur pour une piste, de 0 a 1. */
+export function volumeDeLaPiste(piste: Piste): number {
+  return reglages[piste];
+}
+
+/**
+ * Regle une piste (0 a 1), tout de suite — ce qui joue deja monte ou baisse
+ * pendant qu'on tire le curseur — et s'en souvient.
+ */
+export function reglerLaPiste(scene: Phaser.Scene, piste: Piste, valeur: number): void {
+  reglages[piste] = Math.max(0, Math.min(1, valeur));
+  const b = brancher(scene);
+  if (b) {
+    const gain = b.pistes[piste].gain;
+    // Une petite rampe : un saut de gain brut claque dans les haut-parleurs.
+    gain.setTargetAtTime(VOLUME_DES_PISTES[piste] * reglages[piste], b.contexte.currentTime, 0.03);
+  }
+  try {
+    rangement()?.setItem(CLE_VOLUMES, JSON.stringify(reglages));
+  } catch {
+    // Pas de stockage : le reglage vaut pour cette visite seulement.
+  }
+}
+
+/** Reprend les volumes de la derniere visite. A appeler une fois, au demarrage. */
+function reprendreLesVolumes(): void {
+  try {
+    const lu = JSON.parse(rangement()?.getItem(CLE_VOLUMES) ?? "{}") as Partial<Record<Piste, unknown>>;
+    for (const p of PISTES) {
+      const v = lu[p];
+      if (typeof v === "number" && Number.isFinite(v)) reglages[p] = Math.max(0, Math.min(1, v));
+    }
+  } catch {
+    // Un reglage illisible : on garde 100 % partout.
+  }
+}
+
 // ------------------------------------------------------------------- le muet
 
 /**
@@ -211,8 +280,9 @@ function rangement(): Storage | null {
   }
 }
 
-/** Reprend le muet de la derniere visite. A appeler une fois, au demarrage. */
-export function reprendreLeMuet(jeu: Phaser.Game): void {
+/** Reprend le muet et les volumes de la derniere visite. A appeler une fois, au demarrage. */
+export function reprendreLesReglages(jeu: Phaser.Game): void {
+  reprendreLesVolumes();
   try {
     muet = rangement()?.getItem(CLE_MUET) === "1";
   } catch {

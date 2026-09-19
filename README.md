@@ -31,8 +31,10 @@ sprites » plus bas).
 L'ecran-titre a **du son** : le vent, le feu, des cris au loin, le glas, puis la musique sous
 le titre. Le navigateur refusant tout son avant un premier clic, un ecran « clic ou touche
 pour entrer » passe avant le film quand il l'exige. Le haut-parleur en bas a gauche, ou la
-touche **M**, coupe le son. La bande-son se refait avec `npm run son` (sons libres de droits,
-credits dans `src/assets/son/CREDITS.md`).
+touche **M**, coupe le son ; **PARAMETRES** regle a part la musique, l'ambiance et les
+effets. La musique (« Lament of the War ») boucle sans couture : son intro passe une fois,
+puis deux minutes tournent sans fin. La bande-son se refait avec `npm run son` (sons libres
+de droits, credits dans `src/assets/son/CREDITS.md`).
 
 ### La sauvegarde et le compte (§4.28)
 
@@ -398,8 +400,8 @@ npx tsx scripts/capturer.ts apres      # le jeu qui tourne, par Playwright
 npx tsx scripts/capturer-villages.ts 1,7,42 # trois villages tires au sort, deux vues chacun
 npx tsx scripts/capturer-titre.ts apres # l'ecran-titre : film, meteorite, menu, emplacements
 npm run intro                          # refait le film d'ouverture (Blender + ffmpeg)
-npm run son                            # refait la bande-son du titre, et trois videos d'ecoute
-npm run son -- --musique 2             # ... avec la musique n° 2 dans le jeu (1, 2 ou 3)
+npm run son                            # refait la bande-son, boucle les musiques, fichiers d'ecoute
+npm run son -- --chercher              # ... en cherchant les raccords des musiques sur tout le morceau
 ```
 
 ⚠️ Un PNG depose dans `src/assets/` remplace le dessin au code sous la meme

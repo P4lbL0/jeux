@@ -680,9 +680,13 @@ Une planche de propositions a servi de test, et elle a fait remonter trois défa
   l'église et des cris de villageois au loin** (ni craquements ni hurlements de monstres) ;
   **trois musiques à écouter** sur le film, choisies à l'oreille. Le son du jeu lui-même
   reste la phase 2 (§4.10, §7)
-- [ ] **Laquelle des trois musiques du titre ?** Nappe sombre, orgue du cimetière ou
-      tambours de guerre : les trois vidéos sont dans `captures/son/2026-09-19-intro/`, la
-      nappe sombre est dans le jeu en attendant (`npm run son -- --musique 2` pour changer)
+- [x] ✅ **La musique du titre est la n° 3, « Lament of the War »** (19 septembre 2026) :
+      « j'aime beaucoup ». Elle doit **tourner en boucle sans qu'on entende la couture**,
+      être **réglable à part** (PARAMÈTRES), et servir **aussi pendant les attaques** en jeu
+      (§4.10)
+- [ ] **Quelles musiques calmes pour le jour ?** Trois candidates bouclées dans
+      `captures/son/2026-09-19-musiques/` : Village Ruins, Lament for a Warrior's Soul,
+      Medieval: Exploration. On peut en garder plusieurs, qui tourneraient à tour de rôle
 - ✅ **Aucun modèle d'image n'entre dans ce chantier**, et c'est mesuré : ComfyUI a donné moins
   bon que le code sous 96 px, et **aucun modèle ne place un pixel sur une grille**. L'IA garde
   sa place sur ce qui est grand et immobile — portraits, illustrations, écran-titre (§4.30)

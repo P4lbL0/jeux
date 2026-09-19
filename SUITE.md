@@ -1347,11 +1347,13 @@ murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
 3. ✅ **Le bloc 7a est fini, sauf le sol** (19 septembre 2026, voir sa section) : maisons
    destructibles, village en ruines au départ, survol, les quatre défauts d'affichage corrigés.
    Reste le sol du village (place, chemins, détails de vie), purement visuel.
-3b. ✅ **L'écran-titre a du son** (19 septembre 2026, voir sa section). **Reste à choisir la
-   musique** parmi les trois vidéos de `captures/son/2026-09-19-intro/` (la nappe sombre est
-   dans le jeu en attendant). **Phase 2, plus tard** : le son de la partie (musique de jeu,
-   cris, coups de hache — les animations émettent déjà leurs événements), et les curseurs de
-   PARAMÈTRES sur les trois pistes de `son.ts`.
+3b. ✅ **L'écran-titre a du son** (19 septembre 2026, voir sa section) : la musique de guerre
+   (« Lament of the War ») est choisie, bouclée sans couture, réglable à part dans
+   PARAMÈTRES (trois curseurs). **Reste à choisir les musiques calmes** parmi les trois de
+   `captures/son/2026-09-19-musiques/`. **Phase 2** : le son de la partie — calme le jour,
+   guerre pendant les attaques, en fondu enchaîné ; cris et coups de hache sur les
+   événements que les animations émettent déjà. Tout ce qui reste à coder est rassemblé
+   dans **`PROMPT-SUITE.md`**.
 4. **Jouer une vraie partie longue.** C'est ce que le cycle raccourci débloque : le stress,
    l'église, le port, les arrivées et la folie n'ont jamais tourné assez longtemps pour être
    jugés. Tous les chiffres du dépouillage sont faits pour être corrigés là.

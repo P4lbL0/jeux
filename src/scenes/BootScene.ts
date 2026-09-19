@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { ASSETS } from "../game/assets";
 import { INTRO, SON_INTRO } from "../game/intro";
-import { SONS_INTERFACE, reprendreLeMuet } from "../game/son";
+import { SONS_INTERFACE, reprendreLesReglages } from "../game/son";
 
 /**
  * Le prechargement, avant tout le reste.
@@ -41,7 +41,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    reprendreLeMuet(this.game);
+    reprendreLesReglages(this.game);
     if (ASSETS.length > 0) {
       console.log(`[boot] ${ASSETS.length} sprite(s) Blender : ils remplacent le dessin au code`);
     }

@@ -4,6 +4,7 @@ import { enLigneConfigure } from "../en-ligne/client";
 import { sessionCourante } from "../en-ligne/compte";
 import { C, T, POLICE, espacer, titreDuJeu } from "../game/ui/chrome";
 import { basculerLeMuet, bruitDInterface, estMuet, etouffer, jouer, type Voix } from "../game/son";
+import { PanneauSon } from "../game/panneauSon";
 
 /**
  * L'ecran-titre : le village qui brule, puis trois mots (DESIGN.md §4.10).
@@ -73,7 +74,7 @@ const SON = {
   sortie: 1.5,
 };
 
-type Etat = "entree" | "approche" | "menu" | "emplacements";
+type Etat = "entree" | "approche" | "menu" | "parametres" | "emplacements";
 
 interface Entree {
   texte: Phaser.GameObjects.Text;
@@ -99,6 +100,8 @@ export class TitreScene extends Phaser.Scene {
   /** La scene s'arrete : un son qui finit de charger ne doit plus partir. */
   private eteinte = false;
   private hautParleur!: Phaser.GameObjects.Graphics;
+  /** PARAMETRES : les trois volumes, par-dessus le village flou. */
+  private parametres!: PanneauSon;
   private zoneSon!: Phaser.GameObjects.Zone;
 
   /** Les objets du menu, fabriques une fois, montres et caches ensuite. */
@@ -130,6 +133,9 @@ export class TitreScene extends Phaser.Scene {
     this.voile = this.add.rectangle(0, 0, l, h, C.fer, 1).setOrigin(0).setAlpha(0).setDepth(10);
     this.noir = this.add.rectangle(0, 0, l, h, 0x000000, 1).setOrigin(0).setDepth(500);
     this.poserLeHautParleur();
+    this.parametres = new PanneauSon(this, () => {
+      if (this.etat === "parametres") this.montrerLeMenu();
+    });
 
     this.chargerLeFond();
     this.ecouterPourPasser();
@@ -386,7 +392,7 @@ export class TitreScene extends Phaser.Scene {
       // `repeat` : la touche tenue depuis l'ecran d'entree ne saute pas le film.
       if (e.repeat) return;
       if (e.key === "m" || e.key === "M") {
-        if (this.etat === "approche" || this.etat === "menu") this.basculerLeSon();
+        if (this.etat === "approche" || this.etat === "menu" || this.etat === "parametres") this.basculerLeSon();
         return;
       }
       if (this.etat === "approche") this.enchainer(true);
@@ -477,7 +483,7 @@ export class TitreScene extends Phaser.Scene {
     this.titreSonne = true;
     this.garder(jouer(this, SON_INTRO.titre.cle, "effets"));
     this.desQuePossible(SON_INTRO.musique.cle, () => {
-      this.garder(jouer(this, SON_INTRO.musique.cle, "musique", { boucle: true, fondu: SON.musique }));
+      this.garder(jouer(this, SON_INTRO.musique.cle, "musique", { boucle: SON_INTRO.musique.boucle, fondu: SON.musique }));
     });
   }
 
@@ -594,21 +600,21 @@ export class TitreScene extends Phaser.Scene {
 
     const entrees: [string, boolean, () => void][] = [
       ["JOUER", true, () => this.ouvrirLesEmplacements()],
-      ["PARAMETRES", false, () => undefined],
+      ["PARAMETRES", true, () => this.ouvrirLesParametres()],
       ["CREDITS", false, () => undefined],
     ];
     for (const [libelle, actif, action] of entrees) {
       const texte = this.add
         .text(0, 0, espacer(libelle), {
           fontFamily: POLICE,
-          fontSize: actif ? "24px" : "18px",
+          fontSize: libelle === "JOUER" ? "24px" : "18px",
           color: actif ? T.laiton : T.osMat,
         })
         .setOrigin(0.5)
         .setDepth(100);
       if (actif) {
         texte
-          .setShadow(2, 2, T.sangSeche, 0, true, true)
+          .setShadow(libelle === "JOUER" ? 2 : 1, libelle === "JOUER" ? 2 : 1, T.sangSeche, 0, true, true)
           .setInteractive({ useHandCursor: true })
           .on("pointerover", () => {
             texte.setColor(T.titre);
@@ -664,6 +670,7 @@ export class TitreScene extends Phaser.Scene {
     this.passer?.setPosition(l - 20, h - 18);
     this.porte?.setPosition(l / 2, h / 2);
     this.placerLeHautParleur();
+    this.parametres?.replacer();
 
     if (!this.titre || !this.sousTitre || !this.compte) return;
     this.titre.setPosition(l / 2, h * 0.3);
@@ -671,6 +678,15 @@ export class TitreScene extends Phaser.Scene {
     const depart = h * 0.3 + 118;
     this.entrees.forEach(({ texte }, i) => texte.setPosition(l / 2, depart + i * 40));
     this.compte.setPosition(l / 2, h - 22);
+  }
+
+  /** PARAMETRES : le menu s'efface, la plaque des volumes le remplace. */
+  private ouvrirLesParametres(): void {
+    if (this.etat !== "menu") return;
+    this.etat = "parametres";
+    bruitDInterface(this, "clic");
+    this.cacherLeMenu();
+    this.parametres.ouvrir();
   }
 
   // ---------------------------------------------------------- emplacements
