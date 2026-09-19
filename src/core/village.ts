@@ -78,6 +78,18 @@ export interface PlanVillage {
    * rien n'y pousse. Clefs `colonne,ligne`.
    */
   emprise: Set<string>;
+  /**
+   * Les cases de la place, son bord (l'enceinte) compris — sans la marge.
+   * C'est ce que le sol du village peint en terre battue (§4.24). Clefs
+   * `colonne,ligne`.
+   */
+  place: Set<string>;
+}
+
+/** Un bout de rue, en pixels du monde. */
+export interface Segment {
+  de: Point;
+  a: Point;
 }
 
 export const cleCase = (colonne: number, ligne: number): string => `${colonne},${ligne}`;
@@ -679,7 +691,69 @@ export function genererVillage(
     }
   }
 
-  return { graine, centre: caseCentre, enceinte, maisons, emprise };
+  return { graine, centre: caseCentre, enceinte, maisons, emprise, place };
+}
+
+/**
+ * Les rues du village (§4.24) : de l'eglise a la porte, puis de la porte au
+ * lieu qu'elle dessert — la plage, la mine, la foret, les champs, le port. Une
+ * cible qu'aucun mur ne separe de l'eglise (le flanc ouvert sur la mer, la
+ * foret) prend le chemin direct. Le sol les peint en chemins de terre.
+ *
+ * Pure : la scene ne fait que peindre ce qui en sort.
+ */
+export function tracerLesRues(plan: PlanVillage, eglise: Point, cibles: Point[]): Segment[] {
+  const portes = plan.enceinte
+    .filter((m) => m.piece === "porte")
+    .map((m) => Grille.centreCase(m.colonne, m.ligne));
+  const murs = new Set(
+    plan.enceinte.filter((m) => m.piece !== "porte").map((m) => cleCase(m.colonne, m.ligne)),
+  );
+  const distance = (p: Point, q: Point) => Math.hypot(p.x - q.x, p.y - q.y);
+
+  const segments: Segment[] = [];
+  const vus = new Set<string>();
+  const ajouter = (de: Point, a: Point) => {
+    const clef = `${de.x},${de.y}>${a.x},${a.y}`;
+    if (vus.has(clef)) return;
+    vus.add(clef);
+    segments.push({ de, a });
+  };
+
+  for (const cible of cibles) {
+    // Le chemin direct est toujours le plus court : on ne passe par une porte
+    // que si un mur est sur la ligne.
+    if (!traverseUnMur(eglise, cible, murs)) {
+      ajouter(eglise, cible);
+      continue;
+    }
+    let meilleure: Point | null = null;
+    let cout = Number.POSITIVE_INFINITY;
+    for (const porte of portes) {
+      const total = distance(eglise, porte) + distance(porte, cible);
+      if (total < cout) {
+        cout = total;
+        meilleure = porte;
+      }
+    }
+    if (!meilleure) continue;
+    ajouter(eglise, meilleure);
+    ajouter(meilleure, cible);
+  }
+  return segments;
+}
+
+/** Un segment croise-t-il une case de mur ? Echantillonne tous les 8 px. */
+function traverseUnMur(de: Point, a: Point, murs: Set<string>): boolean {
+  const longueur = Math.hypot(a.x - de.x, a.y - de.y);
+  const pas = Math.max(1, Math.ceil(longueur / 8));
+  for (let i = 0; i <= pas; i++) {
+    const t = i / pas;
+    const x = de.x + (a.x - de.x) * t;
+    const y = de.y + (a.y - de.y) * t;
+    if (murs.has(cleCase(Math.floor(x / CASE), Math.floor(y / CASE)))) return true;
+  }
+  return false;
 }
 
 /** Une graine de village neuve, tiree de l'horloge. */

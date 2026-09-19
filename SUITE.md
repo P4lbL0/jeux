@@ -2,7 +2,7 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-09-19, au soir. **518 tests verts.**
+> Dernière mise à jour : 2026-09-19, au soir. **524 tests verts.**
 >
 > ✅ **Le bloc 7z est fini et branché (10 septembre 2026) : tout ce qui se voit est dessiné
 > par le code, et il n'y a plus un seul PNG.** La direction est tranchée avec Angelos ce
@@ -1019,6 +1019,31 @@ demi-seconde. Un craquement du feu, 20 dB au-dessus du souffle, sonnait aussi fo
 cloche et dictait le volume de tout : les crêtes du feu sont arrondies (`adoucir`). **C'est à
 l'oreille d'Angelos de trancher le reste**, sur les trois vidéos d'écoute.
 
+### Le sol du village (fait le 19 septembre 2026, au soir)
+
+**La place en terre battue, les rues et le parvis pavé** (§4.24), peints **dans la carte
+cuite** une fois par partie, comme un dégât — aucun objet, aucun coût par image.
+`core/village.ts` expose `place` (les cases de la place, bord compris) et
+`tracerLesRues(plan, église, cibles)` : une rue de l'église à chaque lieu (plage, mine,
+forêt, champs, port), par une porte quand un mur barre la ligne, directe sinon (le flanc
+ouvert sur la mer). `dessin/carte.ts` garde la **carte vierge** en mémoire (12 Mo) et
+`dessinerLeSolDuVillage` repart d'elle à chaque partie — la place, les brûlures et les
+cratères de la partie d'avant s'en vont avec elle, ce qui était un défaut silencieux du `R`
+—, puis `peindreLeSolDuVillage` (pure, 4 tests) peint trois couches : la place (terre
+marbrée, bord qui tremble de ±8 px, usée par plaques), les rues (une bande de 12 px, un peu
+plus claire), le parvis (pavés de 6 px, joints sombres, d'autant plus de pavés manquants
+qu'on s'éloigne de l'église). La terre prend la clarté du pixel qu'elle recouvre : **le
+relief se voit encore**. Jamais sur l'eau ni la roche.
+
+⚠️ **Jugé sur capture, en deux passes** : au premier jet, un parvis de 60 px était une dalle
+grise qui mangeait le tiers du village ; ramené à 44 px, pierre teintée de terre, usé vers
+le bord. Captures `captures/jeu/2026-09-19-sol-du-village/graine-{1,7,42}-{loin,pres}.png`
+(`npx tsx scripts/capturer-villages.ts 1,7,42 <dossier>`). **Ce qui manque encore** : les
+détails de vie (puits, tonneaux, tas de bois, charrette — des sprites Blender) et les
+chemins qui s'usent à l'usage (30 passages / 4 journées : un système, pas un dessin).
+
+**524 tests verts** (+6), `tsc` passe.
+
 ### Les restes du dépouillage du 9 septembre (fait le 19 septembre 2026, au soir)
 
 **Les décisions d'Angelos, avant de coder** : sous 65 habitants les hordes de jour restent ce
@@ -1445,9 +1470,10 @@ murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
    noie** (§4.30, une règle, pas un dessin). Les ronds de poste, eux, **sont déjà partis** (le
    18 septembre, avec le générateur) ; ce qui manque encore, c'est ce qui devait les
    remplacer — la mine, le ponton et les bûches qui disent eux-mêmes où l'on travaille.
-3. ✅ **Le bloc 7a est fini, sauf le sol** (19 septembre 2026, voir sa section) : maisons
-   destructibles, village en ruines au départ, survol, les quatre défauts d'affichage corrigés.
-   Reste le sol du village (place, chemins, détails de vie), purement visuel.
+3. ✅ **Le bloc 7a est fini** (19 septembre 2026, voir sa section) : maisons destructibles,
+   village en ruines au départ, survol, les quatre défauts d'affichage corrigés — et **le sol
+   du village est peint** le soir même (place, rues, parvis, voir « Le sol du village »).
+   Restent les **détails de vie** et les chemins qui s'usent.
 3b. ✅ **L'écran-titre a du son** (19 septembre 2026, voir sa section) : la musique de guerre
    (« Lament of the War ») est choisie, bouclée sans couture, réglable à part dans
    PARAMÈTRES (trois curseurs). ✅ **La musique en partie est livrée** (le soir même, voir sa
@@ -1773,7 +1799,7 @@ Deux questions de fond sont fermées, après l'annonce du plugin Unity officiel 
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (518)
+npx vitest run   # les tests (524)
 npm run build    # vérifie les types et construit
 
 npx tsx scripts/capturer.ts apres   # les captures du jeu, par Playwright, toujours au même endroit

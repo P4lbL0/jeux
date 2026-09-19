@@ -22,7 +22,9 @@ import {
   decorParCle,
 } from "../game/dessin/decor";
 import { origineDe, textureDe } from "../game/constructions";
-import { abimerLeSol } from "../game/dessin/carte";
+import { abimerLeSol,
+  dessinerLeSolDuVillage,
+} from "../game/dessin/carte";
 import { oublierLesPortraits } from "../game/portraits";
 import {
   Double,
@@ -111,7 +113,9 @@ import {
 } from "../core/cycle";
 import { Village, type Villageois } from "../game/village";
 import { CASE, COLONNES, Grille, IMPOSENT_UNE_DISTANCE, LIGNES } from "../core/grille";
-import { cleCase, genererVillage, graineDeVillage, type PlanVillage } from "../core/village";
+import { cleCase, genererVillage, graineDeVillage, type PlanVillage,
+  tracerLesRues,
+} from "../core/village";
 import {
   CASES_LIBRES_AUTOUR_DES_BATIMENTS,
   CONSTRUCTIONS,
@@ -809,6 +813,14 @@ export class ArenaScene extends Phaser.Scene {
     // decor doit savoir ou est la place pour n'y rien planter (§4.24).
     this.planVillage = genererVillage(this.grille, this.graineVillage, EGLISE);
     console.log(`[arene] village = ${this.graineVillage}`);
+    // Le sol du village (§4.24) : la place en terre battue, les rues vers les
+    // portes et les lieux de travail, le parvis pave — peints dans la carte
+    // cuite, une fois, pour cette graine.
+    dessinerLeSolDuVillage(
+      this,
+      this.planVillage,
+      tracerLesRues(this.planVillage, EGLISE, [...POSTES.map((p) => p.position), { x: PORT.x, y: PORT.y }]),
+    );
     this.construireDecor();
 
     this.equipe = this.physics.add.group();

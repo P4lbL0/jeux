@@ -6,11 +6,13 @@ import {
   ligneDeMontagne,
   ligneDeSable,
   type Terrain,
+  EGLISE,
 } from "../../core/carte";
 import { C } from "../ui/couleurs";
 import { bruit, bruitLisse, ligneDeBruit } from "./bruit";
 import { releverLeRelief } from "./relief";
 import { BRULE, CRATERE, TERRE } from "./sol";
+import { cleCase, type PlanVillage, type Segment } from "../../core/village";
 import {
   EAU,
   EBOULIS,
@@ -462,8 +464,14 @@ export function cuireLaCarte(scene: Phaser.Scene): boolean {
   const carte = peindreLaCarte();
   ctx.putImageData(new ImageData(carte.pixels, carte.largeur, carte.hauteur), 0, 0);
   texture.refresh();
+  // La carte vierge reste en memoire : chaque partie repart d'elle avant d'y
+  // peindre son village (`dessinerLeSolDuVillage`). Douze Mo, une fois.
+  carteVierge = carte;
   return true;
 }
+
+/** La carte telle que cuite, avant tout village et tout degat. */
+let carteVierge: CartePeinte | null = null;
 
 /** Le nom du terrain d'un index, pour les tests. */
 export function terrainDIndex(index: number): Terrain {
@@ -585,4 +593,267 @@ export function abimerLeSol(
     rafraichissements.delete(scene);
     texture.refresh();
   });
+}
+
+// ------------------------------------------------------ le sol du village
+
+/**
+ * Le sol du village (§4.24, 19 septembre 2026) : **la place en terre battue**,
+ * **les rues** vers les portes et les lieux de travail, et **le parvis pave**
+ * autour de l'eglise, aux paves uses. Tout se peint dans la carte cuite, une
+ * fois par partie, comme un degat (§4.30 : « la place et les chemins
+ * reviennent comme etats de case ») — aucun objet, aucun cout par image.
+ *
+ * Les bords tremblent au bruit et la terre est marbree comme un degat ; le
+ * relief reste visible dessous, parce que la terre prend la clarte du pixel
+ * qu'elle recouvre. On ne peint que sur l'herbe, le sable et le sous-bois :
+ * jamais sur l'eau ni la roche.
+ */
+
+/** Les terrains sur lesquels un village foule son sol. */
+const TERRAINS_FOULES = new Set<Terrain>(["herbe", "sable", "sous-bois"]);
+
+/** Ce que le sol du village demande au peintre, en cases et en pixels du monde. */
+export interface SolDuVillage {
+  /** Les cases de la place, sans son bord — l'enceinte n'est pas de la terre. */
+  place: { colonne: number; ligne: number }[];
+  rues: Segment[];
+  /** Le parvis pave : son centre et son rayon. */
+  parvis: { x: number; y: number; rayon: number };
+}
+
+/**
+ * Le rayon du parvis, en pixels : un pas autour de l'eglise, pas une esplanade.
+ * A 60, mesure sur capture, la dalle grise mangeait le tiers du village.
+ */
+export const RAYON_DU_PARVIS = 44;
+
+/** La demi-largeur d'une rue, en pixels : un peu plus d'un tiers de case, avant le tremblement. */
+const DEMI_RUE = 6;
+
+/** Un pave fait six pixels, joint compris. */
+const PAVE = 6;
+
+/** La terre battue de la place : la terre, un peu sechee par le sable. */
+const PLACE: Matiere = {
+  sombre: melanger(TERRE.sombre, SABLE.sombre, 0.12),
+  corps: melanger(TERRE.corps, SABLE.corps, 0.12),
+  clair: melanger(TERRE.clair, SABLE.clair, 0.14),
+};
+
+/** La terre d'une rue : plus claire que la place, foulee et seche. */
+const RUE: Matiere = {
+  sombre: melanger(TERRE.sombre, SABLE.corps, 0.26),
+  corps: melanger(TERRE.corps, SABLE.corps, 0.3),
+  clair: melanger(TERRE.clair, SABLE.clair, 0.32),
+};
+
+/** Les paves du parvis : de la pierre qui a pris la couleur de la terre autour. */
+export const PAVES: Matiere = {
+  sombre: melanger(PIERRE.sombre, TERRE.sombre, 0.3),
+  corps: melanger(PIERRE.corps, TERRE.corps, 0.3),
+  clair: melanger(PIERRE.clair, TERRE.clair, 0.25),
+};
+
+const borner = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+function luminance(r: number, v: number, b: number): number {
+  return 0.299 * r + 0.587 * v + 0.114 * b;
+}
+
+function luminanceDe(couleur: number): number {
+  return luminance((couleur >> 16) & 0xff, (couleur >> 8) & 0xff, couleur & 0xff);
+}
+
+/**
+ * Peint le sol du village dans un tampon de pixels. **Pure**, testee.
+ *
+ * Trois couches, dans l'ordre : la place, les rues, le parvis. Chacune se
+ * fond dans le pixel qu'elle recouvre avec sa part, et prend sa clarte — la
+ * facette de relief se voit encore a travers la terre.
+ *
+ * @param sel une graine : deux villages n'ont pas les memes bords
+ */
+export function peindreLeSolDuVillage(carte: CartePeinte, sol: SolDuVillage, sel: number): void {
+  const { largeur, hauteur, pixels, terrains } = carte;
+
+  // La place, en cases : on lit vite « est-ce de la place ? ».
+  const place = new Set(sol.place.map((c) => cleCase(c.colonne, c.ligne)));
+  const dansLaPlace = (c: number, l: number) => place.has(cleCase(c, l));
+
+  /**
+   * La distance signee au bord de la place, en pixels : positive dedans,
+   * negative dehors, sur les quatre cotes de la case. `null` loin de tout.
+   */
+  const distanceAuBord = (x: number, y: number): number | null => {
+    const c = Math.floor(x / CASE);
+    const l = Math.floor(y / CASE);
+    const dedans = dansLaPlace(c, l);
+    const gauche = x - c * CASE;
+    const droite = (c + 1) * CASE - x;
+    const haut = y - l * CASE;
+    const bas = (l + 1) * CASE - y;
+    let d = Number.POSITIVE_INFINITY;
+    const cotes: [boolean, number][] = [
+      [dansLaPlace(c - 1, l), gauche],
+      [dansLaPlace(c + 1, l), droite],
+      [dansLaPlace(c, l - 1), haut],
+      [dansLaPlace(c, l + 1), bas],
+    ];
+    for (const [voisineDedans, distance] of cotes) {
+      if (voisineDedans !== dedans && distance < d) d = distance;
+    }
+    if (dedans) return d === Number.POSITIVE_INFINITY ? CASE : d;
+    return d === Number.POSITIVE_INFINITY ? null : -d;
+  };
+
+  const distanceAuSegment = (x: number, y: number, s: Segment): number => {
+    const dx = s.a.x - s.de.x;
+    const dy = s.a.y - s.de.y;
+    const longueur2 = dx * dx + dy * dy;
+    const t = longueur2 === 0 ? 0 : borner(((x - s.de.x) * dx + (y - s.de.y) * dy) / longueur2);
+    return Math.hypot(x - (s.de.x + dx * t), y - (s.de.y + dy * t));
+  };
+
+  // La boite de tout ce qui se peint, pour ne pas parcourir deux millions de pixels.
+  let x0 = largeur;
+  let y0 = hauteur;
+  let x1 = 0;
+  let y1 = 0;
+  const etendre = (ax: number, ay: number, bx: number, by: number) => {
+    x0 = Math.min(x0, ax);
+    y0 = Math.min(y0, ay);
+    x1 = Math.max(x1, bx);
+    y1 = Math.max(y1, by);
+  };
+  for (const c of sol.place) etendre(c.colonne * CASE - 8, c.ligne * CASE - 8, (c.colonne + 1) * CASE + 8, (c.ligne + 1) * CASE + 8);
+  for (const s of sol.rues) {
+    etendre(Math.min(s.de.x, s.a.x) - 10, Math.min(s.de.y, s.a.y) - 10, Math.max(s.de.x, s.a.x) + 10, Math.max(s.de.y, s.a.y) + 10);
+  }
+  etendre(sol.parvis.x - sol.parvis.rayon - 8, sol.parvis.y - sol.parvis.rayon - 8, sol.parvis.x + sol.parvis.rayon + 8, sol.parvis.y + sol.parvis.rayon + 8);
+  x0 = Math.max(0, Math.floor(x0));
+  y0 = Math.max(0, Math.floor(y0));
+  x1 = Math.min(largeur, Math.ceil(x1));
+  y1 = Math.min(hauteur, Math.ceil(y1));
+  if (x1 <= x0 || y1 <= y0) return;
+
+  const teinte = (m: Matiere, x: number, y: number, decalage: number): number => {
+    const v = bruitLisse(x + (sel + decalage) * 3, y + (sel + decalage) * 5, 5, 13);
+    return v < 0.38 ? m.sombre : v > 0.76 ? m.clair : m.corps;
+  };
+
+  for (let y = y0; y < y1; y += 1) {
+    for (let x = x0; x < x1; x += 1) {
+      const i = y * largeur + x;
+      const terrain = TERRAINS[terrains[i]!];
+      if (!terrain || !TERRAINS_FOULES.has(terrain)) continue;
+
+      // 1. La place : une terre battue au bord irregulier, usee par endroits.
+      let partPlace = 0;
+      const d = distanceAuBord(x, y);
+      if (d !== null) {
+        const tremblement = (bruitLisse(x, y, 9, sel + 1) - 0.5) * 16;
+        partPlace = borner((d - tremblement + 2) / 4);
+        const usure = bruitLisse(x, y, 16, sel + 3);
+        partPlace *= 0.7 + 0.3 * borner((usure - 0.25) / 0.25);
+      }
+
+      // 2. Les rues : une bande qui tremble d'un pixel ou deux.
+      let partRue = 0;
+      if (sol.rues.length > 0) {
+        let proche = Number.POSITIVE_INFINITY;
+        for (const s of sol.rues) {
+          const ds = distanceAuSegment(x, y, s);
+          if (ds < proche) proche = ds;
+        }
+        const demi = DEMI_RUE + (bruitLisse(x, y, 6, sel + 7) - 0.5) * 4;
+        partRue = borner((demi - proche + 1) / 3) * 0.92;
+      }
+
+      // 3. Le parvis : des paves a joints sombres, dont il manque d'autant
+      //    plus qu'on s'eloigne de l'eglise — la pierre se dissout dans la terre.
+      let partParvis = 0;
+      let couleurParvis = 0;
+      const dp = Math.hypot(x - sol.parvis.x, y - sol.parvis.y);
+      if (dp < sol.parvis.rayon + 8) {
+        const rayon = sol.parvis.rayon + (bruitLisse(x, y, 8, sel + 11) - 0.5) * 10;
+        partParvis = borner((rayon - dp + 2) / 4);
+        if (partParvis > 0) {
+          const rangee = Math.floor(y / PAVE);
+          const xx = x + (rangee % 2) * 3;
+          const u = ((xx % PAVE) + PAVE) % PAVE;
+          const v = ((y % PAVE) + PAVE) % PAVE;
+          const n = bruit(Math.floor(xx / PAVE), rangee, sel + 5);
+          const usure = 0.1 + 0.55 * (dp / sol.parvis.rayon) ** 2;
+          if (n < usure) couleurParvis = teinte(PLACE, x, y, 2); // un pave parti
+          else if (u === 0 || v === 0) couleurParvis = PAVES.sombre;
+          else if (n < 0.62) couleurParvis = PAVES.corps;
+          else if (n < 0.88) couleurParvis = PAVES.clair;
+          else couleurParvis = PAVES.sombre;
+        }
+      }
+
+      if (partPlace <= 0 && partRue <= 0 && partParvis <= 0) continue;
+
+      // La clarte du pixel d'origine, pour que le relief se voie encore.
+      const o = i * 4;
+      const r = pixels[o]!;
+      const g = pixels[o + 1]!;
+      const b = pixels[o + 2]!;
+      const base = luminanceDe(MATIERES[terrain].corps);
+      const facteur = base > 0 ? Math.max(0.78, Math.min(1.22, luminance(r, g, b) / base)) : 1;
+
+      let cr = r;
+      let cg = g;
+      let cb = b;
+      const poser = (couleur: number, part: number) => {
+        if (part <= 0) return;
+        const rr = Math.min(255, ((couleur >> 16) & 0xff) * facteur);
+        const gg = Math.min(255, ((couleur >> 8) & 0xff) * facteur);
+        const bb = Math.min(255, (couleur & 0xff) * facteur);
+        cr += (rr - cr) * part;
+        cg += (gg - cg) * part;
+        cb += (bb - cb) * part;
+      };
+      poser(teinte(PLACE, x, y, 0), partPlace);
+      poser(teinte(RUE, x, y, 1), partRue);
+      poser(couleurParvis, partParvis);
+
+      pixels[o] = Math.round(cr);
+      pixels[o + 1] = Math.round(cg);
+      pixels[o + 2] = Math.round(cb);
+    }
+  }
+}
+
+/**
+ * Peint le sol de ce village dans la carte du monde.
+ *
+ * La carte redevient d'abord vierge : la place de la partie d'avant, ses
+ * brulures et ses crateres s'en vont avec elle — la scene est reutilisee a
+ * chaque partie, la texture aussi.
+ */
+export function dessinerLeSolDuVillage(scene: Phaser.Scene, plan: PlanVillage, rues: Segment[]): void {
+  const texture = scene.textures.get(CLE_CARTE) as Phaser.Textures.CanvasTexture;
+  if (!texture || typeof texture.getContext !== "function" || !carteVierge) return;
+  const ctx = texture.getContext();
+  const { largeur, hauteur } = carteVierge;
+
+  ctx.putImageData(new ImageData(carteVierge.pixels, largeur, hauteur), 0, 0);
+  const image = ctx.getImageData(0, 0, largeur, hauteur);
+
+  const enceinte = new Set(plan.enceinte.map((m) => cleCase(m.colonne, m.ligne)));
+  const place = [...plan.place]
+    .filter((clef) => !enceinte.has(clef))
+    .map((clef) => {
+      const [colonne, ligne] = clef.split(",").map(Number) as [number, number];
+      return { colonne, ligne };
+    });
+  peindreLeSolDuVillage(
+    { largeur, hauteur, pixels: image.data as Uint8ClampedArray<ArrayBuffer>, terrains: carteVierge.terrains },
+    { place, rues, parvis: { x: EGLISE.x, y: EGLISE.y, rayon: RAYON_DU_PARVIS } },
+    plan.graine,
+  );
+  ctx.putImageData(image, 0, 0);
+  texture.refresh();
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { EGLISE, POSTES, terrainEn } from "./carte";
+import { EGLISE, PORT, POSTES, terrainEn } from "./carte";
 import { Grille } from "./grille";
-import { cleCase, genererVillage, MAISONS_DEBOUT_AU_DEPART, type PlanVillage } from "./village";
+import { cleCase, genererVillage, MAISONS_DEBOUT_AU_DEPART, tracerLesRues, type PlanVillage } from "./village";
 
 const grille = new Grille();
 // L'eglise est dans la grille avant le village, comme dans la scene.
@@ -159,6 +159,48 @@ describe("Le generateur de villages", () => {
     for (const plan of plans.values()) {
       for (const m of plan.enceinte) expect(plan.emprise.has(cleCase(m.colonne, m.ligne))).toBe(true);
       for (const m of plan.maisons) expect(plan.emprise.has(cleCase(m.colonne, m.ligne))).toBe(true);
+    }
+  });
+
+  it("expose la place : l'enceinte en est le bord, et tout tient dans l'emprise", () => {
+    for (const plan of plans.values()) {
+      expect(plan.place.size).toBeGreaterThan(plan.enceinte.length);
+      // L'enceinte est le bord de la place — sauf la jetee, poussee jusqu'a
+      // l'eau sur le sable, hors de la place : la plupart des pieces y sont.
+      const surLeBord = plan.enceinte.filter((m) => plan.place.has(cleCase(m.colonne, m.ligne))).length;
+      expect(surLeBord).toBeGreaterThanOrEqual(plan.enceinte.length * 0.75);
+      for (const clef of plan.place) expect(plan.emprise.has(clef)).toBe(true);
+      expect(plan.place.has(cleCase(plan.centre.colonne, plan.centre.ligne))).toBe(true);
+    }
+  });
+
+  it("trace une rue de l'eglise a chaque lieu, par une porte quand un mur barre la ligne", () => {
+    const cibles = [...POSTES.map((p) => p.position), { x: PORT.x, y: PORT.y }];
+    for (const plan of plans.values()) {
+      const rues = tracerLesRues(plan, EGLISE, cibles);
+      const portes = new Set(
+        plan.enceinte
+          .filter((m) => m.piece === "porte")
+          .map((m) => {
+            const c = Grille.centreCase(m.colonne, m.ligne);
+            return `${c.x},${c.y}`;
+          }),
+      );
+      const depart = (p: { x: number; y: number }) => `${p.x},${p.y}`;
+      expect(rues.length).toBeGreaterThan(0);
+      // Chaque rue part de l'eglise ou d'une porte, et chaque lieu est desservi.
+      for (const r of rues) {
+        expect(depart(r.de) === depart(EGLISE) || portes.has(depart(r.de))).toBe(true);
+      }
+      for (const cible of cibles) {
+        expect(rues.some((r) => r.a.x === cible.x && r.a.y === cible.y)).toBe(true);
+      }
+      // Une rue qui passe par une porte y fait bien deux segments.
+      for (const r of rues) {
+        if (portes.has(depart(r.a))) {
+          expect(rues.some((s) => depart(s.de) === depart(r.a))).toBe(true);
+        }
+      }
     }
   });
 });

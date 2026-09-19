@@ -37,7 +37,10 @@ Ce qui tourne vraiment, et qui est récent :
 - **Les restes du dépouillage** (19 septembre, au soir) : deux cases, seuil de 65 habitants
   (hordes continues au-delà), quatre actives (oublier ou acheter un emplacement), paliers de
   mur et de porte bois → fer segment par segment (la pierre attend le bloc 7b).
-- En dessous, un noyau de règles pur (`src/core/`) couvert par **518 tests**.
+- **Le sol du village** (19 septembre, au soir) : la place en terre battue, les rues vers les
+  lieux de travail, le parvis pavé, peints dans la carte cuite ; captures dans
+  `captures/jeu/2026-09-19-sol-du-village/`.
+- En dessous, un noyau de règles pur (`src/core/`) couvert par **524 tests**.
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
 
@@ -62,8 +65,10 @@ Dans l'ordre où je te le suggère ; c'est à moi de trancher l'ordre, propose-l
    soir (`SUITE.md`, « Les restes du dépouillage ») : deux cases, seuil de 65, quatre actives
    (oublier ou acheter ; la fusion attend le jalon 6.5), paliers bois → fer pour le mur et la
    porte. Reste de ce point : **la pierre**, avec sa ressource, au bloc 7b.
-2. **Le sol du village** (dernier reste du bloc 7a) : la place en terre battue, les chemins,
-   des détails de vie. Purement visuel : **à juger sur captures**, pas à décrire.
+2. ✅ **Le sol du village** — place, rues et parvis peints le 19 septembre au soir, jugés sur
+   captures. Restent les **détails de vie** (puits, tonneaux, tas de bois, charrette : des
+   sprites Blender à fabriquer) et les **chemins qui s'usent** (un système : 30 passages,
+   effacés en 4 journées).
 3. **Les restes du bloc 7z** : **l'eau qui noie** (on s'enfonce, une bulle prévient le héros
    incarné — un avertissement, jamais une mort surprise) et **la disparition des ronds de
    poste** (quand la mine, le ponton et les bûches disent eux-mêmes où l'on travaille).

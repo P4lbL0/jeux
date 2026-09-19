@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { MONDE, terrainEn } from "../../core/carte";
-import { classer, lignesDuMonde, peindreDegat, peindreLaCarte, terrainDIndex } from "./carte";
+import {
+  classer,
+  lignesDuMonde,
+  peindreDegat,
+  peindreLaCarte,
+  PAVES,
+  peindreLeSolDuVillage,
+  terrainDIndex,
+  type CartePeinte,
+} from "./carte";
 import { DECORS, peindreDecor } from "./decor";
 import { bruit, bruitLisse, ligneDeBruit } from "./bruit";
-import { EAU, SABLE, SOL_VERT, clarte, ecart } from "./palette";
+import { EAU, SABLE, SOL_VERT, clarte, ecart,
+} from "./palette";
 
 describe("Le bruit", () => {
   it("rend toujours la meme valeur pour les memes entrees, entre 0 et 1", () => {
@@ -127,5 +137,88 @@ describe("Le decor", () => {
   it("ne dessine jamais deux arbres identiques", () => {
     const rendus = DECORS.filter((d) => d.cle.includes("arbre")).map((d) => peindreDecor(d.cle).rendu());
     expect(new Set(rendus).size).toBe(rendus.length);
+  });
+});
+
+describe("Le sol du village", () => {
+  const CASE = 32;
+  const indexDe = (nom: string) => [0, 1, 2, 3, 4, 5, 6, 7].find((i) => terrainDIndex(i) === nom)!;
+
+  /** Une prairie de 8 x 8 cases, toute en herbe, au ton du corps de la matiere. */
+  const prairie = (): CartePeinte => {
+    const largeur = 8 * CASE;
+    const hauteur = 8 * CASE;
+    const pixels = new Uint8ClampedArray(new ArrayBuffer(largeur * hauteur * 4));
+    const terrains = new Uint8Array(largeur * hauteur).fill(indexDe("herbe"));
+    for (let i = 0; i < largeur * hauteur; i += 1) {
+      pixels[i * 4] = (SOL_VERT.corps >> 16) & 0xff;
+      pixels[i * 4 + 1] = (SOL_VERT.corps >> 8) & 0xff;
+      pixels[i * 4 + 2] = SOL_VERT.corps & 0xff;
+      pixels[i * 4 + 3] = 255;
+    }
+    return { largeur, hauteur, pixels, terrains };
+  };
+  const couleurEn = (carte: CartePeinte, x: number, y: number) => {
+    const o = (y * carte.largeur + x) * 4;
+    return ((carte.pixels[o]! << 16) | (carte.pixels[o + 1]! << 8) | carte.pixels[o + 2]!) >>> 0;
+  };
+
+  it("peint la place en terre, laisse la prairie autour, et jamais l'eau", () => {
+    const carte = prairie();
+    // Un pixel d'eau au milieu de la place : il reste tel quel.
+    const eau = (3 * CASE + 16) * carte.largeur + 2 * CASE + 16;
+    carte.terrains[eau] = indexDe("mer");
+    peindreLeSolDuVillage(
+      carte,
+      {
+        place: [
+          { colonne: 2, ligne: 2 },
+          { colonne: 3, ligne: 2 },
+          { colonne: 2, ligne: 3 },
+          { colonne: 3, ligne: 3 },
+        ],
+        rues: [],
+        parvis: { x: -500, y: -500, rayon: 1 },
+      },
+      42,
+    );
+    expect(couleurEn(carte, 2 * CASE + 16, 2 * CASE + 16)).not.toBe(SOL_VERT.corps);
+    expect(couleurEn(carte, 3 * CASE + 16, 3 * CASE + 16)).not.toBe(SOL_VERT.corps);
+    expect(couleurEn(carte, 2 * CASE + 16, 3 * CASE + 16)).toBe(SOL_VERT.corps);
+    expect(couleurEn(carte, 6 * CASE + 16, 6 * CASE + 16)).toBe(SOL_VERT.corps);
+    expect(couleurEn(carte, 16, 16)).toBe(SOL_VERT.corps);
+  });
+
+  it("trace une rue etroite le long de son segment, et rien a cote", () => {
+    const carte = prairie();
+    peindreLeSolDuVillage(
+      carte,
+      { place: [], rues: [{ de: { x: 16, y: 128 }, a: { x: 240, y: 128 } }], parvis: { x: -500, y: -500, rayon: 1 } },
+      7,
+    );
+    expect(couleurEn(carte, 128, 128)).not.toBe(SOL_VERT.corps);
+    expect(couleurEn(carte, 128, 128 + 20)).toBe(SOL_VERT.corps);
+    expect(couleurEn(carte, 128, 128 - 20)).toBe(SOL_VERT.corps);
+  });
+
+  it("pave le parvis : des joints sombres, des paves, et il en manque", () => {
+    const carte = prairie();
+    peindreLeSolDuVillage(carte, { place: [], rues: [], parvis: { x: 128, y: 128, rayon: 40 } }, 3);
+    const couleurs = new Set<number>();
+    for (let y = 100; y < 156; y += 1) for (let x = 100; x < 156; x += 1) couleurs.add(couleurEn(carte, x, y));
+    expect(couleurs.has(PAVES.sombre)).toBe(true);
+    expect(couleurs.has(PAVES.corps) || couleurs.has(PAVES.clair)).toBe(true);
+    expect(couleurs.size).toBeGreaterThan(3);
+    // Loin du parvis, la prairie.
+    expect(couleurEn(carte, 16, 16)).toBe(SOL_VERT.corps);
+  });
+
+  it("rend toujours le meme sol pour la meme graine", () => {
+    const a = prairie();
+    const b = prairie();
+    const sol = { place: [{ colonne: 2, ligne: 2 }], rues: [{ de: { x: 16, y: 16 }, a: { x: 200, y: 200 } }], parvis: { x: 128, y: 128, rayon: 30 } };
+    peindreLeSolDuVillage(a, sol, 11);
+    peindreLeSolDuVillage(b, sol, 11);
+    expect(Array.from(a.pixels)).toEqual(Array.from(b.pixels));
   });
 });
