@@ -75,6 +75,10 @@ l'onglet apres avoir perdu un heros ne le ramene pas.
 L'attaque, la visee et l'esquive sont **automatiques** : le joueur ne controle
 que le deplacement et ses ultimes.
 
+**Personne ne nage.** Seul le heros qu'on pilote peut entrer dans l'eau : il s'y enfonce et
+ralentit, une bulle le previent, et trois secondes de mer d'affilee le noient (§4.30).
+Ressortir avant remet tout a zero.
+
 ## Les ordres
 
 Gauche, c'est **moi** ; droite, c'est **les autres**. Le combat ne s'arrete

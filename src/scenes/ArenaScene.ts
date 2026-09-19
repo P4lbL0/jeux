@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { Noyade, REGLAGES_EAU, profondeurDe } from "../core/eau";
 import { Rng } from "../core/rng";
 import { CLASSES, ORDRE_CLASSES, type ClassId } from "../core/classes";
 import {
@@ -551,6 +552,10 @@ export class ArenaScene extends Phaser.Scene {
   private planVillage!: PlanVillage;
   /** Les rues du village, tracees avec le plan : le sol les peint, le decor s'en ecarte. */
   private ruesDuVillage: Segment[] = [];
+  /** L'eau qui noie (§4.30) : l'horloge du heros incarne sous la surface. */
+  private noyade = new Noyade();
+  /** La derniere position du heros incarne hors de l'abysse : on l'y ramene s'il y tombe. */
+  private dernierePositionTenable = { x: 0, y: 0 };
   /** Les murs et les tours (DESIGN.md §4.20) */
   constructions!: Constructions;
   /** Les champs de ble : ils poussent, et une horde les ruine (§4.18) */
@@ -852,6 +857,7 @@ export class ArenaScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, MONDE.largeur, MONDE.hauteur);
     this.cameras.main.setZoom(ZOOM_DEFAUT);
     this.cameras.main.startFollow(this.hero, true, 0.12, 0.12);
+    this.ouvrirLaMerAuHero(this.hero);
     this.configurerZoom();
     this.configurerTouches();
     this.configurerSouris();
@@ -1804,8 +1810,12 @@ export class ArenaScene extends Phaser.Scene {
 
     this.hero.estIncarne = false;
     this.hero.setVelocity(0, 0);
+    // Celui qu'on lache ressort de l'eau : l'IA n'y entre jamais, et ses limites
+    // redeviennent celles du monde, qui le ramenent sur la plage.
+    this.quitterLEau(this.hero);
     this.indexIncarne = index;
     cible.estIncarne = true;
+    this.ouvrirLaMerAuHero(cible);
     this.effacerDestination();
 
     this.cameras.main.startFollow(cible, true, 0.12, 0.12);
@@ -1830,6 +1840,7 @@ export class ArenaScene extends Phaser.Scene {
     if (this.enPause) return;
 
     this.musique.maj(delta, this.cycle.phase === "nuit");
+    this.majEau(delta);
 
     // Un reglage de propriete, pas un redessin : c'est tout ce que coute la mer
     // qui bouge (§4.17 regle 3).
@@ -2383,6 +2394,68 @@ export class ArenaScene extends Phaser.Scene {
           this.blesserEnnemi(e, degats, hero);
         }
       });
+    }
+  }
+
+  // -------------------------------------------------------------- l'eau
+
+  /**
+   * Le heros incarne est le seul a pouvoir entrer dans l'eau (§4.30) : ses
+   * limites s'etendent jusqu'au bord ouest du monde. L'abysse le rejette
+   * (`majEau`), la mer le noie — c'est la regle, pas un mur.
+   */
+  private ouvrirLaMerAuHero(hero: Hero): void {
+    const corps = hero.body as Phaser.Physics.Arcade.Body | null;
+    if (!corps) return;
+    corps.setBoundsRectangle(
+      new Phaser.Geom.Rectangle(0, PRATICABLE.y, PRATICABLE.x + PRATICABLE.largeur, PRATICABLE.hauteur),
+    );
+    this.noyade.reinitialiser();
+    this.dernierePositionTenable = { x: hero.x, y: hero.y };
+  }
+
+  /** Un heros qu'on ne pilote plus reprend les limites du monde, et ressort de l'eau. */
+  private quitterLEau(hero: Hero): void {
+    const corps = hero.body as Phaser.Physics.Arcade.Body | null;
+    corps?.setBoundsRectangle();
+    hero.facteurEau = 1;
+    hero.enfoncer(0);
+    this.noyade.reinitialiser();
+  }
+
+  /**
+   * L'eau qui noie, a chaque image hors pause (§4.30, tranche le 9 septembre
+   * 2026) : on s'enfonce (vitesse et image), une bulle previent en entrant
+   * dans la mer, une seconde insiste, et au bout de trois secondes on se noie.
+   * Jamais une mort surprise — et ressortir remet tout a zero.
+   */
+  private majEau(delta: number): void {
+    const hero = this.hero;
+    if (!hero || hero.etat === "mort") return;
+
+    const profondeur = profondeurDe(terrainEn(hero.x, hero.y));
+    if (profondeur === "abysse") {
+      // Personne ne nage : le large n'est pas praticable, on y est rejete.
+      hero.setPosition(this.dernierePositionTenable.x, this.dernierePositionTenable.y);
+      hero.setVelocity(0, 0);
+    } else {
+      this.dernierePositionTenable = { x: hero.x, y: hero.y };
+    }
+    hero.facteurEau = REGLAGES_EAU.vitesse[profondeur === "abysse" ? "mer" : profondeur];
+    hero.enfoncer(REGLAGES_EAU.enfoncement[profondeur]);
+
+    const bulle = this.noyade.avancer(delta, profondeur);
+    if (bulle === "coule") {
+      this.flotter(hero.x, hero.y - 26, "JE COULE !", "#ff8a7a");
+      this.events.emit("annonce", "je coule — trois secondes et je me noie", "heros", hero.personne.nom);
+    } else if (bulle === "se-noie") {
+      this.flotter(hero.x, hero.y - 26, "JE ME NOIE !", "#ff3b30");
+    } else if (bulle === "noye") {
+      this.events.emit("annonce", "s'est noye", "heros", hero.personne.nom);
+      hero.facteurEau = 1;
+      hero.enfoncer(0);
+      hero.pv = 0;
+      this.tomber(hero);
     }
   }
 
@@ -5588,6 +5661,7 @@ export class ArenaScene extends Phaser.Scene {
     }
     this.indexIncarne = suivant;
     this.heros[suivant]!.estIncarne = true;
+    this.ouvrirLaMerAuHero(this.heros[suivant]!);
     this.cameras.main.startFollow(this.heros[suivant]!, true, 0.12, 0.12);
     this.events.emit("hero-incarne", this.heros[suivant]!);
 

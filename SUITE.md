@@ -2,7 +2,7 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-09-19, au soir. **524 tests verts.**
+> Dernière mise à jour : 2026-09-19, au soir. **529 tests verts.**
 >
 > ✅ **Le bloc 7z est fini et branché (10 septembre 2026) : tout ce qui se voit est dessiné
 > par le code, et il n'y a plus un seul PNG.** La direction est tranchée avec Angelos ce
@@ -1019,6 +1019,36 @@ demi-seconde. Un craquement du feu, 20 dB au-dessus du souffle, sonnait aussi fo
 cloche et dictait le volume de tout : les crêtes du feu sont arrondies (`adoucir`). **C'est à
 l'oreille d'Angelos de trancher le reste**, sur les trois vidéos d'écoute.
 
+### L'eau qui noie (fait le 19 septembre 2026, au soir)
+
+**Le dernier reste du bloc 7z** (§4.30, tranché le 9 septembre : « on s'enfonce, une bulle
+prévient, on se noie au bout de 3 secondes »). `src/core/eau.ts` (neuf, pur, 5 tests) :
+`profondeurDe(terrain)` (sec, haut-fond, mer, abysse), `REGLAGES_EAU` (vitesse 1 / 0,6 /
+0,35, enfoncement 0 / 14 % / 40 % de la hauteur, seconde bulle à 2 s, noyade à 3 s) et
+`Noyade`, l'horloge qui rend « coule » à la première image en mer, « se-noie » à 2 s, « noye »
+à 3 s et repart de zéro dès qu'on ressort.
+
+**Dans le jeu** : `Hero.facteurEau` entre dans `vitesse`, `Hero.enfoncer(part)` rogne l'image
+par le bas (`setCrop`, la hitbox ne bouge pas). **Seul le héros incarné entre dans l'eau** :
+`ouvrirLaMerAuHero` lui donne des limites physiques étendues jusqu'au bord ouest
+(`Body.setBoundsRectangle`) ; on les lui retire quand on change de héros (`quitterLEau`), et
+les limites du monde le ramènent sur la plage. `majEau` à chaque image hors pause : l'abysse
+rejette (retour à la dernière position tenable), la profondeur règle vitesse et enfoncement,
+les bulles sont des textes flottants dans la voix du héros plus une ligne de journal, et la
+noyade passe par `tomber` — la Résurrection de l'Oracle peut donc encore sauver un noyé, comme
+n'importe quelle chute.
+
+**Vérifié en jouant** (`npx tsx scripts/verifier-eau.ts`, Playwright, aucune erreur
+console) : au sec rien ; sur le haut-fond 60 %, image rognée, pas de noyade en 3,6 s ; en mer
+35 % et la bulle tout de suite ; ressorti à 2,5 s, vivant et l'horloge repartie ; l'abysse
+rejette ; 3,6 s de mer et le héros s'est noyé, le journal le dit, le suivant est incarné.
+Captures `captures/jeu/2026-09-19-eau/{haut-fond,mer}.png`. **529 tests verts** (+5).
+
+⚠️ **Ce qui reste du §4.30 sur l'eau** : « on pêche depuis le port, et uniquement de là » —
+le poste de pêche sur la plage existe toujours (`POSTES`, `plage`). Et un projectile qui
+toucherait un héros dans l'eau le ferait tomber avec l'image rognée : `tomber` remet l'image
+entière avant l'animation de mort seulement pour le noyé.
+
 ### Le sol du village (fait le 19 septembre 2026, au soir)
 
 **La place en terre battue, les rues et le parvis pavé** (§4.24), peints **dans la carte
@@ -1476,10 +1506,10 @@ murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
    c) ✅ les **deux cases** ; d) ✅ le **seuil de 65** (hordes continues au-delà) ;
    e) ✅ les **quatre actives** (oublier ou acheter un emplacement ; la fusion au jalon 6.5) ;
    f) ✅ les **paliers de mur** bois → fer, mur et porte, segment par segment (la pierre au 7b).
-2. ✅ **Le bloc 7z est fini** (étage 4, le 10 septembre 2026). Ce qui en reste : **l'eau qui
-   noie** (§4.30, une règle, pas un dessin). Les ronds de poste, eux, **sont déjà partis** (le
-   18 septembre, avec le générateur) ; ce qui manque encore, c'est ce qui devait les
-   remplacer — la mine, le ponton et les bûches qui disent eux-mêmes où l'on travaille.
+2. ✅ **Le bloc 7z est fini, eau comprise** : l'étage 4 le 10 septembre 2026, **l'eau qui
+   noie** le 19 septembre au soir (voir sa section). Les ronds de poste sont partis le
+   18 septembre ; ce qui manque encore, c'est ce qui devait les remplacer — la mine, le ponton
+   et les bûches qui disent eux-mêmes où l'on travaille.
 3. ✅ **Le bloc 7a est fini** (19 septembre 2026, voir sa section) : maisons destructibles,
    village en ruines au départ, survol, les quatre défauts d'affichage corrigés — et **le sol
    du village est peint** le soir même (place, rues, parvis, voir « Le sol du village »).
@@ -1809,7 +1839,7 @@ Deux questions de fond sont fermées, après l'annonce du plugin Unity officiel 
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (524)
+npx vitest run   # les tests (529)
 npm run build    # vérifie les types et construit
 
 npx tsx scripts/capturer.ts apres   # les captures du jeu, par Playwright, toujours au même endroit

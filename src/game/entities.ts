@@ -360,8 +360,28 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       this.multiplicateurVitesse *
       this.bonusCite *
       // Une jambe brisee coute 25 % de vitesse, un Vif en rend 8 %.
-      this.personne.mods.vitesse
+      this.personne.mods.vitesse *
+      // L'eau : on s'y enfonce, on y avance mal (§4.30). 1 au sec.
+      this.facteurEau
     );
+  }
+
+  /** Ce qu'il reste de la vitesse dans l'eau (§4.30) : 1 au sec, 0,6 sur le haut-fond, 0,35 en mer. */
+  facteurEau = 1;
+
+  /**
+   * L'eau le cache jusque-la : une part de sa hauteur, rognee par le bas. Le
+   * corps physique ne bouge pas (les hitbox ne bougent jamais) — seule l'image
+   * s'enfonce. 0 : au sec, plus de rognage.
+   */
+  enfoncer(part: number): void {
+    if (part <= 0) {
+      if (this.isCropped) this.setCrop();
+      return;
+    }
+    const largeur = this.frame.realWidth;
+    const hauteur = this.frame.realHeight;
+    this.setCrop(0, 0, largeur, Math.max(1, Math.round(hauteur * (1 - part))));
   }
 
   /**

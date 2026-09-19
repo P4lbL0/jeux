@@ -40,7 +40,9 @@ Ce qui tourne vraiment, et qui est récent :
 - **Le sol du village** (19 septembre, au soir) : la place en terre battue, les rues vers les
   lieux de travail, le parvis pavé, peints dans la carte cuite ; captures dans
   `captures/jeu/2026-09-19-sol-du-village/`.
-- En dessous, un noyau de règles pur (`src/core/`) couvert par **524 tests**.
+- **L'eau qui noie** (19 septembre, au soir) : seul le héros incarné entre dans l'eau, il
+  s'y enfonce et ralentit, une bulle prévient, et trois secondes de mer le noient.
+- En dessous, un noyau de règles pur (`src/core/`) couvert par **529 tests**.
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
 
@@ -69,9 +71,9 @@ Dans l'ordre où je te le suggère ; c'est à moi de trancher l'ordre, propose-l
    bois, charrette, en sprites Blender) le 19 septembre au soir, jugés sur captures. Restent
    les cordes à linge, les filets et le feu, et les **chemins qui s'usent** (un système : 30
    passages, effacés en 4 journées).
-3. **Les restes du bloc 7z** : **l'eau qui noie** (on s'enfonce, une bulle prévient le héros
-   incarné — un avertissement, jamais une mort surprise) et **la disparition des ronds de
-   poste** (quand la mine, le ponton et les bûches disent eux-mêmes où l'on travaille).
+3. ✅ **L'eau qui noie** — fait le 19 septembre au soir (`SUITE.md`, « L'eau qui noie »).
+   Les ronds de poste sont partis le 18 septembre ; reste ce qui devait les remplacer — la
+   mine, le ponton et les bûches qui disent eux-mêmes où l'on travaille.
 
 ### B. Le son, phase 2
 
