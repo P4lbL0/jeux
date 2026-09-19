@@ -672,7 +672,17 @@ Une planche de propositions a servi de test, et elle a fait remonter trois défa
 - ✅ **Le son reste hors périmètre, mais les animations lui laissent la place** : chaque
   animation émet un **événement nommé** (coup de pioche, hache, toux, semis, chute d'arbre).
   Le jour où le bloc 10 branche les volumes, il n'y a que des fichiers à poser. Coût
-  aujourd'hui : zéro (§4.30, §7, §4.10)
+  aujourd'hui : zéro (§4.30, §7, §4.10). ⚠️ **Sauf l'écran-titre, depuis le 19 septembre
+  2026** — voir l'entrée suivante.
+- ✅ **L'écran-titre a du son** (19 septembre 2026, quatre réponses d'Angelos) : un écran
+  « clic ou touche pour entrer » **quand le navigateur l'exige**, pour que le film ait son son
+  dès la première image ; des sons **libres de droits (CC0)** ; pendant le film, **le glas de
+  l'église et des cris de villageois au loin** (ni craquements ni hurlements de monstres) ;
+  **trois musiques à écouter** sur le film, choisies à l'oreille. Le son du jeu lui-même
+  reste la phase 2 (§4.10, §7)
+- [ ] **Laquelle des trois musiques du titre ?** Nappe sombre, orgue du cimetière ou
+      tambours de guerre : les trois vidéos sont dans `captures/son/2026-09-19-intro/`, la
+      nappe sombre est dans le jeu en attendant (`npm run son -- --musique 2` pour changer)
 - ✅ **Aucun modèle d'image n'entre dans ce chantier**, et c'est mesuré : ComfyUI a donné moins
   bon que le code sous 96 px, et **aucun modèle ne place un pixel sur une grille**. L'IA garde
   sa place sur ce qui est grand et immobile — portraits, illustrations, écran-titre (§4.30)

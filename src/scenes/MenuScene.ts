@@ -13,6 +13,7 @@ import { ecrireEnLocal, effacerEnLocal, inventaire } from "../game/sauvegarde";
 import { ADRESSE_DU_SITE, seConnecter, seDeconnecter, sessionCourante } from "../en-ligne/compte";
 import { enLigneConfigure } from "../en-ligne/client";
 import { charger, effacer as effacerCloud } from "../en-ligne/sauvegardeCloud";
+import { bruitDInterface } from "../game/son";
 import {
   C,
   T,
@@ -379,6 +380,7 @@ export class MenuScene extends Phaser.Scene {
             evenement: Phaser.Types.Input.EventData,
           ) => {
             evenement.stopPropagation();
+            bruitDInterface(this, "clic");
             this.effacer(emplacement);
           },
         );
@@ -388,6 +390,7 @@ export class MenuScene extends Phaser.Scene {
       .zone(x, y + HAUTEUR_TITRE, largeur, hauteur - HAUTEUR_TITRE)
       .setOrigin(0)
       .setInteractive({ useHandCursor: true })
+      .on("pointerover", () => bruitDInterface(this, "survol"))
       .on("pointerdown", () => this.ouvrir(emplacement));
   }
 
@@ -442,7 +445,11 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
-      .on("pointerdown", action);
+      .on("pointerover", () => bruitDInterface(this, "survol"))
+      .on("pointerdown", () => {
+        bruitDInterface(this, "clic");
+        action();
+      });
   }
 
   // -------------------------------------------------------------- connexion
@@ -654,6 +661,7 @@ export class MenuScene extends Phaser.Scene {
   // ---------------------------------------------------------------- conflits
 
   private ouvrir(emplacement: Emplacement): void {
+    bruitDInterface(this, "clic");
     const local = this.local.get(emplacement) ?? null;
     const enLigne = this.cloud.get(emplacement) ?? null;
     const divergence = comparer(local, enLigne);
@@ -799,7 +807,11 @@ export class MenuScene extends Phaser.Scene {
       .zone(x, y, largeur, hauteur)
       .setOrigin(0)
       .setInteractive({ useHandCursor: true })
-      .on("pointerdown", action);
+      .on("pointerover", () => bruitDInterface(this, "survol"))
+      .on("pointerdown", () => {
+        bruitDInterface(this, "clic");
+        action();
+      });
   }
 
   // ----------------------------------------------------------------- lancer

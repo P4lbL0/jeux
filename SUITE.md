@@ -980,6 +980,45 @@ fiche, plus sombres qu'avant ; et les taches du sol, qu'on peut encore adoucir.
 ne lit plus `def.texture`. Le core ne se touche pas pour du visuel ; le jour où on y entre pour
 la règle d'amélioration des murs, ces deux champs sont à retirer.
 
+### Le son de l'écran-titre (fait le 19 septembre 2026)
+
+**Les décisions d'Angelos, avant de coder** : un écran « clic ou touche pour entrer » quand le
+navigateur l'exige (sinon le film ne peut pas avoir de son au premier lancement) ; des sons
+**libres de droits (CC0)** ; pendant le film, **le glas et des cris de villageois au loin** ;
+**trois musiques à écouter** avant de choisir. Le son du jeu lui-même est la phase 2. Détail au
+§4.10, « Le son ».
+
+**`src/game/son.ts`** (neuf) : trois pistes (musique, ambiance, effets) branchées sur la sortie
+de Phaser, un **étouffoir** (passe-bas) sur l'ambiance, le muet retenu dans le `localStorage`
+(`protecteur:son:muet`). Phaser charge et déverrouille ; ce module ne fait que brancher, parce
+que `this.sound.play()` ne laisse aucune place pour une piste ou un filtre. `jouer` rend `null`
+sans rien jouer quand le son est verrouillé, absent, ou pas chargé.
+
+**`TitreScene`** : l'état `entree` (l'écran noir, quand `this.sound.locked`), la piste du film
+partie sur `VIDEO_PLAY` (la première image vraiment affichée), le feu du menu et l'étouffoir
+quand l'image se trouble, le glas et la musique quand le titre se pose — une seule fois —, le
+haut-parleur dessiné au trait en bas à gauche, la touche M, et tout qui s'éteint en 1,5 s quand
+une partie commence. La musique et le feu (les gros fichiers) se chargent **pendant** le film.
+**`MenuScene`** : survol et clic sur les emplacements et les liens.
+
+**`scripts/son/`** (`npm run son`) : les sources dans `.tmp/son/sources/` (OpenGameArt, onze
+secondes entre deux requêtes ; Kenney), une petite table de mixage en mémoire (`dsp.ts` :
+placer, filtrer, réverbérer, boucler), la cloche et le grondement du feu fabriqués
+(`synthese.ts`), l'encodage OGG + MP3 dans `src/assets/son/`, les trois vidéos d'écoute dans
+`captures/son/2026-09-19-intro/`, et `CREDITS.md`.
+
+⚠️ **Ce qui a été écarté, et pourquoi** : Freesound interdit les robots sur ses recherches (et
+nommément ceux d'Anthropic) ; BigSoundBank interdit aux robots ses fichiers audio ; les glas de
+Wikimedia Commons sont en CC-BY-SA ou inutilisables (une cloche noyée dans le grondement du
+micro). D'où la cloche fabriquée : les partiels d'une vraie cloche d'église (bourdon,
+fondamentale, **tierce mineure**, quinte, nominale…), chacun en doublet qui bat, chacun avec sa
+durée de vie.
+
+⚠️ **Mesuré, pas écouté** : le mixage a été réglé sur les niveaux mesurés, demi-seconde par
+demi-seconde. Un craquement du feu, 20 dB au-dessus du souffle, sonnait aussi fort qu'une
+cloche et dictait le volume de tout : les crêtes du feu sont arrondies (`adoucir`). **C'est à
+l'oreille d'Angelos de trancher le reste**, sur les trois vidéos d'écoute.
+
 ### Le bloc 7a, seconde moitié — les maisons se cassent, le village démarre en ruines (fait le 19 septembre 2026)
 
 **Les décisions d'Angelos, avant de coder** : trois maisons debout au départ, les plus près de
@@ -1308,6 +1347,11 @@ murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
 3. ✅ **Le bloc 7a est fini, sauf le sol** (19 septembre 2026, voir sa section) : maisons
    destructibles, village en ruines au départ, survol, les quatre défauts d'affichage corrigés.
    Reste le sol du village (place, chemins, détails de vie), purement visuel.
+3b. ✅ **L'écran-titre a du son** (19 septembre 2026, voir sa section). **Reste à choisir la
+   musique** parmi les trois vidéos de `captures/son/2026-09-19-intro/` (la nappe sombre est
+   dans le jeu en attendant). **Phase 2, plus tard** : le son de la partie (musique de jeu,
+   cris, coups de hache — les animations émettent déjà leurs événements), et les curseurs de
+   PARAMÈTRES sur les trois pistes de `son.ts`.
 4. **Jouer une vraie partie longue.** C'est ce que le cycle raccourci débloque : le stress,
    l'église, le port, les arrivées et la folie n'ont jamais tourné assez longtemps pour être
    jugés. Tous les chiffres du dépouillage sont faits pour être corrigés là.

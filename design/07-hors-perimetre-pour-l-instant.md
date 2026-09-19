@@ -10,7 +10,8 @@ Noté pour ne pas l'oublier, mais **on n'y touche pas** :
 - Simulation du village hors-ligne
 - Serveur de leaderboard (le score, lui, est compté dès le début — §4.9)
 - Sortie sur Steam / packaging en exécutable
-- Son et musique
+- Son et musique **dans la partie** — l'écran-titre a les siens depuis le 19 septembre 2026
+  (§4.10, « Le son ») ; le reste (musique de jeu, cris, coups de hache…) est la phase 2
 - **Les égouts** — noté le 11 août 2026, et **rangé ici par ta propre note** (« bien plus
   tard »). Ce que ça voudrait dire, pour qu'on sache ce qu'on reporte : un **deuxième
   niveau de carte** sous le village, donc une deuxième grille, un deuxième jeu de
