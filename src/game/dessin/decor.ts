@@ -1,7 +1,12 @@
 import type Phaser from "phaser";
 import { Toile } from "./pinceau";
 import { bruit } from "./bruit";
-import { ECORCE, FEUILLE, PIERRE, ROCHE, melanger, type Matiere } from "./palette";
+import { ECORCE, FEUILLE, PIERRE, ROCHE, melanger, type Matiere,
+  ARDOISE,
+  BOIS,
+  EAU,
+  FER,
+} from "./palette";
 
 /**
  * Le decor qui pousse et qui traine : arbres, rochers, souches (DESIGN.md §4.30).
@@ -40,6 +45,13 @@ export interface Decor {
 const ARBRE = { largeur: 40, hauteur: 46, pied: 40 };
 const ROCHER = { largeur: 28, hauteur: 20, pied: 16 };
 const SOUCHE = { largeur: 14, hauteur: 14, pied: 10 };
+// Les details de vie (§4.24, 19 septembre 2026), rendus par Blender comme le
+// reste du decor : un puits, un tonneau, un tas de bois, une charrette. Les
+// tailles sont celles de `rendre.py` (le pied y est un de plus).
+const PUITS = { largeur: 26, hauteur: 30, pied: 26 };
+const TONNEAU = { largeur: 14, hauteur: 16, pied: 13 };
+const TAS_DE_BOIS = { largeur: 26, hauteur: 18, pied: 15 };
+const CHARRETTE = { largeur: 36, hauteur: 22, pied: 19 };
 
 /** Les arbres morts, les vivants, les coniferes, les rochers : leurs cles. */
 export const ARBRES_MORTS = [0, 1, 2, 3].map((i) => `decor-arbre-mort-${i}`);
@@ -47,6 +59,10 @@ export const ARBRES_VIVANTS = [0, 1, 2].map((i) => `decor-arbre-${i}`);
 export const CONIFERES = [0, 1].map((i) => `decor-conifere-${i}`);
 export const ROCHERS = [0, 1, 2].map((i) => `decor-rocher-${i}`);
 export const CLE_SOUCHE = "decor-souche";
+export const CLE_PUITS = "decor-puits";
+export const CLE_TONNEAU = "decor-tonneau";
+export const CLE_TAS_DE_BOIS = "decor-tas-de-bois";
+export const CLE_CHARRETTE = "decor-charrette";
 
 /** Tous les arbres, morts et vivants, pour semer une foret. */
 export const ARBRES = [...ARBRES_MORTS, ...ARBRES_VIVANTS, ...CONIFERES];
@@ -254,6 +270,10 @@ export const DECORS: readonly Decor[] = [
   ...CONIFERES.map((cle) => decor(cle, ARBRE)),
   ...ROCHERS.map((cle) => decor(cle, ROCHER)),
   decor(CLE_SOUCHE, SOUCHE),
+  decor(CLE_PUITS, PUITS),
+  decor(CLE_TONNEAU, TONNEAU),
+  decor(CLE_TAS_DE_BOIS, TAS_DE_BOIS),
+  decor(CLE_CHARRETTE, CHARRETTE),
 ];
 
 export function decorParCle(cle: string): Decor {
@@ -269,9 +289,50 @@ export function peindreDecor(cle: string): Toile {
   else if (cle.startsWith("decor-arbre")) peindreArbreVivant(toile, index);
   else if (cle.startsWith("decor-conifere")) peindreConifere(toile, index);
   else if (cle.startsWith("decor-rocher")) peindreRocher(toile, index);
+  else if (cle === CLE_PUITS) peindrePuits(toile);
+  else if (cle === CLE_TONNEAU) peindreTonneau(toile);
+  else if (cle === CLE_TAS_DE_BOIS) peindreTasDeBois(toile);
+  else if (cle === CLE_CHARRETTE) peindreCharrette(toile);
   else peindreSouche(toile);
   toile.contour();
   return toile;
+}
+
+// ------------------------------------------------- les details de vie, en secours
+
+/** Le secours du puits : le toit, deux poteaux, la margelle et l'eau. */
+function peindrePuits(t: Toile): void {
+  const { pied } = PUITS;
+  t.rect(4, 3, 18, 3, ARDOISE.sombre);
+  t.rect(6, 6, 2, pied - 12, BOIS.corps);
+  t.rect(18, 6, 2, pied - 12, BOIS.corps);
+  t.rect(5, pied - 8, 16, 7, PIERRE.corps);
+  t.rect(8, pied - 7, 10, 3, EAU.corps);
+}
+
+/** Le secours du tonneau : une douve et deux cercles. */
+function peindreTonneau(t: Toile): void {
+  const { pied } = TONNEAU;
+  t.rect(3, pied - 11, 8, 10, BOIS.corps);
+  t.rect(3, pied - 9, 8, 1, FER.corps);
+  t.rect(3, pied - 4, 8, 1, FER.corps);
+}
+
+/** Le secours du tas de bois : trois rangs de buches. */
+function peindreTasDeBois(t: Toile): void {
+  const { pied } = TAS_DE_BOIS;
+  t.rect(3, pied - 4, 20, 3, ECORCE.corps);
+  t.rect(3, pied - 8, 20, 3, ECORCE.sombre);
+  t.rect(5, pied - 12, 16, 3, ECORCE.corps);
+}
+
+/** Le secours de la charrette : la caisse, deux roues, les brancards. */
+function peindreCharrette(t: Toile): void {
+  const { pied } = CHARRETTE;
+  t.rect(12, pied - 10, 18, 7, BOIS.corps);
+  t.disque(16, pied - 3, 3, ECORCE.sombre);
+  t.disque(27, pied - 3, 3, ECORCE.sombre);
+  t.rect(3, pied - 5, 9, 1, BOIS.sombre);
 }
 
 /**

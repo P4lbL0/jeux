@@ -1038,9 +1038,19 @@ relief se voit encore**. Jamais sur l'eau ni la roche.
 ⚠️ **Jugé sur capture, en deux passes** : au premier jet, un parvis de 60 px était une dalle
 grise qui mangeait le tiers du village ; ramené à 44 px, pierre teintée de terre, usé vers
 le bord. Captures `captures/jeu/2026-09-19-sol-du-village/graine-{1,7,42}-{loin,pres}.png`
-(`npx tsx scripts/capturer-villages.ts 1,7,42 <dossier>`). **Ce qui manque encore** : les
-détails de vie (puits, tonneaux, tas de bois, charrette — des sprites Blender) et les
-chemins qui s'usent à l'usage (30 passages / 4 journées : un système, pas un dessin).
+(`npx tsx scripts/capturer-villages.ts 1,7,42 <dossier>`). **Les détails de vie** sont venus dans
+la foulée : quatre objets de plus dans l'atelier Blender (`scripts/blender/monde.py` :
+`puits`, `tonneau`, `tas_de_bois`, `charrette` ; tailles dans `rendre.py` et `decor.ts`,
+avec un dessin de secours), rendus par `npm run sprites -- decor-puits decor-tonneau
+decor-tas-de-bois decor-charrette`, et posés par `poserLesDetailsDeVie` : le puits à trois
+cases de l'église dans la première direction libre, des tonneaux à droite et du bois à gauche
+des maisons debout (pas toutes), une charrette en retrait de la première rue qui sort par une
+porte — jamais sur une rue, jamais sur une case prise, tirés de la graine du village. Jugés
+sur planche agrandie : les roues de la charrette, en bois comme la caisse, se fondaient
+dedans — passées en écorce. ⚠️ **Du décor, pas des objets** : ils ne suivent pas une maison
+qu'on déplace ou démolit, on peut bâtir dessus, rien n'est sauvé. **Ce qui manque encore** :
+les cordes à linge, les filets et le feu, et les chemins qui s'usent à l'usage (30 passages
+/ 4 journées : un système, pas un dessin).
 
 **524 tests verts** (+6), `tsc` passe.
 

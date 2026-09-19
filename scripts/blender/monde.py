@@ -311,3 +311,60 @@ def souche(a, graine=0):
     a.cone("ecorce", 0.3, 0.45, (0, 0, 0), cotes=6, r_haut=0.26)
     a.branche("ecorce", (0.2, 0, 0.05), (0.55, -0.1, 0.02), 0.07)
     return (0, 0)
+
+
+# ----------------------------------------------------- les details de vie
+# Les objets qui font qu'un village a l'air habite (§4.24, 19 septembre 2026) :
+# un puits sur la place, des tonneaux et du bois contre les maisons, une
+# charrette pres d'une porte. Petits, poses au sol, dans les matieres du jeu.
+
+def puits(a):
+    """Une margelle de pierre a huit pans, l'eau dedans, deux poteaux et un petit toit."""
+    a.cone("pierre", 0.7, 0.55, (0, 0, 0), cotes=8, r_haut=0.64)
+    a.cone("eau", 0.5, 0.5, (0, 0, 0.08), cotes=8, r_haut=0.5)
+    for x in (-0.6, 0.6):
+        a.boite("bois", (0.12, 0.12, 1.55), (x, 0, 0.775))
+    a.boite("bois", (1.32, 0.09, 0.09), (0, 0, 1.5))
+    a.toit("ardoise", 0, 1.5, 0.9, 1.55, 0.42, deb=0.08, ep=0.06)
+    a.boite("fer", (0.24, 0.24, 0.26), (0.15, 0, 1.0))
+    return (0, -0.7)
+
+
+def tonneau(a):
+    """Un tonneau ventru : deux troncs de cone bout a bout, deux cercles de fer."""
+    a.cone("bois", 0.29, 0.4, (0, 0, 0), cotes=8, r_haut=0.36)
+    a.cone("bois", 0.36, 0.4, (0, 0, 0.4), cotes=8, r_haut=0.29)
+    a.cone("fer", 0.335, 0.07, (0, 0, 0.14), cotes=8, r_haut=0.35)
+    a.cone("fer", 0.35, 0.07, (0, 0, 0.59), cotes=8, r_haut=0.335)
+    return (0, -0.36)
+
+
+def tas_de_bois(a):
+    """Six buches couchees, en trois rangs qui se resserrent."""
+    rangs = [(-0.34, 0.16), (0.0, 0.16), (0.34, 0.16), (-0.17, 0.44), (0.17, 0.44), (0.0, 0.72)]
+    for i, (y, z) in enumerate(rangs):
+        long = 1.5 + (0.1 if i % 2 else -0.05)
+        o = a.cone("ecorce", 0.16, long, (0, y, z - long / 2), cotes=7, r_haut=0.16)
+        o.rotation_euler = (0, math.pi / 2, 0)
+    return (0, -0.5)
+
+
+def charrette(a):
+    """Une charrette a deux roues, ses brancards poses a terre vers la gauche."""
+    L, P, H = 1.7, 0.95, 0.42
+    a.boite("bois", (L, P, 0.08), (0, 0, 0.5))
+    for y in (-P / 2, P / 2):
+        a.boite("bois", (L, 0.06, H), (0, y, 0.5 + H / 2))
+    a.boite("bois", (0.06, P, H), (L / 2, 0, 0.5 + H / 2))
+    # les roues en ecorce, plus sombres que la caisse : en bois, elles se
+    # fondaient dedans (juge sur planche)
+    for y in (-P / 2 - 0.09, P / 2 + 0.09):
+        o = a.cone("ecorce", 0.42, 0.1, (0.1, y, 0.42 - 0.05), cotes=10, r_haut=0.42)
+        o.rotation_euler = (math.pi / 2, 0, 0)
+        o.location = (0.1, y, 0.42)
+        h = a.cone("fer", 0.1, 0.16, (0.1, y, 0.42 - 0.08), cotes=6, r_haut=0.1)
+        h.rotation_euler = (math.pi / 2, 0, 0)
+        h.location = (0.1, y, 0.42)
+    for y in (-0.3, 0.3):
+        a.branche("bois", (-L / 2, y, 0.5), (-L / 2 - 0.85, y, 0.08), 0.045)
+    return (0, -P / 2 - 0.1)

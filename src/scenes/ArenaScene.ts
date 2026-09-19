@@ -20,6 +20,10 @@ import {
   CONIFERES,
   ROCHERS,
   decorParCle,
+  CLE_CHARRETTE,
+  CLE_PUITS,
+  CLE_TAS_DE_BOIS,
+  CLE_TONNEAU,
 } from "../game/dessin/decor";
 import { origineDe, textureDe } from "../game/constructions";
 import { abimerLeSol,
@@ -115,6 +119,7 @@ import { Village, type Villageois } from "../game/village";
 import { CASE, COLONNES, Grille, IMPOSENT_UNE_DISTANCE, LIGNES } from "../core/grille";
 import { cleCase, genererVillage, graineDeVillage, type PlanVillage,
   tracerLesRues,
+  type Segment,
 } from "../core/village";
 import {
   CASES_LIBRES_AUTOUR_DES_BATIMENTS,
@@ -544,6 +549,8 @@ export class ArenaScene extends Phaser.Scene {
   private graineVillage = 0;
   /** Le village tire de la graine : l'enceinte, les maisons, la place (§4.24) */
   private planVillage!: PlanVillage;
+  /** Les rues du village, tracees avec le plan : le sol les peint, le decor s'en ecarte. */
+  private ruesDuVillage: Segment[] = [];
   /** Les murs et les tours (DESIGN.md §4.20) */
   constructions!: Constructions;
   /** Les champs de ble : ils poussent, et une horde les ruine (§4.18) */
@@ -816,11 +823,11 @@ export class ArenaScene extends Phaser.Scene {
     // Le sol du village (§4.24) : la place en terre battue, les rues vers les
     // portes et les lieux de travail, le parvis pave — peints dans la carte
     // cuite, une fois, pour cette graine.
-    dessinerLeSolDuVillage(
-      this,
-      this.planVillage,
-      tracerLesRues(this.planVillage, EGLISE, [...POSTES.map((p) => p.position), { x: PORT.x, y: PORT.y }]),
-    );
+    this.ruesDuVillage = tracerLesRues(this.planVillage, EGLISE, [
+      ...POSTES.map((p) => p.position),
+      { x: PORT.x, y: PORT.y },
+    ]);
+    dessinerLeSolDuVillage(this, this.planVillage, this.ruesDuVillage);
     this.construireDecor();
 
     this.equipe = this.physics.add.group();
@@ -1352,6 +1359,85 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   /**
+   * Les details de vie (§4.24, 19 septembre 2026) : un puits sur la place, des
+   * tonneaux et du bois contre les maisons debout, une charrette en retrait
+   * d'une porte. Du decor tire de la graine du village — rien qui bloque, rien
+   * qui se sauve, jamais sur une rue.
+   *
+   * ⚠️ Ils ne suivent pas une maison qu'on deplace ou qu'on demolit : c'est le
+   * prix d'un decor, et il est accepte pour l'instant.
+   */
+  private poserLesDetailsDeVie(): void {
+    const plan = this.planVillage;
+    const rng = new Rng(plan.graine + 97);
+    const distanceAuSegment = (x: number, y: number, s: Segment) => {
+      const dx = s.a.x - s.de.x;
+      const dy = s.a.y - s.de.y;
+      const l2 = dx * dx + dy * dy;
+      const t = l2 === 0 ? 0 : Math.max(0, Math.min(1, ((x - s.de.x) * dx + (y - s.de.y) * dy) / l2));
+      return Math.hypot(x - (s.de.x + dx * t), y - (s.de.y + dy * t));
+    };
+    const libre = (x: number, y: number) => {
+      const c = this.grille.caseEn(x, y);
+      if (!c || c.occupation !== "libre" || !plan.place.has(cleCase(c.colonne, c.ligne))) return false;
+      return !this.ruesDuVillage.some((r) => distanceAuSegment(x, y, r) < 14);
+    };
+    const poser = (x: number, y: number, cle: string, miroir = rng.next() < 0.5) => {
+      if (!this.textures.exists(cle)) return;
+      this.add.image(x, y, cle).setOrigin(0.5, decorParCle(cle).origineY).setDepth(y).setFlipX(miroir);
+    };
+
+    // Le puits : a trois cases de l'eglise, dans la premiere direction qui a de la place.
+    const DIRECTIONS = [[3, 0], [0, 3], [-3, 0], [0, -3], [3, 3], [3, -3], [-3, 3], [-3, -3]] as const;
+    const depart = Math.floor(rng.next() * DIRECTIONS.length);
+    for (let i = 0; i < DIRECTIONS.length; i++) {
+      const [dc, dl] = DIRECTIONS[(depart + i) % DIRECTIONS.length]!;
+      const c = Grille.centreCase(plan.centre.colonne + dc, plan.centre.ligne + dl);
+      if (!libre(c.x, c.y)) continue;
+      poser(c.x, c.y + 6, CLE_PUITS, false);
+      break;
+    }
+
+    // Des tonneaux a droite des maisons debout, du bois a gauche — pas partout.
+    for (const maison of this.maisons.toutes) {
+      if (!maison.debout) continue;
+      const centre = maison.centre;
+      const droite = { x: centre.x + CASE + 8, y: centre.y + CASE - 6 };
+      if (rng.next() < 0.75 && libre(droite.x, droite.y)) {
+        poser(droite.x, droite.y, CLE_TONNEAU);
+        if (rng.next() < 0.5) poser(droite.x + 9, droite.y + 3, CLE_TONNEAU);
+      }
+      const gauche = { x: centre.x - CASE - 12, y: centre.y + CASE - 8 };
+      if (rng.next() < 0.6 && libre(gauche.x, gauche.y)) poser(gauche.x, gauche.y, CLE_TAS_DE_BOIS);
+    }
+
+    // Une charrette, en retrait de la premiere rue qui sort par une porte.
+    const portes = new Set(
+      plan.enceinte
+        .filter((m) => m.piece === "porte")
+        .map((m) => {
+          const c = Grille.centreCase(m.colonne, m.ligne);
+          return `${c.x},${c.y}`;
+        }),
+    );
+    const rue = this.ruesDuVillage.find((r) => portes.has(`${r.a.x},${r.a.y}`));
+    if (rue) {
+      const dx = rue.de.x - rue.a.x;
+      const dy = rue.de.y - rue.a.y;
+      const l = Math.hypot(dx, dy) || 1;
+      const ux = dx / l;
+      const uy = dy / l;
+      for (const cote of [1, -1]) {
+        const x = rue.a.x + ux * 48 - uy * 22 * cote;
+        const y = rue.a.y + uy * 48 + ux * 22 * cote;
+        if (!libre(x, y)) continue;
+        poser(x, y, CLE_CHARRETTE, cote < 0);
+        break;
+      }
+    }
+  }
+
+  /**
    * Le village : ce que le plan de la graine en dit (§4.24). Il est adosse a
    * la mer et a la montagne, et ses habitants arrivent avec le village vivant.
    */
@@ -1366,6 +1452,7 @@ export class ArenaScene extends Phaser.Scene {
     this.maisons = new Maisons(this, this.grille);
     if (this.reprise?.maisons) this.maisons.reprendre(this.reprise.maisons);
     else this.maisons.poserLePlan(this.planVillage.maisons);
+    this.poserLesDetailsDeVie();
 
     // ⚠️ **Plus de texte « LE VILLAGE » qui flotte, et plus de disque de terre
     // battue** (§4.24, §4.30) : on reconnait un lieu a ce qu'il y a dessus. Le

@@ -67,6 +67,11 @@ def sprites():
     for i in range(3):
         s[f"decor-rocher-{i}"] = (lambda a, i=i: monde.rocher(a, i), 28, 20, 17)
     s["decor-souche"] = (lambda a: monde.souche(a), 14, 14, 11)
+    # Les details de vie (§4.24) : tailles dans `decor.ts` (PUITS, TONNEAU, TAS_DE_BOIS, CHARRETTE).
+    s["decor-puits"] = (lambda a: monde.puits(a), 26, 30, 27)
+    s["decor-tonneau"] = (lambda a: monde.tonneau(a), 14, 16, 14)
+    s["decor-tas-de-bois"] = (lambda a: monde.tas_de_bois(a), 26, 18, 16)
+    s["decor-charrette"] = (lambda a: monde.charrette(a), 36, 22, 20, 20)
     return s
 
 
