@@ -2,7 +2,7 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-09-19, au soir. **529 tests verts.**
+> Dernière mise à jour : 2026-09-20, après minuit. **544 tests verts.**
 >
 > ✅ **Le bloc 7z est fini et branché (10 septembre 2026) : tout ce qui se voit est dessiné
 > par le code, et il n'y a plus un seul PNG.** La direction est tranchée avec Angelos ce
@@ -1049,6 +1049,48 @@ le poste de pêche sur la plage existe toujours (`POSTES`, `plage`). Et un proje
 toucherait un héros dans l'eau le ferait tomber avec l'image rognée : `tomber` remet l'image
 entière avant l'animation de mort seulement pour le noyé.
 
+### Les chemins qui s'usent (fait le 20 septembre 2026, après minuit)
+
+**Le dernier reste du sol du village qui était un système, pas un dessin** (§4.24, tranché
+le 9 septembre : « visibles à 30 passages, effacés après 4 journées sans passage »).
+`src/core/chemins.ts` (neuf, pur, 9 tests) : `Chemins.passer(marcheur, x, y, jour)` compte
+**un passage quand un marcheur entre dans une case** — piétiner sur place n'use rien —,
+et rend la case à redessiner au trentième passage puis tous les 30 ; `seLever(jour)` fait
+pâlir tout ce qui est visible et efface ce qui a été oublié 4 journées ; `usureDe` va de 0,4
+(30 passages) à 1 (150), multipliée par la fraîcheur (1 − journées d'oubli / 4). Le centre
+du chemin est **la moyenne des trente premiers pas**, figée : il se dessine là où l'on marche
+vraiment, pas au milieu de la case. Jamais sur l'eau, la roche ni la place (déjà en terre
+battue), qui est exclue à la création. **Sauvé** (`chemins?` dans la sauvegarde, optionnel :
+une partie d'avant repart de l'herbe) et repris avec redessin complet.
+
+**Dans le jeu** : `majChemins` par **battements de 250 ms**, pour chaque habitant vivant
+hors de l'église et chaque héros vivant. `src/game/dessin/chemins.ts` : **une couche à part**,
+une texture canevas transparente de la taille du monde posée juste au-dessus de la carte
+(profondeur −999). ⚠️ **Pas dans la carte cuite, contrairement aux rues** : effacer un chemin
+demande de savoir ce qu'il y avait dessous, et dessous il y a la rue, la place, puis chaque
+brûlure et chaque cratère de la partie ; une couche transparente s'efface en rendant ses
+pixels transparents. `peindreLePas` (pure, 6 tests) peint un pas rond au bord tremblant,
+usé par plaques, dont les bruits se lisent **en coordonnées du monde** (deux redessins qui
+se chevauchent donnent les mêmes pixels, sans couture) ; deux pas qui se recouvrent gardent
+**le plus opaque**, pas la somme. Un pas changé redessine sa zone et ses voisines ; l'aube et
+la reprise redessinent tout d'un coup ; un seul `refresh()` par image, comme `abimerLeSol`.
+
+**Vérifié en jouant** (`npx tsx scripts/verifier-chemins.ts [dossier]`, Playwright, aucune
+erreur console) : la couche est vide au départ et les pas des habitants qui partent au travail
+se comptent en 6 s ; quarante allers-retours forcés de l'église aux quatre lieux de travail
+donnent 29 cases visibles, peintes et présentes dans la sauvegarde ; deux aubes d'oubli font
+pâlir sans rien effacer ; la quatrième efface tout (0 pixel peint). Captures
+`captures/jeu/2026-09-20-chemins/chemins-{loin,pres,palis}.png`. **Jugé sur capture** : le
+chemin se lit comme une bande de terre sèche, un peu poudreuse, dans la matière des rues ;
+le fondu du bord a été resserré (0,34 → 0,24) parce qu'il se lisait comme une fumée. ⚠️ Dans
+les captures, la ligne forcée traverse l'enceinte : c'est le script qui marche tout droit,
+pas les habitants, qui passent par les portes. **544 tests verts** (+15), `tsc` passe.
+
+⚠️ **Ce qu'il reste** : les monstres n'usent rien (voulu : « là où les habitants passent ») ;
+le seuil de 30 n'a jamais été atteint en jouant, seulement forcé — à mesurer sur une vraie
+partie (3 à 5 habitants sur un même trajet, deux passages par jour chacun, font 3 à 5
+journées avant le premier chemin).
+
 ### Le sol du village (fait le 19 septembre 2026, au soir)
 
 **La place en terre battue, les rues et le parvis pavé** (§4.24), peints **dans la carte
@@ -1079,8 +1121,8 @@ porte — jamais sur une rue, jamais sur une case prise, tirés de la graine du 
 sur planche agrandie : les roues de la charrette, en bois comme la caisse, se fondaient
 dedans — passées en écorce. ⚠️ **Du décor, pas des objets** : ils ne suivent pas une maison
 qu'on déplace ou démolit, on peut bâtir dessus, rien n'est sauvé. **Ce qui manque encore** :
-les cordes à linge, les filets et le feu, et les chemins qui s'usent à l'usage (30 passages
-/ 4 journées : un système, pas un dessin).
+les cordes à linge, les filets et le feu. Les chemins qui s'usent sont venus le 20 septembre
+(voir leur section).
 
 **524 tests verts** (+6), `tsc` passe.
 
@@ -1513,7 +1555,9 @@ murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
 3. ✅ **Le bloc 7a est fini** (19 septembre 2026, voir sa section) : maisons destructibles,
    village en ruines au départ, survol, les quatre défauts d'affichage corrigés — et **le sol
    du village est peint** le soir même (place, rues, parvis, voir « Le sol du village »).
-   Restent les **détails de vie** et les chemins qui s'usent.
+   ✅ **Les chemins qui s'usent** sont codés le 20 septembre après minuit (voir sa section) :
+   à juger sur `captures/jeu/2026-09-20-chemins/`. Restent les cordes à linge, les filets et
+   le feu.
 3b. ✅ **L'écran-titre a du son** (19 septembre 2026, voir sa section) : la musique de guerre
    (« Lament of the War ») est choisie, bouclée sans couture, réglable à part dans
    PARAMÈTRES (trois curseurs). ✅ **La musique en partie est livrée** (le soir même, voir sa
@@ -1839,7 +1883,7 @@ Deux questions de fond sont fermées, après l'annonce du plugin Unity officiel 
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (529)
+npx vitest run   # les tests (544)
 npm run build    # vérifie les types et construit
 
 npx tsx scripts/capturer.ts apres   # les captures du jeu, par Playwright, toujours au même endroit

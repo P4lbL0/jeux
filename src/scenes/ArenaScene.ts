@@ -1,5 +1,7 @@
 import Phaser from "phaser";
 import { Noyade, REGLAGES_EAU, profondeurDe } from "../core/eau";
+import { Chemins } from "../core/chemins";
+import { CoucheDesChemins, RAYON_VOISINAGE } from "../game/dessin/chemins";
 import { Rng } from "../core/rng";
 import { CLASSES, ORDRE_CLASSES, type ClassId } from "../core/classes";
 import {
@@ -554,6 +556,12 @@ export class ArenaScene extends Phaser.Scene {
   private ruesDuVillage: Segment[] = [];
   /** L'eau qui noie (§4.30) : l'horloge du heros incarne sous la surface. */
   private noyade = new Noyade();
+  /** Les chemins qui s'usent (§4.24) : les passages par case, et la couche qui les peint. */
+  private chemins = new Chemins();
+  private coucheChemins!: CoucheDesChemins;
+  /** Les pas se comptent par battements, jamais par image (§4.17 regle 5). */
+  private prochainBattementChemins = 0;
+  private static readonly PERIODE_CHEMINS = 250;
   /** La derniere position du heros incarne hors de l'abysse : on l'y ramene s'il y tombe. */
   private dernierePositionTenable = { x: 0, y: 0 };
   /** Les murs et les tours (DESIGN.md §4.20) */
@@ -834,6 +842,13 @@ export class ArenaScene extends Phaser.Scene {
     ]);
     dessinerLeSolDuVillage(this, this.planVillage, this.ruesDuVillage);
     this.construireDecor();
+    // Les chemins qui s'usent (§4.24) : une couche transparente juste au-dessus
+    // de la carte, et un compte de passages par case. La place ne se marque
+    // pas, elle est deja en terre battue.
+    this.chemins = new Chemins();
+    this.chemins.exclure(this.planVillage.place);
+    this.coucheChemins = new CoucheDesChemins(this, -999);
+    this.prochainBattementChemins = 0;
 
     this.equipe = this.physics.add.group();
     this.ennemis = this.physics.add.group();
@@ -945,12 +960,19 @@ export class ArenaScene extends Phaser.Scene {
       revision: this.revision,
       graineVillage: this.graineVillage,
       maisons: this.maisons,
+      chemins: this.chemins,
     };
   }
 
   private reprendreLaPartie(sauvegarde: Sauvegarde): void {
     const monde = this.partieEnCours;
     this.indexIncarne = appliquer(sauvegarde, monde, this.time.now);
+    // Les chemins reviennent tels qu'on les a laisses : une partie d'avant
+    // n'en a pas, et repart de l'herbe.
+    if (sauvegarde.chemins) {
+      this.chemins.reprendre(sauvegarde.chemins);
+      this.coucheChemins.toutRedessiner(this.chemins.visibles, sauvegarde.cycle.jour);
+    }
     // `appliquer` remplace le tirage et l'equipe : la scene reprend ce que le
     // pont a repose.
     this.rng = monde.rng;
@@ -1841,6 +1863,7 @@ export class ArenaScene extends Phaser.Scene {
 
     this.musique.maj(delta, this.cycle.phase === "nuit");
     this.majEau(delta);
+    this.majChemins();
 
     // Un reglage de propriete, pas un redessin : c'est tout ce que coute la mer
     // qui bouge (§4.17 regle 3).
@@ -2429,6 +2452,31 @@ export class ArenaScene extends Phaser.Scene {
    * dans la mer, une seconde insiste, et au bout de trois secondes on se noie.
    * Jamais une mort surprise — et ressortir remet tout a zero.
    */
+  /**
+   * Les chemins qui s'usent (§4.24) : un pas de plus la ou chaque habitant et
+   * chaque heros vient d'entrer. Par battements de 250 ms — un marcheur
+   * traverse une case en plus longtemps que ca, et trente marcheurs reveilles
+   * a chaque image se sentiraient.
+   */
+  private majChemins(): void {
+    const maintenant = this.time.now;
+    if (maintenant < this.prochainBattementChemins) return;
+    this.prochainBattementChemins = maintenant + ArenaScene.PERIODE_CHEMINS;
+    const jour = this.cycle.jour;
+    const marcher = (marcheur: { x: number; y: number }) => {
+      const changement = this.chemins.passer(marcheur, marcheur.x, marcheur.y, jour);
+      if (!changement) return;
+      const { cas } = changement;
+      this.coucheChemins.redessiner(cas, this.chemins.autour(cas.x, cas.y, RAYON_VOISINAGE), jour);
+    };
+    for (const villageois of this.village.habitants) {
+      if (villageois.regles.vivant && villageois.etat !== "abri") marcher(villageois);
+    }
+    for (const hero of this.heros) {
+      if (hero.etat !== "mort") marcher(hero);
+    }
+  }
+
   private majEau(delta: number): void {
     const hero = this.hero;
     if (!hero || hero.etat === "mort") return;
@@ -4817,6 +4865,9 @@ export class ArenaScene extends Phaser.Scene {
     // Les portes se rouvrent : on ressort travailler (§4.20).
     if (this.constructions.portesFermees) this.constructions.ouvrirLesPortes();
     this.village.seLever(this.cycle.jour);
+    // Les chemins palissent d'un cran, et ceux qu'on a oublies quatre journees s'effacent.
+    this.chemins.seLever(this.cycle.jour);
+    this.coucheChemins.toutRedessiner(this.chemins.visibles, this.cycle.jour);
     this.passerLaJourneeDesHeros();
     this.programmerHorde();
     this.events.emit("annonce", `Jour ${this.cycle.jour} — le soleil se leve`, "village");

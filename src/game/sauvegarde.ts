@@ -38,6 +38,7 @@ import type { BatimentEglise } from "./eglise";
 import type { Champs } from "./champs";
 import type { Constructions } from "./constructions";
 import type { Maisons } from "./maisons";
+import type { Chemins } from "../core/chemins";
 import type { Village } from "./village";
 import { EGLISE } from "../core/carte";
 
@@ -80,6 +81,8 @@ export interface PartieEnCours {
   graineVillage: number;
   /** Les maisons, debout ou en ruine : la scene les reprend a la construction (§4.24) */
   maisons: Maisons;
+  /** Les chemins qui s'usent : la scene les repeint a la reprise (§4.24) */
+  chemins: Chemins;
 }
 
 /** La memoire des morts qu'on garde : au-dela, la satisfaction ne la lit plus. */
@@ -149,6 +152,7 @@ export function capturer(partie: PartieEnCours, maintenant: number): Sauvegarde 
       y: champ.y,
       maturite: champ.maturite,
     })),
+    chemins: partie.chemins.sauver(),
   };
 }
 

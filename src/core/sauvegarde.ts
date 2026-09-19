@@ -30,6 +30,7 @@ import type { Exploits, Personne, Rupture, Stats } from "./personne";
 import { reagreger } from "./personne";
 import { agreger } from "./traits";
 import type { Posture } from "./ordres";
+import type { CaseFouleeSauvee } from "./chemins";
 
 /**
  * La version du format.
@@ -245,6 +246,12 @@ export interface Sauvegarde {
    * le 19 septembre 2026 n'en a pas, et reprend alors celles de son plan.
    */
   maisons?: EtatMaison[];
+  /**
+   * Les chemins qui s'usent (§4.24) : les cases visibles, leurs passages et
+   * leur derniere journee. **Optionnel** : une partie d'avant le 20 septembre
+   * 2026 n'en a pas, et repart de l'herbe.
+   */
+  chemins?: CaseFouleeSauvee[];
 }
 
 // ------------------------------------------------------------ ecrire et relire

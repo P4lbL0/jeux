@@ -1,4 +1,4 @@
-# Prompt de reprise — ce qui reste à coder (19 septembre 2026)
+# Prompt de reprise — ce qui reste à coder (20 septembre 2026)
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
@@ -42,7 +42,11 @@ Ce qui tourne vraiment, et qui est récent :
   `captures/jeu/2026-09-19-sol-du-village/`.
 - **L'eau qui noie** (19 septembre, au soir) : seul le héros incarné entre dans l'eau, il
   s'y enfonce et ralentit, une bulle prévient, et trois secondes de mer le noient.
-- En dessous, un noyau de règles pur (`src/core/`) couvert par **529 tests**.
+- **Les chemins qui s'usent** (20 septembre, après minuit) : un passage par case et par
+  marcheur (habitants et héros), visible à 30, pâlit chaque aube sans passage, effacé à la
+  quatrième ; peints dans une couche transparente au-dessus de la carte ; sauvés. Captures
+  dans `captures/jeu/2026-09-20-chemins/`, **à juger**.
+- En dessous, un noyau de règles pur (`src/core/`) couvert par **544 tests**.
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
 
@@ -68,9 +72,10 @@ Dans l'ordre où je te le suggère ; c'est à moi de trancher l'ordre, propose-l
    (oublier ou acheter ; la fusion attend le jalon 6.5), paliers bois → fer pour le mur et la
    porte. Reste de ce point : **la pierre**, avec sa ressource, au bloc 7b.
 2. ✅ **Le sol du village** — place, rues, parvis et détails de vie (puits, tonneaux, tas de
-   bois, charrette, en sprites Blender) le 19 septembre au soir, jugés sur captures. Restent
-   les cordes à linge, les filets et le feu, et les **chemins qui s'usent** (un système : 30
-   passages, effacés en 4 journées).
+   bois, charrette, en sprites Blender) le 19 septembre au soir, jugés sur captures. ✅ **Les
+   chemins qui s'usent** le 20 septembre (`SUITE.md`, « Les chemins qui s'usent »). Restent
+   les cordes à linge, les filets et le feu (trois objets Blender de plus dans
+   `scripts/blender/monde.py`, posés par `poserLesDetailsDeVie`).
 3. ✅ **L'eau qui noie** — fait le 19 septembre au soir (`SUITE.md`, « L'eau qui noie »).
    Les ronds de poste sont partis le 18 septembre ; reste ce qui devait les remplacer — la
    mine, le ponton et les bûches qui disent eux-mêmes où l'on travaille.
