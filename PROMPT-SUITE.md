@@ -46,6 +46,10 @@ Ce qui tourne vraiment, et qui est récent :
   marcheur (habitants et héros), visible à 30, pâlit chaque aube sans passage, effacé à la
   quatrième ; peints dans une couche transparente au-dessus de la carte ; sauvés. Captures
   dans `captures/jeu/2026-09-20-chemins/`, **à juger**.
+- **Les derniers détails de vie** (20 septembre, au petit matin) : du linge devant chaque
+  maison debout, des filets qui sèchent au poste de pêche et contre le port, un registre des
+  poses pour que rien ne se chevauche. « Le feu » de la liste était l'**incendie** : tranché
+  (allumage, extinction, propagation, §4.21) et rangé au jalon 6, pas codé.
 - En dessous, un noyau de règles pur (`src/core/`) couvert par **544 tests**.
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
@@ -73,12 +77,12 @@ Dans l'ordre où je te le suggère ; c'est à moi de trancher l'ordre, propose-l
    porte. Reste de ce point : **la pierre**, avec sa ressource, au bloc 7b.
 2. ✅ **Le sol du village** — place, rues, parvis et détails de vie (puits, tonneaux, tas de
    bois, charrette, en sprites Blender) le 19 septembre au soir, jugés sur captures. ✅ **Les
-   chemins qui s'usent** le 20 septembre (`SUITE.md`, « Les chemins qui s'usent »). Restent
-   les cordes à linge, les filets et le feu (trois objets Blender de plus dans
-   `scripts/blender/monde.py`, posés par `poserLesDetailsDeVie`).
+   chemins qui s'usent** le 20 septembre (`SUITE.md`, « Les chemins qui s'usent »). ✅ **Les
+   cordes à linge et les filets** le 20 septembre au petit matin (`SUITE.md`, « Les derniers
+   détails de vie »). « Le feu » était l'incendie : jalon 6, tranché au §4.21, pas codé.
 3. ✅ **L'eau qui noie** — fait le 19 septembre au soir (`SUITE.md`, « L'eau qui noie »).
-   Les ronds de poste sont partis le 18 septembre ; reste ce qui devait les remplacer — la
-   mine, le ponton et les bûches qui disent eux-mêmes où l'on travaille.
+   Les ronds de poste sont partis le 18 septembre ; les filets marquent la pêche depuis le
+   20 ; restent la mine et les bûches qui disent eux-mêmes où l'on travaille.
 
 ### B. Le son, phase 2
 

@@ -15,6 +15,7 @@ import {
   SABLE,
   SOL_VERT,
   SOUS_BOIS,
+  TISSU,
   TOILE,
   TOIT_EGLISE,
   melanger,
@@ -40,6 +41,8 @@ const MATIERES: Record<string, Matiere> = {
   toit_eglise: TOIT_EGLISE,
   laiton: LAITON,
   toile: TOILE,
+  // le linge sombre des cordes a linge : le tissu des villageois
+  tissu: TISSU,
   feuille: FEUILLE,
   ecorce: ECORCE,
   roche: ROCHE,

@@ -6,6 +6,9 @@ import { ECORCE, FEUILLE, PIERRE, ROCHE, melanger, type Matiere,
   BOIS,
   EAU,
   FER,
+  SABLE,
+  TISSU,
+  TOILE,
 } from "./palette";
 
 /**
@@ -52,6 +55,10 @@ const PUITS = { largeur: 26, hauteur: 30, pied: 26 };
 const TONNEAU = { largeur: 14, hauteur: 16, pied: 13 };
 const TAS_DE_BOIS = { largeur: 26, hauteur: 18, pied: 15 };
 const CHARRETTE = { largeur: 36, hauteur: 22, pied: 19 };
+// Les deux derniers (20 septembre 2026) : du linge devant les maisons debout,
+// des filets qui sechent au poste de peche et contre le port.
+const CORDE_A_LINGE = { largeur: 40, hauteur: 20, pied: 16 };
+const FILETS = { largeur: 36, hauteur: 24, pied: 20 };
 
 /** Les arbres morts, les vivants, les coniferes, les rochers : leurs cles. */
 export const ARBRES_MORTS = [0, 1, 2, 3].map((i) => `decor-arbre-mort-${i}`);
@@ -63,6 +70,8 @@ export const CLE_PUITS = "decor-puits";
 export const CLE_TONNEAU = "decor-tonneau";
 export const CLE_TAS_DE_BOIS = "decor-tas-de-bois";
 export const CLE_CHARRETTE = "decor-charrette";
+export const CLE_CORDE_A_LINGE = "decor-corde-a-linge";
+export const CLE_FILETS = "decor-filets";
 
 /** Tous les arbres, morts et vivants, pour semer une foret. */
 export const ARBRES = [...ARBRES_MORTS, ...ARBRES_VIVANTS, ...CONIFERES];
@@ -274,6 +283,8 @@ export const DECORS: readonly Decor[] = [
   decor(CLE_TONNEAU, TONNEAU),
   decor(CLE_TAS_DE_BOIS, TAS_DE_BOIS),
   decor(CLE_CHARRETTE, CHARRETTE),
+  decor(CLE_CORDE_A_LINGE, CORDE_A_LINGE),
+  decor(CLE_FILETS, FILETS),
 ];
 
 export function decorParCle(cle: string): Decor {
@@ -293,6 +304,8 @@ export function peindreDecor(cle: string): Toile {
   else if (cle === CLE_TONNEAU) peindreTonneau(toile);
   else if (cle === CLE_TAS_DE_BOIS) peindreTasDeBois(toile);
   else if (cle === CLE_CHARRETTE) peindreCharrette(toile);
+  else if (cle === CLE_CORDE_A_LINGE) peindreCordeALinge(toile);
+  else if (cle === CLE_FILETS) peindreFilets(toile);
   else peindreSouche(toile);
   toile.contour();
   return toile;
@@ -333,6 +346,31 @@ function peindreCharrette(t: Toile): void {
   t.disque(16, pied - 3, 3, ECORCE.sombre);
   t.disque(27, pied - 3, 3, ECORCE.sombre);
   t.rect(3, pied - 5, 9, 1, BOIS.sombre);
+}
+
+/** Le secours de la corde a linge : deux piquets, la corde, trois pieces en deux tons. */
+function peindreCordeALinge(t: Toile): void {
+  const { pied } = CORDE_A_LINGE;
+  t.rect(5, pied - 13, 2, 13, BOIS.corps);
+  t.rect(33, pied - 13, 2, 13, BOIS.corps);
+  t.rect(7, pied - 12, 26, 1, ECORCE.sombre);
+  t.rect(9, pied - 12, 5, 8, TOILE.corps);
+  t.rect(17, pied - 12, 4, 7, TISSU.corps);
+  t.rect(24, pied - 12, 6, 9, TOILE.corps);
+}
+
+/** Le secours des filets : deux perches, la traverse, une maille sombre et ses flotteurs. */
+function peindreFilets(t: Toile): void {
+  const { pied } = FILETS;
+  t.rect(4, pied - 17, 2, 17, BOIS.corps);
+  t.rect(30, pied - 17, 2, 17, BOIS.corps);
+  t.rect(3, pied - 17, 30, 1, BOIS.sombre);
+  for (let y = pied - 16; y < pied - 5; y += 1) {
+    for (let x = 6; x < 30; x += 1) {
+      if ((x + y) % 2 === 0) t.point(x, y, ECORCE.sombre);
+    }
+  }
+  for (const x of [9, 15, 21, 27]) t.point(x, pied - 17, SABLE.clair);
 }
 
 /**

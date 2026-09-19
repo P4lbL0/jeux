@@ -2,7 +2,7 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-09-20, après minuit. **544 tests verts.**
+> Dernière mise à jour : 2026-09-20, au petit matin. **544 tests verts.**
 >
 > ✅ **Le bloc 7z est fini et branché (10 septembre 2026) : tout ce qui se voit est dessiné
 > par le code, et il n'y a plus un seul PNG.** La direction est tranchée avec Angelos ce
@@ -1049,6 +1049,39 @@ le poste de pêche sur la plage existe toujours (`POSTES`, `plage`). Et un proje
 toucherait un héros dans l'eau le ferait tomber avec l'image rognée : `tomber` remet l'image
 entière avant l'animation de mort seulement pour le noyé.
 
+### Les derniers détails de vie (fait le 20 septembre 2026, au petit matin)
+
+**Les cordes à linge et les filets qui sèchent** (§4.24), les deux objets qui manquaient au
+sol du village. Deux objets de plus dans l'atelier Blender (`scripts/blender/monde.py` :
+`corde_a_linge`, `filets`), une matière de plus exportée pour Blender (`tissu`, le linge
+sombre des villageois), tailles dans `rendre.py` et `decor.ts` avec un dessin de secours,
+rendus par `npm run sprites -- decor-corde-a-linge decor-filets`. **Jugés sur planche
+agrandie** (`captures/planches/2026-09-20-details-de-vie/`) en trois passes : quatre pièces
+de linge qui se touchaient faisaient une bande, ramenées à trois avec la corde à nu entre
+deux ; un filet en quadrillage droit se lisait comme une claie, refait en **mailles en
+losange** (un treillis de nœuds bousculés reliés en diagonale), pendu de la traverse avec un
+bord bas inégal et des flotteurs clairs.
+
+**Posés par `poserLesDetailsDeVie`** : une corde devant **chaque maison debout**, une case de
+large juste sous l'emprise, près de la porte puis décalée vers un coin si un détail gêne, dans
+la place ou sa marge (les maisons du sud ont la lisière sous elles, pas la place) ; des filets
+**au poste de pêche** et **contre le port**, sur le sable, à plus d'une case du point où l'on
+travaille, jamais sur la rue, cherchés par distance croissante parce que la bande de sable
+libre est étroite (au port, une case entre le bâtiment et l'eau, souvent prise par les
+ruines : la graine 1 n'en a pas, les graines 7 et 42 oui). **Un registre des poses avec un
+rayon par objet** : deux détails ne se chevauchent plus (le linge mordait sur la charrette
+et sur le puits, vu sur capture). Les filets sont ce qui devait remplacer les ronds de poste
+pour la pêche ; restent la mine et les bûches. Captures
+`captures/jeu/2026-09-20-details-de-vie/graine-{1,7,42}-{loin,plage,maisons}.png`
+(`npx tsx scripts/capturer-details.ts 1,7,42 <dossier>`). Toujours du décor : rien de
+sauvé, on bâtit dessus, une maison relevée plus tard n'a pas de linge.
+
+⚠️ **« Le feu » de la liste n'était pas un détail de vie** : Angelos parlait de
+l'**incendie**, le système du jalon 6 (§4.21). Il n'est pas codé, et ses règles sont
+tranchées ce jour (voir « Tranché le 20 septembre 2026 » au §4.21). **544 tests verts** (les
+deux dessins de secours passent par le test du décor, les deux PNG par celui des sprites
+Blender), `tsc` passe.
+
 ### Les chemins qui s'usent (fait le 20 septembre 2026, après minuit)
 
 **Le dernier reste du sol du village qui était un système, pas un dessin** (§4.24, tranché
@@ -1120,9 +1153,9 @@ des maisons debout (pas toutes), une charrette en retrait de la première rue qu
 porte — jamais sur une rue, jamais sur une case prise, tirés de la graine du village. Jugés
 sur planche agrandie : les roues de la charrette, en bois comme la caisse, se fondaient
 dedans — passées en écorce. ⚠️ **Du décor, pas des objets** : ils ne suivent pas une maison
-qu'on déplace ou démolit, on peut bâtir dessus, rien n'est sauvé. **Ce qui manque encore** :
-les cordes à linge, les filets et le feu. Les chemins qui s'usent sont venus le 20 septembre
-(voir leur section).
+qu'on déplace ou démolit, on peut bâtir dessus, rien n'est sauvé. Les chemins qui s'usent
+sont venus le 20 septembre, les cordes à linge et les filets le même jour au petit matin
+(voir leurs sections).
 
 **524 tests verts** (+6), `tsc` passe.
 
@@ -1556,8 +1589,9 @@ murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
    village en ruines au départ, survol, les quatre défauts d'affichage corrigés — et **le sol
    du village est peint** le soir même (place, rues, parvis, voir « Le sol du village »).
    ✅ **Les chemins qui s'usent** sont codés le 20 septembre après minuit (voir sa section) :
-   à juger sur `captures/jeu/2026-09-20-chemins/`. Restent les cordes à linge, les filets et
-   le feu.
+   à juger sur `captures/jeu/2026-09-20-chemins/`. ✅ **Les cordes à linge et les filets** le
+   même jour au petit matin (voir « Les derniers détails de vie ») ; « le feu » était
+   l'incendie, tranché et rangé au jalon 6 (§4.21).
 3b. ✅ **L'écran-titre a du son** (19 septembre 2026, voir sa section) : la musique de guerre
    (« Lament of the War ») est choisie, bouclée sans couture, réglable à part dans
    PARAMÈTRES (trois curseurs). ✅ **La musique en partie est livrée** (le soir même, voir sa

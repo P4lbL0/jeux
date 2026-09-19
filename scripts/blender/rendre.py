@@ -72,6 +72,8 @@ def sprites():
     s["decor-tonneau"] = (lambda a: monde.tonneau(a), 14, 16, 14)
     s["decor-tas-de-bois"] = (lambda a: monde.tas_de_bois(a), 26, 18, 16)
     s["decor-charrette"] = (lambda a: monde.charrette(a), 36, 22, 20, 20)
+    s["decor-corde-a-linge"] = (lambda a: monde.corde_a_linge(a), 40, 20, 17)
+    s["decor-filets"] = (lambda a: monde.filets(a), 36, 24, 21)
     return s
 
 

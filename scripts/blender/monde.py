@@ -368,3 +368,64 @@ def charrette(a):
     for y in (-0.3, 0.3):
         a.branche("bois", (-L / 2, y, 0.5), (-L / 2 - 0.85, y, 0.08), 0.045)
     return (0, -P / 2 - 0.1)
+
+
+# Les deux derniers (20 septembre 2026) : du linge devant les maisons, des
+# filets au poste de peche. Le feu n'en fait pas partie : c'est l'incendie du
+# jalon 6 (§4.21), un systeme, pas un objet.
+
+def corde_a_linge(a):
+    """Deux piquets, une corde qui pend au milieu, trois pieces de linge en deux tons."""
+    H = 1.55
+    for x in (-1.3, 1.3):
+        a.branche("bois", (x, 0, 0), (x, 0, H), 0.075)
+    # la corde pend un peu : deux brins qui se rejoignent plus bas au milieu
+    a.branche("ecorce", (-1.3, 0, H - 0.05), (0, 0, H - 0.22), 0.045)
+    a.branche("ecorce", (0, 0, H - 0.22), (1.3, 0, H - 0.05), 0.045)
+    # le linge : des pans plats de largeurs et de longueurs inegales, une piece
+    # claire, une sombre, avec de la corde a nu entre deux — quatre pieces se
+    # touchaient et faisaient une bande (juge sur planche)
+    linge = [(-0.78, 0.46, 0.78, "toile"), (-0.05, 0.36, 0.72, "tissu"), (0.7, 0.5, 0.84, "toile")]
+    for x, l, h, matiere in linge:
+        z_corde = (H - 0.22) + 0.17 * abs(x) / 1.3
+        a.boite(matiere, (l, 0.05, h), (x, 0.0, z_corde - h / 2))
+    return (0, -0.08)
+
+
+def filets(a):
+    """Deux perches, une traverse, et un filet qui pend : des mailles en losange, des flotteurs."""
+    H = 1.9
+    for x in (-1.15, 1.15):
+        a.branche("bois", (x, 0, 0), (x, 0, H), 0.08)
+    a.branche("bois", (-1.25, 0, H - 0.06), (1.25, 0, H - 0.06), 0.05)
+    # le filet : un treillis de noeuds un peu bouscules, relies en diagonale —
+    # les mailles d'un filet de peche sont des losanges, pas des carreaux (un
+    # quadrillage droit se lisait comme une claie, juge sur planche). Il pend
+    # de la traverse et s'arrete plus bas au milieu qu'aux bords, bord inegal.
+    rnd = random.Random(7)
+    L, z_haut, pas = 1.05, H - 0.08, 0.26
+    colonnes, rangs = 9, 8
+
+    def bas_du_filet(x):
+        return 0.42 + 0.28 * (x / L) ** 2 + rnd.uniform(-0.08, 0.08)
+
+    noeuds = {}
+    for i in range(colonnes):
+        x = -L + i * pas
+        z_bas = bas_du_filet(x)
+        for j in range(rangs):
+            z = z_haut - j * pas * 0.92
+            if z < z_bas:
+                break
+            jx = 0 if j == 0 else rnd.uniform(-0.035, 0.035)
+            jz = 0 if j == 0 else rnd.uniform(-0.03, 0.03)
+            noeuds[(i, j)] = (x + jx, 0.01, z + jz)
+    for (i, j), p in noeuds.items():
+        for voisin in ((i + 1, j + 1), (i - 1, j + 1)):
+            q = noeuds.get(voisin)
+            if q is not None:
+                a.branche("ecorce", p, q, 0.04)
+    # les flotteurs de liege sur la ralingue du haut, clairs sur le filet sombre
+    for i, x in enumerate((-0.8, -0.27, 0.27, 0.8)):
+        a.boule("sable", 0.1, (x, 0.0, z_haut), 3 + i, bosses=0.1)
+    return (0, -0.1)

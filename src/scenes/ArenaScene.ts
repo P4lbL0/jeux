@@ -24,6 +24,8 @@ import {
   ROCHERS,
   decorParCle,
   CLE_CHARRETTE,
+  CLE_CORDE_A_LINGE,
+  CLE_FILETS,
   CLE_PUITS,
   CLE_TAS_DE_BOIS,
   CLE_TONNEAU,
@@ -82,6 +84,7 @@ import { Affinites } from "../core/affinites";
 import {
   AMPLITUDE,
   EGLISE,
+  estTerreFerme,
   frontsDeLaVague,
   ligneDEau,
   MONDE,
@@ -1410,9 +1413,24 @@ export class ArenaScene extends Phaser.Scene {
       if (!c || c.occupation !== "libre" || !plan.place.has(cleCase(c.colonne, c.ligne))) return false;
       return !this.ruesDuVillage.some((r) => distanceAuSegment(x, y, r) < 14);
     };
+    // Ce que chaque detail occupe autour de son pied : deux details ne se
+    // chevauchent jamais (le linge mordait sur la charrette et sur le puits,
+    // juge sur capture le 20 septembre 2026).
+    const RAYONS: Record<string, number> = {
+      [CLE_PUITS]: 14,
+      [CLE_TONNEAU]: 8,
+      [CLE_TAS_DE_BOIS]: 13,
+      [CLE_CHARRETTE]: 18,
+      [CLE_CORDE_A_LINGE]: 20,
+      [CLE_FILETS]: 18,
+    };
+    const poses: { x: number; y: number; rayon: number }[] = [];
+    const loinDesAutres = (x: number, y: number, cle: string) =>
+      poses.every((p) => Math.hypot(p.x - x, p.y - y) >= p.rayon + (RAYONS[cle] ?? 12));
     const poser = (x: number, y: number, cle: string, miroir = rng.next() < 0.5) => {
       if (!this.textures.exists(cle)) return;
       this.add.image(x, y, cle).setOrigin(0.5, decorParCle(cle).origineY).setDepth(y).setFlipX(miroir);
+      poses.push({ x, y, rayon: RAYONS[cle] ?? 12 });
     };
 
     // Le puits : a trois cases de l'eglise, dans la premiere direction qui a de la place.
@@ -1462,6 +1480,62 @@ export class ArenaScene extends Phaser.Scene {
         poser(x, y, CLE_CHARRETTE, cote < 0);
         break;
       }
+    }
+
+    // Du linge devant chaque maison debout (20 septembre 2026) : une corde d'une
+    // case de large, juste sous l'emprise, d'un cote ou de l'autre de la porte.
+    // Les deux bouts doivent etre libres aussi, sinon elle mordrait sur une rue
+    // ou sur la voisine. La marge de la place suffit (rien n'y pousse) : les
+    // maisons du sud ont la lisiere sous leur emprise, pas la place.
+    const libreDevantUneMaison = (x: number, y: number) => {
+      const c = this.grille.caseEn(x, y);
+      if (!c || c.occupation !== "libre" || !plan.emprise.has(cleCase(c.colonne, c.ligne))) return false;
+      if (!estTerreFerme(x, y)) return false;
+      return !this.ruesDuVillage.some((r) => distanceAuSegment(x, y, r) < 14);
+    };
+    for (const maison of this.maisons.toutes) {
+      if (!maison.debout) continue;
+      const cote = rng.next() < 0.5 ? -6 : 6;
+      const y = maison.centre.y + CASE + 10;
+      // pres de la porte d'abord, puis decale vers un coin si un detail gene
+      for (const x of [maison.centre.x + cote, maison.centre.x - cote, maison.centre.x + 3 * cote, maison.centre.x - 3 * cote]) {
+        if (!libreDevantUneMaison(x, y) || !libreDevantUneMaison(x - 14, y) || !libreDevantUneMaison(x + 14, y)) continue;
+        if (!loinDesAutres(x, y, CLE_CORDE_A_LINGE)) continue;
+        poser(x, y, CLE_CORDE_A_LINGE);
+        break;
+      }
+    }
+
+    // Des filets qui sechent au poste de peche, et contre le port : depuis que
+    // les ronds de poste sont partis (18 septembre 2026), c'est a eux de dire
+    // ou l'on peche. Sur le sable, jamais sur la rue qui y mene, et a plus
+    // d'une case du point ou l'on travaille — les pecheurs s'y tiennent. Le
+    // sable libre est etroit (une case entre le port et l'eau) : on cherche le
+    // plus pres du lieu, et on prend le premier qui passe.
+    const libreSurLeSable = (x: number, y: number) => {
+      const c = this.grille.caseEn(x, y);
+      if (!c || c.occupation !== "libre" || terrainEn(x, y) !== "sable") return false;
+      return !this.ruesDuVillage.some((r) => distanceAuSegment(x, y, r) < 16);
+    };
+    const plage = POSTES.find((p) => p.id === "plage");
+    const lieux = [...(plage ? [plage.position] : []), { x: PORT.x, y: PORT.y }];
+    for (const lieu of lieux) {
+      const candidats: { x: number; y: number; d: number }[] = [];
+      for (let dy = -72; dy <= 72; dy += 24) {
+        for (let dx = -48; dx <= 48; dx += 16) {
+          const d = Math.hypot(dx, dy);
+          if (d >= 36) candidats.push({ x: lieu.x + dx, y: lieu.y + dy, d });
+        }
+      }
+      candidats.sort((a, b) => a.d - b.d || a.y - b.y || a.x - b.x);
+      const emplacement = candidats.find(
+        (c) =>
+          libreSurLeSable(c.x, c.y) &&
+          libreSurLeSable(c.x - 14, c.y) &&
+          libreSurLeSable(c.x + 14, c.y) &&
+          loinDesAutres(c.x, c.y, CLE_FILETS),
+      );
+      if (emplacement) poser(emplacement.x, emplacement.y, CLE_FILETS);
     }
   }
 

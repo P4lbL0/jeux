@@ -407,6 +407,7 @@ Pour juger un dessin, on le regarde — jamais on ne le devine :
 npx tsx scripts/planche.ts [dossier]   # les planches PNG, sans navigateur
 npx tsx scripts/capturer.ts apres      # le jeu qui tourne, par Playwright
 npx tsx scripts/capturer-villages.ts 1,7,42 # trois villages tires au sort, deux vues chacun
+npx tsx scripts/capturer-details.ts 1,7,42  # les details de vie : village entier, la plage (filets), les maisons de pres (linge)
 npx tsx scripts/verifier-chemins.ts         # les chemins qui s'usent : pas comptes, chemins forces, palis, effaces ; trois captures
 npx tsx scripts/capturer-titre.ts apres # l'ecran-titre : film, meteorite, menu, emplacements
 npm run intro                          # refait le film d'ouverture (Blender + ffmpeg)
