@@ -2,7 +2,7 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-09-19, au soir. **504 tests verts.**
+> Dernière mise à jour : 2026-09-19, au soir. **518 tests verts.**
 >
 > ✅ **Le bloc 7z est fini et branché (10 septembre 2026) : tout ce qui se voit est dessiné
 > par le code, et il n'y a plus un seul PNG.** La direction est tranchée avec Angelos ce
@@ -1019,6 +1019,52 @@ demi-seconde. Un craquement du feu, 20 dB au-dessus du souffle, sonnait aussi fo
 cloche et dictait le volume de tout : les crêtes du feu sont arrondies (`adoucir`). **C'est à
 l'oreille d'Angelos de trancher le reste**, sur les trois vidéos d'écoute.
 
+### Les restes du dépouillage du 9 septembre (fait le 19 septembre 2026, au soir)
+
+**Les décisions d'Angelos, avant de coder** : sous 65 habitants les hordes de jour restent ce
+qu'elles sont, au-delà elles ne s'arrêtent plus ; la forme des villages générés ne bouge pas
+avec la règle des deux cases ; le mur garde ses **12 bois** joués ; la porte monte au fer comme
+le mur ; la pierre attend sa ressource (bloc 7b) ; et quand un héros a ses quatre actives, on
+**achète un emplacement**, on **fusionne** (§4.25, plus tard) ou on **remplace**.
+
+- **Deux cases** (`CASES_LIBRES_AUTOUR_DES_BATIMENTS = 2`, §4.24) : la règle de pose du joueur
+  seulement ; `core/village.ts` garde ses 5 cases d'enceinte, le commentaire dit pourquoi.
+- **Les paliers de mur** (§4.20) : `core/constructions.ts` porte `Matiere`, `Palier` et la
+  table `paliers` du mur (120 / 500 / 2000 PV ; fer 60 bois + 25 minerai) et de la porte
+  (160 / 660 / 2660 ; fer 100 bois + 40 minerai) ; `amelioration()` ne vend que ce qui a un
+  prix — la pierre est dans la table, `cout: null`. `palierDe`, `coutCumule` ; réparation et
+  remboursement prennent la matière. Côté jeu, `Construction.pvMax` lit le palier,
+  `Constructions.ameliorer` remet le segment à neuf avec le chantier visible, et **l'outil
+  palissade ou porte cliqué sur un segment existant le renforce** (`batirIci`) ; le survol dit
+  le palier et le prix. La matière est sauvée (`EtatConstruction.matiere`, optionnelle : une
+  partie d'avant est en bois). Le dessin des trois matières existait déjà (`dessin/murs.ts`).
+- **Le seuil de 65** (§4.18) : `villageAttire(population)` et `delaiProchaineHorde(tirage,
+  attire)` dans `core/cycle.ts` — 20 à 40 s entre deux hordes au lieu de 2 à 4 min ;
+  `programmerHorde` le lit à chaque horde et le guet l'annonce au passage du seuil.
+- **Quatre actives** (§4.13) : `core/competences.ts` — `EMPLACEMENTS_ACTIFS` (4, jusqu'à 6 en
+  achetant : 150 puis 400 pièces), `demandeUnePlace`, `propositionsDeRemplacement`. Dans la
+  scène, un mode de choix `remplacement` : la cinquième active tirée ouvre « PLUS DE PLACE »
+  sur l'écran de choix existant (jusqu'à cinq cartes, qui se serrent), oublier ou acheter,
+  puis la compétence s'apprend comme d'habitude. `Hero.emplacements` est sauvé (optionnel) ;
+  `Hero.oublier` perd les paliers et efface la teinte d'une évolution. Les touches 6 et 7
+  servent les emplacements achetés. La fusion attend le jalon 6.5.
+- **Totem → Relique** : rien dans le code, le mot n'y était pas. Rayé.
+
+⚠️ **Ce que ça ne fait pas encore** : le chantier d'un renfort n'occupe pas de bâtisseur
+(bloc 8) ; oublier une active laisse ce que ses paliers avaient pu ajouter aux bonus (rare) ;
+un villageois qui se bat seul n'appelle pas la musique de guerre (voulu).
+
+**Vérifié en jouant** (`npx tsx scripts/verifier-depouillage.ts`, Playwright, aucune erreur
+console) : à deux cases d'un bâtiment on refuse, à trois on peut ; un segment passé au fer
+montre d'abord son chantier, puis `bati-mur-fer-*`, 500 PV, 60 bois et 25 minerai débités, et
+la pierre est refusée avec le bon message ; une porte passée au fer (660 PV) se ferme à la
+cloche (`bati-porte-fer-…-fermee`) et se rouvre ; à 70 habitants la prochaine horde tombe
+entre 20 et 40 s et le guet le dit, à 3 elle retombe à plus de deux minutes ; quatre actives
+apprises, la cinquième ouvre « PLUS DE PLACE », on oublie la première sans argent, puis on
+achète le cinquième emplacement (150 pièces) quand on en a. Captures dans
+`captures/jeu/2026-09-19-restes-depouillage/` (`mur-fer.png`, `plus-de-place.png`). **518
+tests verts** (+14), `tsc` passe.
+
 ### La musique en partie (fait le 19 septembre 2026, au soir)
 
 **Les décisions d'Angelos, avant de coder** : la musique calme est la **n° 2, « Lament for a
@@ -1386,15 +1432,15 @@ murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
    Angelos a validé les murs tels quels et la densité des maisons sur les captures de
    `captures/jeu/2026-09-18-villages-generes/`. **Le prochain morceau est le bloc 7a** (point 3).
 
-1. **Appliquer au code ce que le dépouillage a tranché**, du plus structurant au plus petit :
-   a) le cycle 10 + 5 — ✅ **fait le 9 septembre 2026** (`src/core/cycle.ts`), hordes de jour
-   recalées à 2-4 min. ⚠️ **La nuit est trois fois plus courte à effectif constant : elle est
-   donc trois fois plus dense.** À mesurer en jouant avant de toucher `effectifPremiereNuit` ;
-   b) le renommage **totem → Relique d'immortalité** ;
-   c) les **deux cases** au lieu de trois dans le mode d'aménagement ;
-   d) le **seuil de 65 habitants** qui déclenche les attaques de jour ;
-   e) les **quatre compétences actives** au maximum ;
-   f) les **paliers de mur ×4** et l'amélioration par segment.
+1. ✅ **Appliquer au code ce que le dépouillage a tranché** — fini le 19 septembre 2026 au
+   soir (voir « Les restes du dépouillage ») :
+   a) le cycle 10 + 5 — ✅ le 9 septembre (`src/core/cycle.ts`). ⚠️ **La nuit est trois fois
+   plus courte à effectif constant : elle est donc trois fois plus dense.** À mesurer en jouant
+   avant de toucher `effectifPremiereNuit` ;
+   b) ✅ totem → Relique : rien à coder, le mot n'était pas dans le code ;
+   c) ✅ les **deux cases** ; d) ✅ le **seuil de 65** (hordes continues au-delà) ;
+   e) ✅ les **quatre actives** (oublier ou acheter un emplacement ; la fusion au jalon 6.5) ;
+   f) ✅ les **paliers de mur** bois → fer, mur et porte, segment par segment (la pierre au 7b).
 2. ✅ **Le bloc 7z est fini** (étage 4, le 10 septembre 2026). Ce qui en reste : **l'eau qui
    noie** (§4.30, une règle, pas un dessin). Les ronds de poste, eux, **sont déjà partis** (le
    18 septembre, avec le générateur) ; ce qui manque encore, c'est ce qui devait les
@@ -1727,7 +1773,7 @@ Deux questions de fond sont fermées, après l'annonce du plugin Unity officiel 
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (504)
+npx vitest run   # les tests (518)
 npm run build    # vérifie les types et construit
 
 npx tsx scripts/capturer.ts apres   # les captures du jeu, par Playwright, toujours au même endroit

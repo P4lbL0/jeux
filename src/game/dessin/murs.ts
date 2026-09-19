@@ -1,4 +1,5 @@
 import type Phaser from "phaser";
+import type { Matiere as MatiereDuNoyau } from "../../core/constructions";
 import { Toile } from "./pinceau";
 import { BOIS, ECORCE, FER, PIERRE, melanger, type Matiere } from "./palette";
 
@@ -55,8 +56,8 @@ export const MASQUES: readonly number[] = Array.from({ length: 16 }, (_, i) => i
 
 // -------------------------------------------------------------- les matieres
 
-/** Les trois matieres d'un rempart, dans l'ordre ou on l'ameliore (§4.20). */
-export type MatiereMur = "bois" | "fer" | "pierre";
+/** Les trois matieres d'un rempart, dans l'ordre ou on l'ameliore (§4.20) — celles du noyau. */
+export type MatiereMur = MatiereDuNoyau;
 
 /** Les trois paliers de matiere. */
 export const MATIERES_MUR: readonly MatiereMur[] = ["bois", "fer", "pierre"];

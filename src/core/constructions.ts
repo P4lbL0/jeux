@@ -18,6 +18,22 @@ import type { Ressource, Stocks } from "./habitants";
 
 export type TypeConstruction = "palissade" | "porte" | "tour";
 
+/**
+ * Les trois matieres d'un rempart, dans l'ordre ou on l'ameliore (§4.20) : la
+ * palissade de bois se renforce au fer, puis a la pierre. Le dessin
+ * (`game/dessin/murs.ts`) connait les trois ; le jeu ne vend que ce qui a un
+ * cout.
+ */
+export type Matiere = "bois" | "fer" | "pierre";
+
+export const MATIERES: readonly Matiere[] = ["bois", "fer", "pierre"];
+
+/** Un palier de matiere : ce qu'il tient, et ce qu'il coute — `null` tant qu'il n'est pas a vendre. */
+export interface Palier {
+  pvMax: number;
+  cout: Partial<Record<Ressource, number>> | null;
+}
+
 export interface ConstructionDef {
   id: TypeConstruction;
   nom: string;
@@ -43,6 +59,13 @@ export interface ConstructionDef {
   /** Ce que la position ajoute a la portee de son occupant, en pixels */
   bonusPortee: number;
   description: string;
+  /**
+   * Les paliers au-dessus du bois, pour ce qui s'ameliore (§4.20, tranche le
+   * 9 septembre 2026 : les points de vie montent d'environ ×4 par palier, et
+   * chaque segment s'ameliore separement). Le bois, c'est `pvMax` et `cout`
+   * ci-dessus. Absent : ca ne s'ameliore pas.
+   */
+  paliers?: { fer: Palier; pierre: Palier };
 }
 
 export const CONSTRUCTIONS: Record<TypeConstruction, ConstructionDef> = {
@@ -57,6 +80,13 @@ export const CONSTRUCTIONS: Record<TypeConstruction, ConstructionDef> = {
     occupable: false,
     bonusPortee: 0,
     description: "Bloque le passage. Les monstres la frappent — et elle cede.",
+    // 120 → 500 → 2000 (×4). Le prix suit depuis les 12 bois joues — les
+    // 40 bois du depouillage etaient poses sans jouer (Angelos, 19 septembre
+    // 2026). La pierre attend sa ressource (bloc 7b) : pas de prix.
+    paliers: {
+      fer: { pvMax: 500, cout: { bois: 60, minerai: 25 } },
+      pierre: { pvMax: 2000, cout: null },
+    },
   },
   porte: {
     id: "porte",
@@ -69,6 +99,13 @@ export const CONSTRUCTIONS: Record<TypeConstruction, ConstructionDef> = {
     occupable: false,
     bonusPortee: 0,
     description: "Ouverte le jour, tout le monde passe. La cloche la ferme ; l'aube la rouvre.",
+    // Memes paliers que le mur, et toujours un peu plus solide que lui au meme
+    // palier — mais un mur de fer force les monstres vers la porte de bois d'a
+    // cote : c'est le point faible qu'on choisit (Angelos, 19 septembre 2026).
+    paliers: {
+      fer: { pvMax: 660, cout: { bois: 100, minerai: 40 } },
+      pierre: { pvMax: 2660, cout: null },
+    },
   },
   tour: {
     id: "tour",
@@ -92,7 +129,9 @@ export function occupationDe(type: TypeConstruction): "mur" | "porte" | "tour" {
 }
 
 /**
- * Cases vides exigees entre ce qu'on batit et un batiment (§4.24).
+ * Cases vides exigees entre ce qu'on batit et un batiment (§4.24) : **deux**
+ * depuis le 19 septembre 2026 — trois avant, mesure trop lache au bloc 7a, la
+ * palissade partait tres loin et creusait le village.
  *
  * Ca remplace le disque interdit de 55 % du rayon du village, qui contredisait
  * « la carte entiere est constructible » et ne voudra plus rien dire du tout au
@@ -103,27 +142,85 @@ export function occupationDe(type: TypeConstruction): "mur" | "porte" | "tour" {
  * sinon la regle en produisant exactement ce qu'elle interdit. Ce qu'on protege,
  * c'est la cour — l'endroit ou on se bat.
  */
-export const CASES_LIBRES_AUTOUR_DES_BATIMENTS = 3;
+export const CASES_LIBRES_AUTOUR_DES_BATIMENTS = 2;
 
-/** A-t-on de quoi la batir ? */
-export function abordable(def: ConstructionDef, stocks: Stocks): boolean {
-  return Object.entries(def.cout).every(
+type Cout = Partial<Record<Ressource, number>>;
+
+/** A-t-on de quoi payer ce cout ? */
+export function peutPayer(cout: Cout, stocks: Stocks): boolean {
+  return Object.entries(cout).every(
     ([ressource, montant]) => stocks[ressource as Ressource] >= (montant ?? 0),
   );
 }
 
-/** Retire le cout des stocks. A n'appeler qu'apres `abordable`. */
-export function payer(def: ConstructionDef, stocks: Stocks): void {
-  for (const [ressource, montant] of Object.entries(def.cout)) {
+/** Retire un cout des stocks. A n'appeler qu'apres `peutPayer`. */
+export function regler(cout: Cout, stocks: Stocks): void {
+  for (const [ressource, montant] of Object.entries(cout)) {
     stocks[ressource as Ressource] -= montant ?? 0;
   }
 }
 
-/** Le cout, ecrit pour un humain : « 40 bois, 15 minerai ». */
-export function coutLisible(def: ConstructionDef): string {
-  return Object.entries(def.cout)
+/** Un cout, ecrit pour un humain : « 40 bois, 15 minerai ». */
+export function coutEnClair(cout: Cout): string {
+  return Object.entries(cout)
     .map(([ressource, montant]) => `${montant} ${ressource}`)
     .join(", ");
+}
+
+/** A-t-on de quoi la batir ? */
+export function abordable(def: ConstructionDef, stocks: Stocks): boolean {
+  return peutPayer(def.cout, stocks);
+}
+
+/** Retire le cout des stocks. A n'appeler qu'apres `abordable`. */
+export function payer(def: ConstructionDef, stocks: Stocks): void {
+  regler(def.cout, stocks);
+}
+
+/** Le cout, ecrit pour un humain : « 40 bois, 15 minerai ». */
+export function coutLisible(def: ConstructionDef): string {
+  return coutEnClair(def.cout);
+}
+
+// ------------------------------------------------------------- les paliers
+
+/** Ce qu'une construction tient et coute a une matiere donnee. */
+export function palierDe(def: ConstructionDef, matiere: Matiere): Palier {
+  if (matiere === "bois" || !def.paliers) return { pvMax: def.pvMax, cout: def.cout };
+  return def.paliers[matiere];
+}
+
+export function matiereSuivante(matiere: Matiere): Matiere | null {
+  return MATIERES[MATIERES.indexOf(matiere) + 1] ?? null;
+}
+
+/**
+ * L'amelioration possible depuis cette matiere : le palier suivant, s'il existe
+ * et s'il est a vendre. La pierre est dans la table, pas en vente : elle attend
+ * sa ressource (bloc 7b).
+ */
+export function amelioration(
+  def: ConstructionDef,
+  matiere: Matiere,
+): { matiere: Matiere; palier: { pvMax: number; cout: Cout } } | null {
+  const suivante = matiereSuivante(matiere);
+  if (!suivante || suivante === "bois" || !def.paliers) return null;
+  const palier = def.paliers[suivante];
+  if (!palier.cout) return null;
+  return { matiere: suivante, palier: { pvMax: palier.pvMax, cout: palier.cout } };
+}
+
+/** Tout ce qu'on a paye pour une construction a cette matiere : le bois, puis chaque palier franchi. */
+export function coutCumule(def: ConstructionDef, matiere: Matiere): Cout {
+  const total: Cout = { ...def.cout };
+  const rang = MATIERES.indexOf(matiere);
+  for (const m of ["fer", "pierre"] as const) {
+    if (MATIERES.indexOf(m) > rang) break;
+    for (const [ressource, montant] of Object.entries(def.paliers?.[m].cout ?? {})) {
+      total[ressource as Ressource] = (total[ressource as Ressource] ?? 0) + (montant ?? 0);
+    }
+  }
+  return total;
 }
 
 /**
@@ -136,10 +233,11 @@ export function coutLisible(def: ConstructionDef): string {
 export function coutReparation(
   def: ConstructionDef,
   pv: number,
+  matiere: Matiere = "bois",
 ): Partial<Record<Ressource, number>> {
-  const manque = 1 - pv / def.pvMax;
+  const manque = 1 - pv / palierDe(def, matiere).pvMax;
   const cout: Partial<Record<Ressource, number>> = {};
-  for (const [ressource, montant] of Object.entries(def.cout)) {
+  for (const [ressource, montant] of Object.entries(coutCumule(def, matiere))) {
     cout[ressource as Ressource] = Math.ceil((montant ?? 0) * manque * 0.5);
   }
   return cout;
@@ -162,10 +260,11 @@ export const PART_REMBOURSEE = 0.5;
 export function remboursementDemolition(
   def: ConstructionDef,
   pv: number,
+  matiere: Matiere = "bois",
 ): Partial<Record<Ressource, number>> {
-  const reste = Math.max(0, Math.min(1, pv / def.pvMax));
+  const reste = Math.max(0, Math.min(1, pv / palierDe(def, matiere).pvMax));
   const rendu: Partial<Record<Ressource, number>> = {};
-  for (const [ressource, montant] of Object.entries(def.cout)) {
+  for (const [ressource, montant] of Object.entries(coutCumule(def, matiere))) {
     rendu[ressource as Ressource] = Math.floor((montant ?? 0) * reste * PART_REMBOURSEE);
   }
   return rendu;

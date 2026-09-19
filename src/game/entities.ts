@@ -11,6 +11,8 @@ import {
   type CompetencesPossedees,
   type EffetCapacite,
   type EvolutionDef,
+  EMPLACEMENTS_ACTIFS,
+  activesPossedees,
 } from "../core/competences";
 import type { Ordre, Point } from "../core/ordres";
 import { creerPersonne, prenomLibre, type Personne } from "../core/personne";
@@ -176,6 +178,8 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   readonly competences: CompetencesPossedees = {};
   /** Evolution choisie pour une competence, par identifiant de competence */
   readonly evolutions: Record<string, EvolutionDef> = {};
+  /** Les emplacements d'actives : quatre, puis ceux qu'on achete (§4.13). */
+  emplacements = EMPLACEMENTS_ACTIFS;
 
   pv: number;
   niveau = 1;
@@ -719,6 +723,28 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     if (evolution.teinte !== undefined) {
       this.teinte = evolution.teinte;
       this.setTint(evolution.teinte);
+    }
+  }
+
+  /** Les actives apprises, dans l'ordre des touches (§4.13). */
+  get actives(): CompetenceDef[] {
+    return activesPossedees(this.competences);
+  }
+
+  /**
+   * Oublie une competence, pour faire place a une autre quand les
+   * emplacements d'actives sont pleins (§4.13). Ses paliers sont perdus. Ce
+   * qu'un palier avait pu ajouter aux bonus reste — rare pour une active —, et
+   * la teinte de son evolution s'efface.
+   */
+  oublier(id: string): void {
+    delete this.competences[id];
+    const evolution = this.evolutions[id];
+    if (!evolution) return;
+    delete this.evolutions[id];
+    if (evolution.teinte !== undefined && this.teinte === evolution.teinte) {
+      this.teinte = null;
+      this.clearTint();
     }
   }
 }

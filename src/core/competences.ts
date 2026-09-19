@@ -1521,6 +1521,80 @@ export interface Proposition {
   couleur: number;
 }
 
+// ------------------------------------------------- les emplacements d'actives
+
+/**
+ * Quatre competences actives au maximum (§4.1, §4.13, tranche le 9 septembre
+ * 2026) — une limite de clavier autant que de lisibilite : les touches 2 a 5.
+ * Angelos a precise le 19 septembre : quand c'est plein, on **achete un
+ * emplacement** de plus, on **fusionne** deux competences (§4.25, avec les
+ * builds), ou on **remplace** une des quatre. Les automatiques ne comptent pas :
+ * elles ne prennent pas de touche.
+ */
+export const EMPLACEMENTS_ACTIFS = 4;
+
+/** Au plus deux emplacements de plus : les touches 6 et 7. */
+export const EMPLACEMENTS_ACTIFS_MAX = 6;
+
+/** Le prix du cinquieme emplacement, puis du sixieme, en pieces (§4.8). */
+export const PRIX_DES_EMPLACEMENTS = [150, 400];
+
+/** L'identifiant de la carte « un emplacement de plus » sur l'ecran de remplacement. */
+export const ID_EMPLACEMENT = "emplacement";
+
+/** Les actives possedees, dans l'ordre ou elles ont ete apprises — celui des touches. */
+export function activesPossedees(possedees: CompetencesPossedees): CompetenceDef[] {
+  return Object.keys(possedees)
+    .map((id) => competenceParId(id))
+    .filter((c): c is CompetenceDef => c !== undefined && c.type === "active");
+}
+
+/** Une competence neuve qui demanderait un emplacement de plus qu'on n'en a. */
+export function demandeUnePlace(
+  competence: CompetenceDef,
+  possedees: CompetencesPossedees,
+  emplacements: number,
+): boolean {
+  if (competence.type !== "active") return false;
+  if ((possedees[competence.id] ?? 0) > 0) return false;
+  return activesPossedees(possedees).length >= emplacements;
+}
+
+/** Le prix de l'emplacement suivant, ou null quand on est au maximum. */
+export function prixDuProchainEmplacement(emplacements: number): number | null {
+  if (emplacements >= EMPLACEMENTS_ACTIFS_MAX) return null;
+  return PRIX_DES_EMPLACEMENTS[emplacements - EMPLACEMENTS_ACTIFS] ?? null;
+}
+
+/**
+ * Les cartes de l'ecran « laquelle oublier ? » : les actives tenues, puis
+ * l'emplacement a acheter quand on a de quoi. Oublier perd les paliers.
+ */
+export function propositionsDeRemplacement(
+  possedees: CompetencesPossedees,
+  emplacements: number,
+  argent: number,
+): Proposition[] {
+  const cartes: Proposition[] = activesPossedees(possedees).map((c) => ({
+    id: c.id,
+    nom: `${c.nom} ${possedees[c.id] ?? 1}`,
+    description: `Oubliee, paliers perdus. ${c.description}`,
+    etiquette: `${c.rang}  ·  OUBLIER`,
+    couleur: COULEURS_RANG[c.rang],
+  }));
+  const prix = prixDuProchainEmplacement(emplacements);
+  if (prix !== null && argent >= prix) {
+    cartes.push({
+      id: ID_EMPLACEMENT,
+      nom: "Un emplacement de plus",
+      description: `${prix} pieces. Rien n'est oublie : la nouvelle s'ajoute, touche ${emplacements + 2}.`,
+      etiquette: "PIECES  ·  ACHETER",
+      couleur: COULEURS_RANG.SSR,
+    });
+  }
+  return cartes;
+}
+
 export function propositionCompetence(
   competence: CompetenceDef,
   possedees: CompetencesPossedees,

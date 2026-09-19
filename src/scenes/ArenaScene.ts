@@ -8,6 +8,10 @@ import {
   tirerCompetences,
   type CompetenceDef,
   type EvolutionDef,
+  ID_EMPLACEMENT,
+  demandeUnePlace,
+  prixDuProchainEmplacement,
+  propositionsDeRemplacement,
 } from "../core/competences";
 import { creerTexturesPlaceholder } from "../game/art";
 import {
@@ -103,6 +107,7 @@ import {
   intervalleDeLaNuit,
   puissanceDeLaNuit,
   tailleDeLaHorde,
+  villageAttire,
 } from "../core/cycle";
 import { Village, type Villageois } from "../game/village";
 import { CASE, COLONNES, Grille, IMPOSENT_UNE_DISTANCE, LIGNES } from "../core/grille";
@@ -112,6 +117,8 @@ import {
   CONSTRUCTIONS,
   coutLisible,
   type TypeConstruction,
+  amelioration,
+  coutEnClair,
 } from "../core/constructions";
 import { Construction, Constructions, PORTEE_OCCUPATION } from "../game/constructions";
 import { Champs, REGLAGES_CHAMPS, type Champ } from "../game/champs";
@@ -518,6 +525,8 @@ export class ArenaScene extends Phaser.Scene {
   /** Instant de la prochaine horde de jour, et de celle qu'on vient d'annoncer */
   private prochaineHorde = 0;
   private hordeAuDepart = 0;
+  /** Le village attire-t-il les monstres (§4.18) ? Garde, pour ne le dire qu'au changement. */
+  private villageAttire = false;
   private tailleHordeEnRoute = 0;
   /** Le voile de nuit : une seule image noire, dont on module l'opacite */
   private voile!: Phaser.GameObjects.Rectangle;
@@ -580,7 +589,9 @@ export class ArenaScene extends Phaser.Scene {
   /** Vrai quand la pause vient de la fenetre, pas du menu de choix */
   private pauseHorsFocus = false;
   private debutPause = 0;
-  private modeChoix: "competence" | "evolution" = "competence";
+  private modeChoix: "competence" | "evolution" | "remplacement" = "competence";
+  /** La competence qui attend une place, le temps de l'ecran « laquelle oublier ? » (§4.13). */
+  private competenceEnAttente: CompetenceDef | null = null;
   private competenceEnEvolution: CompetenceDef | null = null;
   private optionsEvolution: EvolutionDef[] = [];
 
@@ -1404,7 +1415,11 @@ export class ArenaScene extends Phaser.Scene {
     } else if (construction) {
       x = construction.x;
       y = construction.y - CASE / 2;
-      texte = `${construction.def.nom} — ${Math.ceil(construction.pv)}/${construction.def.pvMax}`;
+      const suite = amelioration(construction.def, construction.matiere);
+      const touche = construction.def.id === "porte" ? "K" : "G";
+      const renfort = suite ? ` · ${touche} puis clic : ${suite.matiere}, ${coutEnClair(suite.palier.cout)}` : "";
+      const palier = construction.matiere === "bois" ? "" : ` en ${construction.matiere}`;
+      texte = `${construction.def.nom}${palier} — ${Math.ceil(construction.pv)}/${construction.pvMax}${renfort}`;
     } else if (Phaser.Math.Distance.Between(monde.x, monde.y, EGLISE.x, EGLISE.y) <= EGLISE.emprise) {
       x = EGLISE.x;
       y = EGLISE.y - EGLISE.emprise;
@@ -1579,6 +1594,9 @@ export class ArenaScene extends Phaser.Scene {
       [K.THREE, K.NUMPAD_THREE],
       [K.FOUR, K.NUMPAD_FOUR],
       [K.FIVE, K.NUMPAD_FIVE],
+      // Les emplacements qu'on achete (§4.13) : un cinquieme, un sixieme.
+      [K.SIX, K.NUMPAD_SIX],
+      [K.SEVEN, K.NUMPAD_SEVEN],
     ];
     this.touchesCapacites = codesParCapacite.map((codes) => codes.map((c) => clavier.addKey(c)));
 
@@ -2787,7 +2805,9 @@ export class ArenaScene extends Phaser.Scene {
 
     const def = CONSTRUCTIONS[type];
     this.fantome.setTexture(textureDe(def)).setOrigin(0.5, origineDe(def)).setVisible(true);
-    this.events.emit("annonce", `${def.nom} — ${coutLisible(def)} · clic pour poser`, "toi");
+    const fer = def.paliers?.fer.cout;
+    const renfort = fer ? ` · sur un segment en bois, ${coutEnClair(fer)} : fer` : "";
+    this.events.emit("annonce", `${def.nom} — ${coutLisible(def)} · clic pour poser${renfort}`, "toi");
   }
 
   /**
@@ -3029,6 +3049,23 @@ export class ArenaScene extends Phaser.Scene {
 
   private batirIci(x: number, y: number): boolean {
     if (!this.enConstruction) return false;
+
+    // L'outil palissade ou porte sur un segment qui existe deja : on le
+    // renforce au lieu de le poser — segment par segment (§4.20).
+    if (this.enConstruction === "palissade" || this.enConstruction === "porte") {
+      const existante = this.constructions.en(x, y);
+      if (existante && existante.def.id === this.enConstruction) {
+        const refus = this.constructions.refusAmelioration(existante, this.village.stocks);
+        const matiere = refus ? null : this.constructions.ameliorer(existante, this.village.stocks, this.time.now);
+        if (matiere) {
+          eclatImpact(this, existante.x, existante.y, 0xd8c48a);
+          this.events.emit("annonce", `${existante.def.nom} passee au ${matiere} — ${existante.pvMax} PV`, "toi");
+        } else {
+          this.events.emit("annonce", refus ?? "Impossible de renforcer ici", "toi");
+        }
+        return true;
+      }
+    }
 
     const pose =
       this.enConstruction === "champ"
@@ -3582,12 +3619,55 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
 
+    if (this.modeChoix === "remplacement") {
+      const nouvelle = this.competenceEnAttente;
+      this.competenceEnAttente = null;
+      this.modeChoix = "competence";
+      if (!nouvelle) {
+        this.terminerChoix();
+        return;
+      }
+      if (id === ID_EMPLACEMENT) {
+        this.argent -= prixDuProchainEmplacement(hero.emplacements) ?? 0;
+        hero.emplacements += 1;
+        this.flotter(hero.x, hero.y - 30, `EMPLACEMENT ${hero.emplacements}`, "#f0c419");
+      } else {
+        const oubliee = competenceParId(id);
+        hero.oublier(id);
+        if (oubliee) {
+          this.events.emit("annonce", `j'oublie ${oubliee.nom} pour ${nouvelle.nom}`, "heros", hero.personne.nom);
+        }
+      }
+      this.apprendreEtContinuer(hero, nouvelle);
+      return;
+    }
+
     const def = competenceParId(id);
     if (!def) {
       this.terminerChoix();
       return;
     }
 
+    // Quatre actives au plus (§4.13) : une cinquieme demande une place. On
+    // achete un emplacement, ou on en oublie une ; la fusion (§4.25) viendra
+    // avec les builds.
+    if (demandeUnePlace(def, hero.competences, hero.emplacements)) {
+      this.modeChoix = "remplacement";
+      this.competenceEnAttente = def;
+      this.events.emit(
+        "choix",
+        "PLUS DE PLACE",
+        `${def.nom} demande un emplacement — laquelle oublier ?`,
+        propositionsDeRemplacement(hero.competences, hero.emplacements, this.argent),
+      );
+      return;
+    }
+
+    this.apprendreEtContinuer(hero, def);
+  }
+
+  /** Apprend la competence, offre le niveau du Veteran, et ouvre l'evolution s'il y en a une. */
+  private apprendreEtContinuer(hero: Hero, def: CompetenceDef): void {
     const evolutions = hero.apprendre(def);
     // Veteran : un niveau offert immediatement.
     if (def.id === "veteran") {
@@ -5134,7 +5214,21 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private programmerHorde(): void {
-    this.prochaineHorde = this.time.now + delaiProchaineHorde(this.rng.next());
+    // Au-dela de 65 habitants, le village attire les monstres (§4.18) : l'ecart
+    // entre deux hordes tombe a quelques dizaines de secondes. Ca se dit une
+    // fois, au passage du seuil — dans un sens comme dans l'autre.
+    const attire = villageAttire(this.village.population);
+    if (attire !== this.villageAttire) {
+      this.villageAttire = attire;
+      this.events.emit(
+        "annonce",
+        attire
+          ? "Le village est gros : il attire les monstres, ils ne s'arreteront plus"
+          : "Le village s'est fait plus discret : les monstres se calment",
+        "guet",
+      );
+    }
+    this.prochaineHorde = this.time.now + delaiProchaineHorde(this.rng.next(), attire);
     this.hordeAuDepart = 0;
   }
 

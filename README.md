@@ -68,6 +68,9 @@ l'onglet apres avoir perdu un heros ne le ramene pas.
 | `1` `2` `3` | Choisir une amelioration a la montee de niveau |
 | Molette | Zoomer / dezoomer |
 | `R` | Recommencer apres la mort |
+| `G` `K` `H` `J` `L` | Batir : palissade, porte, tour, champ, maison — puis clic. **Sur un segment de mur ou de porte existant, l'outil le renforce au fer** (§4.20) |
+| `M` | Le mode d'amenagement : le temps s'arrete, on pose, on prend, on demolit (clic droit) |
+| `2` a `7` | Les competences actives — quatre emplacements, puis ceux qu'on achete (§4.13) |
 
 L'attaque, la visee et l'esquive sont **automatiques** : le joueur ne controle
 que le deplacement et ses ultimes.

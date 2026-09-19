@@ -34,7 +34,10 @@ Ce qui tourne vraiment, et qui est récent :
   Warrior's Soul », choisie à l'oreille), la guerre toute la nuit et dès qu'un héros se bat,
   en fondu enchaîné à puissance constante ; les fondus s'écoutent dans
   `captures/son/2026-09-19-musiques/partie-*.mp3`.
-- En dessous, un noyau de règles pur (`src/core/`) couvert par **504 tests**.
+- **Les restes du dépouillage** (19 septembre, au soir) : deux cases, seuil de 65 habitants
+  (hordes continues au-delà), quatre actives (oublier ou acheter un emplacement), paliers de
+  mur et de porte bois → fer segment par segment (la pierre attend le bloc 7b).
+- En dessous, un noyau de règles pur (`src/core/`) couvert par **518 tests**.
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
 
@@ -55,15 +58,10 @@ Dans l'ordre où je te le suggère ; c'est à moi de trancher l'ordre, propose-l
 
 ### A. Les petits restes (une session chacun, au plus)
 
-1. **Appliquer ce que le dépouillage du 9 septembre a tranché**, du plus structurant au plus
-   petit (`SUITE.md`, « Tout de suite », point 1) :
-   - le renommage **totem → Relique d'immortalité** ;
-   - les **deux cases** (au lieu de trois) entre un mur et un bâtiment dans le mode
-     d'aménagement ;
-   - le **seuil de 65 habitants** qui déclenche les attaques de jour ;
-   - les **quatre compétences actives** au maximum ;
-   - les **paliers de mur ×4** et l'amélioration segment par segment (touche à `src/core/`,
-     donc tests).
+1. ✅ **Appliquer ce que le dépouillage du 9 septembre a tranché** — fait le 19 septembre au
+   soir (`SUITE.md`, « Les restes du dépouillage ») : deux cases, seuil de 65, quatre actives
+   (oublier ou acheter ; la fusion attend le jalon 6.5), paliers bois → fer pour le mur et la
+   porte. Reste de ce point : **la pierre**, avec sa ressource, au bloc 7b.
 2. **Le sol du village** (dernier reste du bloc 7a) : la place en terre battue, les chemins,
    des détails de vie. Purement visuel : **à juger sur captures**, pas à décrire.
 3. **Les restes du bloc 7z** : **l'eau qui noie** (on s'enfonce, une bulle prévient le héros

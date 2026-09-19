@@ -3,6 +3,7 @@ import {
   Cycle,
   REGLAGES_CYCLE,
   delaiProchaineHorde,
+  villageAttire,
   effectifDeLaNuit,
   intervalleDeLaNuit,
   puissanceDeLaNuit,
@@ -141,5 +142,27 @@ describe("Les hordes de jour", () => {
   it("laisse la place a plusieurs hordes dans une journee", () => {
     // Sinon le jour de 30 minutes redevient le temps mort que le §4.19 refuse.
     expect(delaiProchaineHorde(0.5)).toBeLessThan(REGLAGES_CYCLE.jour / 2);
+  });
+});
+
+describe("Le village qui attire les monstres (§4.18)", () => {
+  it("n'attire qu'au-dela de 65 habitants, strictement", () => {
+    expect(villageAttire(3)).toBe(false);
+    expect(villageAttire(65)).toBe(false);
+    expect(villageAttire(66)).toBe(true);
+  });
+
+  it("garde les hordes de jour telles quelles en dessous du seuil", () => {
+    expect(delaiProchaineHorde(0, false)).toBe(REGLAGES_CYCLE.hordeMin);
+    expect(delaiProchaineHorde(0)).toBe(delaiProchaineHorde(0, false));
+  });
+
+  it("ne laisse plus les hordes s'arreter au-dela du seuil", () => {
+    expect(delaiProchaineHorde(0, true)).toBe(REGLAGES_CYCLE.hordeMinAttire);
+    expect(delaiProchaineHorde(0.999, true)).toBeLessThanOrEqual(REGLAGES_CYCLE.hordeMaxAttire);
+    // Bien en dessous de la horde la plus rapprochee d'un village calme, et
+    // encore au-dessus du preavis : on a le temps de sonner la cloche.
+    expect(REGLAGES_CYCLE.hordeMaxAttire).toBeLessThan(REGLAGES_CYCLE.hordeMin / 2);
+    expect(REGLAGES_CYCLE.hordeMinAttire).toBeGreaterThan(REGLAGES_CYCLE.preavisHorde * 2);
   });
 });

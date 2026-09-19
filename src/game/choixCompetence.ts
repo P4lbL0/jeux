@@ -39,9 +39,12 @@ export class ChoixCompetence {
     this.ajouterTexte(l / 2, h * 0.17, espacer(titre.toUpperCase()), 26, T.laiton).setOrigin(0.5);
     this.ajouterTexte(l / 2, h * 0.17 + 34, sousTitre, 13, T.osMat).setOrigin(0.5);
 
-    const largeur = 226;
-    const hauteur = 168;
+    // Trois cartes d'ordinaire ; jusqu'a cinq sur l'ecran « laquelle oublier ? »
+    // (§4.13) — elles se serrent pour tenir dans la largeur.
     const espace = 18;
+    const n = Math.max(1, propositions.length);
+    const largeur = Math.min(226, Math.floor((l - 48 - (n - 1) * espace) / n));
+    const hauteur = 168;
     const total = propositions.length * largeur + (propositions.length - 1) * espace;
     const debut = l / 2 - total / 2;
     const y = h * 0.35;
@@ -53,7 +56,7 @@ export class ChoixCompetence {
       });
     });
 
-    this.ajouterTexte(l / 2, y + hauteur + 34, "Touches 1 a 3, ou clique", 12, T.osMat).setOrigin(
+    this.ajouterTexte(l / 2, y + hauteur + 34, `Touches 1 a ${Math.min(n, 5)}, ou clique`, 12, T.osMat).setOrigin(
       0.5,
     );
 
@@ -63,6 +66,8 @@ export class ChoixCompetence {
       Phaser.Input.Keyboard.KeyCodes.ONE,
       Phaser.Input.Keyboard.KeyCodes.TWO,
       Phaser.Input.Keyboard.KeyCodes.THREE,
+      Phaser.Input.Keyboard.KeyCodes.FOUR,
+      Phaser.Input.Keyboard.KeyCodes.FIVE,
     ];
     propositions.forEach((proposition, i) => {
       const code = codes[i];

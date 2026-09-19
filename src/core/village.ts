@@ -85,9 +85,10 @@ export const cleCase = (colonne: number, ligne: number): string => `${colonne},$
 /**
  * Les bornes de la forme, en cases depuis l'eglise.
  *
- * - **Au moins 5** de chaque cote : l'eglise impose trois cases libres autour
- *   d'elle (§4.24), et une partie reprise rebatit l'enceinte avec cette regle.
- *   Un mur plus pres serait perdu au rechargement.
+ * - **Au moins 5** de chaque cote. L'eglise imposait trois cases libres autour
+ *   d'elle (§4.24) ; la regle est passee a deux le 19 septembre 2026, mais la
+ *   forme validee sur captures le 18 ne bouge pas — decision d'Angelos. Une
+ *   partie reprise rebatit l'enceinte avec la regle de pose : ce 5 y satisfait.
  * - **Au plus 7 a l'est** : les champs sont a huit cases de l'eglise (§4.18),
  *   et ils doivent rester dehors — le ble se paie en risque.
  * - **Quatre au sud, toujours** : la foret commence a deux cases, le mur y

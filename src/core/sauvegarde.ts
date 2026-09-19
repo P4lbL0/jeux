@@ -21,7 +21,7 @@
 import type { ClassId, EtatHero, Rang } from "./classes";
 import type { Phase } from "./cycle";
 import type { EtatEglise, NiveauEglise } from "./eglise";
-import type { TypeConstruction } from "./constructions";
+import type { Matiere, TypeConstruction } from "./constructions";
 import type { Fou } from "./arrivants";
 import type { Cours, EtatPort } from "./port";
 import type { EtatSubi } from "./etats";
@@ -115,6 +115,8 @@ export interface EtatHeros {
   choixEnAttente: number;
   /** Palier atteint pour chaque competence, par identifiant */
   competences: Record<string, number>;
+  /** Les emplacements d'actives (§4.13). Absent dans une sauvegarde d'avant le 19 septembre 2026 : quatre. */
+  emplacements?: number;
   /** L'evolution choisie, par identifiant de competence. On garde l'id, pas la definition */
   evolutions: Record<string, string>;
   posture: Posture;
@@ -144,6 +146,8 @@ export interface EtatConstruction {
   y: number;
   type: TypeConstruction;
   pv: number;
+  /** Le palier du segment (§4.20). Absent dans une sauvegarde d'avant le 19 septembre 2026 : du bois. */
+  matiere?: Matiere;
 }
 
 export interface EtatChamp {

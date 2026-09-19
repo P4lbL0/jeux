@@ -12,9 +12,8 @@
 
 import Phaser from "phaser";
 import { CLASSES, type ClassId } from "../core/classes";
-import { CONSTRUCTIONS } from "../core/constructions";
 import { POSTES } from "../core/carte";
-import { competenceParId } from "../core/competences";
+import { EMPLACEMENTS_ACTIFS, competenceParId } from "../core/competences";
 import { Cycle } from "../core/cycle";
 import type { Fou } from "../core/arrivants";
 import type { BatimentPort } from "./port";
@@ -135,6 +134,7 @@ export function capturer(partie: PartieEnCours, maintenant: number): Sauvegarde 
       y: construction.y,
       type: construction.def.id,
       pv: construction.pv,
+      matiere: construction.matiere,
     })),
     maisons: partie.maisons.toutes.map((maison) => ({
       colonne: maison.colonne,
@@ -187,6 +187,7 @@ function capturerHeros(hero: Hero, maintenant: number): EtatHeros {
     etat: hero.etat,
     choixEnAttente: hero.choixEnAttente,
     competences: { ...hero.competences },
+    emplacements: hero.emplacements,
     evolutions,
     posture: hero.ordre.posture,
     ancre: hero.ordre.ancre ? { x: hero.ordre.ancre.x, y: hero.ordre.ancre.y } : null,
@@ -310,6 +311,7 @@ function reprendreLesHeros(
       classe,
     );
 
+    hero.emplacements = etat.emplacements ?? EMPLACEMENTS_ACTIFS;
     // Les competences se **rejouent**, palier par palier : c'est leur
     // application qui construit `bonus`, et un bonus recopie a la main aurait
     // derive au premier equilibrage.
@@ -361,7 +363,10 @@ function reprendreLeBati(sauvegarde: Sauvegarde, partie: PartieEnCours): void {
     remplir();
     const construction = partie.constructions.batir(etat.x, etat.y, etat.type, bourse);
     if (construction) {
-      construction.pv = Math.max(1, Math.min(etat.pv, CONSTRUCTIONS[etat.type].pvMax));
+      // La matiere n'etait pas sauvee avant le 19 septembre 2026 : du bois.
+      construction.matiere = etat.matiere ?? "bois";
+      construction.habiller();
+      construction.pv = Math.max(1, Math.min(etat.pv, construction.pvMax));
     }
   }
 

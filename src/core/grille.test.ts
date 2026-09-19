@@ -170,7 +170,7 @@ describe("Les regles de pose (§4.24)", () => {
     expect(grille.aProximite(enDiagonale.x, enDiagonale.y, rayon, ["batiment"])).toBe(true);
   });
 
-  it("laisse exactement trois cases vides entre un batiment et ce qu'on batit", () => {
+  it("laisse exactement les cases vides de la regle (deux) entre un batiment et ce qu'on batit", () => {
     const grille = new Grille();
     grille.poser(point.x, point.y, "batiment");
     const rayon = CASES_LIBRES_AUTOUR_DES_BATIMENTS;

@@ -7,6 +7,12 @@ import {
   COMPETENCES,
   tirerCompetences,
   type CompetencesPossedees,
+  EMPLACEMENTS_ACTIFS,
+  ID_EMPLACEMENT,
+  activesPossedees,
+  demandeUnePlace,
+  prixDuProchainEmplacement,
+  propositionsDeRemplacement,
 } from "./competences";
 
 describe("Competences — coherence du contenu", () => {
@@ -132,5 +138,38 @@ describe("Competences — les effets", () => {
     provocation?.paliers[0]?.appliquer?.(bonus, 1);
     provocation?.paliers[1]?.appliquer?.(bonus, 2);
     expect(bonus.provocation).toBe(130);
+  });
+});
+
+describe("Competences — les emplacements d'actives (§4.13)", () => {
+  const actives = COMPETENCES.filter((c) => c.type === "active").slice(0, 5);
+  const passive = COMPETENCES.find((c) => c.type === "passive")!;
+  const quatre = Object.fromEntries(actives.slice(0, 4).map((c) => [c.id, 1]));
+
+  it("compte les actives apprises, jamais les passives", () => {
+    expect(activesPossedees({ ...quatre, [passive.id]: 2 }).map((c) => c.id)).toEqual(
+      actives.slice(0, 4).map((c) => c.id),
+    );
+  });
+
+  it("une cinquieme active demande une place ; une passive ou un palier de plus, jamais", () => {
+    expect(demandeUnePlace(actives[4]!, quatre, EMPLACEMENTS_ACTIFS)).toBe(true);
+    expect(demandeUnePlace(passive, quatre, EMPLACEMENTS_ACTIFS)).toBe(false);
+    expect(demandeUnePlace(actives[0]!, quatre, EMPLACEMENTS_ACTIFS)).toBe(false);
+    expect(demandeUnePlace(actives[4]!, quatre, EMPLACEMENTS_ACTIFS + 1)).toBe(false);
+  });
+
+  it("vend un cinquieme puis un sixieme emplacement, et s'arrete la", () => {
+    expect(prixDuProchainEmplacement(4)).toBe(150);
+    expect(prixDuProchainEmplacement(5)).toBe(400);
+    expect(prixDuProchainEmplacement(6)).toBeNull();
+  });
+
+  it("propose d'oublier chacune des quatre, et d'acheter seulement quand on a de quoi", () => {
+    const sans = propositionsDeRemplacement(quatre, EMPLACEMENTS_ACTIFS, 149);
+    expect(sans.map((p) => p.id)).toEqual(actives.slice(0, 4).map((c) => c.id));
+    const avec = propositionsDeRemplacement(quatre, EMPLACEMENTS_ACTIFS, 150);
+    expect(avec.at(-1)?.id).toBe(ID_EMPLACEMENT);
+    expect(propositionsDeRemplacement(quatre, 6, 10_000).some((p) => p.id === ID_EMPLACEMENT)).toBe(false);
   });
 });

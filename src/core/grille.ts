@@ -38,7 +38,8 @@ export const LIGNES = Math.ceil(MONDE.hauteur / CASE);
  * aucun titre, ce qui interdisait toute regle de pose qui parle d'eux.
  *
  * ⚠️ **Les deux sont separes pour une seule raison, et elle vient de la mesure.**
- * `batiment` (l'eglise et le port) impose **trois cases libres autour** ;
+ * `batiment` (l'eglise et le port) impose **deux cases libres autour** (trois
+ * jusqu'au 19 septembre 2026) ;
  * `maison` ne prend que **sa propre case**. Appliquer la distance aux maisons
  * aussi repoussait la palissade a 256 px du centre du village contre 82 px
  * avant — les neuf maisons sont en couronne, et leurs anneaux interdits se
@@ -72,7 +73,7 @@ const BLOQUANTES: Occupation[] = ["mur", "tour", "batiment", "maison"];
 export const RACCORDABLES: Occupation[] = ["mur", "tour", "porte"];
 
 /**
- * Ce qui exige trois cases libres autour de soi (§4.24).
+ * Ce qui exige des cases libres autour de soi — deux, depuis le 19 septembre 2026 (§4.24).
  *
  * L'eglise et le port, jamais les maisons : voir le commentaire d'`Occupation`.
  */
@@ -196,10 +197,10 @@ export class Grille {
    *
    * La distance se compte **en cases et en carre** (Tchebychev) et non a vol
    * d'oiseau : une regle de pose se lit sur la grille qu'on voit, pas sur un
-   * cercle qu'il faudrait deviner. `rayon` de 3 laisse donc trois cases vides
-   * entre les deux — c'est la regle du §4.24.
+   * cercle qu'il faudrait deviner. `rayon` de 2 laisse donc deux cases vides
+   * entre les deux — c'est la regle du §4.24 (trois, avant le 19 septembre 2026).
    *
-   * On balaye au plus (2r+1)^2 cases, soit 49 a rayon 3. C'est fait a la pose,
+   * On balaye au plus (2r+1)^2 cases, soit 25 a rayon 2. C'est fait a la pose,
    * jamais par image (§4.17).
    */
   aProximite(x: number, y: number, rayon: number, occupations: Occupation[]): boolean {

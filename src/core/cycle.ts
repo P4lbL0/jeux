@@ -96,6 +96,22 @@ export const REGLAGES_CYCLE = {
    * previsible ; aucun preavis en ferait un coup du sort.
    */
   preavisHorde: 6_000,
+
+  /**
+   * Au-dela de cette population, le village attire les monstres (§4.18,
+   * tranche le 9 septembre 2026) : les hordes de jour ne s'arretent plus. Un
+   * seuil unique et brutal, pas une pente. Les hordes en dessous restent ce
+   * qu'elles sont — c'est le seuil qui les rend continues, il ne les cree pas
+   * (Angelos, 19 septembre 2026).
+   */
+  seuilAttire: 65,
+  /**
+   * L'ecart entre deux hordes quand le village attire, en millisecondes (tire
+   * entre les deux). Le preavis reste : le temps de sonner la cloche, pas
+   * celui de souffler.
+   */
+  hordeMinAttire: 20_000,
+  hordeMaxAttire: 40_000,
 };
 
 /**
@@ -200,12 +216,19 @@ export function tailleDeLaHorde(jour: number): number {
   );
 }
 
+/** Le village attire-t-il les monstres ? Au-dela du seuil, strictement (§4.18). */
+export function villageAttire(population: number): boolean {
+  return population > REGLAGES_CYCLE.seuilAttire;
+}
+
 /**
  * Dans combien de temps la prochaine horde, a partir de maintenant.
  *
  * @param tirage aleatoire dans [0,1) ; injecte pour rester pur et testable
+ * @param attire le village attire les monstres : l'ecart tombe a quelques dizaines de secondes
  */
-export function delaiProchaineHorde(tirage: number): number {
-  const { hordeMin, hordeMax } = REGLAGES_CYCLE;
-  return hordeMin + tirage * (hordeMax - hordeMin);
+export function delaiProchaineHorde(tirage: number, attire = false): number {
+  const min = attire ? REGLAGES_CYCLE.hordeMinAttire : REGLAGES_CYCLE.hordeMin;
+  const max = attire ? REGLAGES_CYCLE.hordeMaxAttire : REGLAGES_CYCLE.hordeMax;
+  return min + tirage * (max - min);
 }

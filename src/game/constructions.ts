@@ -10,6 +10,11 @@ import {
   remboursementDemolition,
   type ConstructionDef,
   type TypeConstruction,
+  amelioration,
+  coutEnClair,
+  palierDe,
+  peutPayer,
+  regler,
 } from "../core/constructions";
 import { CASE, Grille, IMPOSENT_UNE_DISTANCE, RACCORDABLES } from "../core/grille";
 import type { Ressource, Stocks } from "../core/habitants";
@@ -93,7 +98,8 @@ export class Construction extends Phaser.Physics.Arcade.Image {
   flashJusqua = 0;
   /**
    * Le palier d'un mur (§4.20) : bois, fer, pierre. Les trois sont dessines ;
-   * seul le bois se pose, tant que la regle d'amelioration n'est pas ecrite.
+   * le bois se pose, et `Constructions.ameliorer` fait monter un segment d'un
+   * palier (19 septembre 2026).
    */
   matiere: MatiereMur = "bois";
   /** Le raccord aux voisines : nord 1, est 2, sud 4, ouest 8 (§4.30). */
@@ -126,6 +132,11 @@ export class Construction extends Phaser.Physics.Arcade.Image {
     corps.updateCenter();
   }
 
+  /** Les points de vie du palier atteint (§4.20) : 120 en bois, 500 en fer pour un mur. */
+  get pvMax(): number {
+    return palierDe(this.def, this.matiere).pvMax;
+  }
+
   get enChantier(): boolean {
     return this.chantierJusqua > 0;
   }
@@ -156,11 +167,11 @@ export class Construction extends Phaser.Physics.Arcade.Image {
   }
 
   get ratioPv(): number {
-    return this.pv / this.def.pvMax;
+    return this.pv / this.pvMax;
   }
 
   get intacte(): boolean {
-    return this.pv >= this.def.pvMax;
+    return this.pv >= this.pvMax;
   }
 }
 
@@ -303,6 +314,42 @@ export class Constructions {
     this.inscrire(construction);
     this.rehabillerAutour(centre.x, centre.y);
     return construction;
+  }
+
+  /**
+   * Renforce un segment d'un palier — bois vers fer aujourd'hui, la pierre
+   * attend sa ressource (§4.20, tranche le 9 septembre 2026 : segment par
+   * segment, comme dans Clash of Clans). Le segment est remis a neuf avec les
+   * points de vie du nouveau palier, et le chantier se voit le temps de
+   * `DUREE_CHANTIER`. Le batisseur qu'il devrait occuper attend le bloc 8.
+   *
+   * @returns la matiere atteinte, ou null si rien n'etait possible
+   */
+  ameliorer(construction: Construction, stocks: Stocks, maintenant?: number): MatiereMur | null {
+    const suite = amelioration(construction.def, construction.matiere);
+    if (!suite || !peutPayer(suite.palier.cout, stocks)) return null;
+    regler(suite.palier.cout, stocks);
+    construction.matiere = suite.matiere;
+    construction.pv = suite.palier.pvMax;
+    if (maintenant !== undefined) construction.chantierJusqua = maintenant + DUREE_CHANTIER;
+    construction.habiller();
+    return suite.matiere;
+  }
+
+  /** Pourquoi on ne peut pas renforcer ce segment, en clair — ou null si on peut. */
+  refusAmelioration(construction: Construction, stocks: Stocks): string | null {
+    const nom = construction.def.nom;
+    if (!construction.def.paliers) return `${nom} : ca ne se renforce pas`;
+    const suite = amelioration(construction.def, construction.matiere);
+    if (!suite) {
+      return construction.matiere === "pierre"
+        ? `${nom} en pierre : rien au-dessus`
+        : `${nom} en fer : la pierre viendra avec sa ressource`;
+    }
+    if (!peutPayer(suite.palier.cout, stocks)) {
+      return `Il faut ${coutEnClair(suite.palier.cout)} pour passer ${nom.toLowerCase()} au ${suite.matiere}`;
+    }
+    return null;
   }
 
   /**
@@ -492,7 +539,7 @@ export class Constructions {
    * @returns ce qui a ete rendu
    */
   demolir(construction: Construction, stocks: Stocks): Partial<Record<Ressource, number>> {
-    const rendu = remboursementDemolition(construction.def, construction.pv);
+    const rendu = remboursementDemolition(construction.def, construction.pv, construction.matiere);
     crediter(rendu, stocks);
 
     construction.occupant = null;
