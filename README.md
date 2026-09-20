@@ -414,6 +414,7 @@ npm run intro                          # refait le film d'ouverture (Blender + f
 npm run son                            # refait la bande-son, boucle les musiques, fichiers d'ecoute
 npm run son -- --chercher              # ... en cherchant les raccords des musiques sur tout le morceau
 npm run bruits -- --dossier <dossier>  # les planches d'ecoute des bruits de la partie (candidats CC0, page ecoute.html)
+npm run bruits -- --livrer             # pose les bruits choisis (CHOIX) dans src/assets/son/, le jeu les prend au demarrage
 ```
 
 ⚠️ Un PNG depose dans `src/assets/` remplace le dessin au code sous la meme

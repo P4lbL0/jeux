@@ -513,10 +513,51 @@ function lisezmoi(durees: Map<string, number[]>): string {
   return `${lignes.join("\n")}\n`;
 }
 
+// ------------------------------------------------------------------- choix
+
+/**
+ * Ce qu'Angelos a choisi sur les planches : le numero du candidat par
+ * evenement (a partir de 1). Un evenement absent reste muet dans le jeu.
+ * `npm run bruits -- --livrer` ecrit les fichiers choisis dans `src/assets/son/`
+ * (`bruit-<evenement>.ogg` et `.mp3`) et leurs credits.
+ */
+const CHOIX: Record<string, number> = {};
+
+const LIVRAISON = resolve("src/assets/son");
+
+function livrer(): void {
+  mkdirSync(LIVRAISON, { recursive: true });
+  const lignes = [
+    "# Les bruits de la partie",
+    "",
+    "Choisis par Angelos sur les planches d'ecoute (`npm run bruits`), poses par",
+    "`npm run bruits -- --livrer`. Ce fichier est reecrit a chaque passage.",
+    "",
+    "| Evenement | Son | Auteur | Licence |",
+    "|---|---|---|---|",
+  ];
+  for (const e of EVENEMENTS) {
+    const n = CHOIX[e.nom];
+    if (!n) continue;
+    const c = e.candidats[n - 1];
+    if (!c) throw new Error(`[bruits] ${e.nom} : pas de candidat ${n}`);
+    const son = preparer(c);
+    ecrire(son, `${LIVRAISON}/bruit-${e.nom}.ogg`, ["-c:a", "libvorbis", "-q:a", "4"]);
+    ecrire(son, `${LIVRAISON}/bruit-${e.nom}.mp3`, ["-c:a", "libmp3lame", "-b:a", "128k"]);
+    console.log(`[bruits] livre : bruit-${e.nom} (candidat ${n}, ${duree(son).toFixed(2)} s)`);
+    for (const s of c.sources) lignes.push(`| ${e.nom} | [${s.titre}](${s.page}) | ${s.auteur} | ${s.licence} |`);
+  }
+  writeFileSync(`${LIVRAISON}/CREDITS-BRUITS.md`, `${lignes.join("\n")}\n`);
+}
+
 // -------------------------------------------------------------------- tout
 
 async function main(): Promise<void> {
   await recupererLesSources(Object.values(SOURCES) as Source[], SOURCES_DIR);
+  if (process.argv.includes("--livrer")) {
+    livrer();
+    return;
+  }
   mkdirSync(ECOUTE, { recursive: true });
   const durees = new Map<string, number[]>();
   for (const e of EVENEMENTS) {

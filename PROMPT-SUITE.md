@@ -97,7 +97,9 @@ Tout le socle existe (`src/game/son.ts`, `src/game/panneauSon.ts`, `scripts/son/
    changer dans `src/game/musique.ts` si elle plaît mieux).
 5. ⏳ **Les planches d'écoute sont faites** (20 septembre au petit matin, `npm run bruits`,
    `captures/son/2026-09-20-bruits/ecoute.html`) : treize événements, deux à quatre candidats
-   CC0 chacun ; Angelos choisit, puis on branche. Décisions prises : tout en enregistrements
+   CC0 chacun ; Angelos choisit, puis `CHOIX` + `npm run bruits -- --livrer` posent les
+   fichiers. **Le branchement dans le jeu est déjà fait** (`src/game/bruits.ts` : écouteurs de
+   frame clé, un sur deux, distance, huit voix). Décisions prises : tout en enregistrements
    libres ; atténués par la distance, un coup sur deux, huit voix au plus ; aucun cri avant le
    jalon 6.7. Le point d'origine, pour mémoire :
    **Les bruits de la partie**, branchés sur les **événements nommés** que les animations

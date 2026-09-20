@@ -31,6 +31,7 @@ import {
   CLE_TONNEAU,
 } from "../game/dessin/decor";
 import { origineDe, textureDe } from "../game/constructions";
+import { Bruits, chargerLesBruits } from "../game/bruits";
 import { abimerLeSol,
   dessinerLeSolDuVillage,
 } from "../game/dessin/carte";
@@ -605,6 +606,12 @@ export class ArenaScene extends Phaser.Scene {
   /** La musique de la partie : le calme le jour, la guerre la nuit et des qu'un heros se bat (§4.10). */
   private musique!: Musique;
   /**
+   * Les bruits de la partie, sur les frames cles des animations (§4.10, phase 2).
+   * Visible : les scripts de verification lisent ses `demandes`, et ce qui ne
+   * passe pas par une animation (une porte, un chantier) l'appellera directement.
+   */
+  bruits!: Bruits;
+  /**
    * Vrai pendant qu'on renomme quelqu'un dans la fiche (DESIGN.md §4.18).
    *
    * ⚠️ Sans lui, taper un nom **joue** : « Bertrand » sonne la cloche (B),
@@ -803,6 +810,8 @@ export class ArenaScene extends Phaser.Scene {
     for (const { cle, urls } of Object.values(MORCEAUX)) {
       if (!this.cache.audio.exists(cle)) this.load.audio(cle, [...urls]);
     }
+    // Les bruits de la partie (§4.10, phase 2) : ceux qui sont livres, et eux seuls.
+    chargerLesBruits(this);
   }
 
   create(): void {
@@ -823,6 +832,9 @@ export class ArenaScene extends Phaser.Scene {
     // avec la scene — une voix Web Audio ne s'arrete pas toute seule quand on
     // change d'ecran.
     this.musique = new Musique(this);
+    // Les bruits ecoutent tout sprite anime qui entre dans la scene : a creer
+    // avant le premier habitant, le premier heros, le premier monstre.
+    this.bruits = new Bruits(this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.musique.eteindre(0.3));
 
     creerTexturesPlaceholder(this);

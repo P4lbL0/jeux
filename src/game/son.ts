@@ -108,6 +108,10 @@ export interface OptionsDeVoix {
   depuis?: number;
   /** La forme du fondu d'entree et de celui d'`arreter` (defaut : lineaire). */
   courbe?: Courbe;
+  /** La place dans l'image, de -1 (tout a gauche) a 1 (tout a droite) ; 0 ou rien : au milieu. */
+  pan?: number;
+  /** La vitesse de lecture (1 = telle quelle) : un peu plus vite, c'est un peu plus aigu. */
+  vitesse?: number;
 }
 
 interface Branchements {
@@ -186,10 +190,21 @@ export function jouer(
   } else {
     gain.gain.value = volume;
   }
-  source.connect(gain).connect(b.pistes[piste]);
+  if (options.vitesse && options.vitesse > 0) source.playbackRate.value = options.vitesse;
+  // Le panoramique : un noeud de plus seulement quand on le demande, et
+  // seulement si le navigateur le sait (Safari l'a depuis 2020).
+  const panoramique =
+    options.pan && typeof contexte.createStereoPanner === "function" ? contexte.createStereoPanner() : null;
+  if (panoramique) {
+    panoramique.pan.value = Math.max(-1, Math.min(1, options.pan ?? 0));
+    source.connect(gain).connect(panoramique).connect(b.pistes[piste]);
+  } else {
+    source.connect(gain).connect(b.pistes[piste]);
+  }
   source.addEventListener("ended", () => {
     source.disconnect();
     gain.disconnect();
+    panoramique?.disconnect();
   });
   source.start(maintenant, Math.max(0, Math.min(options.depuis ?? 0, tampon.duration)));
 

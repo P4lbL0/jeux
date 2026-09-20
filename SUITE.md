@@ -1077,9 +1077,25 @@ Freesound à la licence inconnue). Le téléchargement est **partagé** avec l'�
 qui sonne deux secondes, la créature qui grogne dix secondes) ont été choisies **sur mesures**
 (éclats au-dessus de −30 dB sous la crête), pas à l'oreille.
 
-⚠️ **Ce qui attend** : les choix d'Angelos, puis le branchement — les écouteurs d'`animationupdate`
-sur la frame clé (`EVENEMENTS` dans `four.ts`), la piste « effets », l'atténuation et le plafond
-de voix, les fichiers dans `src/assets/son/` et `CREDITS.md`.
+**Le branchement est fait, sans attendre les choix** (`src/game/bruits.ts`, neuf) : la scène
+écoute tout sprite animé qui entre (`ADDED_TO_SCENE`, monstres recyclés compris) et, à chaque
+changement de frame, compare la frame à la frame clé de l'événement (`EVENEMENTS` de `four.ts` ;
+⚠️ `frame.index` de Phaser compte à partir de 1, `frameCle` à partir de 0). Puis les trois
+règles : **un coup sur deux** pour les sept bruits de travail (pioche, hache, semis, ligne,
+enclume, maillet, pas), les autres à chaque fois ; **atténuation par la distance au centre de la
+caméra** (au carré, rien au-delà de 0,6 diagonale) et un léger panoramique selon le côté ;
+**huit voix au plus**, tenues par leurs instants de fin comparés à l'horloge, sans minuterie
+(§4.17 règle 4) ; 60 ms au moins entre deux fois le même bruit ; vitesse tirée entre 0,94 et
+1,06 pour que deux coups ne soient jamais identiques. `son.ts` a gagné `pan` et `vitesse`. Les
+fichiers sont **optionnels** (`src/assets/son/bruit-<événement>.ogg|mp3`, ramassés par un glob
+comme les PNG) : sans fichier, l'événement reste muet. **Mesuré** (Playwright, graine 1,
+14 s de jour) : dix sprites animés, dix écouteurs, neuf demandes « pioche » et neuf « ligne »
+pendant que le mineur et le pêcheur travaillent, aucune erreur console.
+
+⚠️ **Ce qui attend** : les choix d'Angelos sur `ecoute.html`, à reporter dans `CHOIX` de
+`scripts/son/bruits.ts`, puis `npm run bruits -- --livrer` écrit les fichiers et
+`CREDITS-BRUITS.md` ; le jeu les prend au démarrage suivant. Puis juger à l'oreille la densité
+(un sur deux, huit voix) sur une vraie journée.
 
 ### Les derniers détails de vie (fait le 20 septembre 2026, au petit matin)
 
