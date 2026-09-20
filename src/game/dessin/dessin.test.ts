@@ -34,6 +34,12 @@ import {
   SUD,
   cleMur,
   clePorte,
+  cleDouve,
+  DOUVE,
+  ETATS_DOUVE,
+  POSITIONS_PORTE,
+  peindreDouve,
+  sensDuPont,
   masqueDe,
   peindreMur,
   peindrePorte,
@@ -493,15 +499,42 @@ describe("La porte — ouverte on passe, fermee on frappe", () => {
   it("laisse voir le sol a travers une porte est-ouest ouverte, et pas fermee", () => {
     for (const matiere of MATIERES_MUR) {
       const ouverte = new Toile(PORTE.largeur, PORTE.hauteur);
-      peindrePorte(ouverte, matiere, "est-ouest", true);
+      peindrePorte(ouverte, matiere, "est-ouest", "ouverte");
       const fermee = new Toile(PORTE.largeur, PORTE.hauteur);
-      peindrePorte(fermee, matiere, "est-ouest", false);
+      peindrePorte(fermee, matiere, "est-ouest", "fermee");
       // Au milieu du passage, juste au-dessus du sol.
       const y = SOL - 32 + 16 + 6 - 3;
       expect(opaque(ouverte, 16, y), `${matiere} ouverte`).toBe(false);
       expect(opaque(fermee, 16, y), `${matiere} fermee`).toBe(true);
-      expect(clePorte(matiere, EST | OUEST, true)).not.toBe(clePorte(matiere, EST | OUEST, false));
+      expect(clePorte(matiere, EST | OUEST, "ouverte")).not.toBe(clePorte(matiere, EST | OUEST, "fermee"));
     }
+  });
+
+  it("montre trois positions et un pont-levis differents, dans les deux sens (bloc 7b)", () => {
+    for (const sens of ["est-ouest", "nord-sud"] as const) {
+      const masque = sens === "est-ouest" ? EST | OUEST : NORD | SUD;
+      const rendus = new Set<string>();
+      for (const pontLevis of [false, true]) {
+        for (const position of POSITIONS_PORTE) {
+          const t = new Toile(PORTE.largeur, PORTE.hauteur);
+          // Une porte va jusqu'au bord de sa case, comme un mur : pas de test de bord.
+          peindrePorte(t, "bois", sens, position, pontLevis);
+          rendus.add(Array.from(t.donnees()).join(","));
+          rendus.add(clePorte("bois", masque, position, pontLevis));
+        }
+      }
+      // Six dessins, six cles : rien ne se confond.
+      expect(rendus.size).toBe(12);
+    }
+  });
+
+  it("entrouverte, laisse deja voir le sol au milieu mais pas contre les montants", () => {
+    const t = new Toile(PORTE.largeur, PORTE.hauteur);
+    peindrePorte(t, "bois", "est-ouest", "entrouverte");
+    const y = SOL - 32 + 16 + 6 - 3;
+    expect(opaque(t, 16, y)).toBe(false);
+    expect(opaque(t, 7, y)).toBe(true);
+    expect(opaque(t, 24, y)).toBe(true);
   });
 
   it("est une construction a part entiere, plus solide qu'une palissade", () => {
@@ -510,6 +543,35 @@ describe("La porte — ouverte on passe, fermee on frappe", () => {
     expect(occupationDe("porte")).toBe("porte");
     expect(occupationDe("palissade")).toBe("mur");
     expect(occupationDe("tour")).toBe("tour");
+  });
+});
+
+describe("La douve — un trou a plat, qui se raccorde a ses voisines (bloc 7b)", () => {
+  it("tient dans sa case, pour les seize raccords et les trois etats", () => {
+    for (const etat of ETATS_DOUVE) {
+      const rendus = new Set<string>();
+      for (const masque of MASQUES) {
+        const t = new Toile(DOUVE.largeur, DOUVE.hauteur);
+        peindreDouve(t, masque, etat);
+        // Une douve va jusqu'au bord de sa case : le contour n'a rien a cerner.
+        expect(t.compterOpaques(), `${etat} ${masque}`).toBe(DOUVE.largeur * DOUVE.hauteur);
+        rendus.add(Array.from(t.donnees()).join(","));
+      }
+      expect(rendus.size, etat).toBe(16);
+    }
+  });
+
+  it("met les planches en travers du fosse, jamais dans son sens", () => {
+    expect(sensDuPont(EST | OUEST)).toBe("nord-sud");
+    expect(sensDuPont(NORD | SUD)).toBe("est-ouest");
+    expect(sensDuPont(0)).toBe("nord-sud");
+  });
+
+  it("est une construction qui ne se casse pas et n'a pas de dessus", () => {
+    expect(CONSTRUCTIONS.douve.indestructible).toBe(true);
+    expect(CONSTRUCTIONS.douve.occupable).toBe(false);
+    expect(occupationDe("douve")).toBe("douve");
+    expect(cleDouve(3, "eau")).not.toBe(cleDouve(3, "pont"));
   });
 });
 

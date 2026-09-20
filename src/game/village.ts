@@ -515,6 +515,18 @@ export class Village {
     return this.habitants.filter((v) => v.regles.vivant && v.etat === "abri").length;
   }
 
+  /**
+   * Ceux qui sont **dehors** au sens des portes (§4.20, bloc 7b) : a leur
+   * poste, en route, ou en fuite. Ni ceux qui sont dans l'eglise, ni ceux qui
+   * tiennent ses portes — eux sont dans la cour, et la cloche n'a pas a les
+   * attendre. Ca se lit sur les habitants, jamais sur la geometrie des murs.
+   */
+  get dehors(): Villageois[] {
+    return this.habitants.filter(
+      (v) => v.regles.vivant && (v.etat === "au-poste" || v.etat === "en-route" || v.etat === "fuite"),
+    );
+  }
+
   /** Combien tiennent ses portes. */
   get defenseurs(): number {
     return this.habitants.filter((v) => v.regles.vivant && v.etat === "defend").length;
@@ -942,7 +954,11 @@ export class Village {
     // Il produit, et il monte de niveau en produisant : c'est la seule
     // progression qu'un habitant connaisse (§4.18).
     const recolte = travailler(villageois.regles, delta / 60_000);
-    if (recolte) this.stocks[recolte.ressource] += recolte.quantite;
+    if (recolte) {
+      this.stocks[recolte.ressource] += recolte.quantite;
+      // Le sous-produit du metier : la pierre du mineur (§4.20, bloc 7b).
+      if (recolte.aussi) this.stocks[recolte.aussi.ressource] += recolte.aussi.quantite;
+    }
   }
 
   private avancerVers(

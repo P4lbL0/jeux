@@ -99,6 +99,7 @@ export function capturer(partie: PartieEnCours, maintenant: number): Sauvegarde 
     dureeJouee: partie.dureeJouee,
     rng: partie.rng.instantane,
     graineVillage: partie.graineVillage,
+    portesFermees: partie.constructions.portesFermees,
     cycle: {
       jour: partie.cycle.jour,
       phase: partie.cycle.phase,
@@ -138,6 +139,8 @@ export function capturer(partie: PartieEnCours, maintenant: number): Sauvegarde 
       type: construction.def.id,
       pv: construction.pv,
       matiere: construction.matiere,
+      eau: construction.eau || undefined,
+      pontLevis: construction.pontLevis || undefined,
     })),
     maisons: partie.maisons.toutes.map((maison) => ({
       colonne: maison.colonne,
@@ -361,6 +364,7 @@ function reprendreLeBati(sauvegarde: Sauvegarde, partie: PartieEnCours): void {
     bourse.minerai = 9_999_999;
     bourse.ble = 9_999_999;
     bourse.poisson = 9_999_999;
+    bourse.pierre = 9_999_999;
   };
 
   for (const etat of sauvegarde.constructions) {
@@ -373,6 +377,23 @@ function reprendreLeBati(sauvegarde: Sauvegarde, partie: PartieEnCours): void {
       construction.pv = Math.max(1, Math.min(etat.pv, construction.pvMax));
     }
   }
+  // Les douves se remplissent et les ponts-levis se posent **apres** que tout
+  // est bati : une douve ne se remplit que contre de l'eau, un pont-levis ne se
+  // pose que devant une douve en eau — l'ordre de la liste ne le garantit pas.
+  for (const etat of sauvegarde.constructions) {
+    if (!etat.eau && !etat.pontLevis) continue;
+    const construction = partie.constructions.en(etat.x, etat.y);
+    if (!construction) continue;
+    remplir();
+    if (etat.eau && construction.def.id === "douve" && !construction.eau) {
+      construction.eau = true;
+      partie.constructions.remplirDeForce(construction);
+    }
+    if (etat.pontLevis && construction.battant) construction.pontLevis = true;
+  }
+  // La consigne des portes, posee sans la jouer : on reprend la ou on en etait.
+  if (sauvegarde.portesFermees) partie.constructions.fermerLesPortes(0, true);
+  else partie.constructions.ouvrirLesPortes(0, true);
 
   for (const etat of sauvegarde.champs) {
     remplir();

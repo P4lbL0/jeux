@@ -51,7 +51,7 @@ describe("l'aller-retour", () => {
   it("rend exactement ce qu'on lui a donne", () => {
     const avant = sauvegardeMinimale({
       cycle: { jour: 14, phase: "nuit", ecoule: 42_000 },
-      stocks: { poisson: 12, ble: 5, bois: 130, minerai: 44 },
+      stocks: { poisson: 12, ble: 5, bois: 130, minerai: 44, pierre: 0 },
       kills: 807,
       constructions: [{ x: 100, y: 200, type: "tour", pv: 130 }],
       champs: [{ x: 700, y: 660, maturite: 0.5 }],

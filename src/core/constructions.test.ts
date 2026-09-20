@@ -12,7 +12,7 @@ import {
 
 /**
  * Les paliers de mur du §4.20, tranches le 9 septembre 2026 : ×4 par palier,
- * segment par segment ; la pierre attend sa ressource (Angelos, 19 septembre).
+ * segment par segment ; la pierre a sa ressource depuis le bloc 7b (20 septembre).
  */
 describe("Les paliers de mur", () => {
   it("montent d'environ ×4 par palier, pour le mur comme pour la porte", () => {
@@ -32,12 +32,14 @@ describe("Les paliers de mur", () => {
     expect(CONSTRUCTIONS.palissade.cout).toEqual({ bois: 12 });
   });
 
-  it("vend le fer, pas encore la pierre, et jamais rien pour la tour", () => {
+  it("vend le fer, puis la pierre, et jamais rien pour la tour", () => {
     const fer = amelioration(CONSTRUCTIONS.palissade, "bois");
     expect(fer?.matiere).toBe("fer");
     expect(fer?.palier.cout.bois).toBeGreaterThan(0);
     expect(fer?.palier.cout.minerai).toBeGreaterThan(0);
-    expect(amelioration(CONSTRUCTIONS.palissade, "fer")).toBeNull();
+    const pierre = amelioration(CONSTRUCTIONS.palissade, "fer");
+    expect(pierre?.matiere).toBe("pierre");
+    expect(pierre?.palier.cout.pierre).toBeGreaterThan(0);
     expect(amelioration(CONSTRUCTIONS.palissade, "pierre")).toBeNull();
     expect(amelioration(CONSTRUCTIONS.tour, "bois")).toBeNull();
     expect(palierDe(CONSTRUCTIONS.tour, "fer").pvMax).toBe(CONSTRUCTIONS.tour.pvMax);
@@ -52,6 +54,7 @@ describe("Les paliers de mur", () => {
   it("cumule ce qu'on a paye jusqu'au palier atteint", () => {
     expect(coutCumule(CONSTRUCTIONS.palissade, "bois")).toEqual({ bois: 12 });
     expect(coutCumule(CONSTRUCTIONS.palissade, "fer")).toEqual({ bois: 72, minerai: 25 });
+    expect(coutCumule(CONSTRUCTIONS.palissade, "pierre")).toEqual({ bois: 72, minerai: 65, pierre: 160 });
   });
 
   it("rembourse et repare sur ce qu'on a paye et sur les points de vie du palier", () => {

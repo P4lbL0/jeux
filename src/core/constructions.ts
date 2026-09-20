@@ -16,19 +16,20 @@
 
 import type { Ressource, Stocks } from "./habitants";
 
-export type TypeConstruction = "palissade" | "porte" | "tour";
+export type TypeConstruction = "palissade" | "porte" | "tour" | "douve";
 
 /**
  * Les trois matieres d'un rempart, dans l'ordre ou on l'ameliore (§4.20) : la
  * palissade de bois se renforce au fer, puis a la pierre. Le dessin
  * (`game/dessin/murs.ts`) connait les trois ; le jeu ne vend que ce qui a un
- * cout.
+ * cout — et depuis le bloc 7b (20 septembre 2026) les trois en ont un : la
+ * pierre sort de la mine avec le minerai.
  */
 export type Matiere = "bois" | "fer" | "pierre";
 
 export const MATIERES: readonly Matiere[] = ["bois", "fer", "pierre"];
 
-/** Un palier de matiere : ce qu'il tient, et ce qu'il coute — `null` tant qu'il n'est pas a vendre. */
+/** Un palier de matiere : ce qu'il tient, et ce qu'il coute — `null` s'il n'est pas a vendre. */
 export interface Palier {
   pvMax: number;
   cout: Partial<Record<Ressource, number>> | null;
@@ -60,6 +61,11 @@ export interface ConstructionDef {
   bonusPortee: number;
   description: string;
   /**
+   * Vrai pour ce qu'on ne peut pas casser : une douve est un trou, les
+   * monstres ne la frappent pas, ils la franchissent ou la contournent.
+   */
+  indestructible?: boolean;
+  /**
    * Les paliers au-dessus du bois, pour ce qui s'ameliore (§4.20, tranche le
    * 9 septembre 2026 : les points de vie montent d'environ ×4 par palier, et
    * chaque segment s'ameliore separement). Le bois, c'est `pvMax` et `cout`
@@ -82,10 +88,11 @@ export const CONSTRUCTIONS: Record<TypeConstruction, ConstructionDef> = {
     description: "Bloque le passage. Les monstres la frappent — et elle cede.",
     // 120 → 500 → 2000 (×4). Le prix suit depuis les 12 bois joues — les
     // 40 bois du depouillage etaient poses sans jouer (Angelos, 19 septembre
-    // 2026). La pierre attend sa ressource (bloc 7b) : pas de prix.
+    // 2026). La pierre (bloc 7b) : la pierre de la mine, plus du minerai pour
+    // les agrafes ; environ deux fois le fer en valeur au port, pour ×4 de PV.
     paliers: {
       fer: { pvMax: 500, cout: { bois: 60, minerai: 25 } },
-      pierre: { pvMax: 2000, cout: null },
+      pierre: { pvMax: 2000, cout: { pierre: 160, minerai: 40 } },
     },
   },
   porte: {
@@ -104,7 +111,7 @@ export const CONSTRUCTIONS: Record<TypeConstruction, ConstructionDef> = {
     // cote : c'est le point faible qu'on choisit (Angelos, 19 septembre 2026).
     paliers: {
       fer: { pvMax: 660, cout: { bois: 100, minerai: 40 } },
-      pierre: { pvMax: 2660, cout: null },
+      pierre: { pvMax: 2660, cout: { pierre: 240, minerai: 60 } },
     },
   },
   tour: {
@@ -119,12 +126,38 @@ export const CONSTRUCTIONS: Record<TypeConstruction, ConstructionDef> = {
     bonusPortee: 120,
     description: "Une position, pas une arme : c'est l'occupant qui la rend utile.",
   },
+  douve: {
+    id: "douve",
+    nom: "Douve",
+    texture: "bati-douve",
+    // Creuser ne coute que des etais ; c'est le temps qui devrait couter, et
+    // le batisseur qu'un chantier occupe attend le bloc 8 (§4.20, bloc 7b).
+    cout: { bois: 6 },
+    pvMax: 1,
+    occupable: false,
+    bonusPortee: 0,
+    description: "Un fosse devant le mur : on le franchit lentement, a decouvert. En eau, plus du tout.",
+    indestructible: true,
+  },
 };
 
-export const ORDRE_CONSTRUCTIONS: TypeConstruction[] = ["palissade", "porte", "tour"];
+export const ORDRE_CONSTRUCTIONS: TypeConstruction[] = ["palissade", "porte", "tour", "douve"];
+
+/**
+ * Remplir une douve d'eau (§4.20) : une vanne de bois depuis la mer ou depuis
+ * une douve deja en eau. Elle bloque alors pour de bon ce qui ne nage pas.
+ */
+export const REMPLISSAGE = { cout: { bois: 12 } as Partial<Record<Ressource, number>> };
+
+/**
+ * Le pont-levis (§4.20) : une porte qui se leve au-dessus d'une douve en eau.
+ * Tard et cher : le tablier, les chaines, le treuil. Fermee, il n'y a plus de
+ * passage du tout — et plus personne ne sort produire non plus.
+ */
+export const PONT_LEVIS = { cout: { bois: 80, minerai: 30 } as Partial<Record<Ressource, number>> };
 
 /** L'occupation qu'une construction ecrit dans la grille. */
-export function occupationDe(type: TypeConstruction): "mur" | "porte" | "tour" {
+export function occupationDe(type: TypeConstruction): "mur" | "porte" | "tour" | "douve" {
   return type === "palissade" ? "mur" : type;
 }
 
@@ -196,8 +229,7 @@ export function matiereSuivante(matiere: Matiere): Matiere | null {
 
 /**
  * L'amelioration possible depuis cette matiere : le palier suivant, s'il existe
- * et s'il est a vendre. La pierre est dans la table, pas en vente : elle attend
- * sa ressource (bloc 7b).
+ * et s'il est a vendre (un cout `null` n'est pas a vendre).
  */
 export function amelioration(
   def: ConstructionDef,

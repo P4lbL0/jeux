@@ -68,7 +68,7 @@ l'onglet apres avoir perdu un heros ne le ramene pas.
 | `1` `2` `3` | Choisir une amelioration a la montee de niveau |
 | Molette | Zoomer / dezoomer |
 | `R` | Recommencer apres la mort |
-| `G` `K` `H` `J` `L` | Batir : palissade, porte, tour, champ, maison — puis clic. **Sur un segment de mur ou de porte existant, l'outil le renforce au fer** (§4.20) |
+| `G` `K` `H` `J` `L` `N` | Batir : palissade, porte, tour, champ, maison, douve — puis clic. **Sur un segment de mur ou de porte existant, l'outil le renforce** (fer, puis pierre) ; `N` sur une douve la remplit d'eau ; `K` sur une porte devant une douve en eau en fait un pont-levis (§4.20) |
 | `M` | Le mode d'amenagement : le temps s'arrete, on pose, on prend, on demolit (clic droit) |
 | `2` a `7` | Les competences actives — quatre emplacements, puis ceux qu'on achete (§4.13) |
 
@@ -211,7 +211,8 @@ endroit a toucher pour changer le rythme du jeu.
 | `G` | Batir une palissade (le jour seulement) |
 | `H` | Batir une tour de guet |
 | `J` | Semer un champ, pres des champs |
-| `K` | Batir une porte : ouverte le jour, la cloche la ferme, l'aube la rouvre |
+| `K` | Batir une porte : s'ouvre et se ferme en 2 s ; la cloche la ferme quand tout le monde est rentre, et fermee elle s'ouvre devant les notres si aucun monstre n'est pres |
+| `N` | Creuser une douve (6 bois) ; sur une douve, la remplir d'eau depuis la mer (12 bois) |
 | `L` | Batir une maison, ou **relever une ruine** en cliquant dessus (20 bois) |
 | `T` | Monter dans une tour a portee, ou en descendre |
 | `Y` | Monter l'eglise d'un niveau, ou relancer son chantier |
@@ -293,11 +294,24 @@ chaque case dessine un poteau, et un pan vers chaque voisine qui est un mur, une
 une porte — seize raccords par matiere, comme les murs de Clash of Clans. Poser un mur
 redessine ses voisines ; l'apercu de pose montre deja ses raccords.
 
-**La porte** (`K`, 20 bois, 160 PV) prend une case de mur. Ouverte, tout le monde passe,
-monstres compris. **La cloche (`B`) ferme toutes les portes**, et l'aube les rouvre ; une
-porte fermee arrete tout le monde et se fait frapper comme un mur (§4.20). Le village
-demarre avec une enceinte en L sur les deux fronts, deux portes, trois tours et des
-breches.
+**La porte** (`K`, 20 bois, 160 PV) prend une case de mur et **s'ouvre en 2 s, se ferme en
+2 s** (`src/core/portes.ts`, bloc 7b, 20 septembre 2026). Ouverte, tout le monde passe,
+monstres compris. **La cloche (`B`) ferme les portes quand plus personne n'est dehors** ;
+ensuite, la nuit, une porte fermee **s'ouvre toute seule devant un habitant ou un heros si
+aucun monstre n'est a portee**, et se referme derriere lui. L'aube rouvre tout. Une porte
+fermee arrete tout le monde et se fait frapper comme un mur (§4.20). **On ne peut pas se
+murer sans porte** : le mur qui refermerait une zone est refuse, en le disant.
+
+**Les paliers** : bois, puis fer (60 bois + 25 minerai le segment), puis **pierre** (160
+pierre + 40 minerai) — la pierre sort de la mine avec le minerai, une pour deux.
+
+**La douve** (`N`, 6 bois) : un fosse d'une case. Seche, on la franchit au ralenti (35 %) ;
+**en eau** (`N` sur la douve, 12 bois, depuis la mer ou une douve en eau voisine), plus
+personne ne passe. **Le pont-levis** (`K` sur une porte qui a une douve en eau devant elle,
+80 bois + 30 minerai) : ferme, plus aucun passage ; ouvert, le tablier couvre la douve.
+
+Le village demarre avec une enceinte en L sur les deux fronts, deux portes, trois tours et
+des breches.
 
 ## La carte
 

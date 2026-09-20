@@ -33,15 +33,19 @@ export type Metier =
   | "charpentier"
   | "guetteur";
 
-/** Les quatre ressources recoltees (DESIGN.md §4.18). */
-export type Ressource = "poisson" | "ble" | "bois" | "minerai";
+/**
+ * Les ressources recoltees (DESIGN.md §4.18) — quatre, puis **la pierre**
+ * depuis le bloc 7b (20 septembre 2026) : c'est la matiere du dernier palier
+ * de mur (§4.20), et elle sort de la mine avec le minerai.
+ */
+export type Ressource = "poisson" | "ble" | "bois" | "minerai" | "pierre";
 
-export const RESSOURCES: Ressource[] = ["poisson", "ble", "bois", "minerai"];
+export const RESSOURCES: Ressource[] = ["poisson", "ble", "bois", "minerai", "pierre"];
 
 export type Stocks = Record<Ressource, number>;
 
 export function stocksVides(): Stocks {
-  return { poisson: 0, ble: 0, bois: 0, minerai: 0 };
+  return { poisson: 0, ble: 0, bois: 0, minerai: 0, pierre: 0 };
 }
 
 /** Ce que chaque metier produit, ou `null` s'il transforme au lieu de recolter. */
@@ -65,6 +69,18 @@ export const PRODUCTION: Record<Metier, Ressource | null> = {
   guetteur: null,
 };
 
+/**
+ * Ce qu'un metier rapporte **en plus** de sa production, et dans quelle part.
+ *
+ * Le mineur sort de la pierre avec le minerai : une unite de pierre pour deux
+ * de minerai (bloc 7b, 20 septembre 2026). Un seul poste, une seule cadence,
+ * et la pierre arrive sans qu'on affecte personne de plus — c'est le prix du
+ * mur de pierre qui fait le choix, pas un metier de plus a gerer.
+ */
+export const SOUS_PRODUIT: Partial<Record<Metier, { ressource: Ressource; part: number }>> = {
+  mineur: { ressource: "pierre", part: 0.5 },
+};
+
 export const NOMS_METIER: Record<Metier, string> = {
   pecheur: "Pecheur",
   fermier: "Fermier",
@@ -80,6 +96,7 @@ export const NOMS_RESSOURCE: Record<Ressource, string> = {
   ble: "Ble",
   bois: "Bois",
   minerai: "Minerai",
+  pierre: "Pierre",
 };
 
 /**
@@ -363,12 +380,13 @@ export function cadence(habitant: Habitant): number {
 /**
  * Fait travailler un habitant pendant `minutes`, et le fait progresser.
  *
- * @returns ce qu'il a produit, ou null s'il n'a rien produit
+ * @returns ce qu'il a produit — et `aussi`, le sous-produit du metier s'il en
+ *          a un —, ou null s'il n'a rien produit
  */
 export function travailler(
   habitant: Habitant,
   minutes: number,
-): { ressource: Ressource; quantite: number } | null {
+): { ressource: Ressource; quantite: number; aussi?: { ressource: Ressource; quantite: number } } | null {
   const quantite = cadence(habitant) * minutes;
   if (quantite <= 0) return null;
 
@@ -379,7 +397,9 @@ export function travailler(
 
   const ressource = PRODUCTION[habitant.metier];
   if (ressource === null) return null;
-  return { ressource, quantite };
+  const sous = SOUS_PRODUIT[habitant.metier];
+  if (!sous) return { ressource, quantite };
+  return { ressource, quantite, aussi: { ressource: sous.ressource, quantite: quantite * sous.part } };
 }
 
 /**

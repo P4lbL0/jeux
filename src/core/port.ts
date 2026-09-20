@@ -51,6 +51,9 @@ export const REGLAGES_PORT = {
     bois: 4,
     ble: 5,
     poisson: 6,
+    // La pierre est lourde et sort de la mine sans qu'on s'en occupe : elle
+    // vaut moins que tout, et c'est en mur qu'elle vaut (bloc 7b).
+    pierre: 8,
   } as Record<Ressource, number>,
 
   /** Bornes du cours, en part du prix de base */
@@ -98,7 +101,7 @@ export type EtatPort = "ruine" | "chantier" | "debout";
 export type Cours = Record<Ressource, number>;
 
 export function coursNeutre(): Cours {
-  return { poisson: 1, ble: 1, bois: 1, minerai: 1 };
+  return { poisson: 1, ble: 1, bois: 1, minerai: 1, pierre: 1 };
 }
 
 /**

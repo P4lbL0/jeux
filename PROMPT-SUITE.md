@@ -117,9 +117,11 @@ Tout le socle existe (`src/game/son.ts`, `src/game/panneauSon.ts`, `scripts/son/
 
 ### C. Le jalon 5, ses derniers blocs (`design/05-ordre-de-construction.md`)
 
-7. **Bloc 7b — la forteresse** (§4.20, §4.7) : murs améliorables au fer, **portes qui
-   s'ouvrent et se ferment** (et qu'on ne peut pas ne pas avoir), autant d'enceintes qu'on en
-   bâtit, douves, douves en eau, pont-levis.
+7. ✅ **Bloc 7b — la forteresse** (§4.20) : **codé le 20 septembre 2026** — portes en 2 s,
+   cloche qui attend que tout le monde soit rentré, ouverture automatique devant les nôtres
+   sans monstre près, refus du mur qui fermerait sans porte, pierre de la mine, douves sèches
+   et en eau, pont-levis. Reste : « une personne par seconde », les habitants ralentis dans
+   une douve sèche, le chantier qui occupe un bâtisseur (bloc 8). À juger en jouant.
 8. **Bloc 8 — les ordres pour tous** (§4.4) : n'importe qui fait n'importe quoi, sélection
    puis menu d'ordres ; un héros au travail produit beaucoup plus vite, seulement le jour,
    et ça le fatigue.

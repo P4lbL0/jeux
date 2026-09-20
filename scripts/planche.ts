@@ -31,6 +31,10 @@ import {
   peindrePorte,
   peindreTour,
   sensDePorte,
+  DOUVE,
+  peindreDouve,
+  type EtatDouve,
+  type PositionPorte,
 } from "../src/game/dessin/murs";
 import { Toile } from "../src/game/dessin/pinceau";
 import { avancementDe, type Modele } from "../src/game/dessin/four";
@@ -202,7 +206,7 @@ for (const matiere of MATIERES_MUR) {
         t = toile(
           PORTE.largeur,
           PORTE.hauteur,
-          (x) => peindrePorte(x, matiere, sensDePorte(masque), (l + c) % 2 === 0),
+          (x) => peindrePorte(x, matiere, sensDePorte(masque), (l + c) % 2 === 0 ? "ouverte" : "fermee"),
           true,
           false,
         );
@@ -216,6 +220,55 @@ for (const matiere of MATIERES_MUR) {
   const v = frame(villageois("mineur", { usure: 0, sang: 0 }), "marche", 1);
   coller(image, v, (5 * 32 + 6) * echelle, (7 * 32 + 20 + 12) * echelle, echelle);
   ecrire(`planche-murs-${matiere}`, image);
+}
+
+for (const matiere of ["bois", "pierre"] as const) {
+  // La forteresse du bloc 7b : un mur est-ouest avec ses portes dans les
+  // trois positions, puis en pont-levis, et devant chacune une douve seche,
+  // en eau, ou sous le tablier. Puis la meme chose nord-sud. Echelle 3.
+  const echelle = 3;
+  const colonnes = 13;
+  const lignes = 9;
+  const image = fondDeCarte(500, 1000, colonnes * 32, lignes * 32 + 40, echelle);
+  const poserMur = (l: number, c: number, masque: number) => {
+    const t = toile(MUR.largeur, MUR.hauteur, (x) => peindreMur(x, matiere, masque), true, false);
+    coller(image, t, c * 32 * echelle, (l * 32 + 32 + 2 + 20 - t.hauteur) * echelle, echelle);
+  };
+  const poserPorte = (l: number, c: number, sens: "est-ouest" | "nord-sud", position: PositionPorte, pont: boolean) => {
+    const t = toile(PORTE.largeur, PORTE.hauteur, (x) => peindrePorte(x, matiere, sens, position, pont), true, false);
+    coller(image, t, c * 32 * echelle, (l * 32 + 32 + 2 + 20 - t.hauteur) * echelle, echelle);
+  };
+  const poserDouve = (l: number, c: number, masque: number, etat: EtatDouve) => {
+    const t = toile(DOUVE.largeur, DOUVE.hauteur, (x) => peindreDouve(x, masque, etat), false, false);
+    coller(image, t, c * 32 * echelle, l * 32 * echelle, echelle);
+  };
+  // Ligne 1 : la douve devant le mur (seche, eau, eau, pont...), ligne 2 : le mur.
+  const positions: PositionPorte[] = ["ouverte", "entrouverte", "fermee"];
+  const etatsDevant: EtatDouve[] = ["seche", "seche", "seche", "eau", "eau", "pont"];
+  for (let c = 0; c < colonnes; c += 1) poserDouve(1, c, masqueDe(false, c < colonnes - 1, false, c > 0), etatsDevant[Math.floor(c / 2)] ?? "eau");
+  for (let c = 0; c < colonnes; c += 1) {
+    const masque = masqueDe(false, c < colonnes - 1, false, c > 0);
+    if (c % 2 === 1 && c < 12) {
+      const i = Math.floor(c / 2);
+      poserPorte(2, c, "est-ouest", positions[i % 3]!, i >= 3);
+    } else poserMur(2, c, masque);
+  }
+  // Colonnes : un mur nord-sud avec ses portes, la douve a sa droite.
+  for (let l = 4; l < lignes; l += 1) {
+    const masque = masqueDe(l > 4, false, l < lignes - 1, false);
+    const i = l - 4;
+    for (const [c, pont] of [
+      [2, false],
+      [8, true],
+    ] as const) {
+      if (i >= 1 && i <= 3) poserPorte(l, c, "nord-sud", positions[(i - 1) % 3]!, pont);
+      else poserMur(l, c, masque);
+      poserDouve(l, c + 1, masqueDe(l > 4, false, l < lignes - 1, false), pont ? (i === 1 ? "pont" : "eau") : "seche");
+    }
+  }
+  const v = frame(villageois("mineur", { usure: 0, sang: 0 }), "marche", 1);
+  coller(image, v, (5 * 32 + 6) * echelle, (2 * 32 + 20 + 12) * echelle, echelle);
+  ecrire(`planche-forteresse-${matiere}`, image);
 }
 
 {

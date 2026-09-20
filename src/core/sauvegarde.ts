@@ -149,6 +149,10 @@ export interface EtatConstruction {
   pv: number;
   /** Le palier du segment (§4.20). Absent dans une sauvegarde d'avant le 19 septembre 2026 : du bois. */
   matiere?: Matiere;
+  /** Une douve en eau (§4.20, bloc 7b). Absent : seche. */
+  eau?: boolean;
+  /** Une porte devenue pont-levis (§4.20, bloc 7b). Absent : une porte. */
+  pontLevis?: boolean;
 }
 
 export interface EtatChamp {
@@ -190,6 +194,13 @@ export interface Sauvegarde {
    * generateur (18 septembre 2026) n'en a pas, et prend la graine zero.
    */
   graineVillage?: number;
+  /**
+   * La consigne des portes (§4.20, bloc 7b) : fermees par la cloche, ou
+   * ouvertes. Absent dans une sauvegarde d'avant le 20 septembre 2026 :
+   * ouvertes — une partie enregistree a la tombee de la nuit a ses portes
+   * ouvertes, la cloche n'a pas encore sonne.
+   */
+  portesFermees?: boolean;
   cycle: EtatCycle;
   stocks: Stocks;
   kills: number;

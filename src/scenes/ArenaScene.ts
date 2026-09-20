@@ -131,6 +131,8 @@ import { cleCase, genererVillage, graineDeVillage, type PlanVillage,
 import {
   CASES_LIBRES_AUTOUR_DES_BATIMENTS,
   CONSTRUCTIONS,
+  PONT_LEVIS,
+  REMPLISSAGE,
   coutLisible,
   type TypeConstruction,
   amelioration,
@@ -139,7 +141,7 @@ import {
 import { Construction, Constructions, PORTEE_OCCUPATION } from "../game/constructions";
 import { Champs, REGLAGES_CHAMPS, type Champ } from "../game/champs";
 import { Maison, Maisons, REGLAGES_MAISONS } from "../game/maisons";
-import { NOMS_METIER, NOMS_POSTURE_CIVILE, NOMS_RESSOURCE, RESSOURCES } from "../core/habitants";
+import { NOMS_METIER, NOMS_POSTURE_CIVILE, NOMS_RESSOURCE, RESSOURCES, SOUS_PRODUIT } from "../core/habitants";
 import {
   EFFETS_RUPTURE,
   NOMS_RUPTURE,
@@ -304,6 +306,7 @@ const CHOISIR_QUOI_POSER: number[] = [
   Phaser.Input.Keyboard.KeyCodes.J,
   Phaser.Input.Keyboard.KeyCodes.K,
   Phaser.Input.Keyboard.KeyCodes.L,
+  Phaser.Input.Keyboard.KeyCodes.N,
 ];
 
 /**
@@ -520,6 +523,11 @@ export class ArenaScene extends Phaser.Scene {
   private survivantALEglise: SpriteSurvivant | null = null;
   /** Celui qui attend pendant que le jeu est en pause */
   private arrivantALaPorte: Arrivant | null = null;
+  /**
+   * La cloche a sonne, et les portes attendent que plus personne ne soit
+   * dehors pour se fermer (§4.20, bloc 7b). Remis a faux a l'aube.
+   */
+  private clocheSonnee = false;
   /** Les habitants, leurs postes et les stocks (DESIGN.md §4.18) */
   village!: Village;
   /**
@@ -1625,6 +1633,14 @@ export class ArenaScene extends Phaser.Scene {
       texte = maison.debout
         ? `${maison.nom} — ${Math.ceil(maison.pv)}/${REGLAGES_MAISONS.pvMax}`
         : `${maison.nom} en ruine — L pour la relever, ${REGLAGES_MAISONS.coutBois} bois`;
+    } else if (construction && construction.def.id === "douve") {
+      x = construction.x;
+      y = construction.y - CASE / 2;
+      texte = construction.eau
+        ? construction.pont
+          ? "Douve en eau, sous le pont-levis"
+          : "Douve en eau — rien ne la franchit"
+        : `Douve seche — on la franchit au ralenti · N puis clic : l'eau, ${coutEnClair(REMPLISSAGE.cout)}`;
     } else if (construction) {
       x = construction.x;
       y = construction.y - CASE / 2;
@@ -1632,7 +1648,21 @@ export class ArenaScene extends Phaser.Scene {
       const touche = construction.def.id === "porte" ? "K" : "G";
       const renfort = suite ? ` · ${touche} puis clic : ${suite.matiere}, ${coutEnClair(suite.palier.cout)}` : "";
       const palier = construction.matiere === "bois" ? "" : ` en ${construction.matiere}`;
-      texte = `${construction.def.nom}${palier} — ${Math.ceil(construction.pv)}/${construction.pvMax}${renfort}`;
+      const nom = construction.pontLevis ? "Pont-levis" : construction.def.nom;
+      const etat = construction.battant
+        ? construction.battant.phase === "ouverte"
+          ? ", ouverte"
+          : construction.battant.phase === "fermee"
+            ? ", fermee"
+            : construction.battant.phase === "s-ouvre"
+              ? ", s'ouvre"
+              : ", se ferme"
+        : "";
+      const pont =
+        construction.battant && !construction.pontLevis && !this.constructions.refusPontLevis(construction, this.village.stocks)
+          ? ` · K puis clic : pont-levis, ${coutEnClair(PONT_LEVIS.cout)}`
+          : "";
+      texte = `${nom}${palier}${etat} — ${Math.ceil(construction.pv)}/${construction.pvMax}${renfort}${pont}`;
     } else if (Phaser.Math.Distance.Between(monde.x, monde.y, EGLISE.x, EGLISE.y) <= EGLISE.emprise) {
       x = EGLISE.x;
       y = EGLISE.y - EGLISE.emprise;
@@ -1839,6 +1869,7 @@ export class ArenaScene extends Phaser.Scene {
       [K.J, () => this.basculerConstruction("champ")],
       [K.K, () => this.basculerConstruction("porte")],
       [K.L, () => this.basculerConstruction("maison")],
+      [K.N, () => this.basculerConstruction("douve")],
       [K.T, () => this.basculerTour()],
       // L'eglise : une seule touche pour les deux gestes qu'on peut lui faire —
       // la monter d'un niveau, ou relancer son chantier quand elle est a terre.
@@ -1994,6 +2025,7 @@ export class ArenaScene extends Phaser.Scene {
     this.majFantome();
     this.constructions.majorer(this.time.now);
     this.constructions.finirLesChantiers(this.time.now);
+    this.majPortes();
     // Les champs poussent une fois par seconde, jamais par image (§4.17).
     this.champs.majorer(this.time.now, this.village.auTravail("fermier"), this.village.stocks);
     this.fairePartirLesVagues();
@@ -2575,7 +2607,11 @@ export class ArenaScene extends Phaser.Scene {
     } else {
       this.dernierePositionTenable = { x: hero.x, y: hero.y };
     }
-    hero.facteurEau = REGLAGES_EAU.vitesse[profondeur === "abysse" ? "mer" : profondeur];
+    // Une douve seche ralentit comme un haut-fond ; l'eau du monde garde la main si elle est pire.
+    hero.facteurEau = Math.min(
+      REGLAGES_EAU.vitesse[profondeur === "abysse" ? "mer" : profondeur],
+      this.constructions.ralentissement(hero.x, hero.y),
+    );
     hero.enfoncer(REGLAGES_EAU.enfoncement[profondeur]);
 
     const bulle = this.noyade.avancer(delta, profondeur);
@@ -2744,8 +2780,13 @@ export class ArenaScene extends Phaser.Scene {
       e.cibleMaison = this.maisons.laPlusProcheDebout(e.x, e.y);
     }
     const cible = this.cibleDe(e) ?? e.cibleMaison?.centre ?? EGLISE;
-    const angle = Phaser.Math.Angle.Between(e.x, e.y, cible.x, cible.y);
-    orienter(e, cible.x - e.x, SEUIL_REGARD_PIXELS);
+    let angle = Phaser.Math.Angle.Between(e.x, e.y, cible.x, cible.y);
+    // Une douve en eau devant lui : il ne nage pas, il cherche la porte (§4.20).
+    angle = this.constructions.contournement(e.x, e.y, angle) ?? angle;
+    orienter(e, Math.cos(angle), SEUIL_REGARD_PIXELS);
+    // Une douve seche sous lui : il la franchit lentement, a decouvert.
+    const fosse = this.constructions.ralentissement(e.x, e.y);
+    if (fosse < 1) e.ralentir(120, fosse);
 
     // Il se cabre : il n'avance quasiment plus, on a le temps de s'ecarter.
     const vitesse = e.vitesseEffective * (e.enArmement ? 0.25 : 1);
@@ -3010,6 +3051,10 @@ export class ArenaScene extends Phaser.Scene {
       const quantite = (hero.degats * delta) / 1000 / 8;
       this.village.recolter(ressource, quantite);
       this.cumulRecolte += quantite;
+      // A la mine, la pierre vient avec le minerai, dans la meme part que pour
+      // un mineur (§4.20, bloc 7b).
+      const sous = SOUS_PRODUIT[poste.metier];
+      if (sous) this.village.recolter(sous.ressource, quantite * sous.part);
 
       // Le geste, et le compte rendu — mais seulement de temps en temps : le
       // §4.17 interdit de fabriquer des textes en continu.
@@ -3111,9 +3156,18 @@ export class ArenaScene extends Phaser.Scene {
 
     const def = CONSTRUCTIONS[type];
     this.fantome.setTexture(textureDe(def)).setOrigin(0.5, origineDe(def)).setVisible(true);
+    if (type === "douve") {
+      this.events.emit(
+        "annonce",
+        `Douve — ${coutLisible(def)} · clic pour creuser ; sur une douve, ${coutEnClair(REMPLISSAGE.cout)} : l'eau, depuis la mer`,
+        "toi",
+      );
+      return;
+    }
     const fer = def.paliers?.fer.cout;
     const renfort = fer ? ` · sur un segment en bois, ${coutEnClair(fer)} : fer` : "";
-    this.events.emit("annonce", `${def.nom} — ${coutLisible(def)} · clic pour poser${renfort}`, "toi");
+    const pont = type === "porte" ? ` · sur une porte devant une douve en eau, ${coutEnClair(PONT_LEVIS.cout)} : pont-levis` : "";
+    this.events.emit("annonce", `${def.nom} — ${coutLisible(def)} · clic pour poser${renfort}${pont}`, "toi");
   }
 
   /**
@@ -3131,10 +3185,36 @@ export class ArenaScene extends Phaser.Scene {
   private sonnerLaCloche(): void {
     this.lacherLOutil();
     this.village.sonnerCloche();
-    if (this.constructions.toutes.some((c) => c.def.id === "porte") && !this.constructions.portesFermees) {
-      this.constructions.fermerLesPortes();
-      this.events.emit("annonce", "Les portes se ferment", "guet");
+    // Les portes ne se ferment pas a la seconde : elles attendent que plus
+    // personne ne soit dehors (§4.20, bloc 7b). C'est `majPortes` qui regarde.
+    if (this.clocheSonnee || this.constructions.portes.length === 0) return;
+    this.clocheSonnee = true;
+    this.events.emit(
+      "annonce",
+      this.village.dehors.length > 0 ? "Les portes se fermeront quand tout le monde sera rentre" : "Les portes se ferment",
+      "guet",
+    );
+  }
+
+  /**
+   * Les portes, une fois par image (§4.20, bloc 7b) : la cloche les ferme
+   * quand plus personne n'est dehors ; fermees, elles s'ouvrent devant les
+   * notres si aucun monstre n'est pres ; et chaque battant avance.
+   */
+  private majPortes(): void {
+    const maintenant = this.time.now;
+    if (this.clocheSonnee && !this.constructions.portesFermees && this.village.dehors.length === 0) {
+      this.constructions.fermerLesPortes(maintenant);
+      this.events.emit("annonce", "Tout le monde est rentre — les portes se ferment", "guet");
     }
+    const demandeurs = this.constructions.portesFermees
+      ? [...this.heros.filter((h) => h.etat !== "mort"), ...this.village.dehors]
+      : [];
+    this.constructions.majPortes(
+      maintenant,
+      demandeurs,
+      (x, y, rayon) => this.ennemiLePlusProche(x, y, rayon) !== null,
+    );
   }
 
   // ------------------------------------------------- le mode d'amenagement
@@ -3272,6 +3352,10 @@ export class ArenaScene extends Phaser.Scene {
 
     // Rien en main, rien a poser : on prend ce qui est sous le curseur.
     const prise = this.constructions.laPlusProche(centre.x, centre.y, CASE / 2);
+    if (prise && prise.def.id === "douve") {
+      this.events.emit("annonce", "Une douve ne se deplace pas : comble-la (clic droit)", "toi");
+      return;
+    }
     if (!prise) {
       // Une maison se prend aussi, debout ou en ruine : le village se range.
       const maison = this.maisons.en(x, y);
@@ -3284,7 +3368,14 @@ export class ArenaScene extends Phaser.Scene {
     if (prise === this.tourDuHero) this.tourDuHero = null;
     this.deplacee = prise;
     this.fantome
-      .setTexture(textureDe(prise.def, prise.matiere, prise.masque, prise.ouverte))
+      .setTexture(
+        textureDe(prise.def, {
+          matiere: prise.matiere,
+          masque: prise.masque,
+          position: prise.position,
+          pontLevis: prise.pontLevis,
+        }),
+      )
       .setOrigin(0.5, origineDe(prise.def))
       .setVisible(true);
     this.events.emit("annonce", `${prise.def.nom} en main — clic pour la reposer`, "toi");
@@ -3346,15 +3437,48 @@ export class ArenaScene extends Phaser.Scene {
       tenue?.def ??
       (this.enConstruction !== "champ" ? CONSTRUCTIONS[this.enConstruction as TypeConstruction] : null);
     if (def && def.id !== "tour") {
-      const masque = this.constructions.masqueEn(centre.x, centre.y);
-      const matiere = tenue?.matiere ?? "bois";
-      const ouverte = tenue?.ouverte ?? !this.constructions.portesFermees;
-      this.fantome.setTexture(textureDe(def, matiere, masque, ouverte));
+      const douve = def.id === "douve";
+      const masque = douve ? this.constructions.masqueDouveEn(centre.x, centre.y) : this.constructions.masqueEn(centre.x, centre.y);
+      this.fantome.setTexture(
+        textureDe(def, {
+          matiere: tenue?.matiere ?? "bois",
+          masque,
+          position: tenue?.position ?? (this.constructions.portesFermees ? "fermee" : "ouverte"),
+          pontLevis: tenue?.pontLevis ?? false,
+          douve: "seche",
+        }),
+      );
     }
   }
 
   private batirIci(x: number, y: number): boolean {
     if (!this.enConstruction) return false;
+
+    // L'outil douve sur une douve : on la remplit d'eau (§4.20, bloc 7b).
+    if (this.enConstruction === "douve") {
+      const existante = this.constructions.en(x, y);
+      if (existante && existante.def.id === "douve") {
+        const refus = this.constructions.refusRemplissage(existante, this.village.stocks);
+        if (refus) this.events.emit("annonce", refus, "toi");
+        else if (this.constructions.remplir(existante, this.village.stocks)) {
+          eclatImpact(this, existante.x, existante.y, 0x8fb0c8);
+          this.events.emit("annonce", "La douve se remplit — plus rien ne la franchit", "toi");
+        }
+        return true;
+      }
+    }
+
+    // L'outil porte sur une porte qui a une douve en eau devant elle : elle
+    // devient un pont-levis (§4.20, bloc 7b). Sinon, comme le mur, on renforce.
+    if (this.enConstruction === "porte") {
+      const existante = this.constructions.en(x, y);
+      if (existante && existante.battant && !existante.pontLevis && !this.constructions.refusPontLevis(existante, this.village.stocks)) {
+        this.constructions.convertirEnPontLevis(existante, this.village.stocks);
+        eclatImpact(this, existante.x, existante.y, 0xd8c48a);
+        this.events.emit("annonce", "Pont-levis — ferme, plus aucun passage ; ouvert, le tablier couvre la douve", "toi");
+        return true;
+      }
+    }
 
     // L'outil palissade ou porte sur un segment qui existe deja : on le
     // renforce au lieu de le poser — segment par segment (§4.20).
@@ -3486,6 +3610,8 @@ export class ArenaScene extends Phaser.Scene {
 
   private cognerConstruction(e: Ennemi, construction: Construction): void {
     if (!e.active || this.termine || this.enPause) return;
+    // Un trou ne se frappe pas : devant une douve en eau, on cherche la porte.
+    if (construction.def.indestructible) return;
     if (!e.peutFrapper(this.time.now)) return;
 
     e.marquerCoup(this.time.now);
@@ -4949,7 +5075,8 @@ export class ArenaScene extends Phaser.Scene {
     // finie, ceux qui sont encore debout finissent la leur.
     this.resteDeLaNuit = 0;
     // Les portes se rouvrent : on ressort travailler (§4.20).
-    if (this.constructions.portesFermees) this.constructions.ouvrirLesPortes();
+    this.clocheSonnee = false;
+    if (this.constructions.portesFermees) this.constructions.ouvrirLesPortes(this.time.now);
     this.village.seLever(this.cycle.jour);
     // Les chemins palissent d'un cran, et ceux qu'on a oublies quatre journees s'effacent.
     this.chemins.seLever(this.cycle.jour);
@@ -5284,7 +5411,7 @@ export class ArenaScene extends Phaser.Scene {
     // Un mur, jamais une tour : ouvrir une breche, c'est ouvrir un passage
     // (§4.18). Faire tomber une tour ferait tomber son occupant, donc tuerait —
     // ce qui est l'acte du degre au-dessus.
-    const murs = this.constructions.toutes.filter((c) => !c.def.occupable);
+    const murs = this.constructions.toutes.filter((c) => !c.def.occupable && !c.def.indestructible);
     if (murs.length === 0) {
       this.events.emit("annonce", "Des outils ont disparu dans la nuit", "guet");
       return;

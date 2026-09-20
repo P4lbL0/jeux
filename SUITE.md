@@ -1019,6 +1019,55 @@ demi-seconde. Un craquement du feu, 20 dB au-dessus du souffle, sonnait aussi fo
 cloche et dictait le volume de tout : les crêtes du feu sont arrondies (`adoucir`). **C'est à
 l'oreille d'Angelos de trancher le reste**, sur les trois vidéos d'écoute.
 
+### Le bloc 7b — la forteresse (fait le 20 septembre 2026)
+
+**Portes, pierre, douves, pont-levis**, sur les décisions d'Angelos du matin (ouverture en
+2 s, fermeture à la cloche quand plus personne n'est dehors, ouverture automatique devant
+quelqu'un si aucun monstre n'est près, refus d'un mur qui fermerait sans porte, dessin ouvert
+et fermé, puis la pierre de la mine, les douves, le pont-levis). Tout est écrit au §4.20
+(encadré ✅ et section « Codé le 20 septembre 2026 »).
+
+- **`src/core/portes.ts`** (pur, 14 tests) : le **battant** — quatre phases, 2 s dans chaque
+  sens, reprise d'où il en est si on le rouvre en pleine fermeture, pas de minuterie ; la
+  **consigne de nuit** (ouvrir devant quelqu'un sans menace, refermer après 2,5 s ou dès
+  qu'une menace approche) ; et **l'enceinte close** : une propagation depuis le bord de la
+  carte, qui compte ce qu'on atteint à pied avec et sans la case visée — si des cases se
+  perdent, le mur ferme sans porte (les portes comptent comme des passages).
+- **La cloche** ne ferme plus à la seconde : la scène garde « la cloche a sonné » et ferme
+  quand `village.dehors` est vide (à leur poste, en route, en fuite — les défenseurs de
+  l'église et les réfugiés sont « rentrés »). Annonce « Les portes se fermeront quand tout le
+  monde sera rentré », puis « Tout le monde est rentré — les portes se ferment ».
+- **Le refus** à la pose : « Ça fermerait l'enceinte sans porte : pose une porte (K) ici »,
+  fantôme rouge, mémoïsé par case (le fantôme demande à chaque image). ⚠️ Le §4.20 voulait
+  **convertir** le mur en porte ; Angelos a dit **refus** le 20 septembre, le paragraphe est
+  réécrit. Le déplacement d'un mur suit la même règle.
+- **La pierre** : ressource de plus (`pierre`), sous-produit du mineur (1 pour 2 minerais),
+  aussi quand le héros pioche ; 8 unités la pièce au port ; palier de pierre en vente
+  (160 pierre + 40 minerai le mur, 240 + 60 la porte).
+- **La douve** (`N`) : construction indestructible, à plat, 16 raccords × 3 états (sèche, eau,
+  sous un pont) ; sèche elle ralentit monstres et héros à 35 % (les habitants non) ; en eau
+  elle bloque (corps statique, monstres détournés vers la porte la plus proche, un regard une
+  case devant). Remplie depuis la mer ou de proche en proche (12 bois).
+- **Le pont-levis** : une porte qui a une douve en eau dans son axe ; `K` dessus (80 bois +
+  30 minerai). Le tablier se lève (fermé), se couche sur la douve (ouvert, la douve devient
+  passante) ; dessin des chaînes et des trois positions dans les deux sens.
+- **Le dessin** : porte **entrouverte** (les vantaux à mi-course, le sol visible au milieu),
+  pont-levis levé / à mi-course / baissé, douve en terre retournée, eau du monde, planches.
+  Textures cuites : 48 murs, 18 portes, 18 ponts-levis, 48 douves.
+- **Sauvegarde** : `eau`, `pontLevis`, `portesFermees`, `pierre` (tous optionnels, une partie
+  d'avant repart avec des portes ouvertes et zéro pierre).
+- **Vérifié** par `scripts/verifier-forteresse.ts` (9 vérifications, aucune erreur console) :
+  refus puis acceptation avec porte, fer → pierre, cloche → attente → fermeture en 2 s,
+  ouverture devant le héros seule, refermeture après l'attente (chronologie échantillonnée),
+  porte close sous menace puis réouverture, douve sèche à 35 % (héros compris), eau depuis
+  la mer puis de proche en proche, pont-levis baissé / levé, sauvegarde. Captures :
+  `captures/jeu/2026-09-20-forteresse/` ; planches : `captures/planches/2026-09-20-forteresse/`.
+
+**Ce qui reste du 7b** : « une personne par seconde » (laissé à la physique) ; les habitants
+ne sont pas ralentis par une douve sèche ; le chantier qui occupe un bâtisseur (bloc 8).
+**À juger en jouant** : les 44 px de demande et les 160 px de menace, les 2,5 s d'attente, les
+prix de la pierre, de la douve et du pont-levis.
+
 ### L'eau qui noie (fait le 19 septembre 2026, au soir)
 
 **Le dernier reste du bloc 7z** (§4.30, tranché le 9 septembre : « on s'enfonce, une bulle
@@ -1656,7 +1705,12 @@ murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
    sont faites — treize événements, deux à quatre candidats CC0 chacun, dans
    `captures/son/2026-09-20-bruits/` avec la page `ecoute.html` qui écrit la réponse. **À
    écouter**, puis on branche (atténuation par distance, un coup sur deux, huit voix ; aucun
-   cri avant le jalon 6.7). Tout ce qui reste à coder est rassemblé dans **`PROMPT-SUITE.md`**.
+   cri avant le jalon 6.7). ✅ **Les treize bruits sont choisis et livrés** (20 septembre,
+   `sort` = la boule de feu). Tout ce qui reste à coder est rassemblé dans **`PROMPT-SUITE.md`**.
+3c. ✅ **Le bloc 7b est codé** (20 septembre 2026, voir « Le bloc 7b — la forteresse ») :
+   portes en 2 s, cloche qui attend, ouverture automatique, refus du mur sans porte, pierre
+   de la mine, douves sèches et en eau, pont-levis. **À juger** sur
+   `captures/jeu/2026-09-20-forteresse/` et en jouant une nuit avec la cloche.
 4. **Jouer une vraie partie longue.** C'est ce que le cycle raccourci débloque : le stress,
    l'église, le port, les arrivées et la folie n'ont jamais tourné assez longtemps pour être
    jugés. Tous les chiffres du dépouillage sont faits pour être corrigés là.

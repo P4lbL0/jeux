@@ -2,6 +2,8 @@ import Phaser from "phaser";
 import {
   CASES_LIBRES_AUTOUR_DES_BATIMENTS,
   CONSTRUCTIONS,
+  PONT_LEVIS,
+  REMPLISSAGE,
   abordable,
   coutLisible,
   crediter,
@@ -16,16 +18,19 @@ import {
   peutPayer,
   regler,
 } from "../core/constructions";
-import { CASE, Grille, IMPOSENT_UNE_DISTANCE, RACCORDABLES } from "../core/grille";
+import { CASE, Grille, IMPOSENT_UNE_DISTANCE, RACCORDABLES, type Occupation } from "../core/grille";
 import type { Ressource, Stocks } from "../core/habitants";
+import { Battant, REGLAGES_PORTE, aPortee, consigneDeNuit, enfermeraitSansPorte, type PositionPorte } from "../core/portes";
 import { CHANTIERS } from "./dessin/batiments";
 import {
   CLE_TOUR,
   ORIGINE_MUR_Y,
   ORIGINE_TOUR_Y,
+  cleDouve,
   cleMur,
   clePorte,
   masqueDe,
+  type EtatDouve,
   type MatiereMur,
 } from "./dessin/murs";
 
@@ -40,9 +45,18 @@ import {
  * dedans**. Elle ne tire pas, elle ne fait rien ; elle donne une position. C'est
  * l'occupant qui decide de ce qui en sort.
  *
- * La porte en a une autre : **ouverte, tout le monde passe** — les habitants qui
- * sortent travailler, et les monstres s'ils sont la. La cloche la ferme, l'aube
- * la rouvre. Fermee, elle arrete tout le monde et se fait frapper comme un mur.
+ * La porte en a d'autres, et c'est le bloc 7b (20 septembre 2026) : elle
+ * **s'ouvre en deux secondes et se referme en deux secondes** (`core/portes.ts`),
+ * la cloche la ferme **quand plus personne n'est dehors**, et fermee elle
+ * **s'ouvre toute seule devant quelqu'un si aucun monstre n'est pres**. Ouverte,
+ * tout le monde passe — les habitants qui sortent travailler, et les monstres
+ * s'ils sont la. Fermee, elle arrete tout le monde et se fait frapper comme un
+ * mur. Et **on ne peut pas se murer sans porte** : le mur qui refermerait une
+ * zone est refuse.
+ *
+ * La douve (§4.20) est **un trou, pas un volume** : seche, on la franchit
+ * lentement ; en eau, plus du tout, sauf par un **pont-levis** baisse. Elle ne
+ * se casse pas.
  *
  * **Et tout ca bouge comme dans Clash of Clans** (tranche le 10 septembre 2026,
  * refait le 11) : un mur qu'on pose **regarde ses quatre voisines** et prend le
@@ -67,26 +81,47 @@ export const PORTEE_OCCUPATION = 60;
  */
 export const DUREE_CHANTIER = 4000;
 
+/** Ce qu'il reste de la vitesse de qui traverse une douve seche (§4.20 : « lentement, a decouvert »). */
+export const RALENTI_DOUVE = 0.35;
+
+/** La profondeur d'une douve : au ras du sol, sous tout ce qui marche et sous les chemins. */
+const PROFONDEUR_DOUVE = -600;
+
+/** Les terrains d'ou l'eau vient remplir une douve. */
+const TERRAINS_D_EAU = new Set(["haut-fond", "mer", "abysse"]);
+
+/** Ce qui compte comme une douve pour le raccord d'une douve. */
+const DOUVES: Occupation[] = ["douve", "douve-eau"];
+
+/** Ce qu'il faut savoir d'une construction pour choisir son dessin. */
+export interface Habit {
+  matiere?: MatiereMur;
+  masque?: number;
+  position?: PositionPorte;
+  pontLevis?: boolean;
+  douve?: EtatDouve;
+}
+
 /**
  * La texture d'une construction, d'apres ce qu'elle est et ce qui l'entoure.
  *
  * `def.texture` n'est que le prefixe de la famille : c'est ici qu'on choisit
  * le dessin, d'apres le raccord aux voisines et, pour une porte, son etat.
  */
-export function textureDe(
-  def: ConstructionDef,
-  matiere: MatiereMur = "bois",
-  masque = 0,
-  ouverte = true,
-): string {
+export function textureDe(def: ConstructionDef, habit: Habit = {}): string {
+  const matiere = habit.matiere ?? "bois";
+  const masque = habit.masque ?? 0;
   if (def.id === "tour") return CLE_TOUR;
-  if (def.id === "porte") return clePorte(matiere, masque, ouverte);
+  if (def.id === "porte") return clePorte(matiere, masque, habit.position ?? "ouverte", habit.pontLevis ?? false);
+  if (def.id === "douve") return cleDouve(masque, habit.douve ?? "seche");
   return cleMur(matiere, masque);
 }
 
 /** L'origine verticale du sprite : le centre de la case tombe au sol. */
 export function origineDe(def: ConstructionDef): number {
-  return def.id === "tour" ? ORIGINE_TOUR_Y : ORIGINE_MUR_Y;
+  if (def.id === "tour") return ORIGINE_TOUR_Y;
+  if (def.id === "douve") return 0.5;
+  return ORIGINE_MUR_Y;
 }
 
 export class Construction extends Phaser.Physics.Arcade.Image {
@@ -104,8 +139,18 @@ export class Construction extends Phaser.Physics.Arcade.Image {
   matiere: MatiereMur = "bois";
   /** Le raccord aux voisines : nord 1, est 2, sud 4, ouest 8 (§4.30). */
   masque = 0;
-  /** Une porte est-elle ouverte ? Sans effet sur le reste. */
-  ouverte = true;
+  /** Le battant d'une porte ; `null` pour tout le reste. */
+  readonly battant: Battant | null;
+  /** Ce que la porte montre en ce moment : redessinee quand ca change. */
+  position: PositionPorte = "ouverte";
+  /** Une porte devenue pont-levis (§4.20) : son tablier s'abat sur la douve devant. */
+  pontLevis = false;
+  /** L'instant de la derniere demande servie par cette porte, la nuit. */
+  derniereDemande = -Infinity;
+  /** Une douve remplie d'eau : plus personne ne la franchit (§4.20). */
+  eau = false;
+  /** Une douve en eau sous le tablier d'un pont-levis baisse : on passe. */
+  pont = false;
   /** Jusqu'a quand l'echafaudage se voit ; 0 quand le chantier est fini. */
   chantierJusqua = 0;
   /** Jusqu'a quand elle tremble d'un coup ; un coup par secousse, pas plus. */
@@ -115,6 +160,7 @@ export class Construction extends Phaser.Physics.Arcade.Image {
     super(scene, x, y, textureDe(def));
     this.def = def;
     this.pv = def.pvMax;
+    this.battant = def.id === "porte" ? new Battant(true) : null;
 
     scene.add.existing(this);
     scene.physics.add.existing(this, true); // statique : rien ne la pousse
@@ -141,9 +187,20 @@ export class Construction extends Phaser.Physics.Arcade.Image {
     return this.chantierJusqua > 0;
   }
 
-  /** Vrai si on passe a travers : une porte ouverte, et rien d'autre. */
+  /**
+   * Vrai si on passe a travers : une porte entierement ouverte, une douve
+   * seche (on y est ralenti, pas arrete), une douve en eau sous un pont
+   * baisse. Rien d'autre.
+   */
   get laissePasser(): boolean {
-    return this.def.id === "porte" && this.ouverte;
+    if (this.battant) return this.battant.laissePasser;
+    if (this.def.id === "douve") return !this.eau || this.pont;
+    return false;
+  }
+
+  /** L'etat d'une douve, pour son dessin. */
+  get etatDouve(): EtatDouve {
+    return !this.eau ? "seche" : this.pont ? "pont" : "eau";
   }
 
   /**
@@ -151,19 +208,28 @@ export class Construction extends Phaser.Physics.Arcade.Image {
    *
    * Le centre de la case tombe au sol, et c'est **la profondeur qui raccorde**
    * deux cases l'une au-dessus de l'autre — la plus basse se dessine apres et
-   * recouvre la face de la plus haute (§4.30).
+   * recouvre la face de la plus haute (§4.30). Une douve, elle, est au ras du
+   * sol : tout marche par-dessus.
    */
   habiller(): void {
     if (this.enChantier) {
       this.setTexture(CHANTIERS.case.cle);
       this.setOrigin(0.5, 0.5);
     } else {
-      this.setTexture(textureDe(this.def, this.matiere, this.masque, this.ouverte));
+      this.setTexture(
+        textureDe(this.def, {
+          matiere: this.matiere,
+          masque: this.masque,
+          position: this.position,
+          pontLevis: this.pontLevis,
+          douve: this.etatDouve,
+        }),
+      );
       this.setOrigin(0.5, origineDe(this.def));
     }
     // La profondeur suit le pied de l'objet, comme tout le decor : un
     // personnage devant un mur doit passer devant.
-    this.setDepth(this.y + CASE / 2);
+    this.setDepth(this.def.id === "douve" ? PROFONDEUR_DOUVE : this.y + CASE / 2);
   }
 
   get ratioPv(): number {
@@ -188,6 +254,16 @@ export class Constructions {
   private readonly liste: Construction[] = [];
   /** La construction de chaque case, par `colonne,ligne`. */
   private readonly parCase = new Map<string, Construction>();
+  /**
+   * La derniere reponse de la regle « pas de mur sans porte », par case : la
+   * propagation ne tourne qu'une fois par case visee, jamais par image — le
+   * fantome de pose interroge la regle a chaque image (§4.17).
+   */
+  private fermetureMemo: { cle: string; version: number; enferme: boolean } | null = null;
+  /** Monte a chaque ecriture dans la grille : ce qui perime le memo. */
+  private version = 0;
+  /** Le dernier battement de la consigne de nuit (§4.17 regle 5). */
+  private dernierBattement = -Infinity;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -200,9 +276,13 @@ export class Constructions {
     return this.liste;
   }
 
-  /** Les portes sont-elles fermees ? C'est la grille qui le sait. */
+  /** Les portes sont-elles fermees — la consigne ? C'est la grille qui le sait. */
   get portesFermees(): boolean {
     return this.grille.portesFermees;
+  }
+
+  get portes(): Construction[] {
+    return this.liste.filter((c) => c.battant !== null);
   }
 
   private cleDe(x: number, y: number): string {
@@ -224,6 +304,12 @@ export class Constructions {
     return masqueDe(v.nord, v.est, v.sud, v.ouest);
   }
 
+  /** Le raccord d'une douve : quelles voisines sont des douves. */
+  masqueDouveEn(x: number, y: number): number {
+    const douve = (dx: number, dy: number) => DOUVES.includes(this.grille.occupationEn(x + dx, y + dy));
+    return masqueDe(douve(0, -CASE), douve(CASE, 0), douve(0, CASE), douve(-CASE, 0));
+  }
+
   /**
    * Redessine ce qui est bati sur cette case et sur ses quatre voisines : c'est
    * le raccord de Clash of Clans. A la pose, a la chute, au deplacement — jamais
@@ -239,7 +325,7 @@ export class Constructions {
     ] as const) {
       const c = this.en(x + dx, y + dy);
       if (!c) continue;
-      c.masque = this.masqueEn(c.x, c.y);
+      c.masque = c.def.id === "douve" ? this.masqueDouveEn(c.x, c.y) : this.masqueEn(c.x, c.y);
       c.habiller();
     }
   }
@@ -248,6 +334,29 @@ export class Constructions {
     this.groupe.add(construction);
     this.liste.push(construction);
     this.parCase.set(this.cleDe(construction.x, construction.y), construction);
+  }
+
+  /** Ecrit dans la grille, et perime ce qui en dependait. */
+  private ecrire(x: number, y: number, occupation: Occupation): void {
+    this.grille.poser(x, y, occupation);
+    this.version += 1;
+  }
+
+  /**
+   * Poser un mur ici refermerait-il une enceinte sans porte (§4.20) ?
+   *
+   * La propagation est memoisee par case et par version de la grille : le
+   * fantome de pose la demande a chaque image, et elle ne doit tourner qu'au
+   * changement de case.
+   */
+  enfermerait(x: number, y: number): boolean {
+    const cle = this.cleDe(x, y);
+    if (this.fermetureMemo && this.fermetureMemo.cle === cle && this.fermetureMemo.version === this.version) {
+      return this.fermetureMemo.enferme;
+    }
+    const enferme = enfermeraitSansPorte(this.grille, x, y);
+    this.fermetureMemo = { cle, version: this.version, enferme };
+    return enferme;
   }
 
   /**
@@ -271,12 +380,20 @@ export class Constructions {
     if (c.occupation === "maison") return "Il y a une maison ici.";
     if (c.occupation === "decombres") return "Une maison en ruine : releve-la (L), ou demolis-la.";
     if (RACCORDABLES.includes(c.occupation)) return "Il y a deja quelque chose ici.";
+    if (DOUVES.includes(c.occupation)) {
+      return type === "douve" ? "Il y a deja une douve ici : clic pour la remplir d'eau." : "Une douve : comble-la d'abord (clic droit en amenagement).";
+    }
     if (c.occupation === "champ") return "Un champ est seme ici.";
     if (!this.grille.constructible(x, y)) return "Le sol ne porte pas.";
     if (
       this.grille.aProximite(x, y, CASES_LIBRES_AUTOUR_DES_BATIMENTS, IMPOSENT_UNE_DISTANCE)
     ) {
       return `Trop pres de l'eglise ou du port : il faut ${CASES_LIBRES_AUTOUR_DES_BATIMENTS} cases.`;
+    }
+    // On ne se mure jamais sans porte (§4.20, bloc 7b) : le mur — ou la tour —
+    // qui refermerait le dernier passage est refuse, en le disant.
+    if ((type === "palissade" || type === "tour") && this.enfermerait(x, y)) {
+      return "Ca fermerait l'enceinte sans porte : pose une porte (K) ici.";
     }
     if (!abordable(CONSTRUCTIONS[type], stocks)) {
       return `Il manque de quoi : ${coutLisible(CONSTRUCTIONS[type])}.`;
@@ -306,22 +423,28 @@ export class Constructions {
     const def = CONSTRUCTIONS[type];
     const centre = this.grille.centreDe(x, y);
     payer(def, stocks);
-    this.grille.poser(centre.x, centre.y, occupationDe(type));
+    this.ecrire(centre.x, centre.y, occupationDe(type));
 
     const construction = new Construction(this.scene, centre.x, centre.y, def);
-    construction.ouverte = !this.grille.portesFermees;
-    if (maintenant !== undefined) construction.chantierJusqua = maintenant + DUREE_CHANTIER;
+    // Une porte posee de nuit, consigne fermee, nait fermee.
+    if (construction.battant && this.grille.portesFermees) {
+      construction.battant.phase = "fermee";
+      construction.position = "fermee";
+    }
+    // Un trou n'a pas d'echafaudage.
+    if (maintenant !== undefined && type !== "douve") construction.chantierJusqua = maintenant + DUREE_CHANTIER;
     this.inscrire(construction);
     this.rehabillerAutour(centre.x, centre.y);
     return construction;
   }
 
   /**
-   * Renforce un segment d'un palier — bois vers fer aujourd'hui, la pierre
-   * attend sa ressource (§4.20, tranche le 9 septembre 2026 : segment par
-   * segment, comme dans Clash of Clans). Le segment est remis a neuf avec les
-   * points de vie du nouveau palier, et le chantier se voit le temps de
-   * `DUREE_CHANTIER`. Le batisseur qu'il devrait occuper attend le bloc 8.
+   * Renforce un segment d'un palier — bois vers fer, puis fer vers pierre
+   * (§4.20, tranche le 9 septembre 2026 : segment par segment, comme dans
+   * Clash of Clans ; la pierre a sa ressource depuis le bloc 7b). Le segment
+   * est remis a neuf avec les points de vie du nouveau palier, et le chantier
+   * se voit le temps de `DUREE_CHANTIER`. Le batisseur qu'il devrait occuper
+   * attend le bloc 8.
    *
    * @returns la matiere atteinte, ou null si rien n'etait possible
    */
@@ -341,15 +464,135 @@ export class Constructions {
     const nom = construction.def.nom;
     if (!construction.def.paliers) return `${nom} : ca ne se renforce pas`;
     const suite = amelioration(construction.def, construction.matiere);
-    if (!suite) {
-      return construction.matiere === "pierre"
-        ? `${nom} en pierre : rien au-dessus`
-        : `${nom} en fer : la pierre viendra avec sa ressource`;
-    }
+    if (!suite) return `${nom} en pierre : rien au-dessus`;
     if (!peutPayer(suite.palier.cout, stocks)) {
       return `Il faut ${coutEnClair(suite.palier.cout)} pour passer ${nom.toLowerCase()} au ${suite.matiere}`;
     }
     return null;
+  }
+
+  // ------------------------------------------------------------- la douve
+
+  /** Y a-t-il de l'eau contre cette case : la mer, ou une douve en eau ? */
+  private eauContre(x: number, y: number): boolean {
+    for (const [dx, dy] of [
+      [0, -CASE],
+      [CASE, 0],
+      [0, CASE],
+      [-CASE, 0],
+    ] as const) {
+      const c = this.grille.caseEn(x + dx, y + dy);
+      if (!c) continue;
+      if (TERRAINS_D_EAU.has(c.terrain) || c.occupation === "douve-eau") return true;
+    }
+    return false;
+  }
+
+  /** Pourquoi on ne peut pas remplir cette douve — ou null si on peut. */
+  refusRemplissage(douve: Construction, stocks: Stocks): string | null {
+    if (douve.def.id !== "douve") return "Ce n'est pas une douve";
+    if (douve.eau) return "Cette douve est deja en eau";
+    if (!this.eauContre(douve.x, douve.y)) return "Pas d'eau a cote : une douve se remplit depuis la mer, ou depuis une douve en eau";
+    if (!peutPayer(REMPLISSAGE.cout, stocks)) return `Il faut ${coutEnClair(REMPLISSAGE.cout)} pour la vanne`;
+    return null;
+  }
+
+  /**
+   * Remplit une douve d'eau (§4.20) : depuis la mer, ou de proche en proche
+   * depuis une douve deja en eau. Elle bloque alors tout ce qui ne nage pas.
+   *
+   * @returns vrai si elle vient d'etre remplie
+   */
+  remplir(douve: Construction, stocks: Stocks): boolean {
+    if (this.refusRemplissage(douve, stocks)) return false;
+    regler(REMPLISSAGE.cout, stocks);
+    douve.eau = true;
+    this.ecrire(douve.x, douve.y, "douve-eau");
+    this.majPonts();
+    douve.habiller();
+    return true;
+  }
+
+  /**
+   * Remplit une douve sans rien payer ni verifier : c'est la reprise d'une
+   * partie (§4.28), ou l'eau etait deja la.
+   */
+  remplirDeForce(douve: Construction): void {
+    douve.eau = true;
+    this.ecrire(douve.x, douve.y, "douve-eau");
+    this.majPonts();
+    douve.habiller();
+  }
+
+  /** Ce qu'il reste de la vitesse de qui est sur ce point : une douve seche ralentit. */
+  ralentissement(x: number, y: number): number {
+    const c = this.parCase.get(this.cleDe(x, y));
+    return c && c.def.id === "douve" && !c.eau ? RALENTI_DOUVE : 1;
+  }
+
+  // -------------------------------------------------------- le pont-levis
+
+  /** Les douves en eau qu'un pont-levis a cette porte enjamberait : devant et derriere, dans son axe. */
+  private douvesDevant(porte: Construction): Construction[] {
+    const v = this.grille.voisinesRaccordees(this.grille.colonneDe(porte.x), this.grille.ligneDe(porte.y));
+    const nordSud = (v.nord || v.sud) && !(v.est || v.ouest);
+    const pas: ReadonlyArray<readonly [number, number]> = nordSud
+      ? [
+          [CASE, 0],
+          [-CASE, 0],
+        ]
+      : [
+          [0, -CASE],
+          [0, CASE],
+        ];
+    const douves: Construction[] = [];
+    for (const [dx, dy] of pas) {
+      const c = this.en(porte.x + dx, porte.y + dy);
+      if (c && c.def.id === "douve" && c.eau) douves.push(c);
+    }
+    return douves;
+  }
+
+  /** Pourquoi cette porte ne peut pas devenir un pont-levis — ou null si elle le peut. */
+  refusPontLevis(porte: Construction, stocks: Stocks): string | null {
+    if (!porte.battant) return "Ce n'est pas une porte";
+    if (porte.pontLevis) return "C'est deja un pont-levis";
+    if (this.douvesDevant(porte).length === 0) return "Un pont-levis enjambe une douve en eau : il en faut une devant la porte";
+    if (!peutPayer(PONT_LEVIS.cout, stocks)) return `Il faut ${coutEnClair(PONT_LEVIS.cout)} pour un pont-levis`;
+    return null;
+  }
+
+  /**
+   * Une porte devient un pont-levis (§4.20) : fermee, plus de passage du
+   * tout ; ouverte, son tablier couche sur la douve devant, et on passe.
+   */
+  convertirEnPontLevis(porte: Construction, stocks: Stocks): boolean {
+    if (this.refusPontLevis(porte, stocks)) return false;
+    regler(PONT_LEVIS.cout, stocks);
+    porte.pontLevis = true;
+    porte.habiller();
+    this.majPonts();
+    return true;
+  }
+
+  /**
+   * Quelles douves en eau sont sous un tablier baisse : celles qui touchent,
+   * dans son axe, un pont-levis entierement ouvert. Refait a chaque
+   * changement d'etat d'une porte, jamais par image.
+   */
+  private majPonts(): void {
+    const sousUnPont = new Set<Construction>();
+    for (const porte of this.liste) {
+      if (!porte.pontLevis || !porte.battant?.laissePasser) continue;
+      for (const douve of this.douvesDevant(porte)) sousUnPont.add(douve);
+    }
+    for (const c of this.liste) {
+      if (c.def.id !== "douve" || !c.eau) continue;
+      const pont = sousUnPont.has(c);
+      if (pont === c.pont) continue;
+      c.pont = pont;
+      c.habiller();
+    }
   }
 
   /**
@@ -367,11 +610,10 @@ export class Constructions {
 
     const def = CONSTRUCTIONS[type];
     const centre = this.grille.centreDe(x, y);
-    this.grille.poser(centre.x, centre.y, occupationDe(type));
+    this.ecrire(centre.x, centre.y, occupationDe(type));
 
     const construction = new Construction(this.scene, centre.x, centre.y, def);
     construction.matiere = matiere;
-    construction.ouverte = !this.grille.portesFermees;
     this.inscrire(construction);
     this.rehabillerAutour(centre.x, centre.y);
     return construction;
@@ -411,31 +653,148 @@ export class Constructions {
     }
   }
 
-  /** Repousse les chantiers du temps passe en pause, comme tout le reste. */
+  /** Repousse les chantiers et les battants du temps passe en pause, comme tout le reste. */
   decaler(millisecondes: number): void {
-    for (const c of this.liste) if (c.enChantier) c.chantierJusqua += millisecondes;
+    for (const c of this.liste) {
+      if (c.enChantier) c.chantierJusqua += millisecondes;
+      c.battant?.decaler(millisecondes);
+      if (c.derniereDemande > -Infinity) c.derniereDemande += millisecondes;
+    }
   }
 
+  // ------------------------------------------------------------ les portes
+
   /**
-   * La cloche ferme les portes (§4.20). Toutes, d'un coup : plus personne ne
-   * passe, dans un sens comme dans l'autre.
+   * La consigne « fermees » (§4.20) : la cloche, une fois que plus personne
+   * n'est dehors. Chaque battant se ferme en deux secondes ; ensuite, la nuit,
+   * il ne s'ouvre plus que sur demande et sans monstre a portee.
+   *
+   * @param immediat vrai pour poser l'etat sans le jouer — la reprise d'une
+   *        partie (§4.28).
    */
-  fermerLesPortes(): void {
-    this.reglerLesPortes(true);
+  fermerLesPortes(maintenant: number, immediat = false): void {
+    this.reglerLesPortes(true, maintenant, immediat);
   }
 
   /** L'aube les rouvre : on ressort travailler. */
-  ouvrirLesPortes(): void {
-    this.reglerLesPortes(false);
+  ouvrirLesPortes(maintenant: number, immediat = false): void {
+    this.reglerLesPortes(false, maintenant, immediat);
   }
 
-  private reglerLesPortes(fermees: boolean): void {
+  private reglerLesPortes(fermees: boolean, maintenant: number, immediat: boolean): void {
     this.grille.portesFermees = fermees;
+    this.version += 1;
     for (const c of this.liste) {
-      if (c.def.id !== "porte") continue;
-      c.ouverte = !fermees;
-      c.habiller();
+      if (!c.battant) continue;
+      if (immediat) {
+        c.battant.phase = fermees ? "fermee" : "ouverte";
+      } else if (fermees) {
+        c.battant.fermer(maintenant);
+      } else {
+        c.battant.ouvrir(maintenant);
+      }
+      c.derniereDemande = -Infinity;
     }
+    // Un tablier qui se leve ne porte deja plus personne.
+    this.majPonts();
+    this.majPortes(maintenant, [], () => false);
+  }
+
+  /**
+   * Les portes vivent, une fois par image : les battants avancent, et sous
+   * la consigne fermee, chaque porte regarde qui la demande et qui la menace
+   * (`consigneDeNuit`). La consigne se juge par battement de 120 ms (§4.17
+   * regle 5) ; le mouvement des battants et leur dessin, a chaque image.
+   *
+   * @param demandeurs les notres, dehors : habitants et heros vivants
+   * @param menaceA dit si un monstre est a cette distance de ce point
+   * @returns les portes qui viennent de finir de s'ouvrir ou de se fermer
+   */
+  majPortes(
+    maintenant: number,
+    demandeurs: ReadonlyArray<{ x: number; y: number }>,
+    menaceA: (x: number, y: number, rayon: number) => boolean,
+  ): Construction[] {
+    const finies: Construction[] = [];
+    const juger = maintenant - this.dernierBattement >= 120;
+    if (juger) this.dernierBattement = maintenant;
+    let pontsATrier = false;
+
+    for (const porte of this.liste) {
+      const battant = porte.battant;
+      if (!battant) continue;
+
+      if (battant.avancer(maintenant)) {
+        finies.push(porte);
+        if (porte.pontLevis) pontsATrier = true;
+      }
+
+      if (juger && this.grille.portesFermees) {
+        const r = REGLAGES_PORTE;
+        const quelquUn = demandeurs.some((d) => aPortee(d.x, d.y, porte.x, porte.y, r.demande));
+        const menace = menaceA(porte.x, porte.y, r.menace);
+        if (quelquUn && !menace) porte.derniereDemande = maintenant;
+        const action = consigneDeNuit(battant, maintenant, quelquUn, menace, porte.derniereDemande);
+        if (action === "ouvrir") battant.ouvrir(maintenant);
+        else if (action === "fermer") {
+          battant.fermer(maintenant);
+          if (porte.pontLevis) pontsATrier = true;
+        }
+      }
+
+      const position = battant.position(maintenant);
+      if (position !== porte.position) {
+        porte.position = position;
+        porte.habiller();
+      }
+    }
+    if (pontsATrier) this.majPonts();
+    return finies;
+  }
+
+  /** La porte la plus proche de ce point, quelle que soit sa distance. */
+  porteLaPlusProche(x: number, y: number): Construction | null {
+    let trouvee: Construction | null = null;
+    let meilleure = Infinity;
+    for (const c of this.liste) {
+      if (!c.battant) continue;
+      const d = Phaser.Math.Distance.Between(x, y, c.x, c.y);
+      if (d < meilleure) {
+        meilleure = d;
+        trouvee = c;
+      }
+    }
+    return trouvee;
+  }
+
+  /**
+   * Un monstre qui marche vers `angle` va-t-il buter sur une douve en eau ?
+   * Si oui, l'angle a prendre a la place : vers la porte la plus proche, et
+   * le long du fosse si la porte est de l'autre cote. Pas de calcul de
+   * chemin : un regard une case devant, et c'est tout (§4.17).
+   *
+   * @returns l'angle corrige, ou null s'il n'y a rien devant
+   */
+  contournement(x: number, y: number, angle: number): number | null {
+    const bloque = (a: number) => {
+      const c = this.en(x + Math.cos(a) * CASE * 0.75, y + Math.sin(a) * CASE * 0.75);
+      return c !== null && c.def.id === "douve" && c.eau && !c.pont;
+    };
+    if (!bloque(angle)) return null;
+    const porte = this.porteLaPlusProche(x, y);
+    if (porte) {
+      const versPorte = Phaser.Math.Angle.Between(x, y, porte.x, porte.y);
+      if (!bloque(versPorte)) return versPorte;
+      // La porte est de l'autre cote du fosse : on le longe, du cote de la porte.
+      const gauche = angle - Math.PI / 2;
+      const droite = angle + Math.PI / 2;
+      const ecart = (a: number) => Math.abs(Phaser.Math.Angle.Wrap(a - versPorte));
+      const premiere = ecart(gauche) < ecart(droite) ? gauche : droite;
+      if (!bloque(premiere)) return premiere;
+      const seconde = premiere === gauche ? droite : gauche;
+      if (!bloque(seconde)) return seconde;
+    }
+    return angle + Math.PI;
   }
 
   /**
@@ -444,6 +803,7 @@ export class Constructions {
    * @returns vrai si elle vient de tomber
    */
   blesser(construction: Construction, degats: number, maintenant: number): boolean {
+    if (construction.def.indestructible) return false;
     construction.pv -= degats;
     construction.flashJusqua = maintenant + 90;
     this.secouer(construction, maintenant);
@@ -486,7 +846,7 @@ export class Constructions {
 
     // La case redevient franchissable, mais elle garde une trace : une ruine se
     // voit, et le jalon 8 (restauration) saura quoi en faire.
-    this.grille.poser(construction.x, construction.y, "ruine");
+    this.ecrire(construction.x, construction.y, "ruine");
 
     this.effondrer(construction);
     this.retirer(construction);
@@ -524,9 +884,11 @@ export class Constructions {
     const cle = this.cleDe(construction.x, construction.y);
     if (this.parCase.get(cle) === construction) this.parCase.delete(cle);
     const { x, y } = construction;
+    const pontLevis = construction.pontLevis;
     construction.destroy();
     // Les voisines perdent un raccord : elles se redessinent.
     this.rehabillerAutour(x, y);
+    if (pontLevis) this.majPonts();
   }
 
   /**
@@ -535,15 +897,23 @@ export class Constructions {
    * Deux differences avec `detruire`, et elles comptent toutes les deux : ca
    * **rend la moitie** de ce qui tient encore debout, et la case redevient
    * **libre** au lieu de garder une ruine — on a demonte, on n'a pas perdu.
+   * Une douve se **comble** : on rend les etais, et la vanne si elle etait en
+   * eau.
    *
    * @returns ce qui a ete rendu
    */
   demolir(construction: Construction, stocks: Stocks): Partial<Record<Ressource, number>> {
     const rendu = remboursementDemolition(construction.def, construction.pv, construction.matiere);
+    if (construction.eau) {
+      for (const [ressource, montant] of Object.entries(REMPLISSAGE.cout)) {
+        rendu[ressource as Ressource] = (rendu[ressource as Ressource] ?? 0) + Math.floor((montant ?? 0) / 2);
+      }
+    }
     crediter(rendu, stocks);
 
     construction.occupant = null;
     this.grille.liberer(construction.x, construction.y);
+    this.version += 1;
     this.retirer(construction);
     return rendu;
   }
@@ -553,11 +923,13 @@ export class Constructions {
    *
    * Ce qui se paie, c'est de **construire** ; une fois paye, la disposition
    * appartient au joueur. On ne repose donc pas un objet neuf — on deplace
-   * celui-la, **avec ses points de vie**, sinon deplacer reparerait.
+   * celui-la, **avec ses points de vie**, sinon deplacer reparerait. Une douve
+   * ne se deplace pas : un trou, ca se comble.
    *
    * @returns vrai si le deplacement a eu lieu
    */
   deplacer(construction: Construction, x: number, y: number): boolean {
+    if (construction.def.id === "douve") return false;
     const c = this.grille.caseEn(x, y);
     if (!c) return false;
     // On se juge sur la case d'arrivee comme si on batissait, mais sans le prix :
@@ -567,14 +939,25 @@ export class Constructions {
       return false;
     }
 
+    const depart = { x: construction.x, y: construction.y };
+    const centre = this.grille.centreDe(x, y);
+    // Et meme regle de l'enceinte : le mur libere sa case, puis on juge la
+    // case d'arrivee — s'il refermerait tout sans porte, il reste ou il est.
+    if (construction.def.id !== "porte") {
+      this.grille.liberer(depart.x, depart.y);
+      this.version += 1;
+      const enferme = this.enfermerait(centre.x, centre.y);
+      this.grille.poser(depart.x, depart.y, occupationDe(construction.def.id));
+      this.version += 1;
+      if (enferme) return false;
+    }
+
     // Une secousse en cours ramenerait l'objet a son ancienne place.
     this.scene.tweens.killTweensOf(construction);
 
-    const depart = { x: construction.x, y: construction.y };
-    const centre = this.grille.centreDe(x, y);
     this.grille.liberer(depart.x, depart.y);
     this.parCase.delete(this.cleDe(depart.x, depart.y));
-    this.grille.poser(centre.x, centre.y, occupationDe(construction.def.id));
+    this.ecrire(centre.x, centre.y, occupationDe(construction.def.id));
 
     construction.setPosition(centre.x, centre.y);
     construction.caler();
@@ -586,6 +969,7 @@ export class Constructions {
     // L'ancien voisinage perd un raccord, le nouveau en gagne un.
     this.rehabillerAutour(depart.x, depart.y);
     this.rehabillerAutour(centre.x, centre.y);
+    if (construction.pontLevis) this.majPonts();
     this.surgir(construction);
     return true;
   }

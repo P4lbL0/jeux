@@ -59,10 +59,18 @@ export type Occupation =
    * bati rien d'autre qu'une maison — la relever — et la demolir rend la place.
    * Distincte de `ruine` (un mur tombe, sur lequel on rebatit ce qu'on veut).
    */
-  | "decombres";
+  | "decombres"
+  /**
+   * Une douve (§4.20, bloc 7b, 20 septembre 2026) : un fosse qu'on franchit
+   * lentement ; en eau, un fosse qu'on ne franchit plus du tout, sauf par un
+   * pont-levis baisse. Ni l'une ni l'autre ne se raccorde a un mur, et on n'y
+   * batit rien : on la comble d'abord (demolir).
+   */
+  | "douve"
+  | "douve-eau";
 
 /** Les occupations qui arretent un corps, quoi qu'il arrive. */
-const BLOQUANTES: Occupation[] = ["mur", "tour", "batiment", "maison"];
+const BLOQUANTES: Occupation[] = ["mur", "tour", "batiment", "maison", "douve-eau"];
 
 /**
  * Ce qui se raccorde : un mur regarde ses quatre voisines et dessine un pan

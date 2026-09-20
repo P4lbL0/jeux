@@ -82,7 +82,7 @@ const AIDE_LONGUE: [string, string][][] = [
     ["F", "le tableau du village"],
     ["Y", "l'eglise"],
     ["P", "le port"],
-    ["G / H / J / K / L", "palissade, tour, champ, porte, maison"],
+    ["G / H / J / K / L / N", "palissade, tour, champ, porte, maison, douve"],
     ["T", "monter dans une tour"],
     ["molette", "zoomer"],
   ],

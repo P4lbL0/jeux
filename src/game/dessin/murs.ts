@@ -1,7 +1,9 @@
 import type Phaser from "phaser";
 import type { Matiere as MatiereDuNoyau } from "../../core/constructions";
 import { Toile } from "./pinceau";
-import { BOIS, ECORCE, FER, PIERRE, melanger, type Matiere } from "./palette";
+import { C } from "../ui/couleurs";
+import { BOIS, EAU, ECORCE, FER, PIERRE, ROCHE, melanger, type Matiere } from "./palette";
+import { CRATERE, TERRE } from "./sol";
 
 /**
  * L'enceinte : les murs, les tours et les portes, dessines par le code
@@ -561,17 +563,34 @@ export function peindreTour(toile: Toile): void {
  * Elle prend une case de mur. **Ce sont les poteaux des cases voisines qui lui
  * servent de montants** : la porte ne dessine que ce qui est a elle — le
  * linteau qui prolonge les pans, et les deux vantaux. Ouverte, on voit le sol
- * a travers ; fermee, les vantaux barrent le passage.
+ * a travers ; fermee, les vantaux barrent le passage ; **entrouverte**, ils
+ * sont a mi-course — c'est les deux secondes du §4.20, ou l'on ne passe pas
+ * encore (bloc 7b, 20 septembre 2026).
  *
  * Elle se lit dans les deux sens : dans un mur est-ouest, la face montre
  * l'arche et les vantaux ; dans un mur nord-sud, on voit d'en haut la poutre
  * qui franchit le passage, et les vantaux fermes font une ligne en travers.
+ *
+ * **Le pont-levis** est une porte de plus : pas de vantaux, un tablier de
+ * planches qui se **leve** dans l'ouverture (ferme) ou s'abat sur la douve
+ * devant (ouvert — c'est alors la douve qui porte les planches, voir
+ * `peindreDouve`). Deux chaines le tiennent aux coins du linteau.
  */
 export const PORTE = MUR;
 export const ORIGINE_PORTE_Y = ORIGINE_MUR_Y;
 
-export function clePorte(matiere: MatiereMur, masque: number, ouverte: boolean): string {
-  return `bati-porte-${matiere}-${sensDePorte(masque)}-${ouverte ? "ouverte" : "fermee"}`;
+/** Ce qu'une porte montre : ouverte, a mi-course, ou fermee. */
+export type PositionPorte = "ouverte" | "entrouverte" | "fermee";
+
+export const POSITIONS_PORTE: readonly PositionPorte[] = ["ouverte", "entrouverte", "fermee"];
+
+export function clePorte(
+  matiere: MatiereMur,
+  masque: number,
+  position: PositionPorte,
+  pontLevis = false,
+): string {
+  return `bati-${pontLevis ? "pont-levis" : "porte"}-${matiere}-${sensDePorte(masque)}-${position}`;
 }
 
 /** Le sens d'une porte, d'apres ses voisines : est-ouest sauf si elle est prise entre un nord et un sud. */
@@ -581,11 +600,25 @@ export function sensDePorte(masque: number): "est-ouest" | "nord-sud" {
   return ns && !eo ? "nord-sud" : "est-ouest";
 }
 
+/** Le bois d'un vantail ou d'un tablier : du bois vieilli par l'ecorce. */
+const BATTANT = melanger(BOIS.corps, ECORCE.corps, 0.4);
+
+/** Les chaines d'un pont-levis, en fer clair : deux pixels de biais par maillon. */
+function chaine(toile: Toile, x0: number, y0: number, x1: number, y1: number): void {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+  for (let i = 0; i <= n; i += 1) {
+    const x = Math.round(x0 + ((x1 - x0) * i) / n);
+    const y = Math.round(y0 + ((y1 - y0) * i) / n);
+    toile.point(x, y, i % 2 === 0 ? FER.clair : FER.sombre);
+  }
+}
+
 export function peindrePorte(
   toile: Toile,
   matiere: MatiereMur,
   sens: "est-ouest" | "nord-sud",
-  ouverte: boolean,
+  position: PositionPorte,
+  pontLevis = false,
 ): void {
   const r = repere(SOL_MUR);
   const p = PROFILS[matiere];
@@ -596,7 +629,6 @@ export function peindrePorte(
   const cx = CASE / 2;
   const a0 = cx - p.pan / 2;
   const a1 = cx + p.pan / 2;
-  const battant = melanger(BOIS.corps, ECORCE.corps, 0.4);
   const ferrure = FER.clair;
 
   if (sens === "est-ouest") {
@@ -605,6 +637,7 @@ export function peindrePorte(
     const montant = 5;
     const ouverture0 = montant;
     const ouverture1 = CASE - montant;
+    const largeur = ouverture1 - ouverture0;
     for (const x of [0, CASE - montant]) {
       face(toile, r, x, montant, a1, H, m);
     }
@@ -617,27 +650,60 @@ export function peindrePorte(
     toile.point(ouverture0, hautFace + 4, m.corps);
     toile.point(ouverture1 - 1, hautFace + 4, m.corps);
 
-    if (ouverte) {
+    const hautVantail = hautFace + 4;
+    const hauteurVantail = H - 5;
+
+    if (pontLevis) {
+      // Le tablier : leve, il bouche l'ouverture comme un mur de planches ;
+      // a mi-course on n'en voit que le haut, qui bascule ; baisse, il est
+      // sur la douve et l'ouverture est vide.
+      const part = position === "fermee" ? 1 : position === "entrouverte" ? 0.55 : 0;
+      const h = Math.round(hauteurVantail * part);
+      if (h > 0) {
+        const haut = r.y(a1) - 1 - h;
+        toile.rect(ouverture0, haut, largeur, h, BATTANT);
+        for (let j = 1; j < h; j += 3) toile.rect(ouverture0, haut + j, largeur, 1, BOIS.sombre);
+        toile.rect(ouverture0, haut, largeur, 1, BOIS.clair);
+        // Deux traverses de fer, comme les bandes d'un vantail.
+        toile.rect(ouverture0 + 2, haut, 1, h, FER.corps);
+        toile.rect(ouverture1 - 3, haut, 1, h, FER.corps);
+      }
+      // Les chaines, des coins du linteau au bord haut du tablier — ou
+      // tendues vers le bas quand il est couche sur la douve.
+      const yBout = h > 0 ? r.y(a1) - 1 - h : r.y(a1) - 1;
+      chaine(toile, ouverture0 + 1, hautFace + 1, ouverture0 + 2, yBout);
+      chaine(toile, ouverture1 - 2, hautFace + 1, ouverture1 - 3, yBout);
+      // Le treuil : deux pixels de fer sur le linteau, de chaque cote.
+      toile.point(ouverture0, hautFace + 1, ferrure);
+      toile.point(ouverture1 - 1, hautFace + 1, ferrure);
+    } else if (position === "ouverte") {
       // Les vantaux rabattus contre les montants : deux planches de chant.
       for (const x of [ouverture0, ouverture1 - 2]) {
-        toile.rect(x, hautFace + 4, 2, H - 5, battant);
-        toile.rect(x, hautFace + 4, 1, H - 5, BOIS.clair);
+        toile.rect(x, hautVantail, 2, hauteurVantail, BATTANT);
+        toile.rect(x, hautVantail, 1, hauteurVantail, BOIS.clair);
         toile.point(x, hautFace + 6, ferrure);
         toile.point(x, r.y(a1) - 4, ferrure);
       }
     } else {
-      // Les vantaux fermes : des planches verticales, deux bandes de fer, et
-      // le jour entre les deux battants.
-      const largeur = ouverture1 - ouverture0;
-      toile.rect(ouverture0, hautFace + 4, largeur, H - 5, battant);
-      for (let i = 0; i < largeur; i += 3) toile.rect(ouverture0 + i, hautFace + 4, 1, H - 5, BOIS.sombre);
-      toile.rect(cx - 1, hautFace + 4, 1, H - 5, ECORCE.sombre);
-      for (const j of [hautFace + 6, r.y(a1) - 5]) {
-        toile.rect(ouverture0, j, largeur, 1, FER.corps);
-        toile.point(ouverture0 + 2, j, ferrure);
-        toile.point(ouverture1 - 3, j, ferrure);
+      // Les vantaux : fermes, des planches verticales d'un montant a l'autre,
+      // deux bandes de fer, et le jour entre les deux battants ; entrouverts,
+      // chaque battant ne couvre plus que les deux cinquiemes de l'ouverture,
+      // et le sol se voit au milieu.
+      const couvert = position === "fermee" ? largeur / 2 : Math.round(largeur * 0.4);
+      for (const [x, gauche] of [
+        [ouverture0, true],
+        [ouverture1 - couvert, false],
+      ] as const) {
+        toile.rect(x, hautVantail, couvert, hauteurVantail, BATTANT);
+        for (let i = 0; i < couvert; i += 3) toile.rect(x + i, hautVantail, 1, hauteurVantail, BOIS.sombre);
+        // Le chant du battant, cote ouverture : il se lit entrouvert.
+        toile.rect(gauche ? x + couvert - 1 : x, hautVantail, 1, hauteurVantail, ECORCE.sombre);
+        for (const j of [hautFace + 6, r.y(a1) - 5]) {
+          toile.rect(x, j, couvert, 1, FER.corps);
+          toile.point(gauche ? x + 2 : x + couvert - 3, j, ferrure);
+        }
+        toile.rect(x, r.y(a1) - 1, couvert, 1, piedDe(m));
       }
-      toile.rect(ouverture0, r.y(a1) - 1, largeur, 1, piedDe(m));
     }
 
     // Le dessus du pan, d'un bord a l'autre, et sa crete.
@@ -655,18 +721,38 @@ export function peindrePorte(
   s.face(toile, a0, r.y(bout) - H, p.pan, H);
   dessus(toile, r, a0, p.pan, 0, bout, H, d, true);
 
-  if (ouverte) {
+  const longueur = CASE - bout * 2;
+  if (pontLevis) {
+    // Vu d'en haut : leve, le tablier est une cloison de planches en travers,
+    // avec ses deux chaines ; baisse, la poutre seule, et les planches sont
+    // sur la douve.
+    const part = position === "fermee" ? 1 : position === "entrouverte" ? 0.55 : 0;
+    const epaisseur = Math.round(4 * part);
+    toile.rect(cx - 2, r.y(bout) - H, 4, longueur, ECORCE.corps);
+    toile.rect(cx - 2, r.y(bout) - H, 1, longueur, ECORCE.clair);
+    if (epaisseur > 0) {
+      toile.rect(cx - 2, r.y(bout) - H, epaisseur, longueur, BATTANT);
+      toile.rect(cx - 2, r.y(bout) - H, 1, longueur, BOIS.clair);
+      for (let g = bout + 3; g < CASE - bout; g += 4) toile.rect(cx - 2, r.y(g) - H, epaisseur, 1, FER.corps);
+    }
+    chaine(toile, cx - 2, r.y(bout) - H, cx + 2, r.y(bout) - H + 2);
+    chaine(toile, cx - 2, r.y(CASE - bout) - H - 1, cx + 2, r.y(CASE - bout) - H - 3);
+  } else if (position === "ouverte") {
     // La poutre du linteau, vue d'en haut : etroite, a la hauteur du mur.
-    toile.rect(cx - 2, r.y(bout) - H, 4, CASE - bout * 2, ECORCE.corps);
-    toile.rect(cx - 2, r.y(bout) - H, 1, CASE - bout * 2, ECORCE.clair);
-    toile.rect(cx + 1, r.y(bout) - H, 1, CASE - bout * 2, ECORCE.sombre);
+    toile.rect(cx - 2, r.y(bout) - H, 4, longueur, ECORCE.corps);
+    toile.rect(cx - 2, r.y(bout) - H, 1, longueur, ECORCE.clair);
+    toile.rect(cx + 1, r.y(bout) - H, 1, longueur, ECORCE.sombre);
   } else {
-    // Les vantaux fermes : une cloison de planches en travers du passage, dont
-    // on voit le dessus etroit et, au sud, la tranche.
-    toile.rect(cx - 2, r.y(bout) - H, 4, CASE - bout * 2, battant);
-    toile.rect(cx - 2, r.y(bout) - H, 1, CASE - bout * 2, BOIS.clair);
-    toile.rect(cx + 1, r.y(bout) - H, 1, CASE - bout * 2, BOIS.sombre);
-    for (let g = bout + 3; g < CASE - bout; g += 4) toile.rect(cx - 2, r.y(g) - H, 4, 1, FER.corps);
+    // Les vantaux : fermes, une cloison de planches en travers du passage,
+    // dont on voit le dessus etroit ; entrouverts, deux bouts de cloison qui
+    // partent des bouts, et le passage libre au milieu.
+    const couvert = position === "fermee" ? longueur : Math.round(longueur * 0.32);
+    for (const y of position === "fermee" ? [r.y(bout) - H] : [r.y(bout) - H, r.y(CASE - bout) - H - couvert]) {
+      toile.rect(cx - 2, y, 4, couvert, BATTANT);
+      toile.rect(cx - 2, y, 1, couvert, BOIS.clair);
+      toile.rect(cx + 1, y, 1, couvert, BOIS.sombre);
+      for (let j = 3; j < couvert; j += 4) toile.rect(cx - 2, y + j, 4, 1, FER.corps);
+    }
   }
 
   // Le bout sud : son dessus ; sa face tombe sur le bord de la case.
@@ -674,10 +760,115 @@ export function peindrePorte(
   dessus(toile, r, a0, p.pan, CASE - bout, CASE, H, d, false);
 }
 
+// ----------------------------------------------------------------- la douve
+
+/**
+ * La douve (§4.20, bloc 7b) : un fosse creuse devant le mur. **A plat**, dans
+ * la case, sans dessus ni face : c'est un trou, pas un volume. Elle regarde ses
+ * voisines comme un mur — la ou une autre douve la continue, il n'y a pas de
+ * bord ; la ou il n'y en a pas, on voit la levre du fosse.
+ *
+ * Trois etats : **seche** (la terre retournee des parois, le fond dans
+ * l'ombre), **en eau** (l'eau du monde, avec ses reflets), et **en eau sous
+ * un pont** — les planches du pont-levis baisse, en travers du fosse.
+ */
+export type EtatDouve = "seche" | "eau" | "pont";
+
+export const ETATS_DOUVE: readonly EtatDouve[] = ["seche", "eau", "pont"];
+
+export const DOUVE = { largeur: CASE, hauteur: CASE } as const;
+
+export function cleDouve(masque: number, etat: EtatDouve): string {
+  return `bati-douve-${etat}-${masque}`;
+}
+
+/**
+ * Le sens dans lequel un pont franchit une douve : en travers du fosse. Une
+ * douve qui court est-ouest se franchit du nord au sud.
+ */
+export function sensDuPont(masque: number): "nord-sud" | "est-ouest" {
+  const eo = (masque & EST) !== 0 || (masque & OUEST) !== 0;
+  const ns = (masque & NORD) !== 0 || (masque & SUD) !== 0;
+  return ns && !eo ? "est-ouest" : "nord-sud";
+}
+
+export function peindreDouve(toile: Toile, masque: number, etat: EtatDouve): void {
+  // Les parois : la terre battue qu'on a retournee, comme un cratere ; le
+  // fond, la terre froide et sombre du fond d'un trou. La levre du fosse est
+  // claire au nord et a l'ouest (la lumiere vient de la), sombre au sud et a
+  // l'est — c'est ce qui fait lire un creux et pas une dalle.
+  const paroi = TERRE;
+  const fond = CRATERE;
+  const levre = 2;
+
+  toile.rect(0, 0, CASE, CASE, paroi.corps);
+  // Le grain des parois : des mottes sombres et claires en quinconce.
+  for (let j = 1; j < CASE; j += 3) {
+    for (let i = ((j / 3) % 2 === 0 ? 1 : 2); i < CASE; i += 4) {
+      toile.point(i, j, (i + j) % 8 < 4 ? paroi.sombre : paroi.clair);
+    }
+  }
+  // Le fond : un rectangle en retrait de chaque bord qui n'est pas continue.
+  const x0 = masque & OUEST ? 0 : 6;
+  const x1 = masque & EST ? CASE : CASE - 6;
+  const y0 = masque & NORD ? 0 : 6;
+  const y1 = masque & SUD ? CASE : CASE - 6;
+  toile.rect(x0, y0, x1 - x0, y1 - y0, fond.corps);
+
+  if (etat === "seche") {
+    // Le fond sec : des mottes, des cailloux, et l'ombre de la paroi nord.
+    for (let j = y0 + 1; j < y1; j += 3) {
+      for (let i = x0 + ((j / 3) % 2 === 0 ? 0 : 2); i < x1; i += 4) {
+        toile.point(i, j, (i * 5 + j * 3) % 7 < 3 ? fond.sombre : fond.clair);
+      }
+    }
+    if (!(masque & NORD)) toile.rect(x0, y0, x1 - x0, 3, fond.sombre);
+    if (!(masque & OUEST)) toile.rect(x0, y0, 2, y1 - y0, fond.sombre);
+    for (let i = x0 + 2; i < x1 - 1; i += 6) toile.point(i, y0 + 4 + ((i * 7) % 4) * 3, ROCHE.clair);
+  } else {
+    // L'eau : le corps de l'eau du monde, un liseret sombre sous la paroi
+    // nord, et des reflets clairs en biais, comme sur la mer.
+    toile.rect(x0, y0, x1 - x0, y1 - y0, EAU.corps);
+    if (!(masque & NORD)) toile.rect(x0, y0, x1 - x0, 1, EAU.sombre);
+    for (let j = y0 + 3; j < y1 - 1; j += 5) {
+      const decalage = ((j / 5) % 2) * 3;
+      for (let i = x0 + 1 + decalage; i < x1 - 3; i += 7) toile.rect(i, j, 3, 1, EAU.clair);
+    }
+  }
+
+  // Les levres : sur chaque bord qui n'est pas continue, deux pixels de sol
+  // souleve, clairs cote lumiere, sombres cote ombre.
+  if (!(masque & NORD)) toile.rect(0, 0, CASE, levre, paroi.clair);
+  if (!(masque & OUEST)) toile.rect(0, 0, levre, CASE, paroi.clair);
+  if (!(masque & SUD)) toile.rect(0, CASE - levre, CASE, levre, paroi.sombre);
+  if (!(masque & EST)) toile.rect(CASE - levre, 0, levre, CASE, paroi.sombre);
+
+  if (etat !== "pont") return;
+
+  // Le tablier du pont-levis, couche en travers : une bande de planches, avec
+  // ses deux longerons et son bord d'ombre sur l'eau.
+  const largeurPont = 20;
+  const p0 = CASE / 2 - largeurPont / 2;
+  if (sensDuPont(masque) === "nord-sud") {
+    toile.rect(p0 + 1, 0, largeurPont - 2, CASE, melanger(EAU.sombre, C.fer, 0.4));
+    toile.rect(p0, 0, largeurPont, CASE - 1, BATTANT);
+    for (let j = 0; j < CASE; j += 3) toile.rect(p0, j, largeurPont, 1, BOIS.sombre);
+    toile.rect(p0, 0, 2, CASE - 1, BOIS.clair);
+    toile.rect(p0 + largeurPont - 2, 0, 2, CASE - 1, ECORCE.sombre);
+  } else {
+    toile.rect(0, p0 + 1, CASE, largeurPont - 2, melanger(EAU.sombre, C.fer, 0.4));
+    toile.rect(0, p0, CASE, largeurPont - 1, BATTANT);
+    for (let i = 0; i < CASE; i += 3) toile.rect(i, p0, 1, largeurPont - 1, BOIS.sombre);
+    toile.rect(0, p0, CASE, 1, BOIS.clair);
+    toile.rect(0, p0 + largeurPont - 3, CASE, 2, ECORCE.sombre);
+  }
+}
+
 // --------------------------------------------------------------- la cuisson
 
 /**
- * Cuit l'enceinte entiere : 48 murs, 12 portes, la ruine, la tour.
+ * Cuit l'enceinte entiere : 48 murs, 18 portes, 18 ponts-levis, 48 douves,
+ * la ruine, la tour.
  *
  * @returns le nombre de textures produites.
  */
@@ -700,12 +891,19 @@ export function cuireLesMurs(scene: Phaser.Scene): number {
       graver(cleMur(matiere, masque), MUR.largeur, MUR.hauteur, (t) => peindreMur(t, matiere, masque));
     }
     for (const sens of ["est-ouest", "nord-sud"] as const) {
-      for (const ouverte of [true, false]) {
-        const masque = sens === "est-ouest" ? EST | OUEST : NORD | SUD;
-        graver(clePorte(matiere, masque, ouverte), PORTE.largeur, PORTE.hauteur, (t) =>
-          peindrePorte(t, matiere, sens, ouverte),
-        );
+      const masque = sens === "est-ouest" ? EST | OUEST : NORD | SUD;
+      for (const position of POSITIONS_PORTE) {
+        for (const pontLevis of [false, true]) {
+          graver(clePorte(matiere, masque, position, pontLevis), PORTE.largeur, PORTE.hauteur, (t) =>
+            peindrePorte(t, matiere, sens, position, pontLevis),
+          );
+        }
       }
+    }
+  }
+  for (const etat of ETATS_DOUVE) {
+    for (const masque of MASQUES) {
+      graver(cleDouve(masque, etat), DOUVE.largeur, DOUVE.hauteur, (t) => peindreDouve(t, masque, etat));
     }
   }
   graver(CLE_MUR_RUINE, MUR.largeur, MUR.hauteur, (t) => peindreMurRuine(t, 0));
