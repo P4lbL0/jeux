@@ -9,6 +9,7 @@ import {
   peuplerLeVillage,
   stocksDeDepart,
   tirerLaPopulation,
+  toitsPour,
 } from "./peuplement";
 import { Rng } from "./rng";
 
@@ -86,6 +87,26 @@ describe("Ce que chacun fait", () => {
       expect([...METIERS_QUI_RECOLTENT, ...METIERS_DU_VILLAGE]).toContain(metier);
     }
     expect(tous.size).toBe(7);
+  });
+});
+
+describe("Les toits", () => {
+  it("loge une famille par maison, jamais une personne", () => {
+    // « Trois ou quatre villageois peuvent partager la meme maison pour les
+    // familles » (Angelos, 20 septembre 2026).
+    expect(toitsPour(1)).toBe(1);
+    expect(toitsPour(4)).toBe(1);
+    expect(toitsPour(5)).toBe(2);
+    expect(toitsPour(20)).toBe(5);
+  });
+
+  it("laisse toujours des ruines a relever, meme au plus gros village", () => {
+    // Un plan pose six maisons en moyenne (mesure) : cinq foyers en laissent.
+    expect(toitsPour(REGLAGES_PEUPLEMENT.max)).toBeLessThan(6);
+  });
+
+  it("n'en demande aucun pour un village vide", () => {
+    expect(toitsPour(0)).toBe(0);
   });
 });
 

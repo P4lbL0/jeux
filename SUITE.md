@@ -1267,8 +1267,10 @@ ses réserves et ses toits encore debout.
 - ⚠️ **Un village pose six maisons en moyenne, jamais plus de quatorze**
   (`.tmp/mesurer-maisons.ts`, 180 villages) — là où le code en vise seize à vingt. Les règles
   de pose (jamais sur la rue, jamais trois à la file, jamais contre l'église) laissent peu de
-  places. **Au-delà de six ou sept habitants, on se serre donc à plusieurs sous un toit** :
-  c'est au budget d'en faire un cadeau à part entière.
+  places. **Tranché par Angelos dans la foulée** : « trois ou quatre villageois peuvent
+  partager la même maison pour les familles ». Une maison est donc un **foyer de quatre**
+  (`toitsPour`), et non un lit — le générateur ne bouge pas, et un village de vingt garde
+  cinq toits debout sur les six d'un plan moyen, donc des ruines à relever.
 - ⚠️ **On se pose à sa place exacte, pas « à peu près ».** Cinq mineurs visaient le même
   pixel ; l'écart par identifiant (angle d'or) ne servait à rien tant que la marge d'arrivée
   restait plus large que lui — deux bûcherons s'arrêtaient à trois pixels l'un de l'autre.
@@ -1284,6 +1286,56 @@ ruée — c'est le plafond de Chromium en headless, mesuré à trois habitants c
 **À regarder** : `captures/jeu/2026-09-20-peuplement/`.
 
 **647 tests verts** (+17).
+
+### Le budget cadeaux / menaces (20 septembre 2026, dans la nuit)
+
+Quatrième bloc du jalon 5.5, et **celui qui donne son sens au refus** : jusqu'ici, dire non
+à un beau village n'avait aucune raison d'être.
+
+- **`src/core/budget.ts`** (pur, 14 tests) : `valeurDesCadeaux` mesure ce que le monde donne
+  sur **une seule échelle**, `menacesDuMonde` convertit l'écart en trois menaces,
+  `phraseDuMonde` l'annonce en une ligne.
+- **Le budget ne décide pas du monde, il paie celui qui a été tiré** (décision d'Angelos) :
+  terrain, fronts, brèches, gens et réserves sortent de la graine comme avant. **Aucun tirage
+  n'a bougé**, la graine zéro garde sa carte, et la presqu'île sera automatiquement le monde
+  aux pires nuits le jour où le générateur saura en produire.
+- **Le monde de référence — zéro point — est la partie qu'on jouait** : deux fronts, six
+  habitants, réserves à moitié, deux brèches, pas de douves. Tout se compte en écart à ça.
+- **Trois menaces, sur les leviers qui existaient déjà** : l'effectif d'une nuit (−35 % à
+  +60 %), des **nuits d'avance** en puissance (0 à 3 — c'est le levier le plus brutal, il
+  ouvre les archétypes autant qu'il monte les statistiques), et des **habitants déjà malades**
+  (0 à 3). L'incendie reste au jalon 6, comme prévu.
+- **La phrase se pose à part sur le panneau**, en os mat, sous un filet : un villageois ne
+  peut pas dire honnêtement « nous sommes un beau village, donc tes nuits seront pires ». Le
+  filet a été ajouté après capture — sans lui, la phrase se lisait comme une cinquième ligne
+  de ce qu'il raconte.
+- **Les malades se découvrent à l'installation**, jamais avant, et le journal le dit :
+  « Maelis est malade — ils ne l'avaient pas dit. »
+
+**Ce que la mesure a corrigé, et c'est le cœur du bloc :**
+
+- ⚠️ **Le premier jet comptait la part de mur debout. Elle ne varie pas.** Mesure sur 180
+  villages (`.tmp/mesurer-murs.ts`) : l'enceinte est **toujours** presque entière — de 88 % à
+  100 %, médiane 96 % —, parce que le générateur ouvre une ou deux brèches par pan et pas
+  davantage. Le terme valait ±1 point d'un monde à l'autre (le budget y perdait une dimension)
+  et la phrase annonçait « des murs presque intacts » pour tout le monde. On compte donc les
+  **brèches** (0 à 4, médiane 2), qui varient vraiment.
+- ⚠️ **Un test a attrapé une contradiction dans ma propre phrase** : « des réserves pleines »
+  dit exactement ce que le §4.29 interdit d'annoncer. Les réserves **se paient sans se voir** —
+  un village ordinaire aux greniers pleins annonce des nuits dures sans dire pourquoi. C'est
+  le pari éclairé que le design demande, et pas un calcul.
+- Un village **sans aucune enceinte** rend plus qu'un mur troué de partout : un trou se
+  bouche, une absence de mur se bâtit.
+
+**Vérifié dans le navigateur** : `.tmp/verifier-budget.ts`, **22 contrôles** sur trois mondes
+— la phrase est bien celle qui s'affiche, elle tient en une ligne, elle ne dit jamais ce qui
+ne se voit pas de loin, personne n'est malade avant l'installation, les malades achetés sont
+tous là après, et l'effectif de la première nuit vaut exactement ce que le budget a décidé
+(25 sur un village mort, 46 sur un village de vingt, contre 30 au monde de référence).
+
+**À regarder** : `captures/jeu/2026-09-20-budget/`.
+
+**664 tests verts** (+17 : 14 pour le budget, 3 pour les foyers).
 
 ### Le bloc 7b — la forteresse (fait le 20 septembre 2026)
 

@@ -32,18 +32,25 @@ import { Rng } from "./rng";
 export const REGLAGES_PEUPLEMENT = {
   /** Le dernier survivant d'un village : c'est une rencontre, pas un bug */
   min: 1,
-  /**
-   * Le plus grand village qu'on puisse trouver (decision d'Angelos).
-   *
-   * ⚠️ **Il y aura plus de tetes que de toits, et c'est mesure** : un plan de
-   * village vise seize a vingt maisons mais n'en pose que **six en moyenne, et
-   * jamais plus de quatorze** (`.tmp/mesurer-maisons.ts`) — les regles de pose
-   * (jamais sur la rue, jamais trois a la file, jamais contre l'eglise)
-   * laissent peu de places. Au-dela de six ou sept habitants, on se serre donc
-   * a plusieurs sous un toit. C'est au budget (§4.29) de faire des maisons
-   * debout un cadeau a part entiere, quand il arrivera.
-   */
+  /** Le plus grand village qu'on puisse trouver (decision d'Angelos) */
   max: 20,
+  /**
+   * Combien de gens vivent sous un meme toit (decision d'Angelos, 20 septembre
+   * 2026 : « trois ou quatre villageois peuvent partager la meme maison pour
+   * les familles »).
+   *
+   * C'est la reponse a une mesure : un plan de village vise seize a vingt
+   * maisons mais n'en pose que **six en moyenne, et jamais plus de quatorze**
+   * (`.tmp/mesurer-maisons.ts`) — les regles de pose (jamais sur la rue, jamais
+   * trois a la file, jamais contre l'eglise) laissent peu de places. Un toit
+   * par tete etait donc impossible au-dela de six habitants.
+   *
+   * **Quatre**, le haut de la fourchette : c'est ce qui laisse toujours des
+   * ruines a relever, meme dans un village de vingt (cinq foyers sur les six
+   * maisons d'un plan moyen). A trois, un gros village n'aurait plus rien a
+   * reconstruire.
+   */
+  parToit: 4,
   /**
    * De combien le tirage penche vers les petits villages.
    *
@@ -123,6 +130,17 @@ export interface Peuplement {
    * sont pleines). Garde a part : c'est l'autre entree du budget.
    */
   aisance: number;
+}
+
+/**
+ * Combien de toits il faut pour abriter tout ce monde (§4.29).
+ *
+ * Une maison est un **foyer**, pas un lit : trois ou quatre personnes y vivent.
+ * Les autres maisons du plan restent en ruine — le village en est plein
+ * (§4.6), et c'est ce que le joueur releve ou demolit.
+ */
+export function toitsPour(population: number): number {
+  return Math.ceil(Math.max(0, population) / REGLAGES_PEUPLEMENT.parToit);
 }
 
 /**

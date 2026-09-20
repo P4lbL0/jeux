@@ -19,6 +19,15 @@ export interface ParoleDeRencontre {
   nom: string;
   /** Ce qui s'est passe, combien ils sont, ce qui tient, ce qui rode */
   lignes: string[];
+  /**
+   * Ce que ce monde vaut, en une phrase (§4.29, le budget).
+   *
+   * ⚠️ **Ce n'est pas lui qui le dit.** Un villageois ne peut pas annoncer
+   * honnetement « nous sommes un beau village, donc tes nuits seront pires » :
+   * la phrase se pose donc **a part**, en gris, sous ce qu'il raconte
+   * (decision d'Angelos, 20 septembre 2026).
+   */
+  augure: string;
   question: string;
 }
 
@@ -80,8 +89,16 @@ export class PanneauRencontre {
       hauteurTexte += t.height + 8;
     }
 
+    // L'augure : la voix du jeu, pas la sienne. En os mat, a part, et separe
+    // de ce qu'il raconte par un peu d'air.
+    const augure = parole.augure
+      ? this.texte(parole.augure, 12, T.osMat).setWordWrapWidth(utile)
+      : null;
+    const hauteurAugure = augure ? augure.height + 12 : 0;
+
     const question = this.texte(parole.question, 17, T.laiton).setWordWrapWidth(utile);
-    const hauteur = HAUTEUR_TITRE + MARGE + hauteurTexte + 14 + question.height + 18 + 30 + MARGE;
+    const hauteur =
+      HAUTEUR_TITRE + MARGE + hauteurTexte + hauteurAugure + 14 + question.height + 18 + 30 + MARGE;
 
     // ⚠️ **Le panneau se pose bas, pas au milieu.** Au centre il tombait pile
     // sur les deux personnages qui se parlent (vu en capture) : on lisait la
@@ -103,6 +120,18 @@ export class PanneauRencontre {
     for (const t of corps) {
       t.setPosition(plaque.x + MARGE, y);
       y += t.height + 8;
+    }
+
+    if (augure) {
+      // Un filet avant : ce qui suit n'est plus sa voix, c'est celle du jeu.
+      // Sans lui, la phrase se lisait comme une cinquieme ligne de ce qu'il
+      // raconte — or il ne peut pas savoir ce que les nuits vaudront.
+      y += 8;
+      g.fillStyle(C.plaque, 1);
+      g.fillRect(plaque.x + MARGE, y, utile, 1);
+      y += 7;
+      augure.setPosition(plaque.x + MARGE, y);
+      y += augure.height + 4;
     }
 
     y += 10;

@@ -413,6 +413,29 @@ export class Village {
     return villageois;
   }
 
+  /**
+   * Les malades que le monde avait deja (§4.29, le budget).
+   *
+   * Un beau village se paie, et il se paie **aussi** en gens qui toussent
+   * depuis avant nous. On les pose a l'installation et pas avant : le §4.29
+   * interdit de dire a la porte ce qui ne se voit pas de loin, et une epidemie
+   * tue n'est pas un mensonge du village — c'est son role.
+   *
+   * Le tirage sort du generateur du village : meme monde, memes malades.
+   *
+   * @returns les noms de ceux qui sont touches, pour l'annonce
+   */
+  poserLesMalades(combien: number): string[] {
+    const candidats = this.habitants.filter((v) => v.regles.vivant);
+    const touches: string[] = [];
+    while (touches.length < combien && candidats.length > 0) {
+      const villageois = candidats.splice(this.rng.int(0, candidats.length - 1), 1)[0]!;
+      if (!contracterEtat(villageois.regles.personne, "maladie")) continue;
+      touches.push(villageois.nom);
+    }
+    return touches;
+  }
+
   /** Un habitant par son identifiant — c'est par la que les fous designent. */
   parId(id: number): Villageois | null {
     return this.habitants.find((v) => v.regles.id === id) ?? null;

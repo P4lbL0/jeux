@@ -149,7 +149,14 @@ import { cleCase, genererVillage, graineDeVillage, placesOuSeTenir, type PlanVil
   tracerLesRues,
   type Segment,
 } from "../core/village";
-import { peuplerLeVillage, type Peuplement } from "../core/peuplement";
+import { peuplerLeVillage, toitsPour, type Peuplement } from "../core/peuplement";
+import {
+  menacesDuMonde,
+  phraseDuMonde,
+  valeurDesCadeaux,
+  type CeQueLeMondeOffre,
+  type Menaces,
+} from "../core/budget";
 import {
   CASES_LIBRES_AUTOUR_DES_BATIMENTS,
   CONSTRUCTIONS,
@@ -632,6 +639,16 @@ export class ArenaScene extends Phaser.Scene {
    * dessine pas comme un village de trois.
    */
   private peuplement!: Peuplement;
+  /**
+   * Ce que ce monde reclame en echange de ce qu'il offre (§4.29, `budget.ts`).
+   *
+   * Pose une fois, au chargement, et jamais recalcule : le budget est une
+   * propriete **du monde**, pas de la partie. Un village qui perd la moitie de
+   * ses gens la premiere nuit ne voit pas ses nuits s'adoucir pour autant.
+   */
+  private menaces: Menaces = { effectifEnPlus: 0, nuitsDAvance: 0, malades: 0 };
+  /** La phrase qu'on annonce avant d'entrer, en une ligne (§4.29) */
+  private augureDuMonde = "";
   /** Les rues du village, tracees avec le plan : le sol les peint, le decor s'en ecarte. */
   private ruesDuVillage: Segment[] = [];
   /** L'eau qui noie (§4.30) : l'horloge du heros incarne sous la surface. */
@@ -1022,10 +1039,21 @@ export class ArenaScene extends Phaser.Scene {
       EGLISE,
       undefined,
       undefined,
-      this.peuplement.population,
+      // Un toit, un foyer : trois ou quatre personnes y vivent (§4.29).
+      toitsPour(this.peuplement.population),
     );
+    // Le budget (§4.29) : on mesure ce que ce monde-la donne, et l'ecart au
+    // monde de reference devient la menace. ⚠️ Il **paie un monde deja tire**,
+    // il ne le dicte pas : rien de ce qui precede n'a bouge.
+    const offre = this.ceQueLeMondeOffre;
+    const valeur = valeurDesCadeaux(offre);
+    this.menaces = menacesDuMonde(valeur);
+    this.augureDuMonde = phraseDuMonde(offre, this.menaces);
     console.log(
       `[arene] village = ${this.graineVillage} · ${this.peuplement.population} habitants · monde = ${decrireLeMonde(mondeCourant())}`,
+    );
+    console.log(
+      `[budget] ${valeur.toFixed(0)} points · effectif ${(this.menaces.effectifEnPlus * 100).toFixed(0)} % · ${this.menaces.nuitsDAvance} nuit(s) d'avance · ${this.menaces.malades} malade(s) · « ${this.augureDuMonde} »`,
     );
     // La carte de ce monde, cuite maintenant : le sol du village se peint
     // dessus, et elle ne se recuit pas tant que le monde ne change pas.
@@ -1201,7 +1229,7 @@ export class ArenaScene extends Phaser.Scene {
     if (this.cycle.phase === "nuit") {
       // La nuit reprend la ou elle en etait : l'effectif restant se recompose a
       // partir du cycle, il ne se stocke pas monstre par monstre.
-      this.resteDeLaNuit = effectifDeLaNuit(this.cycle.nuit);
+      this.resteDeLaNuit = this.effectifDeLaNuitIci(this.cycle.nuit);
       this.village.tomberLaNuit();
       this.fronts = frontsDeLaVague(this.cycle.nuit, this.rng.next());
       this.partPremierFront = repartition(this.fronts, this.rng.next());
@@ -1735,6 +1763,25 @@ export class ArenaScene extends Phaser.Scene {
     return placesOuSeTenir(this.planVillage);
   }
 
+  /**
+   * Ce que ce monde donne, tel que le budget le compte (§4.29).
+   *
+   * ⚠️ Ce n'est **pas** `villageVuDeLoin` : celui-la ne dit que ce qui se voit,
+   * parce qu'un habitant le prononce. Celui-ci compte aussi les reserves — un
+   * cadeau qui se paie sans se voir.
+   */
+  private get ceQueLeMondeOffre(): CeQueLeMondeOffre {
+    const enceinte = this.planVillage.enceinte;
+    return {
+      habitants: this.peuplement.population,
+      aisance: this.peuplement.aisance,
+      fronts: frontsOuverts().length,
+      mursDebout: enceinte.filter((p) => p.piece !== "ruine").length,
+      breches: enceinte.filter((p) => p.piece === "ruine").length,
+      douves: this.planVillage.douves.length > 0,
+    };
+  }
+
   private get villageVuDeLoin(): VillageVuDeLoin {
     const enceinte = this.planVillage.enceinte;
     return {
@@ -1757,6 +1804,8 @@ export class ArenaScene extends Phaser.Scene {
     this.events.emit("rencontre", {
       nom: gardien.nom,
       lignes: parole,
+      // Ce que ce monde vaut, annonce avant d'entrer (§4.29, le budget).
+      augure: this.augureDuMonde,
       question: QUESTION_DU_GARDIEN,
     });
   }
@@ -1930,6 +1979,19 @@ export class ArenaScene extends Phaser.Scene {
     // apprendre un jeu pendant deux heures sans jamais rencontrer un de ses
     // systemes : c'est ce qu'on evite ici. Le rythme, lui, ne bouge pas.
     this.prochaineArriveeJournee = 1;
+    // ⚠️ **Les malades se decouvrent ici, jamais avant.** Le budget les a
+    // achetes avec le reste (§4.29), et le village s'est bien garde de les
+    // mentionner a la porte : ce qui ne se voit pas de loin ne se dit pas.
+    const malades = this.village.poserLesMalades(this.menaces.malades);
+    if (malades.length > 0) {
+      this.events.emit(
+        "annonce",
+        malades.length === 1
+          ? `${malades[0]} est malade — ils ne l'avaient pas dit`
+          : `${malades.join(", ")} sont malades — ils ne l'avaient pas dit`,
+        "village",
+      );
+    }
     // Le temps de la partie commence a l'installation : la marche n'est pas du
     // temps de survie, et les hordes ne doivent pas avoir couru pendant.
     this.debut = this.time.now;
@@ -5893,7 +5955,7 @@ export class ArenaScene extends Phaser.Scene {
     this.survivants.auCrepuscule();
 
     const nuit = this.cycle.nuit;
-    this.resteDeLaNuit = effectifDeLaNuit(nuit);
+    this.resteDeLaNuit = this.effectifDeLaNuitIci(nuit);
     this.village.tomberLaNuit();
 
     this.fronts = frontsDeLaVague(nuit, this.rng.next());
@@ -6029,7 +6091,7 @@ export class ArenaScene extends Phaser.Scene {
    * charge, la meute est plus petite — jamais l'inverse.
    */
   private lacherLaMeute(x: number, y: number, combien: number): void {
-    const puissance = puissanceDeLaNuit(this.cycle.jour);
+    const puissance = this.puissanceIci(this.cycle.jour);
     const place = MAX_ENNEMIS - this.ennemis.getLength();
     for (let i = 0; i < Math.min(combien, place); i++) {
       const archetype = choisirArchetype(puissance, this.rng.next());
@@ -6443,13 +6505,35 @@ export class ArenaScene extends Phaser.Scene {
     else this.guetterLesHordes();
   }
 
+  /**
+   * Combien de monstres cette nuit-la deverse, le budget compris (§4.29).
+   *
+   * ⚠️ Le plafond d'ecran du §4.17 a toujours le dernier mot : ce nombre dit
+   * combien **veulent** paraitre, pas combien tiennent a l'ecran.
+   */
+  private effectifDeLaNuitIci(nuit: number): number {
+    return Math.max(1, Math.round(effectifDeLaNuit(nuit) * (1 + this.menaces.effectifEnPlus)));
+  }
+
+  /**
+   * La puissance d'une nuit (ou d'un jour), avec l'avance que le monde s'est
+   * payee.
+   *
+   * C'est le « plus forts, plus tot » du §4.29 : un monde genereux joue sa
+   * premiere nuit comme une quatrieme — statistiques **et** archetypes, puisque
+   * c'est la meme echelle qui ouvre les deux.
+   */
+  private puissanceIci(numero: number): number {
+    return puissanceDeLaNuit(numero + this.menaces.nuitsDAvance);
+  }
+
   private deverserLaNuit(): void {
     if (this.resteDeLaNuit <= 0) return;
     if (this.time.now < this.prochaineApparition) return;
 
     const place = MAX_ENNEMIS - this.ennemis.getLength();
     if (place > 0) {
-      this.faireApparaitreEnnemi(puissanceDeLaNuit(this.cycle.nuit));
+      this.faireApparaitreEnnemi(this.puissanceIci(this.cycle.nuit));
       this.resteDeLaNuit -= 1;
     }
 
@@ -6470,7 +6554,7 @@ export class ArenaScene extends Phaser.Scene {
 
     if (this.hordeAuDepart > 0) {
       if (maintenant < this.hordeAuDepart) return;
-      const puissance = puissanceDeLaNuit(this.cycle.jour);
+      const puissance = this.puissanceIci(this.cycle.jour);
       const place = MAX_ENNEMIS - this.ennemis.getLength();
       for (let i = 0; i < Math.min(this.tailleHordeEnRoute, place); i++) {
         this.faireApparaitreEnnemi(puissance);
@@ -6485,7 +6569,7 @@ export class ArenaScene extends Phaser.Scene {
     // Une horde n'ouvre pas de front : elle emprunte ceux qui le sont deja.
     this.fronts = frontsDeLaVague(this.cycle.jour, this.rng.next());
     this.partPremierFront = repartition(this.fronts, this.rng.next());
-    this.tailleHordeEnRoute = tailleDeLaHorde(this.cycle.jour);
+    this.tailleHordeEnRoute = tailleDeLaHorde(this.cycle.jour + this.menaces.nuitsDAvance);
     this.hordeAuDepart = maintenant + REGLAGES_CYCLE.preavisHorde;
 
     const ou = this.fronts.map((f) => NOMS_FRONT[f]).join(" et ");
