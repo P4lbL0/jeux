@@ -71,9 +71,20 @@ export function portraitDeHero(scene: Phaser.Scene, classe: ClassId, palier = 0)
  *
  * Une planche par (metier, cran d'usure, sang) : elle ne se cuit que quand un
  * habitant y arrive, jamais toutes d'avance.
+ *
+ * ⚠️ **On passe toujours par le four, meme si la texture existe deja** — et
+ * c'est une correction, pas un detail. Ce garde disait « la texture existe,
+ * donc il n'y a rien a faire » ; depuis que les planches viennent de Blender
+ * (20 septembre 2026), elles sont **chargees au demarrage** et la texture
+ * existe **sans etre decoupee**. Le sprite affichait alors la planche entiere :
+ * un villageois devenait une **ligne de petits bonshommes** posee dans l'herbe,
+ * et son animation ne partait jamais. `cuire` sait deja ne rien refaire deux
+ * fois (il rend la main des que les animations existent) : c'est lui qui porte
+ * cette decision, pas ses appelants. `assurerHero` l'appelait deja sans garde,
+ * et les heros n'ont jamais eu le probleme.
  */
 export function assurerVillageois(scene: Phaser.Scene, metier: MetierDessine, corps: Corps): string {
   const famille = familleDeVillageois(metier, corps);
-  if (!scene.textures.exists(plancheDe(famille))) cuire(scene, villageois(metier, corps));
+  cuire(scene, villageois(metier, corps));
   return famille;
 }
