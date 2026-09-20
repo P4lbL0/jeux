@@ -105,10 +105,13 @@ const SOURCES = {
   swish7: oga("swish-7.wav", `${OGA}/swishes.zip`, "Swishes Sound Pack", "artisticdude", "swishes-sound-pack", "tir, candidat 2", "swishes/swish-7.wav"),
   swish1: oga("swish-1.wav", `${OGA}/swishes.zip`, "Swishes Sound Pack", "artisticdude", "swishes-sound-pack", "tir, candidat 3 (apres la corde)", "swishes/swish-1.wav"),
   corde: kenney("creak3.ogg", "rpg", "tir, candidat 3 (la corde qui se tend)"),
-  // le sort
-  magie1: oga("magical_1.ogg", `${OGA}/magical_1_0.ogg`, "Magic Spell SFX (magical_1)", "JaggedStone", "magic-spell-sfx", "sort, candidat 1"),
-  magie3: oga("magical_3.ogg", `${OGA}/magical_3.ogg`, "Magic Spell SFX (magical_3)", "JaggedStone", "magic-spell-sfx", "sort, candidat 2"),
-  magie5: oga("magical_5.ogg", `${OGA}/magical_5.ogg`, "Magic Spell SFX (magical_5)", "JaggedStone", "magic-spell-sfx", "sort, candidat 3"),
+  // le sort — deuxieme planche (20 septembre 2026) : les trois « magical » de
+  // JaggedStone n'allaient pas, Angelos veut une boule de feu ou une incantation
+  bouleDeFeu: oga("fireball-jm.wav", `${OGA}/105016__julien-matthey__jm-fx-fireball-01.wav`, "Fireball (Julien Matthey, relaye en CC0)", "diligentcircle", "fireball-1", "sort, candidat 1"),
+  feuSynthese: oga("fire_sound_effect.mp3", `${OGA}/fire_sound_effect_0.mp3`, "Synthesized Fire Sound Effect", "Spring Spring", "synthesized-fire-sound-effect", "sort, candidat 2"),
+  sortTerre: oga("earth-spell.ogg", `${OGA}/Earth%20Element%20Magic%20Spell_3.ogg`, "Earth Element Magic Spell", "qubodup", "earth-element-magic-spell", "sort, candidat 3"),
+  gel: oga("freeze.wav", `${OGA}/freeze.wav`, "Freeze Spell", "artisticdude", "freeze-spell-0", "sort, candidat 4"),
+  magieFantasy: oga("fantasy_magic_button_1.mp3", `${OGA}/fantasy_magic_button_1.mp3`, "Fantasy Magic Spell", "Almitory", "fantasy-magic-spell", "sort, candidat 5"),
   // la morsure
   croc: oga("crunchybite.ogg", `${OGA}/crunchybite_0.ogg`, "Crunchy bite", "fvcalderan", "crunchy-bite", "morsure, candidat 1"),
   bete: oga("animal melee sound.wav", `${OGA}/melee%20sounds.zip`, "3 Melee sounds", "remaxim", "3-melee-sounds", "morsure, candidat 2", "melee sounds/animal melee sound.wav"),
@@ -299,9 +302,11 @@ const EVENEMENTS: Evenement[] = [
     nom: "sort",
     quand: "le mage, l'oracle et le necromancien, a chaque incantation et a chaque coup",
     candidats: [
-      un("JaggedStone, magical 1", SOURCES.magie1, () => ecourter(src(SOURCES.magie1), 1.3, 0.35)),
-      un("JaggedStone, magical 3", SOURCES.magie3, () => ecourter(src(SOURCES.magie3), 1.3, 0.35)),
-      un("JaggedStone, magical 5", SOURCES.magie5, () => ecourter(src(SOURCES.magie5), 1.3, 0.35)),
+      un("diligentcircle, « Fireball » (une boule de feu qui part)", SOURCES.bouleDeFeu, () => ecourter(src(SOURCES.bouleDeFeu, 0.1), 1.4, 0.3)),
+      un("Spring Spring, « Synthesized Fire Sound Effect » (le debut, une flambee)", SOURCES.feuSynthese, () => ecourter(src(SOURCES.feuSynthese, 0, 1.6), 1.4, 0.35)),
+      un("qubodup, « Earth Element Magic Spell » (une incantation de terre, un grondement)", SOURCES.sortTerre, () => ecourter(src(SOURCES.sortTerre), 1.4, 0.35)),
+      un("artisticdude, « Freeze Spell » (une incantation de glace)", SOURCES.gel, () => ecourter(src(SOURCES.gel, 0.05), 1.4, 0.35)),
+      un("Almitory, « Fantasy Magic Spell » (le debut, un scintillement)", SOURCES.magieFantasy, () => ecourter(src(SOURCES.magieFantasy, 0, 1.6), 1.4, 0.35)),
     ],
   },
   {
@@ -521,7 +526,22 @@ function lisezmoi(durees: Map<string, number[]>): string {
  * `npm run bruits -- --livrer` ecrit les fichiers choisis dans `src/assets/son/`
  * (`bruit-<evenement>.ogg` et `.mp3`) et leurs credits.
  */
-const CHOIX: Record<string, number> = {};
+const CHOIX: Record<string, number> = {
+  // Angelos, le 20 septembre 2026, sur la page d'ecoute. Pas de « sort » : aucun
+  // des trois ne va, il veut une boule de feu ou une incantation — a rechercher.
+  pioche: 1,
+  hache: 2,
+  semis: 2,
+  ligne: 2,
+  enclume: 1,
+  maillet: 1,
+  pas: 1,
+  toux: 1,
+  lame: 3,
+  tir: 2,
+  morsure: 4,
+  chute: 1,
+};
 
 const LIVRAISON = resolve("src/assets/son");
 

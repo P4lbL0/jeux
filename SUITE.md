@@ -1092,10 +1092,17 @@ comme les PNG) : sans fichier, l'événement reste muet. **Mesuré** (Playwright
 14 s de jour) : dix sprites animés, dix écouteurs, neuf demandes « pioche » et neuf « ligne »
 pendant que le mineur et le pêcheur travaillent, aucune erreur console.
 
-⚠️ **Ce qui attend** : les choix d'Angelos sur `ecoute.html`, à reporter dans `CHOIX` de
-`scripts/son/bruits.ts`, puis `npm run bruits -- --livrer` écrit les fichiers et
-`CREDITS-BRUITS.md` ; le jeu les prend au démarrage suivant. Puis juger à l'oreille la densité
-(un sur deux, huit voix) sur une vraie journée.
+**Angelos a choisi le matin même** (« pioche 1, hache 2, semis 2, ligne 2, enclume 1, maillet 1,
+pas 1, toux 1, lame 3, tir 2, morsure 4, chute 1 ») : les douze sont dans `CHOIX` et **livrés**
+par `npm run bruits -- --livrer` (`src/assets/son/bruit-<événement>.ogg|mp3`,
+`CREDITS-BRUITS.md`). **Vérifié dans le jeu** (Playwright, un clic pour déverrouiller le son) :
+douze bruits chargés, neuf demandes « pioche » donnent cinq voix, huit « ligne » en donnent
+quatre — un sur deux, comme voulu. **Le sort n'a pas plu** (« faudrait un truc boule de feu ou
+incantation ») : les trois « magical » sont retirés et une **deuxième planche `sort.mp3`** attend
+avec cinq candidats — une boule de feu (Julien Matthey, relayée en CC0 par diligentcircle sur
+OpenGameArt), une flambée synthétique, une incantation de terre, une de glace, un
+scintillement. ⚠️ Reste à juger à l'oreille la densité (un sur deux, huit voix) sur une vraie
+journée.
 
 ### Les derniers détails de vie (fait le 20 septembre 2026, au petit matin)
 

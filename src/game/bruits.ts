@@ -73,6 +73,8 @@ const VITESSE = { min: 0.94, max: 1.06 };
 export class Bruits {
   /** Combien de fois chaque evenement a ete demande — la mesure, pas le son. */
   readonly demandes = new Map<string, number>();
+  /** Et combien de fois une voix est vraiment partie, apres les trois regles. */
+  readonly jouees = new Map<string, number>();
   private readonly compteurs = new Map<string, number>();
   private readonly derniers = new Map<string, number>();
   /** Les instants de fin (ms de la scene) des voix en cours. */
@@ -130,6 +132,7 @@ export class Bruits {
       vitesse,
     });
     if (!voix) return;
+    this.jouees.set(evenement, (this.jouees.get(evenement) ?? 0) + 1);
     this.derniers.set(evenement, maintenant);
     this.fins.push(maintenant + ((tampon?.duration ?? 1) * 1000) / vitesse);
   }

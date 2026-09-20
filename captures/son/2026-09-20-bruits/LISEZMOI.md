@@ -19,7 +19,7 @@ Tout est CC0, verifie sur la page de chaque son.
 | `toux.mp3` | un habitant ou un heros malade (§4.23), a chaque quinte | **1** AntumDeluge, « Old Man Cough » (le debut) (1.29 s) · **2** frosty ham, « Sick Noises » (les deux premieres toux) (0.83 s) |
 | `lame.mp3` | le guerrier, le chevalier et l'assassin, a chaque coup | **1** Kenney, knifeSlice (0.42 s) · **2** StarNinjas, sword 4 (0.54 s) · **3** remaxim, « sword sound » (0.54 s) |
 | `tir.mp3` | le rodeur, a chaque volee | **1** artisticdude, swish 3 (0.12 s) · **2** artisticdude, swish 7 (0.18 s) · **3** Kenney creak3 (la corde qui se tend) puis artisticdude swish 1 (0.37 s) |
-| `sort.mp3` | le mage, l'oracle et le necromancien, a chaque incantation et a chaque coup | **1** JaggedStone, magical 1 (1.29 s) · **2** JaggedStone, magical 3 (1.30 s) · **3** JaggedStone, magical 5 (1.30 s) |
+| `sort.mp3` | le mage, l'oracle et le necromancien, a chaque incantation et a chaque coup | **1** diligentcircle, « Fireball » (une boule de feu qui part) (1.40 s) · **2** Spring Spring, « Synthesized Fire Sound Effect » (le debut, une flambee) (1.40 s) · **3** qubodup, « Earth Element Magic Spell » (une incantation de terre, un grondement) (1.39 s) · **4** artisticdude, « Freeze Spell » (une incantation de glace) (1.36 s) · **5** Almitory, « Fantasy Magic Spell » (le debut, un scintillement) (1.37 s) |
 | `morsure.mp3` | un monstre qui attaque, a chaque coup | **1** fvcalderan, « Crunchy bite » (0.29 s) · **2** remaxim, « animal melee sound » (0.63 s) · **3** Kenney, impactPunch heavy 001 (0.43 s) · **4** Darsycho, un claquement de « Tiny vicious creature » (0.39 s) |
 | `chute.mp3` | un heros ou un monstre qui meurt, quand il touche le sol | **1** Kenney, impactSoft heavy 000 avec cloth3 (le corps, puis l'etoffe) (0.53 s) · **2** Kenney, dropLeather avec impactSoft heavy 002 (0.63 s) · **3** AntumDeluge, thwack 08 (0.70 s) |
 
@@ -55,9 +55,11 @@ Tout est CC0, verifie sur la page de chaque son.
 | 3 Melee sounds | remaxim | CC0 | https://opengameart.org/content/3-melee-sounds |
 | Swishes Sound Pack | artisticdude | CC0 | https://opengameart.org/content/swishes-sound-pack |
 | RPG Audio (creak3) | Kenney | CC0 | https://kenney.nl/assets/rpg-audio |
-| Magic Spell SFX (magical_1) | JaggedStone | CC0 | https://opengameart.org/content/magic-spell-sfx |
-| Magic Spell SFX (magical_3) | JaggedStone | CC0 | https://opengameart.org/content/magic-spell-sfx |
-| Magic Spell SFX (magical_5) | JaggedStone | CC0 | https://opengameart.org/content/magic-spell-sfx |
+| Fireball (Julien Matthey, relaye en CC0) | diligentcircle | CC0 | https://opengameart.org/content/fireball-1 |
+| Synthesized Fire Sound Effect | Spring Spring | CC0 | https://opengameart.org/content/synthesized-fire-sound-effect |
+| Earth Element Magic Spell | qubodup | CC0 | https://opengameart.org/content/earth-element-magic-spell |
+| Freeze Spell | artisticdude | CC0 | https://opengameart.org/content/freeze-spell-0 |
+| Fantasy Magic Spell | Almitory | CC0 | https://opengameart.org/content/fantasy-magic-spell |
 | Crunchy bite | fvcalderan | CC0 | https://opengameart.org/content/crunchy-bite |
 | Impact Sounds (impactPunch_heavy_001) | Kenney | CC0 | https://kenney.nl/assets/impact-sounds |
 | Tiny vicious creature | Darsycho | CC0 | https://opengameart.org/content/tiny-vicious-creature |
