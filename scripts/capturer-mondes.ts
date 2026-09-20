@@ -35,7 +35,14 @@ interface Fenetre {
 }
 
 interface Arene {
-  cameras: { main: { stopFollow(): void; setZoom(z: number): void; centerOn(x: number, y: number): void } };
+  cameras: {
+    main: {
+      stopFollow(): void;
+      setZoom(z: number): void;
+      centerOn(x: number, y: number): void;
+      getBounds(): { width: number; height: number };
+    };
+  };
   hero: { x: number; y: number };
 }
 
@@ -102,8 +109,15 @@ try {
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await page.waitForTimeout(1800);
 
-    // Le monde entier : 2000 x 1500 dans 1280 x 800, au zoom 0,53.
-    await cadrer(1000, 750, 0.53);
+    // Le monde entier, quelle que soit sa taille : depuis que la zone jouable
+    // fait deux fois la carte classique (§4.29), un cadrage ecrit en dur ne
+    // montrait plus que le quart nord-ouest.
+    const zone = await page.evaluate(() => {
+      const arene = (window as unknown as Fenetre).__jeu!.scene.getScene("arena") as Arene;
+      const b = arene.cameras.main.getBounds();
+      return { largeur: b.width, hauteur: b.height };
+    });
+    await cadrer(zone.largeur / 2, zone.hauteur / 2, Math.min(1280 / zone.largeur, 800 / zone.hauteur));
     await capturer(`graine-${graine}-monde`);
 
     // Le village de pres, la ou le heros est tombe.

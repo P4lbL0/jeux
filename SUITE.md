@@ -1337,6 +1337,52 @@ tous là après, et l'effectif de la première nuit vaut exactement ce que le bu
 
 **664 tests verts** (+17 : 14 pour le budget, 3 pour les foyers).
 
+### La zone qui se ferme, et la presqu'île (20 septembre 2026, dans la nuit)
+
+Les deux derniers morceaux du jalon 5.5 **en dehors de l'errance continue**.
+
+**La zone jouable est posée.** `TAILLE_JOUABLE` (2828 × 2121, ×2) existait depuis la veille
+et n'était appliquée nulle part : une partie commence maintenant dessus.
+
+- **Elle voyage dans la sauvegarde** (`zone`). Une partie d'avant ce jour a été jouée sur la
+  taille classique et doit la retrouver : **la même graine sur une autre zone rend un autre
+  monde**, donc un village ailleurs et une sauvegarde qui ne colle plus à sa carte.
+- **Ce que ça coûte, mesuré dans le navigateur** (`.tmp/mesurer-entree.ts`) : une partie
+  s'ouvre en **2,4 à 2,9 s** à ×2, contre **0,6 s** sur la carte classique (headless, GL
+  logiciel — une vraie machine fera mieux). ⚠️ **C'est le prix du refus** : refuser un village
+  tire un monde neuf, donc repeint la carte. La dette notée la veille est maintenant chiffrée.
+- **La marche s'allonge** : 2 174 px au lieu de 1 200 à 1 800, soit une trentaine de secondes.
+  On se rapproche des « deux à trois minutes » du §6.
+
+**La presqu'île existe.** Sur 120 graines, aucun monde n'avait un seul front ; le §4.29 en
+fait pourtant le plus gros cadeau du jeu.
+
+- **La mer prend un second bord, adjacent** (`golfe`), et **la chaîne ferme le troisième** :
+  il ne reste qu'un front. `mer` et `montagne` n'étaient lus que dans `monde.ts` — le dessin
+  passe par `distanceALEau`, donc le rivage, l'écume et la houle ont suivi sans une ligne.
+- **9 mondes sur 100 à ×2** (mesuré, `.tmp/mesurer-fronts.ts`), pour **deux tentatives sur
+  cinq** : la plupart des presqu'îles sont refusées plus bas, faute de place pour le village
+  et ses quatre postes une fois trois côtés fermés. ⚠️ **Le taux dépend de la taille de la
+  zone** — 33 % à ×1, où la plupart des autres formes ne tiennent pas. C'est la zone jouable
+  qui fait foi, et le test mesure là.
+- **Le budget la paie déjà** : un seul front vaut +30 points, le plus gros cadeau de la table.
+
+**Et une correction venue de la capture, pas du test** : à ×2, la carte était **vide** — un
+lac et un bosquet qui remplissaient 2000 × 1500 laissaient une plaine verte de 2828 × 2121.
+Tout ce qui se sème se compte donc en **parts de la carte classique** (`aLEchelle`). Les
+lacs en trop sont un bonus : un monde qui n'a pas la place pour eux reste un monde.
+
+`scripts/capturer-mondes.ts` **lit la taille du monde** au lieu de la supposer : son cadrage
+écrit en dur ne montrait plus que le quart nord-ouest.
+
+**Vérifié dans le navigateur** : la marche (19 contrôles), le peuplement (36) et le budget
+(22) repassent tous à ×2.
+
+**À regarder** : `captures/jeu/2026-09-20-presquile/` (trois presqu'îles, monde entier,
+village et porte).
+
+**666 tests verts** (+2).
+
 ### Le bloc 7b — la forteresse (fait le 20 septembre 2026)
 
 **Portes, pierre, douves, pont-levis**, sur les décisions d'Angelos du matin (ouverture en

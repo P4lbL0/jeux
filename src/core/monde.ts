@@ -251,6 +251,15 @@ export interface Monde {
   largeur: number;
   hauteur: number;
   mer: Bande | null;
+  /**
+   * La mer qui prend un **second** bord, adjacent au premier (§4.29).
+   *
+   * C'est la presqu'ile : deux cotes a l'eau, un troisieme ferme par le relief,
+   * et il ne reste qu'un front — le plus gros cadeau du jeu, et le plus cher.
+   * Elle a sa propre ondulation : deux rivages tires du meme trait se
+   * repondraient en miroir, et ca se voit.
+   */
+  golfe: Bande | null;
   /** La largeur de la plage au bord de la mer, et son ondulation */
   plage: { largeur: number; ondulation: Ondulation };
   lacs: Tache[];
@@ -289,6 +298,7 @@ const PLAGE_DE_LAC = { largeur: 22, ondulation: { echelle: 60, amplitude: 6, dec
 /** La distance signee a l'eau la plus proche : negative dans l'eau. */
 export function distanceALEau(m: Monde, x: number, y: number): number {
   let d = m.mer ? distanceABande(m.mer, x, y) : 1e6;
+  if (m.golfe) d = Math.min(d, distanceABande(m.golfe, x, y));
   for (const lac of m.lacs) {
     const dl = distanceATache(lac, x, y);
     if (dl < d) d = dl;
@@ -335,9 +345,14 @@ export function terrainDuMonde(m: Monde, x: number, y: number): Terrain {
   // L'eau.
   let dEau = 1e6;
   let plage = 0;
-  if (m.mer) {
-    dEau = distanceABande(m.mer, x, y);
-    const t = m.mer.cote === "nord" || m.mer.cote === "sud" ? x : y;
+  for (const bras of [m.mer, m.golfe]) {
+    if (!bras) continue;
+    const d = distanceABande(bras, x, y);
+    if (d >= dEau) continue;
+    dEau = d;
+    // La plage ondule le long du rivage : c'est la coordonnee qui court le
+    // long du bord qui la fait varier, pas celle qui s'en eloigne.
+    const t = bras.cote === "nord" || bras.cote === "sud" ? x : y;
     plage = m.plage.largeur + ondule(m.plage.ondulation, t);
   }
   for (const lac of m.lacs) {
@@ -386,6 +401,9 @@ export function mondeClassique(): Monde {
     largeur: TAILLE_CLASSIQUE.largeur,
     hauteur: TAILLE_CLASSIQUE.hauteur,
     mer: { cote: "ouest", position: TERRAIN_CLASSIQUE.mer, ondulation: { echelle: 130, amplitude: AMPLITUDE_CLASSIQUE.cote, decalage: 0 } },
+    // La carte d'avant n'a qu'un bras de mer, et deux fronts : c'est le milieu
+    // de l'echelle du §4.29, pas une presqu'ile.
+    golfe: null,
     plage: { largeur: TERRAIN_CLASSIQUE.plage, ondulation: { echelle: 88, amplitude: AMPLITUDE_CLASSIQUE.plage, decalage: 480 } },
     lacs: [],
     montagne: { cote: "sud", position: TERRAIN_CLASSIQUE.montagne, ondulation: { echelle: 152, amplitude: AMPLITUDE_CLASSIQUE.montagne, decalage: 0 } },
@@ -453,19 +471,44 @@ function tirerUnMonde(rng: Rng, graine: number, taille: Taille): Monde | null {
     : null;
   if (mer) mer.position = depuisLeBord(mer.cote, rng.int(200, 320));
 
+  // **La presqu'ile** (§4.29) : la mer prend un second bord, adjacent, et le
+  // relief fermera le troisieme — il ne restera qu'un front. C'est le plus gros
+  // cadeau du jeu, et le budget le fait payer plein tarif.
+  //
+  // ⚠️ **Deux tentatives sur cinq, pour neuf mondes sur cent.** Le chiffre a
+  // ete mesure, pas choisi (`.tmp/mesurer-fronts.ts`, 200 mondes) : la plupart
+  // des presqu'iles sont **refusees plus bas**, faute de place pour le village
+  // et ses quatre postes une fois trois cotes fermes. A 0,14 le monde a un seul
+  // front ne sortait que deux fois sur cent — une partie sur cinquante, autant
+  // dire jamais.
+  const presquIle = mer !== null && rng.chance(0.4);
+  const golfe: Bande | null = presquIle
+    ? { cote: rng.pick(COTES.filter((c) => c !== mer!.cote && c !== oppose(mer!.cote))), position: 0, ondulation: ond(116, 30) }
+    : null;
+  if (golfe) golfe.position = depuisLeBord(golfe.cote, rng.int(220, 340));
+
   // La boite ou l'on peut poser une tache sans toucher la mer.
   const boite = { x0: 260, x1: largeur - 260, y0: 260, y1: hauteur - 260 };
-  if (mer) {
+  for (const bras of [mer, golfe]) {
+    if (!bras) continue;
     const large = 460;
-    if (mer.cote === "ouest") boite.x0 = large;
-    if (mer.cote === "est") boite.x1 = largeur - large;
-    if (mer.cote === "nord") boite.y0 = large;
-    if (mer.cote === "sud") boite.y1 = hauteur - large;
+    if (bras.cote === "ouest") boite.x0 = Math.max(boite.x0, large);
+    if (bras.cote === "est") boite.x1 = Math.min(boite.x1, largeur - large);
+    if (bras.cote === "nord") boite.y0 = Math.max(boite.y0, large);
+    if (bras.cote === "sud") boite.y1 = Math.min(boite.y1, hauteur - large);
   }
 
   // 2. Le relief : une chaine, un massif, ou un piton.
   const tirage = rng.next();
-  const genre: "chaine" | "massif" | "piton" = tirage < 0.5 ? "chaine" : tirage < 0.8 ? "massif" : "piton";
+  // Une presqu'ile a besoin d'une **chaine** : c'est le seul relief qui ferme
+  // un cote entier. Un massif au milieu laisserait passer par les deux bouts.
+  const genre: "chaine" | "massif" | "piton" = presquIle
+    ? "chaine"
+    : tirage < 0.5
+      ? "chaine"
+      : tirage < 0.8
+        ? "massif"
+        : "piton";
   let montagne: Bande | null = null;
   let lisiere: Bande | null = null;
   const massifs: Tache[] = [];
@@ -485,7 +528,11 @@ function tirerUnMonde(rng: Rng, graine: number, taille: Taille): Monde | null {
   };
 
   if (genre === "chaine") {
-    const cote = rng.pick(COTES.filter((c) => c !== mer?.cote));
+    // Sur une presqu'ile, la chaine **ferme le troisieme cote** : c'est elle
+    // qui fait tomber le monde a un seul front. Ailleurs, elle evite juste la
+    // mer.
+    const libres = COTES.filter((c) => c !== mer?.cote && c !== golfe?.cote);
+    const cote = presquIle ? rng.pick(libres.filter((c) => c !== oppose(golfe!.cote)) ) ?? rng.pick(libres) : rng.pick(libres);
     const p = rng.int(200, 300);
     montagne = { cote, position: depuisLeBord(cote, p), ondulation: ond(152, 26) };
     lisiere = { cote, position: depuisLeBord(cote, p + rng.int(90, 140)), ondulation: ond(118, 30) };
@@ -505,18 +552,32 @@ function tirerUnMonde(rng: Rng, graine: number, taille: Taille): Monde | null {
     anneauDeBois = rng.int(30, 50);
   }
 
+  // ⚠️ **Le decor suit la surface, il ne la subit pas.** La zone jouable fait
+  // deux fois la carte classique (§4.29, point 3) : un lac et un bosquet, qui
+  // remplissaient 2000 x 1500, laissaient une plaine verte et vide de 2828 x
+  // 2121 — vu en capture le soir meme. Tout ce qui se seme se compte donc en
+  // **parts de la carte classique**.
+  const surface = (largeur * hauteur) / (TAILLE_CLASSIQUE.largeur * TAILLE_CLASSIQUE.hauteur);
+  const aLEchelle = (combien: number) => Math.max(combien > 0 ? 1 : 0, Math.round(combien * surface));
+
   // 3. Les lacs : toujours un sans mer, parfois un avec.
   const lacs: Tache[] = [];
   if (!mer || rng.chance(0.35)) {
     const lac = poserUneTache(rng.int(110, 240), rng.int(90, 200), 0.2, 140);
     if (!lac) return null;
     lacs.push(lac);
+    // Les suivants sont un bonus : un monde qui n'a pas la place pour eux
+    // reste un monde, et le refuser pour un lac serait cher paye.
+    for (let i = 1; i < aLEchelle(1); i++) {
+      const autre = poserUneTache(rng.int(90, 200), rng.int(80, 170), 0.2, 140);
+      if (autre) lacs.push(autre);
+    }
   }
 
   // 4. Les bois : un bosquet toujours, deux parfois — et un piton n'a presque
   // pas d'arbres au pied, il lui faut un vrai bois.
   const bois: Tache[] = [];
-  const bosquets = genre === "chaine" ? (rng.chance(0.5) ? 1 : 0) : rng.chance(0.5) ? 2 : 1;
+  const bosquets = aLEchelle(genre === "chaine" ? (rng.chance(0.5) ? 1 : 0) : rng.chance(0.5) ? 2 : 1);
   for (let i = 0; i < bosquets; i++) {
     const b = poserUneTache(rng.int(150, 260), rng.int(120, 220), 0.3, 40);
     if (b) bois.push(b);
@@ -528,6 +589,7 @@ function tirerUnMonde(rng: Rng, graine: number, taille: Taille): Monde | null {
     largeur,
     hauteur,
     mer,
+    golfe,
     plage: { largeur: 62, ondulation: ond(88, 18) },
     lacs,
     montagne,
@@ -560,6 +622,11 @@ function tirerUnMonde(rng: Rng, graine: number, taille: Taille): Monde | null {
   );
   if (monde.fronts.length === 0) return null;
   return monde;
+}
+
+/** Le bord d'en face. */
+function oppose(cote: Cote): Cote {
+  return cote === "nord" ? "sud" : cote === "sud" ? "nord" : cote === "est" ? "ouest" : "est";
 }
 
 function distanceAuBord(m: Monde, p: Point, cote: Cote): number {
@@ -917,7 +984,7 @@ export function graineDeMonde(maintenant: number = Date.now()): number {
 
 /** Ce qu'on peut dire d'un monde en une ligne, pour la console et le journal. */
 export function decrireLeMonde(m: Monde): string {
-  const mer = m.mer ? `mer ${m.mer.cote}` : "pas de mer";
+  const mer = m.mer ? `mer ${m.mer.cote}${m.golfe ? `+${m.golfe.cote} (presqu'ile)` : ""}` : "pas de mer";
   const relief = m.montagne ? `chaine ${m.montagne.cote}` : m.massifs.length > 0 ? (m.massifs[0]!.rx >= 150 ? "massif" : "piton") : "pas de relief";
   const lacs = m.lacs.length > 0 ? `${m.lacs.length} lac` : "pas de lac";
   return `graine ${m.graine} : ${mer}, ${relief}, ${lacs}, ${m.bois.length} bois, fronts ${m.fronts.join("+")}, village en ${Math.round(m.village.x)},${Math.round(m.village.y)}`;

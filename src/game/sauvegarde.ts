@@ -81,6 +81,8 @@ export interface PartieEnCours {
   graineVillage: number;
   /** La graine du monde : la mer, le relief, l'emplacement du village (§4.29) */
   graineMonde: number;
+  /** La zone jouable sur laquelle ce monde a ete tire (§4.29) */
+  zone: { largeur: number; hauteur: number };
   /** Les maisons, debout ou en ruine : la scene les reprend a la construction (§4.24) */
   maisons: Maisons;
   /** Les chemins qui s'usent : la scene les repeint a la reprise (§4.24) */
@@ -102,6 +104,7 @@ export function capturer(partie: PartieEnCours, maintenant: number): Sauvegarde 
     rng: partie.rng.instantane,
     graineVillage: partie.graineVillage,
     graineMonde: partie.graineMonde,
+    zone: { ...partie.zone },
     portesFermees: partie.constructions.portesFermees,
     cycle: {
       jour: partie.cycle.jour,

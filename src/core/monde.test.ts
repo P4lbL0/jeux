@@ -19,6 +19,7 @@ import {
   terrainDeCase,
   terrainDuMonde,
   TAILLE_CLASSIQUE,
+  TAILLE_JOUABLE,
   type Monde,
 } from "./monde";
 
@@ -156,6 +157,34 @@ describe("Un monde tire — les regles d'assemblage", () => {
       expect(m.fronts.length).toBeLessThanOrEqual(4);
       for (const f of m.fronts) expect(m.bords[f].length, `graine ${m.graine} ${f}`).toBeGreaterThanOrEqual(6);
     }
+  });
+
+  it("sait faire une presqu'ile : deux bras de mer, une chaine, un seul front (§4.29)", () => {
+    // Le plus gros cadeau du jeu. Il n'existait pas avant le 20 septembre 2026 :
+    // sur 120 graines, aucun monde n'avait un seul front.
+    const presquIles = mondes.filter((m) => m.golfe !== null);
+    expect(presquIles.length).toBeGreaterThan(0);
+    for (const m of presquIles) {
+      expect(m.mer, `graine ${m.graine}`).not.toBeNull();
+      // Les deux bras se touchent : jamais deux bords opposes.
+      const opposes = { nord: "sud", sud: "nord", est: "ouest", ouest: "est" } as const;
+      expect(m.golfe!.cote, `graine ${m.graine}`).not.toBe(m.mer!.cote);
+      expect(m.golfe!.cote, `graine ${m.graine}`).not.toBe(opposes[m.mer!.cote]);
+      // C'est la chaine qui ferme le troisieme cote : sans elle, deux fronts.
+      expect(m.montagne, `graine ${m.graine}`).not.toBeNull();
+      expect(m.fronts.length, `graine ${m.graine}`).toBe(1);
+    }
+  });
+
+  it("garde la presqu'ile rare sur la zone qu'on joue : c'est une trouvaille", () => {
+    // ⚠️ **Mesure sur la taille jouable, pas sur la classique.** Le taux depend
+    // de la place : sur 200 mondes, la presqu'ile sort 9 fois sur cent a x2 (la
+    // zone d'une partie, §4.29) et 33 fois sur cent a x1, ou la plupart des
+    // autres formes ne tiennent pas. C'est la zone jouable qui fait foi.
+    const graines = Array.from({ length: 24 }, (_, i) => i + 1);
+    const seulFront = graines.filter((g) => genererMonde(g, TAILLE_JOUABLE).fronts.length === 1).length;
+    expect(seulFront).toBeGreaterThan(0);
+    expect(seulFront).toBeLessThan(graines.length / 3);
   });
 
   it("fait surgir les monstres au bord, sur la terre, et relies au village", () => {

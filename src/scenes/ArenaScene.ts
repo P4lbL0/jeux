@@ -117,11 +117,14 @@ import {
   PRATICABLE,
   pointDApparition,
   repartition,
+  TAILLE_CLASSIQUE,
   terrainEn,
   VILLAGE,
   type Front,
+  type Taille,
   type Terrain,
 } from "../core/carte";
+import { TAILLE_JOUABLE } from "../core/monde";
 import { BatimentEglise } from "../game/eglise";
 import {
   CONDITIONS,
@@ -624,6 +627,15 @@ export class ArenaScene extends Phaser.Scene {
   private graineVillage = 0;
   /** La graine du monde (§4.29) : la mer, le relief, l'endroit ou l'on tombe */
   private graineMonde = 0;
+  /**
+   * La zone jouable de cette partie (§4.29, point 3).
+   *
+   * **Deux fois la carte classique** (`TAILLE_JOUABLE`, mesuree le 20 septembre
+   * 2026 : la peinture de la carte est le plafond, 1 s a x2 et 1,5 s a x3).
+   * Elle voyage dans la sauvegarde : la meme graine sur une autre zone rend un
+   * **autre monde**, donc une partie reprise qui ne collerait plus a sa carte.
+   */
+  private zone: Taille = TAILLE_CLASSIQUE;
   /** Le parcours des monstres vers l'eglise, autour de l'eau et de la roche */
   private parcours!: Parcours;
   /** Les corps du terrain : l'eau profonde, que seul le heros incarne traverse, et la roche */
@@ -842,7 +854,12 @@ export class ArenaScene extends Phaser.Scene {
     // grille** : c'est le monde qui dit ou est la terre.
     this.graineMonde =
       data.graineMonde ?? (data.reprise ? (data.reprise.graineMonde ?? GRAINE_CLASSIQUE) : graineDeMonde());
-    chargerLaGraine(this.graineMonde);
+    // La zone jouable (§4.29, point 3) : **deux fois la carte classique**. Une
+    // partie reprise garde la sienne — une sauvegarde d'avant le 20 septembre
+    // 2026 a ete jouee sur la taille classique, et la meme graine sur une autre
+    // zone rendrait un autre monde.
+    this.zone = this.reprise ? (this.reprise.zone ?? TAILLE_CLASSIQUE) : TAILLE_JOUABLE;
+    chargerLaGraine(this.graineMonde, this.zone);
     // La grille repart de zero : la scene est reutilisee d'une partie a
     // l'autre, et le plan lit le terrain libre — une grille qui garderait les
     // murs de la partie d'avant donnerait un autre village pour la meme graine.
@@ -1170,6 +1187,7 @@ export class ArenaScene extends Phaser.Scene {
       scene: this,
       equipe: this.equipe,
       rng: this.rng,
+      zone: this.zone,
       cycle: this.cycle,
       village: this.village,
       eglise: this.eglise,

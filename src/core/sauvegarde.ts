@@ -201,6 +201,16 @@ export interface Sauvegarde {
    */
   graineMonde?: number;
   /**
+   * La zone jouable de ce monde-la (§4.29, 20 septembre 2026) : elle s'est
+   * **fermee a l'installation**, et elle ne change plus.
+   *
+   * **Optionnelle** : une partie d'avant ce jour a ete jouee sur la taille
+   * classique, et doit la retrouver — la meme graine sur une autre zone rend
+   * un autre monde, donc un village ailleurs et une sauvegarde qui ne colle
+   * plus a sa carte.
+   */
+  zone?: { largeur: number; hauteur: number };
+  /**
    * La consigne des portes (§4.20, bloc 7b) : fermees par la cloche, ou
    * ouvertes. Absent dans une sauvegarde d'avant le 20 septembre 2026 :
    * ouvertes — une partie enregistree a la tombee de la nuit a ses portes
