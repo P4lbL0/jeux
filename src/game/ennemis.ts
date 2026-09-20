@@ -14,6 +14,8 @@
  * `choisirArchetype` est une fonction pure — donc testable (`ennemis.test.ts`).
  */
 
+import { REGLAGES_BUTIN } from "../core/butin";
+
 /**
  * Ce que le monstre fait de son corps.
  *
@@ -203,6 +205,42 @@ export const ARCHETYPES: Archetype[] = [
 
 /** Celui qu'on prend quand personne n'a rien demande. */
 export const ARCHETYPE_DEFAUT: Archetype = ARCHETYPES[0]!;
+
+/**
+ * L'habitant qui se jette sur nous (DESIGN.md §4.29, 20 septembre 2026 au soir).
+ *
+ * ⚠️ **Il n'est pas dans `ARCHETYPES`, et c'est volontaire** : cette table est
+ * celle des vagues, et elle est tiree au sort. Un villageois enrage n'apparait
+ * jamais dans une horde — il n'existe que le jour ou on refuse un village en
+ * face. Il n'a pas non plus de planche a lui : il porte **le visage de celui
+ * qu'il etait**, c'est-a-dire la planche de son metier (`Ennemi` accepte une
+ * apparence).
+ *
+ * Ses chiffres disent ce qu'il est : un civil arme de son outil. Il frappe plus
+ * lentement et moins fort qu'un rodeur, il tient a peine plus, et il court a peu
+ * pres aussi vite. Ce qui fait peur, c'est qu'ils viennent **tous ensemble**.
+ */
+export const ARCHETYPE_HUMAIN: Archetype = {
+  id: "humain",
+  nom: "Habitant",
+  texture: "villageois",
+  teinte: BLANC,
+  echelle: 1,
+  multPv: 1.1,
+  multVitesse: 0.95,
+  multDegats: 0.8,
+  comportement: "fonceur",
+  couleurImpact: IMPACT.sang,
+  // Un homme qui leve sa hache se voit venir de loin : le telegraphe le plus
+  // long du jeu. On peut s'ecarter — c'est ce qui rend le nombre supportable.
+  armement: 380,
+  recuperation: 900,
+  portee: CORPS_A_CORPS,
+  xp: REGLAGES_BUTIN.xpDUnHumain,
+  // Jamais tire : il ne vient pas d'une vague.
+  seuil: Infinity,
+  poids: 0,
+};
 
 export function archetypeParId(id: string): Archetype | undefined {
   return ARCHETYPES.find((a) => a.id === id);

@@ -567,6 +567,35 @@ export class Village {
     return premier;
   }
 
+  /**
+   * Tout le village prend les armes contre nous (DESIGN.md §4.29).
+   *
+   * C'est ce qui arrive quand on refuse **en face** un village desespere. Il
+   * rend de quoi les refaire de l'autre cote — leur place, leur visage, leur
+   * nom — puis **il se vide** : ces gens-la ne sont plus des habitants, ils
+   * sont ce qui nous court apres.
+   *
+   * ⚠️ **Le village ne s'en remet pas, et c'est le but** : un village qui nous
+   * attaque n'est plus un village ou l'on peut s'installer. On se bat, on
+   * survit, et on reprend la route.
+   */
+  prendreLesArmes(): { x: number; y: number; famille: string; nom: string }[] {
+    const partants: { x: number; y: number; famille: string; nom: string }[] = [];
+    for (const v of this.habitants) {
+      if (!v.regles.vivant) continue;
+      // Celui qui s'etait mis a l'abri ressort : son corps est desactive, et
+      // sa position est restee celle de l'eglise.
+      this.sortirDeLEglise(v);
+      partants.push({ x: v.x, y: v.y, famille: v.familleSprite, nom: v.nom });
+    }
+    for (const v of this.habitants) {
+      v.setVelocity(0, 0);
+      v.destroy();
+    }
+    this.habitants.length = 0;
+    return partants;
+  }
+
   /** Combien tiennent ses portes. */
   get defenseurs(): number {
     return this.habitants.filter((v) => v.regles.vivant && v.etat === "defend").length;

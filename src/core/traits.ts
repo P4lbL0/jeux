@@ -92,6 +92,24 @@ export interface Modificateurs {
   feuEnCraquant: boolean;
   /** Il vole de temps en temps, et ca le calme (Kleptomane) */
   vole: boolean;
+
+  // ---- ce qui regarde qui est en face (§4.23, §4.29)
+  /**
+   * Multiplie ses degats **contre un humain**, en plus de `degats`.
+   *
+   * ⚠️ Il a fallu un champ a part, et pas un simple `degats` : les deux traits
+   * qui regardent qui est en face sont des **inverses** — le Bourreau est bon
+   * contre les hommes et mauvais contre les betes. Un seul multiplicateur ne
+   * sait pas dire ca.
+   */
+  degatsContreHumain: number;
+  /**
+   * Il peut refuser de frapper un humain (Misericordieux).
+   *
+   * C'est le **premier trait qui desobeit** (§4.23), et le §4.12 exige qu'il
+   * l'annonce : un heros qui s'arrete sans prevenir serait vecu comme un bug.
+   */
+  refuseDeFrapperUnHumain: boolean;
 }
 
 /** Un agregat neutre : personne ne modifie rien. */
@@ -122,6 +140,8 @@ export function modificateursVierges(): Modificateurs {
     cibleEnPriorite: false,
     feuEnCraquant: false,
     vole: false,
+    degatsContreHumain: 1,
+    refuseDeFrapperUnHumain: false,
   };
 }
 
@@ -155,6 +175,9 @@ export type CleTrait =
   | "hemophile"
   | "kleptomane"
   | "sang-froid"
+  // les deux qui regardent qui est en face (§4.29 les a reveilles)
+  | "misericordieux"
+  | "bourreau-d-hommes"
   // les onze d'exploit
   | "veteran"
   | "endurci"
@@ -416,7 +439,41 @@ export const TRAITS: TraitDef[] = [
     humeur: "bon",
     effets: { stressVoisins: -0.3 },
   },
+  // ---------------------------------- ceux qui regardent qui est en face
+  //
+  // ⚠️ **Ils sont ajoutes a la fin, et c'est obligatoire** : l'index dans ce
+  // tableau est l'identifiant stocke sur les personnes, et une sauvegarde
+  // d'avant aujourd'hui porte les anciens numeros.
+  //
+  // Ils attendaient le **jalon 8**, faute de pillards a qui les appliquer. Le
+  // §4.29 a rendu les humains hostiles trois jalons plus tot : un village qu'on
+  // refuse peut se jeter sur nous. Ils se declenchent donc, et ils remontent.
+  {
+    cle: "misericordieux",
+    nom: "Misericordieux",
+    resume: "Contre un humain, il frappe beaucoup moins fort — et il peut refuser",
+    origine: "naissance",
+    humeur: "mixte",
+    effets: { degatsContreHumain: 0.35, refuseDeFrapperUnHumain: true },
+  },
+  {
+    cle: "bourreau-d-hommes",
+    nom: "Bourreau d'hommes",
+    resume: "Redoutable contre les humains, franchement mauvais contre les betes",
+    origine: "naissance",
+    humeur: "mixte",
+    effets: { degatsContreHumain: 2.4, degats: 0.8 },
+  },
 ];
+
+/**
+ * Quelle part des coups le Misericordieux refuse carrement de porter (§4.23).
+ *
+ * Un coup sur trois : assez pour qu'on le voie et qu'on en tienne compte,
+ * assez peu pour qu'il reste utile. Le trait ne serait qu'un malus de degats
+ * sans ca — or le §4.23 en fait **le premier trait qui desobeit**.
+ */
+export const PART_DE_COUPS_REFUSES = 0.35;
 
 const INDEX_TRAITS = new Map<CleTrait, number>(TRAITS.map((t, i) => [t.cle, i]));
 
@@ -545,6 +602,7 @@ const MULTIPLICATIFS = new Set<keyof Modificateurs>([
   "soinEglise",
   "coutBati",
   "monteeNiveau",
+  "degatsContreHumain",
 ]);
 
 export function appliquer(cible: Modificateurs, ajout: Effets): void {

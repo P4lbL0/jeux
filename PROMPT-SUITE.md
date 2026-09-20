@@ -116,9 +116,13 @@ par un :
 4bis. ✅ **La marche** (20 septembre, tard) : on paraît par le bord le plus loin, un cap en une
    phrase, la caméra dézoome seule, rien du Protecteur ne tourne, **quelqu'un vient poser sa
    question à la porte**, accepter installe, refuser ou passer au large mène au monde suivant.
-   ⚠️ **Deux manques assumés** : refuser en face ne coûte rien (le village qui nous attaque
-   tous ensemble, §4.29, est le morceau suivant), et l'errance n'est **pas continue** — chaque
-   village est un monde qu'on recommence, tant que la carte se peint d'un seul bloc.
+4ter. ✅ **Le refus qui se paie** (20 septembre, tard) : un refus **en face** se tire sur la
+   graine du monde et peut faire que le village entier se jette sur nous — il se vide, chacun
+   repasse en face avec son visage et son nom, et ils sortent **par la porte** ; tout ce qu'on
+   tue donne de l'**or** et de l'XP sans tuer le port ; les deux traits *Miséricordieux* /
+   *Bourreau d'hommes* remontent du jalon 8. **Passer au large reste gratuit.**
+   ⚠️ **Manque assumé** : l'errance n'est **pas continue** — chaque village est un monde qu'on
+   recommence, tant que la carte se peint d'un seul bloc.
 5. **Le village qu'on choisit** : un village **déjà peuplé** (le générateur pose déjà douves
    et ponts-levis, il lui manque les gens et les stocks) ; **le monde se fige** quand on
    s'installe (`TAILLE_JOUABLE` existe, rien ne la pose encore). Ce qu'on voit de loin et ce

@@ -2,14 +2,20 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-09-20, tard le soir. **616 tests verts.**
+> Dernière mise à jour : 2026-09-20, tard le soir. **630 tests verts.**
 >
 > ✅ **La marche est codée** (§4.29, deuxième moitié du jalon 5.5) : une partie neuve ne
 > commence plus dans un village. On paraît seul par le bord le plus loin, on n'a qu'un cap,
 > la caméra dézoome seule, **rien du Protecteur ne tourne** tant qu'on marche — et à dix cases
 > d'une porte, **un habitant vient poser sa question** : *Veux-tu nous protéger ?* Accepter
 > fait commencer le jour 1 ; refuser, ou passer au large, mène au monde suivant. Détail à la
-> section « La marche ». ⚠️ **Refuser ne coûte encore rien** et l'errance n'est pas continue.
+> section « La marche ».
+>
+> ✅ **Et refuser en face se paie** : le risque qu'ils se jettent sur nous, tous ensemble, monte
+> avec leur désespoir ; le village se vide et chacun repasse en face avec son visage et son
+> nom, en sortant **par la porte** ; tout ce qu'on tue donne de l'**or** et de l'XP, sans tuer
+> le port (c'est un test) ; les deux traits *Miséricordieux* / *Bourreau d'hommes* remontent du
+> jalon 8. ⚠️ **Passer au large reste gratuit**, et l'errance n'est toujours pas continue.
 >
 > ✅ **Le bloc 7z est fini et branché (10 septembre 2026) : tout ce qui se voit est dessiné
 > par le code, et il n'y a plus un seul PNG.** La direction est tranchée avec Angelos ce
@@ -51,7 +57,7 @@
 > ⚠️ **Le jalon 5.5, le nouveau départ** (§4.29), est **à moitié codé** depuis le 20 septembre
 > 2026 : un seul héros, une graine un monde (fronts de **1 à 4**), l'**écran-titre animé**
 > (§4.10), la zone jouable en paramètre, et **la marche** jusqu'à la question posée à la
-> porte. **Reste** : le refus qui se paie (le village entier qui nous attaque), l'errance
+> porte, et le refus qui se paie. **Reste** : l'errance
 > **continue** au lieu d'un monde par village, le village déjà peuplé, la zone qui se ferme à
 > l'installation, et le **budget** qui fait payer chaque cadeau en menaces.
 
@@ -1185,6 +1191,44 @@ partie neuve ne commence plus dans un village**.
 
 **616 tests verts** (+16).
 
+### Le refus qui se paie (20 septembre 2026, tard)
+
+Suite directe de la marche. **Refuser en face n'est plus gratuit**, et tout ce qu'on tue donne
+de l'or et de l'expérience.
+
+- **`src/core/marche.ts`** gagne `risqueDAttaque` (5 tests) : 20 % de fond, +6 % par habitant
+  manquant sous huit, +30 % au prorata des brèches, **plafonné à 85 %**. ⚠️ Jamais certain :
+  un joueur qui *sait* qu'il va être attaqué ne refuse plus jamais en face. Le tirage sort de
+  la **graine du monde** — leur réaction est une propriété de ce village-là.
+- **`src/core/butin.ts`** (pur, 7 tests) : une bête vaut 0,25 pièce par point d'XP, un humain
+  laisse 8 pièces. ⚠️ **La règle du design est devenue un test** : une cargaison de bois (50
+  pièces) vaut plus qu'une nuit entière de soixante monstres (≈ 30). Le port reste la source.
+  Et comme l'argent du jeu est un entier, on **garde la monnaie** d'une mort à l'autre.
+- **`village.prendreLesArmes()`** vide le village et rend de quoi les refaire en face.
+- ⚠️ **Un humain hostile est un `Ennemi`, pas un `Villageois` retourné.** Le design annonçait
+  l'inverse ; en le faisant, le bloc de combat de l'habitant s'est révélé être **trois lignes**,
+  pendant que tout ce qui fait un combat (ciblage, arc, projectiles, zones, recul, mort,
+  dépouille, butin, musique) est écrit pour `Ennemi`. On garde de l'habitant sa **planche** et
+  son **nom** (`ApparenceHumaine`), et l'archétype `ARCHETYPE_HUMAIN` est **hors de la table
+  des vagues** : il ne se tire jamais.
+- ⚠️ **Ils sortent par la porte.** Vu en jeu : ils partaient droit sur nous et restaient collés
+  à leur propre enceinte, trois pixels en deux secondes et demie. Le champ de directions des
+  humains (celui qui amenait déjà le gardien) est devenu **partagé**, il suit le héros **par
+  battements** (330 ms, et seulement s'il a bougé de dix cases) et **seulement tant que
+  quelqu'un nous court après** — sinon il se serait refait trois fois par seconde pendant toute
+  une partie installée, pour personne (§4.17).
+- **Les deux traits qui regardent qui est en face** (§4.23) remontent du jalon 8 :
+  Miséricordieux (0,35× et **un coup sur trois refusé**, annoncé une fois — c'est le premier
+  trait qui désobéit, §4.12), Bourreau d'hommes (2,4× contre un humain, 0,8× contre une bête).
+  Appliqués dans **`blesserEnnemi`**, seul point où tout ce qui blesse se rejoint.
+- **Vérifié dans le navigateur** : `.tmp/verifier-refus.ts`, 13 contrôles — le village se vide
+  et repasse en face avec ses noms et ses planches **découpées**, ils viennent sur nous, on les
+  tue, l'or et l'XP montent, et les trois profils de dégâts (neutre 100, Miséricordieux 35 avec
+  35 % de refus, Bourreau 240) sont mesurés sur 200 coups chacun.
+- **À regarder** : `captures/jeu/2026-09-20-refus/`.
+
+**630 tests verts** (+14).
+
 ### Le bloc 7b — la forteresse (fait le 20 septembre 2026)
 
 **Portes, pierre, douves, pont-levis**, sur les décisions d'Angelos du matin (ouverture en
@@ -2194,7 +2238,7 @@ Deux questions de fond sont fermées, après l'annonce du plugin Unity officiel 
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (616)
+npx vitest run   # les tests (630)
 npm run build    # vérifie les types et construit
 
 npx tsx scripts/capturer.ts apres   # les captures du jeu, par Playwright, toujours au même endroit

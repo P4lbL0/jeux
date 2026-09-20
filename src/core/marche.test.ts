@@ -5,11 +5,13 @@ import {
   CAPS,
   CE_QUI_S_EST_PASSE,
   QUESTION_DU_GARDIEN,
+  REGLAGES_MARCHE,
   annonceDArrivee,
   capVers,
   longueurDeLaMarche,
   ouLonParait,
   paroleDuGardien,
+  risqueDAttaque,
   type VillageVuDeLoin,
 } from "./marche";
 
@@ -155,5 +157,40 @@ describe("Ce que dit celui qui tient la porte", () => {
 
   it("pose toujours la meme question — c'est elle, le renversement", () => {
     expect(QUESTION_DU_GARDIEN).toBe("Veux-tu nous proteger ?");
+  });
+});
+
+describe("Ce que coute un refus en face", () => {
+  it("n'est jamais certain, quel que soit le desespoir", () => {
+    const desespere = vueParDefaut({ habitants: 1, mursDebout: 0, breches: 24 });
+    expect(risqueDAttaque(desespere)).toBeLessThanOrEqual(REGLAGES_MARCHE.refus.plafond);
+    expect(risqueDAttaque(desespere)).toBeGreaterThan(0.5);
+  });
+
+  it("monte quand ils sont moins nombreux", () => {
+    const beaucoup = risqueDAttaque(vueParDefaut({ habitants: 12 }));
+    const peu = risqueDAttaque(vueParDefaut({ habitants: 2 }));
+    expect(peu).toBeGreaterThan(beaucoup);
+  });
+
+  it("monte quand le mur est troue", () => {
+    const debout = risqueDAttaque(vueParDefaut({ mursDebout: 24, breches: 0 }));
+    const troue = risqueDAttaque(vueParDefaut({ mursDebout: 4, breches: 20 }));
+    expect(troue).toBeGreaterThan(debout);
+  });
+
+  it("laisse un village solide et peuple nous laisser partir la plupart du temps", () => {
+    const solide = risqueDAttaque(vueParDefaut({ habitants: 14, mursDebout: 30, breches: 0 }));
+    expect(solide).toBeLessThan(0.35);
+  });
+
+  it("ne descend jamais sous zero ni ne depasse un", () => {
+    for (const habitants of [0, 1, 3, 8, 30]) {
+      for (const breches of [0, 5, 40]) {
+        const r = risqueDAttaque(vueParDefaut({ habitants, breches }));
+        expect(r).toBeGreaterThanOrEqual(0);
+        expect(r).toBeLessThanOrEqual(1);
+      }
+    }
   });
 });

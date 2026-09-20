@@ -721,6 +721,14 @@ Une planche de propositions a servi de test, et elle a fait remonter trois défa
 
 ## Tranché récemment
 
+- ✅ **Refuser en face se paie** (20 septembre 2026, tard) : le risque qu'ils se jettent sur
+  nous se tire sur la graine du monde et monte avec leur désespoir — 20 % de fond, +6 % par
+  habitant manquant sous huit, +30 % au prorata des brèches, **plafonné à 85 %** ; le village
+  se vide et chacun repasse en face avec son visage et son nom, en sortant **par la porte** ;
+  **tout ce qu'on tue donne de l'or** (une bête 0,25 pièce par point d'XP, un humain 8), et la
+  règle « petit devant une cargaison » est devenue un test ; les deux traits *Miséricordieux* /
+  *Bourreau d'hommes* remontent du jalon 8. **Passer au large reste gratuit** (§4.29, §4.23,
+  §4.8)
 - ✅ **La marche est codée** (20 septembre 2026, au soir) : on paraît par le bord le plus loin,
   on n'a qu'un **cap** en une phrase, la caméra dézoome seule à l'entrée, **rien du Protecteur
   ne tourne** tant qu'on marche (ni cycle, ni horde, ni porte, ni navire, ni sauvegarde), un

@@ -56,11 +56,20 @@ maladies ni leurs reserves —, puis il pose **sa** question : *Veux-tu nous pro
 
 - **« Je vous protegerai »** : le jeu commence. Jour 1, le premier visiteur, les hordes, la
   premiere sauvegarde.
-- **« Je passe mon chemin »** : la route continue. On quitte la carte par n'importe quel
-  bord, et le village suivant est **un autre monde**. On ne revient jamais en arriere.
+- **« Je passe mon chemin »** : **et ca peut couter cher**. Des gens qu'on laisse mourir
+  n'ont plus rien a perdre : ils peuvent se jeter sur nous, **tous ensemble**. Le risque monte
+  avec leur desespoir — peu d'habitants, un mur troue — sans jamais etre certain. Si on s'en
+  sort, la route continue : on quitte la carte par n'importe quel bord, et le village suivant
+  est **un autre monde**. On ne revient jamais en arriere.
 
-⚠️ Deux choses du §4.29 **manquent encore** : refuser en face ne coute rien (le village qui
-se jette sur nous vient apres), et l'errance n'est pas continue — chaque village est un
+**Passer au large ne coute rien** : ne pas se presenter du tout n'est pas la meme chose que
+dire non en face.
+
+**Tout ce qu'on tue donne de l'or et de l'experience**, monstres et humains — une bete rend
+de la menue monnaie, un homme laisse ce qu'il avait sur lui. Ca ne remplace pas le port : une
+cargaison vaut plus qu'une nuit entiere de monstres, et un test le verifie.
+
+⚠️ Ce qui **manque encore** au §4.29 : l'errance n'est pas continue — chaque village est un
 monde qu'on recommence, tant que la carte se peint d'un seul bloc.
 
 ### La sauvegarde et le compte (§4.28)
@@ -383,8 +392,10 @@ src/
     monde.ts         une graine, un monde : mer, relief, lacs, bois, village,
                      postes et fronts, par assemblage de regles (testee)
     carte.ts         la facade du monde charge : terrain et fronts (testee)
-    marche.ts        la marche : ou l'on parait, le cap, et ce que dit celui
-                     qui tient la porte (testee)
+    marche.ts        la marche : ou l'on parait, le cap, ce que dit celui qui
+                     tient la porte, et ce que coute un refus (testee)
+    butin.ts         ce que laisse un mort, et pourquoi ca ne tue pas le port
+                     (testee)
     parcours.ts      le champ de directions : contourner l'eau et la roche,
                      et sortir par la porte (testee)
     cycle.ts         le jour, la nuit, les effectifs et les hordes (testee)

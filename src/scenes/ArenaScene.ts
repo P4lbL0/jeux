@@ -42,12 +42,16 @@ import { decrireLeMonde, graineDeMonde } from "../core/monde";
 import {
   QUESTION_DU_GARDIEN,
   REGLAGES_MARCHE,
+  REPONSE_AU_REFUS,
   annonceDArrivee,
   capVers,
   longueurDeLaMarche,
   ouLonParait,
   paroleDuGardien,
+  risqueDAttaque,
+  type VillageVuDeLoin,
 } from "../core/marche";
+import { REGLAGES_BUTIN, encaisser, orDUneBete } from "../core/butin";
 import { Parcours } from "../core/parcours";
 import { oublierLesPortraits } from "../game/portraits";
 import {
@@ -64,7 +68,7 @@ import {
   type Capacite,
   type Dome,
 } from "../game/entities";
-import { choisirArchetype } from "../game/ennemis";
+import { ARCHETYPE_HUMAIN, choisirArchetype } from "../game/ennemis";
 import { POLICE } from "../game/ui/chrome";
 import { Survivants, type SpriteSurvivant } from "../game/survivants";
 import {
@@ -175,6 +179,7 @@ import {
   voirMourir,
   prenomLibre,
 } from "../core/personne";
+import { PART_DE_COUPS_REFUSES } from "../core/traits";
 import type { Habitant, PostureCivile, Ressource, Stocks } from "../core/habitants";
 import {
   accueillir as suivreSiFou,
@@ -399,6 +404,26 @@ const ZOOM_MAX = 3.4;
  * au monde suivant.
  */
 const DISTANCE_D_ARMEMENT = 640;
+
+/**
+ * La puissance d'un habitant qui se jette sur nous (§4.29).
+ *
+ * La meme echelle que celle d'une vague : a 2, il tient une vingtaine de points
+ * de vie et frappe pour huit. Un heros de depart en a cent trente et en met
+ * treize — donc **trois habitants sont un vrai combat et pas une execution**,
+ * et une douzaine tuerait. C'est exactement le risque que le §4.29 veut faire
+ * peser sur un refus en face.
+ */
+const PUISSANCE_DES_HABITANTS = 2;
+
+/**
+ * Tous les combien le champ de directions des humains peut se refaire, en ms.
+ *
+ * Une propagation balaye toute la grille : la relancer a chaque image pendant
+ * qu'on court serait l'ajout non plafonne que le §4.17 interdit. Un tiers de
+ * seconde suffit — a 108 px/s, on n'a pas parcouru une case et demie.
+ */
+const PERIODE_CHEMIN_DES_HUMAINS = 330;
 
 /**
  * Part de la direction demandee par l'IA reprise a chaque image.
@@ -691,14 +716,46 @@ export class ArenaScene extends Phaser.Scene {
   private marches = 0;
   /** Celui qui sort nous parler ; `null` tant que personne n'est venu */
   private gardien: Villageois | null = null;
-  /** Son chemin jusqu'a nous : un champ de directions a lui, le temps qu'il vienne */
-  private cheminDuGardien: Parcours | null = null;
+  /**
+   * Le chemin des humains jusqu'a nous : un champ de directions a eux.
+   *
+   * Il sert a **celui qui vient parler** comme a **ceux qui se jettent sur
+   * nous** : les uns et les autres sortent par la porte, la ou un monstre
+   * frapperait le mur (voir `passeUnVillageois`).
+   */
+  private cheminDesHumains: Parcours | null = null;
   /** Le point vers lequel ce champ pointe : on ne le refait que si l'on s'en eloigne */
-  private cibleDuGardien: Point = { x: 0, y: 0 };
+  private cibleDesHumains: Point = { x: 0, y: 0 };
+  /** Jamais plus souvent que ca : une propagation balaye toute la grille (§4.17) */
+  private prochainCheminDesHumains = 0;
+  /**
+   * Combien d'humains nous courent apres.
+   *
+   * ⚠️ Il ne sert qu'a **ne rien calculer quand il n'y en a pas** : sans lui, le
+   * champ des humains continuerait de se refaire trois fois par seconde pendant
+   * toute une partie installee, pour personne (§4.17 regle 5).
+   */
+  private humainsEnFace = 0;
   /** Vrai quand il a dit ce qu'il avait a dire : on ne le rappelle pas deux fois */
   private rencontreFaite = false;
   /** Vrai pendant le fondu qui nous emmene au monde suivant : plus rien ne doit se declencher */
   private quitteLeMonde = false;
+  /**
+   * La monnaie qu'on n'a pas encore touchee (§4.29, §4.8).
+   *
+   * Une bete vaut moins d'une piece : on garde le reste d'une mort a l'autre
+   * plutot que d'arrondir chaque cadavre (`core/butin.ts`).
+   */
+  private resteDeButin = 0;
+  /**
+   * Le Misericordieux a-t-il deja annonce qu'il refusait de frapper ?
+   *
+   * ⚠️ **Il doit le dire, et une seule fois** : le §4.23 en fait le premier
+   * trait qui desobeit, et le §4.12 exige qu'une desobeissance s'annonce — un
+   * heros qui s'arrete sans prevenir serait vecu comme un bug. Une fois par
+   * partie suffit : repete a chaque coup, ce serait le journal qui deborde.
+   */
+  private refusDeFrapperAnnonce = false;
   /** Le dezoom d'entree (§4.10) : le seul mouvement de camera automatique du jeu */
   private entreeCamera: Phaser.Tweens.Tween | null = null;
 
@@ -740,6 +797,10 @@ export class ArenaScene extends Phaser.Scene {
     // pas la route qui y mene.
     this.enMarche = !this.reprise && !data.sansLaMarche;
     this.gardien = null;
+    this.cheminDesHumains = null;
+    this.humainsEnFace = 0;
+    this.resteDeButin = 0;
+    this.refusDeFrapperAnnonce = false;
     this.rencontreFaite = false;
     this.sortieArmee = false;
     this.quitteLeMonde = false;
@@ -1511,9 +1572,8 @@ export class ArenaScene extends Phaser.Scene {
     // mur et mettait vingt secondes a faire le tour, pendant qu'un autre,
     // dehors, nous regardait. On les compare donc en **pas de chemin**, ce que
     // le champ sait deja dire.
-    const chemin = new Parcours(this.grille);
-    this.cheminDuGardien = chemin;
-    this.tracerLeCheminDuGardien(hero);
+    this.tracerLeCheminDesHumains(hero);
+    const chemin = this.cheminDesHumains!;
     const gardien = this.village.appelerQuelquun(hero.x, hero.y, (v) => {
       const pas = chemin.pasDepuis(v.x, v.y);
       return pas < 0 ? Infinity : pas;
@@ -1562,9 +1622,29 @@ export class ArenaScene extends Phaser.Scene {
    *
    * Il se refait **quand on s'est deplace**, pas par image (§4.17).
    */
-  private tracerLeCheminDuGardien(hero: Hero): void {
-    this.cibleDuGardien = { x: hero.x, y: hero.y };
-    this.cheminDuGardien?.recalculer(this.cibleDuGardien, (c) => this.passeUnVillageois(c));
+  private tracerLeCheminDesHumains(hero: Hero): void {
+    this.cheminDesHumains ??= new Parcours(this.grille);
+    this.cibleDesHumains = { x: hero.x, y: hero.y };
+    this.prochainCheminDesHumains = this.time.now + PERIODE_CHEMIN_DES_HUMAINS;
+    this.cheminDesHumains.recalculer(this.cibleDesHumains, (c) => this.passeUnVillageois(c));
+  }
+
+  /**
+   * Le champ suit le heros, mais **par battements** (§4.17 regle 5).
+   *
+   * Une propagation balaye toute la grille : la refaire a chaque image pendant
+   * qu'on court serait exactement l'ajout non plafonne que le §4.17 interdit.
+   * Un tiers de seconde, et seulement si l'on a vraiment bouge — entre deux, un
+   * humain suit le dernier champ, ce qui le mene de toute facon vers la porte.
+   */
+  private suivreLeHeroDesHumains(): void {
+    if (!this.cheminDesHumains) return;
+    if (this.humainsEnFace === 0 && !this.gardien) return;
+    const hero = this.hero;
+    if (!hero || hero.etat === "mort") return;
+    if (this.time.now < this.prochainCheminDesHumains) return;
+    if (Math.hypot(hero.x - this.cibleDesHumains.x, hero.y - this.cibleDesHumains.y) < 120) return;
+    this.tracerLeCheminDesHumains(hero);
   }
 
   /** Il marche vers nous, et il parle quand il y est. */
@@ -1577,10 +1657,8 @@ export class ArenaScene extends Phaser.Scene {
 
     const d = Math.hypot(hero.x - gardien.x, hero.y - gardien.y);
     if (d > REGLAGES_MARCHE.parole) {
-      const chemin = this.cheminDuGardien;
-      if (chemin && Math.hypot(hero.x - this.cibleDuGardien.x, hero.y - this.cibleDuGardien.y) > 120) {
-        this.tracerLeCheminDuGardien(hero);
-      }
+      this.suivreLeHeroDesHumains();
+      const chemin = this.cheminDesHumains;
       // Droit sur nous quand la voie est libre, le champ sinon — la meme regle
       // qu'un monstre qui contourne un lac (§4.29).
       const droit =
@@ -1612,18 +1690,27 @@ export class ArenaScene extends Phaser.Scene {
    * meme mer. Et elle ne dit que ce qui se voit de loin (§4.29) — c'est
    * `core/marche.ts` qui tient cette regle, pas la scene.
    */
-  private ouvrirLaRencontre(gardien: Villageois): void {
+  /**
+   * Ce que ce village montre de lui a quelqu'un qui arrive (§4.29).
+   *
+   * ⚠️ **Rien de ce qui est ici ne doit etre invisible de loin** : la taille,
+   * les murs debout, les brèches, le fosse, les fronts. Ni maladie, ni stress,
+   * ni reserve — c'est `core/marche.ts` qui tient cette regle, et un test qui
+   * la garde.
+   */
+  private get villageVuDeLoin(): VillageVuDeLoin {
     const enceinte = this.planVillage.enceinte;
-    const parole = paroleDuGardien(
-      {
-        habitants: this.village.habitants.filter((v) => v.regles.vivant).length,
-        mursDebout: enceinte.filter((p) => p.piece !== "ruine").length,
-        breches: enceinte.filter((p) => p.piece === "ruine").length,
-        douves: this.planVillage.douves.length > 0,
-        fronts: frontsOuverts(),
-      },
-      new Rng(this.graineMonde + 1),
-    );
+    return {
+      habitants: this.village.habitants.filter((v) => v.regles.vivant).length,
+      mursDebout: enceinte.filter((p) => p.piece !== "ruine").length,
+      breches: enceinte.filter((p) => p.piece === "ruine").length,
+      douves: this.planVillage.douves.length > 0,
+      fronts: frontsOuverts(),
+    };
+  }
+
+  private ouvrirLaRencontre(gardien: Villageois): void {
+    const parole = paroleDuGardien(this.villageVuDeLoin, new Rng(this.graineMonde + 1));
 
     this.enPause = true;
     this.debutPause = this.time.now;
@@ -1651,7 +1738,6 @@ export class ArenaScene extends Phaser.Scene {
 
     const gardien = this.gardien;
     this.gardien = null;
-    this.cheminDuGardien = null;
     if (gardien) {
       gardien.setVelocity(0, 0);
       gardien.etat = "en-route";
@@ -1661,11 +1747,67 @@ export class ArenaScene extends Phaser.Scene {
       this.sInstaller(true);
       return;
     }
+
+    // ⚠️ **Refuser en face n'est pas passer au large** (§4.29). Des gens qu'on
+    // laisse mourir n'ont plus rien a perdre : ils peuvent se jeter sur nous,
+    // tous ensemble. Le risque monte avec leur desespoir, et il n'est **jamais**
+    // certain — sinon plus personne ne refuserait en face, et la decision
+    // disparaitrait.
+    const vue = this.villageVuDeLoin;
+    const risque = risqueDAttaque(vue);
+    // Tire sur la graine du monde : leur desespoir est une propriete de ce
+    // village-la, pas de la seconde ou l'on a clique.
+    const tirage = new Rng(this.graineMonde + 2).next();
+    console.log(`[marche] refus : risque ${risque.toFixed(2)}, tirage ${tirage.toFixed(2)}`);
+    if (tirage < risque) {
+      this.leVillageSeJetteSurNous();
+      return;
+    }
+
+    this.events.emit("annonce", REPONSE_AU_REFUS.paix, "village");
     this.events.emit(
       "annonce",
       "Tu as dit non. Reprends la route — le prochain est plus loin.",
       "toi",
     );
+  }
+
+  /**
+   * Ils se jettent sur nous, tous ensemble (DESIGN.md §4.29, 20 septembre 2026).
+   *
+   * Le village se **vide** : chaque habitant vivant repasse de l'autre cote,
+   * avec son visage et son nom. Ce n'est pas une horde de plus — c'est ce qu'il
+   * restait de gens qui viennent de comprendre que personne ne viendra.
+   *
+   * ⚠️ **On ne pourra plus s'installer ici**, et c'est le prix : un village
+   * qu'on a saigne n'a plus personne a proteger. On se bat, on survit, et on
+   * reprend la route par un bord de la carte.
+   */
+  private leVillageSeJetteSurNous(): void {
+    const partants = this.village.prendreLesArmes();
+    if (partants.length === 0) return;
+
+    for (const partant of partants) {
+      const enrage = new Ennemi(this, partant.x, partant.y, PUISSANCE_DES_HABITANTS, ARCHETYPE_HUMAIN, {
+        famille: partant.famille,
+        nom: partant.nom,
+      });
+      this.ennemis.add(enrage);
+      this.humainsEnFace += 1;
+    }
+    // Ils sortent par la porte, pas par le mur : le champ des humains est celui
+    // qui a amene celui qui venait parler, et il sert maintenant contre nous.
+    this.tracerLeCheminDesHumains(this.hero);
+
+    this.events.emit("annonce", REPONSE_AU_REFUS.attaque, "village");
+    this.events.emit(
+      "annonce",
+      partants.length > 1
+        ? `${partants.length} habitants se jettent sur toi`
+        : `${partants[0]!.nom} se jette sur toi`,
+      "guet",
+    );
+    this.musique.combat();
   }
 
   /**
@@ -1737,6 +1879,9 @@ export class ArenaScene extends Phaser.Scene {
   private sInstaller(donneeALaParole: boolean): void {
     this.enMarche = false;
     this.gardien = null;
+    // Le champ des humains ne sert plus a personne : on le jette plutot que de
+    // le laisser se refaire pendant toute la partie (§4.17).
+    this.cheminDesHumains = null;
 
     if (donneeALaParole) {
       this.events.emit("annonce", "Tu as donne ta parole. Ce village est le tien.", "toi");
@@ -3272,6 +3417,9 @@ export class ArenaScene extends Phaser.Scene {
     // Calcule une seule fois par image : c'etait refait pour chaque ennemi.
     this.ciblesPossibles = this.heros.filter((h) => h.estAuCombat && !h.estInvisible);
     const maintenant = this.time.now;
+    // Le champ des humains suit le heros, par battements : c'est lui qui fait
+    // sortir par la porte ceux qui nous courent apres (§4.29).
+    this.suivreLeHeroDesHumains();
 
     // Copie de la liste : un kamikaze qui s'ouvre, ou une riposte qui tue le
     // frappeur, retire un element du groupe **pendant** le parcours. C'est la
@@ -3319,12 +3467,30 @@ export class ArenaScene extends Phaser.Scene {
       e.cibleMaison = this.maisons.laPlusProcheDebout(e.x, e.y);
     }
     const proie = this.cibleDe(e);
-    const cible = proie ?? e.cibleMaison?.centre ?? EGLISE;
+    // ⚠️ **Un humain enrage n'a pas de cap, il a quelqu'un** (§4.29) : il ne
+    // marche pas sur l'eglise, c'est la sienne. Il vient pour nous, et il nous
+    // suit meme hors de vue — on ne sème pas un village qu'on a refuse en lui
+    // tournant le dos.
+    const capHumain = e.humain ? (this.hero.etat !== "mort" ? this.hero : null) : null;
+    const cible = proie ?? capHumain ?? e.cibleMaison?.centre ?? EGLISE;
     let angle = Phaser.Math.Angle.Between(e.x, e.y, cible.x, cible.y);
     // Un lac, un massif, une douve en eau entre lui et son cap : il suit le
     // parcours (§4.29) au lieu de buter dedans. Une proie en vue se poursuit
     // droit. La ligne se verifie tous les quarts de seconde, pas par image.
-    if (!proie) {
+    if (e.humain) {
+      // ⚠️ **Un humain ne defonce pas le mur de son propre village.** Vu en
+      // jeu : ils partaient droit sur nous et restaient colles a leur enceinte,
+      // a trois pixels pres pendant des secondes. Ils prennent donc la porte —
+      // le champ des humains, celui-la meme qui amene celui qui vient parler.
+      if (maintenant >= e.ligneVerifieeA + 250) {
+        e.ligneVerifieeA = maintenant;
+        e.ligneLibre = this.parcours.ligneLibre(e, cible, (c) => this.passeUnVillageois(c));
+      }
+      if (!e.ligneLibre) {
+        const suivre = this.cheminDesHumains?.direction(e.x, e.y);
+        if (suivre) angle = Math.atan2(suivre.y, suivre.x);
+      }
+    } else if (!proie) {
       if (maintenant >= e.ligneVerifieeA + 250) {
         e.ligneVerifieeA = maintenant;
         e.ligneLibre = this.parcours.ligneLibre(e, cible, (c) => this.passeUnMonstre(c));
@@ -4457,6 +4623,43 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Le Misericordieux baisse son arme (DESIGN.md §4.23, §4.12).
+   *
+   * **C'est le premier trait du jeu qui desobeit**, et une desobeissance
+   * s'annonce : un heros qui s'arrete sans prevenir serait vecu comme un bug.
+   * On le dit une fois par partie — le journal n'a pas a repeter un coup sur
+   * trois pendant toute une bagarre.
+   */
+  private refuserDeFrapper(auteur: Hero, e: Ennemi): void {
+    this.flotter(e.x, e.y - 16, "il ne peut pas", "#9db3c4");
+    if (this.refusDeFrapperAnnonce) return;
+    this.refusDeFrapperAnnonce = true;
+    this.events.emit(
+      "annonce",
+      `${auteur.personne.nom} ne se resout pas a frapper quelqu'un`,
+      "toi",
+    );
+  }
+
+  /**
+   * Ce que laisse un mort (DESIGN.md §4.29, §4.8).
+   *
+   * Une bete vaut son experience en menue monnaie ; un humain laisse ce qu'il
+   * avait sur lui. ⚠️ **L'argent reste un entier** : on garde la monnaie d'une
+   * mort a l'autre plutot que d'arrondir chaque cadavre (`core/butin.ts`), et
+   * on ne l'affiche que quand une piece entiere tombe — un « +0 » a chaque
+   * fonceur ne dirait rien.
+   */
+  private ramasserLeButin(e: Ennemi): void {
+    const gain = e.humain ? REGLAGES_BUTIN.orDUnHumain : orDUneBete(e.xpDonnee);
+    const bourse = encaisser(this.resteDeButin, gain);
+    this.resteDeButin = bourse.reste;
+    if (bourse.pieces <= 0) return;
+    this.argent += bourse.pieces;
+    this.flotter(e.x, e.y - 20, `+${bourse.pieces}`, "#c99a3a");
+  }
+
   private ennemiLePlusProche(x: number, y: number, portee: number): Ennemi | null {
     let meilleur: Ennemi | null = null;
     let meilleureDistance = portee;
@@ -4474,6 +4677,19 @@ export class ArenaScene extends Phaser.Scene {
 
   private blesserEnnemi(e: Ennemi, degats: number, auteur: Hero, volDeVieSup = 0): void {
     if (!e.active) return;
+    // ⚠️ **Les deux traits qui regardent qui est en face passent ici, et nulle
+    // part ailleurs** (§4.23) : c'est le seul point ou tout ce qui blesse un
+    // ennemi se rejoint — le coup au contact, la fleche, la zone, la chaine
+    // d'eclairs. Les poser dans `frapper` aurait laisse la moitie des degats du
+    // jeu passer a cote.
+    if (e.humain) {
+      const mods = auteur.personne.mods;
+      if (mods.refuseDeFrapperUnHumain && this.rng.next() < PART_DE_COUPS_REFUSES) {
+        this.refuserDeFrapper(auteur, e);
+        return;
+      }
+      degats = Math.max(1, Math.round(degats * mods.degatsContreHumain));
+    }
     this.musique.combat();
     const inflige = Math.min(degats, e.pv);
     e.pv -= degats;
@@ -4524,6 +4740,10 @@ export class ArenaScene extends Phaser.Scene {
     // Purement decoratif et entierement detache — la logique ci-dessous n'a pas
     // bouge d'une ligne, et le sprite du monstre est detruit comme avant.
     this.marquerLaMort(e);
+
+    // L'or, comme l'XP, va a celui qui a tue (§4.29, 20 septembre 2026).
+    this.ramasserLeButin(e);
+    if (e.humain) this.humainsEnFace = Math.max(0, this.humainsEnFace - 1);
 
     // L'XP va au heros qui a tue, pas a l'equipe (DESIGN.md §4.5).
     const monte = auteur.gagnerXp(e.xpDonnee);

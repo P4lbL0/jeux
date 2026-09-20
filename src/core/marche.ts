@@ -60,6 +60,32 @@ export const REGLAGES_MARCHE = {
    * endroit que le reste de la marche le jour ou elle se code.
    */
   eloignementParRefus: 2,
+
+  /**
+   * Ce que coute un refus **en face** (§4.29, 20 septembre 2026 au soir).
+   *
+   * « Des gens qu'on laisse mourir n'ont plus rien a perdre : ils peuvent se
+   * jeter sur nous, tous ensemble. Ce n'est pas certain — c'est un risque, et
+   * il monte avec leur desespoir. »
+   *
+   * ⚠️ **Passer au large ne coute rien** : ce tarif ne s'applique qu'a celui
+   * qui s'est presente, a ecoute, et a dit non en face. C'est toute la
+   * difference que le design demande entre refuser et ne pas venir.
+   *
+   * Les trois chiffres sont a regler en jouant, comme `REGLAGES_CYCLE`.
+   */
+  refus: {
+    /** Le desespoir de fond : meme un village solide n'aime pas qu'on passe */
+    base: 0.2,
+    /** Ce que chaque habitant manquant sous le seuil ajoute au risque */
+    parHabitantManquant: 0.06,
+    /** En dessous de combien d'habitants on se sent condamne */
+    seuilDHabitants: 8,
+    /** Ce qu'un mur entierement troue ajoute, au prorata des breches */
+    murEnRuine: 0.3,
+    /** Jamais certain : il reste toujours une chance qu'ils nous laissent partir */
+    plafond: 0.85,
+  },
 };
 
 /**
@@ -237,6 +263,32 @@ function ceQuiRode(fronts: readonly Cote[]): string {
 
 /** Sa question, et elle ne change pas : c'est elle, tout le renversement du §4.29. */
 export const QUESTION_DU_GARDIEN = "Veux-tu nous proteger ?";
+
+/**
+ * La chance qu'ils se jettent sur nous si on refuse **en face** (§4.29).
+ *
+ * Elle monte avec leur desespoir, et le desespoir est exactement ce que le
+ * joueur voit : **combien ils sont** et **ce qui tient encore debout**. Un
+ * village qui a des murs et du monde vous laisse partir ; quatre survivants
+ * derriere un mur troue n'ont plus rien a perdre.
+ *
+ * ⚠️ Elle ne devient **jamais certaine** : un joueur qui sait qu'il va se faire
+ * attaquer ne refuse plus jamais en face, et la decision disparait.
+ */
+export function risqueDAttaque(vue: VillageVuDeLoin): number {
+  const r = REGLAGES_MARCHE.refus;
+  const manquants = Math.max(0, r.seuilDHabitants - vue.habitants);
+  const pieces = vue.mursDebout + vue.breches;
+  const ruine = pieces > 0 ? vue.breches / pieces : 1;
+  const risque = r.base + manquants * r.parHabitantManquant + ruine * r.murEnRuine;
+  return Math.min(r.plafond, Math.max(0, risque));
+}
+
+/** Ce qu'on entend quand ils se jettent sur nous, et quand ils nous laissent partir. */
+export const REPONSE_AU_REFUS = {
+  attaque: "Alors tu ne vaux pas mieux qu'eux. Ils se jettent sur toi.",
+  paix: "Il te regarde partir sans un mot.",
+};
 
 /**
  * Ce qu'il dit, dans l'ordre : ce qui s'est passe, combien ils sont, ce qui

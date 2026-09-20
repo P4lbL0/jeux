@@ -12,9 +12,30 @@ import {
 } from "./traits";
 
 describe("La table des traits", () => {
-  it("porte les 15 traits de naissance et les 11 d'exploit du §4.23", () => {
-    expect(TRAITS_DE_NAISSANCE).toHaveLength(15);
+  it("porte les 17 traits de naissance et les 11 d'exploit du §4.23", () => {
+    // 15 au depart, plus les deux qui regardent qui est en face — reveilles le
+    // 20 septembre 2026 quand un village refuse a pu se jeter sur nous (§4.29).
+    expect(TRAITS_DE_NAISSANCE).toHaveLength(17);
     expect(TRAITS.filter((t) => t.origine === "exploit")).toHaveLength(11);
+  });
+
+  it("donne aux deux traits qui regardent qui est en face des effets inverses", () => {
+    const doux = traitParId(idTrait("misericordieux"))!;
+    const dur = traitParId(idTrait("bourreau-d-hommes"))!;
+    expect(doux.effets.degatsContreHumain).toBeLessThan(1);
+    expect(dur.effets.degatsContreHumain).toBeGreaterThan(1);
+    // Le Bourreau paie son avantage contre les betes ; le Misericordieux, lui,
+    // ne perd rien contre elles — c'est sa seule compensation.
+    expect(dur.effets.degats).toBeLessThan(1);
+    expect(doux.effets.degats).toBeUndefined();
+  });
+
+  it("agrege les degats contre un humain comme un multiplicateur", () => {
+    const mods = agreger([idTrait("bourreau-d-hommes")], []);
+    expect(mods.degatsContreHumain).toBeCloseTo(2.4);
+    expect(mods.refuseDeFrapperUnHumain).toBe(false);
+    const tendre = agreger([idTrait("misericordieux")], []);
+    expect(tendre.refuseDeFrapperUnHumain).toBe(true);
   });
 
   it("n'a aucune cle en double — sinon `idTrait` en perdrait une", () => {

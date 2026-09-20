@@ -769,6 +769,13 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 }
 
+/** Ce qui fait d'un ennemi quelqu'un plutot que quelque chose (§4.29). */
+export interface ApparenceHumaine {
+  /** La famille de planches de son metier — celle qu'il portait en travaillant */
+  famille: string;
+  nom: string;
+}
+
 export class Ennemi extends Phaser.Physics.Arcade.Sprite {
   pv: number;
   pvMax: number;
@@ -821,6 +828,22 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
    */
   cibleMaison: Maison | null = null;
 
+  /**
+   * Il porte un visage d'homme (DESIGN.md §4.29) : c'est un habitant du village
+   * qu'on a refuse en face, et il a son nom.
+   *
+   * ⚠️ **Un humain hostile est un `Ennemi`, pas un `Villageois` retourne**, et
+   * il faut dire pourquoi : tout ce qui fait un combat — le ciblage, l'arc du
+   * coup, les projectiles, les zones, le recul, la mort, la depouille, le
+   * butin, la musique — est ecrit pour `Ennemi` et pour rien d'autre. Le §4.29
+   * annoncait « c'est le bloc de combat de l'habitant qui sert, retourne contre
+   * nous » ; en le faisant, ce bloc-la (frapper un monstre au contact devant
+   * l'eglise) s'est revele etre trois lignes, et tout le reste aurait ete
+   * duplique. Ce qu'on garde de l'habitant, c'est ce qui compte : **sa planche
+   * et son nom**.
+   */
+  readonly humain: ApparenceHumaine | null;
+
   private facteurRalenti = 0.5;
   private prochainCoup = 0;
 
@@ -830,13 +853,16 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
     y: number,
     puissance: number,
     archetype: Archetype = ARCHETYPE_DEFAUT,
+    humain: ApparenceHumaine | null = null,
   ) {
     // Chaque archetype a sa propre planche, cuite au demarrage : plus de teinte
-    // ni d'echelle pour les distinguer (§4.30).
-    const famille = familleDeMonstre(archetype.id);
+    // ni d'echelle pour les distinguer (§4.30). Un humain, lui, garde la
+    // planche du metier qu'il exercait ce matin.
+    const famille = humain?.famille ?? familleDeMonstre(archetype.id);
     super(scene, x, y, plancheDe(famille), 0);
     this.familleSprite = famille;
     this.archetype = archetype;
+    this.humain = humain;
     // L'archetype **module** la montee en puissance, il ne la remplace pas :
     // la formule de base est celle d'avant, multipliee ensuite.
     this.pvMax = Math.max(1, Math.round((10 + puissance * 6) * archetype.multPv));
