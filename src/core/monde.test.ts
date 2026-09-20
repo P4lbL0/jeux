@@ -21,6 +21,7 @@ import {
   TAILLE_CLASSIQUE,
   TAILLE_JOUABLE,
   type Monde,
+  type Taille,
 } from "./monde";
 
 /**
@@ -176,15 +177,39 @@ describe("Un monde tire — les regles d'assemblage", () => {
     }
   });
 
-  it("garde la presqu'ile rare sur la zone qu'on joue : c'est une trouvaille", () => {
-    // ⚠️ **Mesure sur la taille jouable, pas sur la classique.** Le taux depend
-    // de la place : sur 200 mondes, la presqu'ile sort 9 fois sur cent a x2 (la
-    // zone d'une partie, §4.29) et 33 fois sur cent a x1, ou la plupart des
-    // autres formes ne tiennent pas. C'est la zone jouable qui fait foi.
-    const graines = Array.from({ length: 24 }, (_, i) => i + 1);
+  it("garde la presqu'ile rare : c'est une trouvaille", () => {
+    // Neuf mondes sur cent, mesure sur 400 graines (§4.29). Le test en prend
+    // quatre-vingts : assez pour voir passer « rare mais existante », pas assez
+    // pour couter une seconde a chaque lancement.
+    const graines = Array.from({ length: 80 }, (_, i) => i + 1);
     const seulFront = graines.filter((g) => genererMonde(g, TAILLE_JOUABLE).fronts.length === 1).length;
     expect(seulFront).toBeGreaterThan(0);
-    expect(seulFront).toBeLessThan(graines.length / 3);
+    expect(seulFront).toBeLessThan(graines.length / 5);
+  });
+
+  it("tire le meme genre de monde quelle que soit la taille de la zone", () => {
+    // ⚠️ **C'est la propriete qui manquait, et un bug la cachait.**
+    // `placerLesPostes` bornait sa grille sur les `COLONNES` du monde **deja
+    // charge**, pas sur celles du monde qu'il tirait : sur une grande zone, il
+    // ne voyait rien au-dela du coin nord-ouest et rejetait presque tout. Le
+    // port et la mine echouaient 9 fois sur 10 a x3, et une partie sur trois
+    // retombait en silence sur le monde classique. Ce test-ci est la seule
+    // chose qui aurait vu passer ca.
+    const graines = Array.from({ length: 60 }, (_, i) => i + 1);
+    const compter = (taille: Taille) => {
+      const fronts = [0, 0, 0, 0, 0];
+      for (const g of graines) fronts[genererMonde(g, taille).fronts.length]! += 1;
+      return fronts;
+    };
+    const classique = compter(TAILLE_CLASSIQUE);
+    const jouable = compter(TAILLE_JOUABLE);
+    // Aucun monde ne doit jamais retomber sur la taille classique par abandon.
+    for (const g of graines) expect(genererMonde(g, TAILLE_JOUABLE).largeur).toBe(TAILLE_JOUABLE.largeur);
+    // Et la repartition des fronts ne doit pas dependre de la place : a deux
+    // mondes pres, c'est la meme.
+    for (let n = 1; n <= 4; n += 1) {
+      expect(Math.abs(classique[n]! - jouable[n]!), `${n} front(s)`).toBeLessThanOrEqual(2);
+    }
   });
 
   it("fait surgir les monstres au bord, sur la terre, et relies au village", () => {

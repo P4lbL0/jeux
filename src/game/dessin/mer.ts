@@ -186,7 +186,7 @@ export function poserLaMer(
 
   // Une vague par point de rivage, tournee vers la terre : la cote serpente
   // et l'eau peut etre n'importe ou, une barre droite ne suivrait rien.
-  rivage.forEach((r, i) => {
+  const vagues = rivage.map((r, i) => {
     const sprite = scene.add
       .sprite(r.x - Math.cos(r.versLaTerre) * 2, r.y - Math.sin(r.versLaTerre) * 2, CLE_ECUME)
       .setRotation(r.versLaTerre)
@@ -196,15 +196,56 @@ export function poserLaMer(
     // toutes ensemble et la cote entiere clignote — c'est le meme defaut que
     // le damier du sol, et il se voit encore plus.
     sprite.anims.setProgress(bruit(i, 5, 3));
+    return sprite;
   });
+
+  /**
+   * ⚠️ **Seules les vagues qu'on voit battent** (§4.17, regle 1 : tout ce qui
+   * apparait a un plafond).
+   *
+   * Une vague est un sprite anime, et Phaser fait avancer **toutes** les
+   * animations en cours, a l'ecran ou non. Le nombre de vagues suit la longueur
+   * de la cote, donc la taille du monde : 127 en moyenne sur la carte
+   * classique, 187 a x2, **237 a x3** (373 au pire), presque toutes hors de
+   * l'ecran. C'est exactement l'ajout non plafonne que le §4.17 interdit, et
+   * c'est ce qui a fait perdre deux a cinq images par seconde le jour ou la
+   * zone est passee a x3.
+   *
+   * On les met donc en pause hors du cadre, **par battements** : passer 373
+   * sprites en revue a chaque image serait remplacer un cout par un autre.
+   */
+  let prochainTri = 0;
+  const trier = () => {
+    const vue = scene.cameras.main?.worldView;
+    if (!vue) return;
+    const marge = 96;
+    for (const vague of vagues) {
+      const dedans =
+        vague.x > vue.x - marge &&
+        vague.x < vue.right + marge &&
+        vague.y > vue.y - marge &&
+        vague.y < vue.bottom + marge;
+      if (dedans === vague.visible) continue;
+      vague.setVisible(dedans);
+      if (dedans) vague.anims.resume();
+      else vague.anims.pause();
+    }
+  };
 
   return {
     deriver(delta: number): void {
       houle.tilePositionX += (DERIVE.x * delta) / 1000;
       houle.tilePositionY += (DERIVE.y * delta) / 1000;
+      const maintenant = scene.time.now;
+      if (maintenant < prochainTri) return;
+      prochainTri = maintenant + PERIODE_DU_TRI;
+      trier();
     },
   };
 }
+
+/** Tous les combien on regarde quelles vagues sont a l'ecran, en millisemes. */
+const PERIODE_DU_TRI = 250;
 
 function poser(scene: Phaser.Scene, cle: string, toile: Toile): boolean {
   const texture = scene.textures.createCanvas(cle, toile.largeur, toile.hauteur);

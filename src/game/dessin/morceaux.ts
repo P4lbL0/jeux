@@ -34,9 +34,11 @@ import { releverLeRelief, type Relief } from "./relief";
  *    que refuser tire un monde neuf. Et on le payait **trois fois avant de
  *    jouer** : le menu et l'ecran de choix de classe cuisaient la carte eux
  *    aussi, pour un monde qu'on n'allait meme pas jouer.
- * 2. **La zone x3 etait impossible**, et pas seulement chere : 4 243 pixels de
- *    large **depassent la taille maximale de texture** de beaucoup de cartes
- *    graphiques (4 096). Aucun reglage n'y pouvait rien.
+ * 2. **La taille de la carte avait un plafond dur.** Une texture unique ne
+ *    depasse pas 4 096 pixels de cote sur beaucoup de cartes graphiques, ce
+ *    qui bloquait le monde a deux fois sa largeur classique — x3 en surface
+ *    passe encore (3 464 px), x4 n'aurait jamais pu. Aucun reglage n'y pouvait
+ *    rien : c'est le materiel qui refuse.
  * 3. **L'errance continue etait bloquee.** Le §4.29 veut un monde qui se
  *    genere devant le joueur ; un monde qui se peint d'un bloc ne peut se
  *    fabriquer qu'a l'arret.

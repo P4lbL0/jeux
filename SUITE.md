@@ -1337,6 +1337,84 @@ tous là après, et l'effectif de la première nuit vaut exactement ce que le bu
 
 **664 tests verts** (+17 : 14 pour le budget, 3 pour les foyers).
 
+### La zone passe à ×3, et le tirage du monde redevient pur (20 septembre 2026, tard dans la nuit)
+
+Suite directe des morceaux : la carte ne se peignant plus d'un bloc, la zone ×3 devenait
+possible. Elle a fait tomber **un bug de fond** en route.
+
+#### ⚠️ `genererMonde` se disait pure, et ne l'était pas
+
+`placerLesPostes` bornait sa grille sur les **`COLONNES` / `LIGNES` du monde déjà chargé**,
+pas sur celles du monde qu'il était en train de tirer. Le fichier s'interdit pourtant cette
+faute dans son propre commentaire : *« Tout ce qui reçoit un `Monde` lit `m.largeur` /
+`m.hauteur`, pas ceci : générer un monde ne doit pas dépendre de celui qui est chargé. »*
+
+Conséquences, toutes mesurées :
+
+- **Sur une zone plus grande que celle qui était chargée, le générateur ne voyait rien
+  au-delà du coin nord-ouest.** Le port et la mine échouaient **9 fois sur 10** à ×3, et
+  **une partie sur trois retombait en silence sur le monde classique** (2000 × 1500) — donc
+  ×3 n'aurait rien donné du tout.
+- **Le 9 % de presqu'îles était un artefact.** Le §4.29 expliquait que « deux tentatives sur
+  cinq ne donnent que neuf mondes sur cent, faute de place pour le village et ses quatre
+  postes ». Faux : elles n'étaient pas refusées faute de place, elles étaient refusées par le
+  bug. Le tirage réparé accepte presque tout ce qu'il propose, et `chance(0.4)` sortait
+  **trois presqu'îles sur dix** — c'est-à-dire tout sauf une trouvaille.
+- **Le taux dépendait de la taille**, ce que le §4.29 avait noté comme une propriété du monde
+  (« 9 % à ×2, 33 % à ×1 »). Ce n'en était pas une : c'était le bug qui se voyait.
+
+**Réparé**, le tirage rend la **même répartition des fronts à toutes les tailles** : 9 % à un
+front, 34 % à deux, 45 % à trois, 12 % à quatre, mesuré sur 400 graines à ×1, ×2 et ×3. La
+probabilité de presqu'île descend de `0,4` à **`0,12`**, qui redonne exactement les **9 %**
+que le §4.29 a toujours annoncés. Un test neuf compare les répartitions de deux tailles :
+c'est la seule chose qui aurait vu passer le bug.
+
+⚠️ **Ce que ça casse, et il faut le dire** : une graine donnée ne rend plus le même monde
+qu'hier. Une partie enregistrée avant cette nuit retrouverait une carte qui ne colle plus à
+sa sauvegarde.
+
+#### Un tirage sept fois moins cher
+
+Un tirage demandait la nature du sol **cent mille fois** : une fois par case pour le relevé
+des cases atteignables, puis cinq balayages de grille pour les postes, chacun la redemandant.
+`releveDesCases` la demande **une fois** et tout le monde y lit. Mesuré sur 200 graines :
+**13 ms à ×1, 20 ms à ×2, 36 ms à ×3** par graine, abandons compris — contre 219 ms pour la
+pire graine mesurée la veille.
+
+#### ⚠️ L'écume n'avait pas de plafond
+
+Une vague est un sprite animé, et Phaser fait avancer **toutes** les animations en cours, à
+l'écran ou non. Le nombre de vagues suit la longueur de la côte, donc la taille du monde :
+**127 en moyenne à ×1, 187 à ×2, 237 à ×3** (373 au pire), presque toutes hors de l'écran.
+C'est exactement l'ajout non plafonné qu'interdit le §4.17, et c'est ce qui faisait perdre
+deux à cinq images par seconde dès que la zone grandissait. Les vagues hors cadre sont
+maintenant **mises en pause, par battements d'un quart de seconde**.
+
+#### Ce que ça donne
+
+- **Une partie se joue sur 3 464 × 2 598** — trois fois la surface de la carte classique,
+  comme le §4.29 le demandait. (La convention est celle de ×2 : c'est la **surface** qui
+  triple, donc √3 sur chaque côté.)
+- **Elle s'ouvre en 0,43 à 0,61 s**, c'est-à-dire aussi vite qu'à ×2.
+- **La cadence est meilleure qu'avant le chantier** : 22 à 24 images par seconde une fois la
+  carte peinte, contre 20 pour la version d'hier à ×2 — le tri des vagues rend plus qu'il ne
+  coûte.
+- **La marche s'allonge** : 2 176 à 3 330 px, **27 s en médiane** au pas du guerrier, contre
+  21 s à ×2 et 12 s à ×1.
+
+⚠️ **Et le §6 demande « deux à trois minutes » pour le premier village.** À 108 px/s, deux
+minutes font 13 000 px de marche : **aucune carte finie ne peut les contenir** (la diagonale
+de ×3 en fait 4 330). Ce chiffre-là n'est atteignable que par l'errance continue, en
+traversant plusieurs mondes — ou en ralentissant la marche, ce que personne n'a demandé.
+
+**Vérifié dans le navigateur** (`.tmp/verifier-morceaux.ts`, trois mondes tirés, avec la
+marche) : **23 contrôles sur 24**, le seul raté étant une image à 116 ms au lieu de 120 sur
+un monde, en rendu logiciel.
+
+**À regarder** : `captures/jeu/2026-09-20-zone-x3/`.
+
+**670 tests verts** (+1).
+
 ### La carte se peint par morceaux (20 septembre 2026, tard dans la nuit)
 
 **Le dernier verrou d'architecture du projet.** La carte se peignait **d'un seul bloc** :
@@ -1347,9 +1425,11 @@ découlaient, et les trois étaient des murs.
    (`.tmp/mesurer-entree.ts`, graines 11/23/47/58) : ouvrir une partie prenait **1,9 à
    3,7 s** sur la zone jouable. On le payait à chaque village refusé, puisque refuser tire
    un monde neuf.
-2. **La zone ×3 était impossible**, et pas seulement chère : **4 243 pixels de large
-   dépassent la taille maximale de texture** de beaucoup de cartes graphiques (4 096).
-   Aucun réglage n'y pouvait rien — ça n'avait jamais été vu.
+2. **La taille de la carte avait un plafond dur**, qui n'avait jamais été vu : une texture
+   unique ne dépasse pas **4 096 pixels de côté** sur beaucoup de cartes graphiques, ce qui
+   bloquait le monde à deux fois sa largeur classique. ×3 en surface passe encore (3 464 px
+   de large) ; ×4 n'aurait jamais pu. Aucun réglage n'y pouvait rien : c'est le matériel qui
+   refuse.
 3. **L'errance continue était bloquée** : un monde qui se peint d'un bloc ne peut se
    fabriquer qu'à l'arrêt.
 

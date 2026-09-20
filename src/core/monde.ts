@@ -44,32 +44,30 @@ export interface Taille {
 export const TAILLE_CLASSIQUE: Taille = { largeur: 2000, hauteur: 1500 };
 
 /**
- * La zone qui se ferme quand on s'installe (§4.29) : **le double** du classique.
+ * La zone qui se ferme quand on s'installe (§4.29) : **le triple** du classique.
  *
- * Le design demandait « x2 a x3, en mesurant ». Mesure du 20 septembre 2026 au
- * soir (`.tmp/mesurer-taille.ts`), sur quatre graines :
+ * Le design demandait « deux a trois fois la carte, en mesurant, et si x3 ne
+ * tient pas on livre x2 et on le dit ». Le 20 septembre au soir, x3 ne tenait
+ * pas : la carte se peignait **d'un seul bloc**, ce qui figeait le jeu une
+ * seconde et demie et reservait trente-quatre megaoctets d'une seule texture.
+ * On a livre x2 et on l'a dit.
  *
- * | zone | tirage | grille | peinture de la carte | texture |
- * |------|--------|--------|----------------------|---------|
- * | x1   |  36 ms |  1,5ms |   492 ms             | 11,4 Mo |
- * | x2   |  64 ms |  2,6ms | **1033 ms**          | 22,9 Mo |
- * | x3   |  91 ms |  2,7ms |  1447 ms             | 34,3 Mo |
+ * ⚠️ **Et la carte d'un bloc posait un plafond dur, qu'on n'avait pas vu** :
+ * une texture unique ne depasse pas 4 096 pixels de cote sur beaucoup de
+ * cartes graphiques. x3 passe encore (3 464 px de large) ; x4 aurait ete
+ * **impossible**, et aucun reglage n'y aurait rien pu.
  *
- * Tout monte **avec la surface**, et le tirage comme la grille restent
- * negligeables. Ce qui decide, c'est la **peinture de la carte** : elle peint un
- * pixel par pixel du monde, une fois au chargement. A x3 elle fige le jeu une
- * seconde et demie et reserve trente-quatre megaoctets de texture ; a x2 elle
- * tient dans la seconde que le test de `carte.ts` s'impose deja.
+ * Les deux obstacles sont tombes la nuit meme : la carte se peint desormais
+ * **par morceaux** (`dessin/morceaux.ts`), des carres de 384 pixels qui ont
+ * chacun leur texture et cuisent image par image. Il n'y a plus ni bloc ni
+ * plafond de texture, et une partie s'ouvre en une demi-seconde a x3 comme a
+ * x2.
  *
- * ⚠️ **x3 n'est pas refuse pour toujours** : il le sera le jour ou la carte se
- * peindra par morceaux au lieu d'un bloc. Tant qu'elle est monolithique, c'est
- * elle le plafond, pas la memoire ni le tirage.
- *
- * ⚠️ **Pas encore appliquee au demarrage** : la zone ne se ferme qu'a
- * l'installation, et l'installation n'est pas codee. Une partie commence
- * aujourd'hui sur `TAILLE_CLASSIQUE`.
+ * Le rapport exact est **la racine de trois**, comme x2 etait la racine de
+ * deux : la carte garde ses proportions, et la surface fait bien trois fois
+ * celle du classique.
  */
-export const TAILLE_JOUABLE: Taille = { largeur: 2828, hauteur: 2121 };
+export const TAILLE_JOUABLE: Taille = { largeur: 3464, hauteur: 2598 };
 
 /**
  * La zone jouable **du monde charge**, et non plus une constante du jeu.
@@ -475,13 +473,21 @@ function tirerUnMonde(rng: Rng, graine: number, taille: Taille): Monde | null {
   // relief fermera le troisieme — il ne restera qu'un front. C'est le plus gros
   // cadeau du jeu, et le budget le fait payer plein tarif.
   //
-  // ⚠️ **Deux tentatives sur cinq, pour neuf mondes sur cent.** Le chiffre a
-  // ete mesure, pas choisi (`.tmp/mesurer-fronts.ts`, 200 mondes) : la plupart
-  // des presqu'iles sont **refusees plus bas**, faute de place pour le village
-  // et ses quatre postes une fois trois cotes fermes. A 0,14 le monde a un seul
-  // front ne sortait que deux fois sur cent — une partie sur cinquante, autant
-  // dire jamais.
-  const presquIle = mer !== null && rng.chance(0.4);
+  // ⚠️ **Douze tentatives sur cent, pour neuf mondes sur cent** — et ce chiffre
+  // a change de nature le 20 septembre 2026, tard dans la nuit. Il valait 0,4,
+  // parce qu'on mesurait que « deux tentatives sur cinq ne donnaient que neuf
+  // mondes sur cent, faute de place pour le village et ses quatre postes ».
+  // C'etait faux : les presqu'iles n'etaient pas refusees faute de place, elles
+  // etaient refusees par un **bug** de `placerLesPostes`, qui bornait la grille
+  // sur le monde **deja charge** au lieu de celui qu'il tirait. Le tirage
+  // reparé accepte presque tout ce qu'il propose : a 0,4 la presqu'ile sortait
+  // **trois fois sur dix**, c'est-a-dire tout sauf une trouvaille.
+  //
+  // A 0,12, elle sort **neuf fois sur cent** — le chiffre que le §4.29 a
+  // toujours annonce — et desormais **a toutes les tailles de zone** : 9,0 % a
+  // x1, 9,0 % a x2, 9,3 % a x3, mesure sur 400 graines. C'est la preuve que le
+  // tirage ne depend plus de la place.
+  const presquIle = mer !== null && rng.chance(0.12);
   const golfe: Bande | null = presquIle
     ? { cote: rng.pick(COTES.filter((c) => c !== mer!.cote && c !== oppose(mer!.cote))), position: 0, ondulation: ond(116, 30) }
     : null;
@@ -611,8 +617,9 @@ function tirerUnMonde(rng: Rng, graine: number, taille: Taille): Monde | null {
   monde.village = site;
 
   // 6. Les postes, sur le terrain.
-  const atteint = relierAuVillage(monde);
-  if (!placerLesPostes(monde, atteint)) return null;
+  const cases = releveDesCases(monde);
+  const atteint = relierAuVillage(monde, cases);
+  if (!placerLesPostes(monde, atteint, cases)) return null;
 
   // 7. Les fronts, et les lisieres pour les survivants.
   monde.bords = releverLesBords(monde, atteint);
@@ -698,16 +705,51 @@ export function terrainDeCase(m: Monde, colonne: number, ligne: number): Terrain
 const TERRE_FERME: readonly Terrain[] = ["sable", "herbe", "sous-bois"];
 
 /**
+ * Le terrain de **chaque case** d'un monde, calcule une fois.
+ *
+ * ⚠️ **C'est un cache, il ne change rien.** La formule du terrain est la seule
+ * source ; simplement, un tirage de monde la demandait **cent mille fois** —
+ * le relevé des cases atteignables, puis cinq balayages de grille pour les
+ * postes, chacun redemandant le terrain de chaque case. Sur la zone x3 (13 300
+ * cases) ça se sentait : le tirage devenait le poste le plus cher de
+ * l'ouverture d'une partie. On le demande une fois, on s'en sert six.
+ */
+export function releveDesCases(m: Monde): Uint8Array {
+  const COLONNES = colonnesDe(m);
+  const LIGNES = lignesDe(m);
+  const cases = new Uint8Array(COLONNES * LIGNES);
+  for (let l = 0; l < LIGNES; l++) {
+    for (let c = 0; c < COLONNES; c++) cases[l * COLONNES + c] = INDEX_TERRAIN[terrainDeCase(m, c, l)];
+  }
+  return cases;
+}
+
+/** L'ordre des terrains, pour les tenir en un octet par case. */
+export const ORDRE_TERRAINS: readonly Terrain[] = [
+  "abysse",
+  "mer",
+  "haut-fond",
+  "sable",
+  "herbe",
+  "sous-bois",
+  "eboulis",
+  "roche",
+];
+const INDEX_TERRAIN: Record<Terrain, number> = Object.fromEntries(
+  ORDRE_TERRAINS.map((t, i) => [t, i]),
+) as Record<Terrain, number>;
+
+/**
  * Les cases qu'on atteint a pied depuis l'eglise, par la terre ferme, en
  * quatre voisins. Un `Uint8Array` de la taille de la grille : 1 si atteinte.
  */
-export function relierAuVillage(m: Monde): Uint8Array {
+export function relierAuVillage(m: Monde, cases = releveDesCases(m)): Uint8Array {
   const COLONNES = colonnesDe(m);
   const LIGNES = lignesDe(m);
   const atteint = new Uint8Array(COLONNES * LIGNES);
   const terre = new Uint8Array(COLONNES * LIGNES);
-  for (let l = 0; l < LIGNES; l++) {
-    for (let c = 0; c < COLONNES; c++) terre[l * COLONNES + c] = TERRE_FERME.includes(terrainDeCase(m, c, l)) ? 1 : 0;
+  for (let i = 0; i < terre.length; i++) {
+    terre[i] = TERRE_FERME.includes(ORDRE_TERRAINS[cases[i]!]!) ? 1 : 0;
   }
   const c0 = Math.floor(m.village.x / CASE);
   const l0 = Math.floor(m.village.y / CASE);
@@ -754,14 +796,17 @@ export function segmentSurTerre(m: Monde, de: Point, a: Point): boolean {
  *
  * @returns faux s'il manque un poste : le monde est alors rejete
  */
-function placerLesPostes(m: Monde, atteint: Uint8Array): boolean {
+function placerLesPostes(m: Monde, atteint: Uint8Array, cases: Uint8Array): boolean {
   const eglise = m.village;
+  const COLONNES = colonnesDe(m);
+  const LIGNES = lignesDe(m);
   const centre = (c: number, l: number): Point => ({ x: c * CASE + CASE / 2, y: l * CASE + CASE / 2 });
+  const terrainDe = (c: number, l: number): Terrain => ORDRE_TERRAINS[cases[l * COLONNES + c]!]!;
   const voisine = (c: number, l: number, dc: number, dl: number): Terrain | null => {
     const cc = c + dc;
     const ll = l + dl;
     if (cc < 0 || ll < 0 || cc >= COLONNES || ll >= LIGNES) return null;
-    return terrainDeCase(m, cc, ll);
+    return terrainDe(cc, ll);
   };
   const toucheLEau = (c: number, l: number) =>
     [voisine(c, l, 0, -1), voisine(c, l, 1, 0), voisine(c, l, 0, 1), voisine(c, l, -1, 0)].includes("haut-fond");
@@ -800,7 +845,7 @@ function placerLesPostes(m: Monde, atteint: Uint8Array): boolean {
         const p = centre(c, l);
         const distance = Math.hypot(p.x - eglise.x, p.y - eglise.y) / CASE;
         if (distance < minCases) continue;
-        const t = terrainDeCase(m, c, l);
+        const t = terrainDe(c, l);
         if (!condition(c, l, t)) continue;
         const s = score(c, l, distance);
         if (s <= meilleurScore) continue;

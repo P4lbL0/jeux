@@ -27,10 +27,11 @@ import {
  * n'en a pas toujours ete ainsi — la carte etait peinte ici **d'un seul bloc**
  * et poussee dans une unique texture de deux millions de pixels. Ce bloc-la
  * etait le dernier verrou d'architecture du projet : il coutait **1,0 s a x2 et
- * 2,2 s a x3** (mesure hors navigateur, donc un plancher), il gelait le jeu a
- * chaque village refuse — et il rendait la zone x3 carrement **impossible**,
- * parce que 4 243 pixels de large depassent la taille maximale de texture de
- * beaucoup de cartes graphiques (4 096).
+ * 1,5 s a x3** (mesure hors navigateur, donc un plancher), et il gelait le jeu
+ * a chaque village refuse. Il posait en plus un **plafond dur** : une texture
+ * unique ne depasse pas 4 096 pixels de cote sur beaucoup de cartes
+ * graphiques, ce qui bloquait la carte a deux fois sa largeur classique. x3 en
+ * surface passe encore (3 464 px) ; x4 n'aurait jamais pu.
  *
  * Depuis la nuit du 20 septembre 2026, on peint donc des **morceaux** : des carres du
  * monde, chacun avec son coin en pixels du monde (`x0`, `y0`), peints
