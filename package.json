@@ -12,7 +12,8 @@
     "sprites": "tsx scripts/blender/tout.ts",
     "intro": "tsx scripts/blender/intro.ts",
     "son": "tsx scripts/son/intro.ts",
-    "bruits": "tsx scripts/son/bruits.ts"
+    "bruits": "tsx scripts/son/bruits.ts",
+    "persos": "tsx scripts/blender/persos.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.2",

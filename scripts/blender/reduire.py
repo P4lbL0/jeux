@@ -57,13 +57,9 @@ ALPHA_OMBRE = 0.3     # comme `Toile.ombreAuSol`
 COUVERTURE = 0.5      # part du bloc qu'une matière doit couvrir pour exister
 
 
-def reduire(cle):
-    with open(os.path.join(TMP, f"{cle}.json"), encoding="utf-8") as f:
-        meta = json.load(f)
-    S, M = meta["sur"], meta["marge"]
-    ids = np.asarray(Image.open(os.path.join(TMP, f"{cle}_id.png")).convert("RGBA"), dtype=np.int32)
-    lum = np.asarray(Image.open(os.path.join(TMP, f"{cle}_lumiere.png")).convert("RGBA"),
-                     dtype=np.float64)
+def reduire_tableaux(ids, lum, meta):
+    """Le coeur de la reduction : deux rendus (matieres, lumiere) -> les pixels du jeu, marge comprise."""
+    S = meta["sur"]
     h, w = ids.shape[0] // S, ids.shape[1] // S
 
     # la matière de chaque pixel rendu : la couleur-code la plus proche, s'il
@@ -111,6 +107,17 @@ def reduire(cle):
     bord = voisin & ~opaque
     sortie[bord, :3] = rvb(PALETTE["contour"]).astype(np.uint8)
     sortie[bord, 3] = 255
+    return sortie
+
+
+def reduire(cle):
+    with open(os.path.join(TMP, f"{cle}.json"), encoding="utf-8") as f:
+        meta = json.load(f)
+    M = meta["marge"]
+    ids = np.asarray(Image.open(os.path.join(TMP, f"{cle}_id.png")).convert("RGBA"), dtype=np.int32)
+    lum = np.asarray(Image.open(os.path.join(TMP, f"{cle}_lumiere.png")).convert("RGBA"),
+                     dtype=np.float64)
+    sortie = reduire_tableaux(ids, lum, meta)
 
     # on recoupe le cadre du jeu, et on dit ce qui déborde
     W, H = meta["largeur"], meta["hauteur"]

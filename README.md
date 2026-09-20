@@ -429,6 +429,8 @@ npm run son                            # refait la bande-son, boucle les musique
 npm run son -- --chercher              # ... en cherchant les raccords des musiques sur tout le morceau
 npm run bruits -- --dossier <dossier>  # les planches d'ecoute des bruits de la partie (candidats CC0, page ecoute.html)
 npm run bruits -- --livrer             # pose les bruits choisis (CHOIX) dans src/assets/son/, le jeu les prend au demarrage
+npm run persos                         # les heros et les monstres en low-poly Blender, frame par frame -> planche a juger (rien de branche)
+npm run persos -- hero-mage --dossier <dossier>  # une famille, la planche ailleurs
 ```
 
 ⚠️ Un PNG depose dans `src/assets/` remplace le dessin au code sous la meme

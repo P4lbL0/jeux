@@ -1,24 +1,32 @@
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { C } from "../../src/game/ui/couleurs";
+import { CLASSES, ORDRE_CLASSES } from "../../src/core/classes";
 import {
   ARDOISE,
   BOIS,
+  CHAIR,
   CONTOUR,
   ECORCE,
   EAU,
   FER,
   FEUILLE,
   LAITON,
+  MONSTRE,
   PIERRE,
   ROCHE,
   SABLE,
+  SANG,
   SOL_VERT,
   SOUS_BOIS,
   TISSU,
   TOILE,
   TOIT_EGLISE,
+  desaturer,
+  matiere,
   melanger,
+  palir,
+  rebaser,
   type Matiere,
 } from "../../src/game/dessin/palette";
 
@@ -50,6 +58,18 @@ const MATIERES: Record<string, Matiere> = {
   sous_bois: SOUS_BOIS,
   sable: SABLE,
   eau: EAU,
+  // Les personnages (20 septembre 2026) : la peau, les os d'un mort, le sang
+  // des yeux des monstres, et les cinq chairs de bete de `monstres.ts`.
+  chair: CHAIR,
+  os: matiere(desaturer(melanger(C.os, C.fer, 0.1), 0.2)),
+  sang: SANG,
+  monstre: MONSTRE,
+  monstre_pale: palir(MONSTRE, 0.5),
+  monstre_bile: matiere(melanger(MONSTRE.corps, C.bile, 0.35)),
+  monstre_fer: matiere(melanger(MONSTRE.corps, C.fer, 0.25)),
+  monstre_sang: matiere(melanger(MONSTRE.corps, C.sangSeche, 0.3)),
+  // La tunique de chaque classe, rebasee dans le monde comme dans `heros.ts`.
+  ...Object.fromEntries(ORDRE_CLASSES.map((c) => [`classe_${c}`, rebaser(CLASSES[c].couleur)])),
 };
 
 // Les ouvertures (portes, fenetres) : le meme noir que `ouverture()` dans

@@ -1019,6 +1019,35 @@ demi-seconde. Un craquement du feu, 20 dB au-dessus du souffle, sonnait aussi fo
 cloche et dictait le volume de tout : les crêtes du feu sont arrondies (`adoucir`). **C'est à
 l'oreille d'Angelos de trancher le reste**, sur les trois vidéos d'écoute.
 
+### Les personnages en low-poly Blender — première planche (20 septembre 2026, à juger)
+
+Angelos a demandé, en même temps que le 7b, **de refaire les visuels des héros et des
+monstres et de les lui montrer**. Le §4.30 dit que tout le monde vise le low-poly Blender et
+que les personnages sont « le point dur, à tester avant de promettre ». C'est ce qui est
+fait : **un atelier de personnages** (`npm run persos`, `scripts/blender/persos.py`,
+`planche_persos.py`, `persos.ts`), **rien n'est branché dans le jeu** — le four continue de
+dessiner les sprites au code tant que la planche n'est pas jugée.
+
+- **Un rig humain** (`corps.ts` en boîtes : hanches, bassin, buste, cou, deux bras, deux
+  jambes, une main avant pour l'arme) et **un rig de bête** (corps ovoïde, 4 ou 6 pattes par
+  paires, tête + museau, yeux de sang, dos à épines / plaques / pustules, queue). Une pose est
+  un jeu d'angles, comme `posture()` ; les huit gestes des héros et les six des monstres sont
+  réécrits en Python avec les mêmes nombres de frames (le four les rejouerait tels quels).
+- **Les sept classes au palier 0 avec tous leurs gestes**, plus une frame de repos aux paliers
+  2 et 4 (plastron, cape, casque, laiton) ; les six archétypes (le revenant est l'humain aux
+  os, voûté). Les nombres des bêtes sont ceux de `monstres.ts` ramenés au cadre (×20/32).
+- **Même chaîne que les bâtiments** : deux passes (matières, lumière), palette étendue de douze
+  matières (chair, os, sang, cinq chairs de bête, sept tuniques de classe rebasées), codes de
+  matière sur deux canaux, réduction par `reduire.reduire_tableaux` (extrait de `reduire.py`).
+- **Ce qu'on regarde** : `captures/blender/2026-09-20-personnages/planche-personnages.png`
+  (Blender, une ligne par famille, tous les gestes, ×4), `planche-paliers.png`, et
+  `planche-personnages-actuel.png` (les mêmes lignes, dessinées par le code aujourd'hui,
+  `scripts/planche-personnages-actuel.ts`). Quelques pixels sortent encore du cadre de 20
+  sur l'attaque et la mort (l'épée, le corps couché) : à régler si la direction est gardée.
+- **Si Angelos valide** : écrire les planches `<famille>-planche.png` dans `src/assets/` et
+  apprendre au four (`four.ts`) à découper une planche livrée en frames et en animations au
+  lieu de la dessiner — une trentaine de lignes, prévues, pas écrites.
+
 ### Le bloc 7b — la forteresse (fait le 20 septembre 2026)
 
 **Portes, pierre, douves, pont-levis**, sur les décisions d'Angelos du matin (ouverture en

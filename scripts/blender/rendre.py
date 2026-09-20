@@ -30,9 +30,11 @@ MARGE = 12   # px du jeu autour du cadre, pour voir ce qui déborde
 
 with open(os.path.join(ICI, "palette.json"), encoding="utf-8") as f:
     PALETTE = json.load(f)
-# La couleur-code d'une matière : son rang dans la palette, écrit dans le rouge.
+# La couleur-code d'une matière : son rang dans la palette, écrit dans le rouge
+# puis, passé dix-neuf matières, dans le vert (les personnages en ont ajouté
+# douze le 20 septembre 2026).
 MATIERES = list(PALETTE["matieres"].keys()) + ["sol"]
-CODE = {nom: (20 + 12 * i, 40, 200) for i, nom in enumerate(MATIERES)}
+CODE = {nom: (20 + 12 * (i % 19), 40 + 70 * (i // 19), 200) for i, nom in enumerate(MATIERES)}
 
 
 def agrandi(fabrique, facteur):
