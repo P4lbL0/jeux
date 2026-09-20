@@ -90,8 +90,13 @@ export interface ContexteVillage {
  * d'atteinte, et seulement tant qu'elle tient debout (DESIGN.md §4.22).
  *
  * `defend` est le nouveau : un courageux ressorti se poster a ses portes.
+ *
+ * `parle` est le seul etat que le village ne conduit pas : c'est la scene qui
+ * mene celui qui sort nous parler a la porte, le jour ou l'on arrive (§4.29).
+ * Tant qu'il le porte, le village le laisse tranquille — sans quoi il
+ * repartirait travailler au milieu de sa phrase.
  */
-type EtatVillageois = "au-poste" | "en-route" | "fuite" | "abri" | "defend" | "mort";
+type EtatVillageois = "au-poste" | "en-route" | "fuite" | "abri" | "defend" | "parle" | "mort";
 
 /**
  * Ce que le corps d'un habitant montre de lui (§4.23, §4.30).
@@ -527,6 +532,41 @@ export class Village {
     );
   }
 
+  /**
+   * Celui qui sort nous parler quand on arrive a la porte (§4.29).
+   *
+   * **Le premier qui nous voit**, pas un personnage de plus a fabriquer : le
+   * vivant le plus proche de nous. S'ils sont tous rentres, on en fait sortir
+   * un — quelqu'un finit toujours par venir voir qui est devant le mur.
+   *
+   * @param cout ce qui mesure « proche ». Par defaut la distance a vol
+   *        d'oiseau ; la scene lui passe le **nombre de pas** de son champ de
+   *        directions, parce qu'un voisin de l'autre cote du mur n'est pas
+   *        proche du tout — il aurait tout le tour a faire.
+   */
+  appelerQuelquun(
+    x: number,
+    y: number,
+    cout: (v: Villageois) => number = (v) => Math.hypot(v.x - x, v.y - y),
+  ): Villageois | null {
+    let choisi: Villageois | null = null;
+    let meilleure = Infinity;
+    for (const v of this.habitants) {
+      if (!v.regles.vivant || v.etat === "abri") continue;
+      const d = cout(v);
+      if (d < meilleure) {
+        meilleure = d;
+        choisi = v;
+      }
+    }
+    if (choisi) return choisi;
+
+    const premier = this.habitants.find((v) => v.regles.vivant);
+    if (!premier) return null;
+    this.sortirDeLEglise(premier);
+    return premier;
+  }
+
   /** Combien tiennent ses portes. */
   get defenseurs(): number {
     return this.habitants.filter((v) => v.regles.vivant && v.etat === "defend").length;
@@ -571,7 +611,9 @@ export class Village {
 
     for (const villageois of this.habitants) {
       if (!villageois.regles.vivant) continue;
-      this.majorerUn(villageois, delta, rappel);
+      // Celui qui vient nous parler a la porte est mene par la scene : ici on
+      // ne fait que l'animer, pour qu'il marche comme tout le monde (§4.29).
+      if (villageois.etat !== "parle") this.majorerUn(villageois, delta, rappel);
       this.animerUn(villageois);
     }
 

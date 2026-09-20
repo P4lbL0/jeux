@@ -2,7 +2,14 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-09-20, au soir. **600 tests verts.**
+> Dernière mise à jour : 2026-09-20, tard le soir. **616 tests verts.**
+>
+> ✅ **La marche est codée** (§4.29, deuxième moitié du jalon 5.5) : une partie neuve ne
+> commence plus dans un village. On paraît seul par le bord le plus loin, on n'a qu'un cap,
+> la caméra dézoome seule, **rien du Protecteur ne tourne** tant qu'on marche — et à dix cases
+> d'une porte, **un habitant vient poser sa question** : *Veux-tu nous protéger ?* Accepter
+> fait commencer le jour 1 ; refuser, ou passer au large, mène au monde suivant. Détail à la
+> section « La marche ». ⚠️ **Refuser ne coûte encore rien** et l'errance n'est pas continue.
 >
 > ✅ **Le bloc 7z est fini et branché (10 septembre 2026) : tout ce qui se voit est dessiné
 > par le code, et il n'y a plus un seul PNG.** La direction est tranchée avec Angelos ce
@@ -41,11 +48,12 @@
 > Le **7a** reprend derrière (le mode d'aménagement est déjà debout, il reste les maisons
 > destructibles et le village en ruines), puis le **7b** (la forteresse : fer, portes, douves).
 >
-> ⚠️ **Et un jalon 5.5 neuf attend derrière tout le jalon 5** : le **nouveau départ**
-> (§4.29). Un seul héros, l'errance jusqu'au village qu'on choisit, le monde qui se fige
-> quand on s'installe, un **budget** qui fait payer chaque cadeau en menaces, des fronts de
-> **1 à 4**, et l'**écran-titre animé** (§4.10). **Rien n'en est codé**, et c'est voulu : ça
-> change ce que tous les blocs restants tiennent pour acquis.
+> ⚠️ **Le jalon 5.5, le nouveau départ** (§4.29), est **à moitié codé** depuis le 20 septembre
+> 2026 : un seul héros, une graine un monde (fronts de **1 à 4**), l'**écran-titre animé**
+> (§4.10), la zone jouable en paramètre, et **la marche** jusqu'à la question posée à la
+> porte. **Reste** : le refus qui se paie (le village entier qui nous attaque), l'errance
+> **continue** au lieu d'un monde par village, le village déjà peuplé, la zone qui se ferme à
+> l'installation, et le **budget** qui fait payer chaque cadeau en menaces.
 
 ---
 
@@ -1137,6 +1145,46 @@ c'est le socle dont tout le reste dépend.
 **600 tests verts** (+5 : la taille demandée est rendue, le monde reste jouable à chaque
 taille, le classique est intouchable, `MONDE` et `PRATICABLE` suivent le chargement).
 
+### La marche (20 septembre 2026, tard le soir)
+
+Deuxième bloc de la deuxième moitié du jalon 5.5 (§4.29), et le premier qui se voit : **une
+partie neuve ne commence plus dans un village**.
+
+- **`src/core/marche.ts`** (pur, 16 tests) : `ouLonParait` (le point le plus loin du village
+  sur le premier front, puis quelques pas vers l'intérieur), `capVers` (huit directions),
+  `paroleDuGardien` (ce qui s'est passé, combien ils sont, ce qui tient, ce qui rôde) et
+  `REGLAGES_MARCHE`. Un test **interdit** toute mention de maladie, de stress ou de réserves :
+  le §4.29 ne laisse dire que ce qui se voit de loin.
+- **`src/game/rencontre.ts`** : le panneau de la question. **Le seul du jeu où ce n'est pas
+  nous qui décidons qui entre** — c'est pour ça qu'il n'est pas un quatrième mode de la fiche
+  d'observation : ni portrait à examiner, ni question à poser, ni indice à recouper. Il se
+  pose **bas**, pour ne pas masquer les deux personnages qui se parlent (corrigé sur capture).
+- **La scène** porte l'état de la marche : le héros paraît au bord, le cycle est figé
+  (`cycle.avancer(0)`), les hordes, la porte, les survivants, le navire, la cloche,
+  l'aménagement et **la sauvegarde** sont fermés, et le compteur du village disparaît de
+  l'écran.
+- **Le dézoom d'entrée** (§4.10, tranché le 9 septembre, jamais codé jusqu'ici) : zoom 3,4 →
+  1,7 en 2,6 s après un fondu. Un coup de molette le reprend au joueur (§4.11).
+- ⚠️ **Celui qui vient a besoin d'un vrai chemin.** Première version : ligne droite. Vu en
+  jeu — il sortait, se collait au mur et y restait vingt secondes, vélocité à fond et position
+  figée. Il suit donc un **champ de directions** à lui (`parcours.ts`), avec sa règle :
+  `passeUnVillageois` **refuse** les murs, les tours, les maisons et les bâtiments là où
+  `passeUnMonstre` les traverse, parce qu'un monstre les *frappe* (§4.6).
+- ⚠️ **Et « le plus proche » se mesure en pas, pas à vol d'oiseau.** L'habitant le plus proche
+  était parfois de l'autre côté du mur, avec tout le tour à faire, pendant qu'un autre, dehors,
+  nous regardait. Le champ sait déjà dire le nombre de pas : `village.appelerQuelquun` prend
+  un coût, et la scène lui passe celui-là.
+- **Vérifié dans le navigateur** : `.tmp/verifier-marche.ts` (non commité, dossier ignoré),
+  19 contrôles — on paraît loin, rien ne rôde, rien n'est enregistré, le cycle est à l'arrêt,
+  quelqu'un vient, le panneau s'ouvre et met le jeu en pause, refuser rend la main, passer au
+  large donne **un autre monde**, accepter installe (jour 1, premier visiteur, sauvegarde,
+  temps qui repart). Trois passes de suite, zéro échec.
+- **Les scripts de capture démarrent avec `sansLaMarche: true`** : ils veulent le village, pas
+  la route qui y mène.
+- **À regarder** : `captures/jeu/2026-09-20-marche/`.
+
+**616 tests verts** (+16).
+
 ### Le bloc 7b — la forteresse (fait le 20 septembre 2026)
 
 **Portes, pierre, douves, pont-levis**, sur les décisions d'Angelos du matin (ouverture en
@@ -2146,7 +2194,7 @@ Deux questions de fond sont fermées, après l'annonce du plugin Unity officiel 
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (544)
+npx vitest run   # les tests (616)
 npm run build    # vérifie les types et construit
 
 npx tsx scripts/capturer.ts apres   # les captures du jeu, par Playwright, toujours au même endroit

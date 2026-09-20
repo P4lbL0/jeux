@@ -87,6 +87,21 @@ export class PanneauEtat {
     this.survie.setText(`survie ${resume.secondes}s  ·  ${resume.kills} elimines`);
   }
 
+  /**
+   * Le compteur s'efface pendant la marche (§4.29).
+   *
+   * Le jour, la population, la survie, les elimines : ce sont les chiffres
+   * **de notre village**, et tant qu'on n'a pas donne sa parole on n'en a pas.
+   * Les laisser afficherait « jour 1, 3 habitants » d'un village dont on ne
+   * sait rien, et dirait au joueur qu'il est deja chez lui.
+   */
+  montrer(visible: boolean): void {
+    this.fond.setVisible(visible);
+    this.moment.setVisible(visible);
+    this.habitants.setVisible(visible);
+    this.survie.setVisible(visible);
+  }
+
   detruire(): void {
     this.fond.destroy();
     this.moment.destroy();

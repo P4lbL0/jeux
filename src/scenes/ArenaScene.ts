@@ -39,6 +39,15 @@ import { abimerLeSol,
   ECHELLE_DU_MASQUE,
 } from "../game/dessin/carte";
 import { decrireLeMonde, graineDeMonde } from "../core/monde";
+import {
+  QUESTION_DU_GARDIEN,
+  REGLAGES_MARCHE,
+  annonceDArrivee,
+  capVers,
+  longueurDeLaMarche,
+  ouLonParait,
+  paroleDuGardien,
+} from "../core/marche";
 import { Parcours } from "../core/parcours";
 import { oublierLesPortraits } from "../game/portraits";
 import {
@@ -89,6 +98,7 @@ import {
 import { Affinites } from "../core/affinites";
 import {
   chargerLaGraine,
+  dansLeVillage,
   distanceALEau,
   EGLISE,
   estTerreFerme,
@@ -381,6 +391,16 @@ const ZOOM_MIN = 0.8;
 const ZOOM_MAX = 3.4;
 
 /**
+ * De combien il faut s'eloigner de la ou l'on a paru avant que quitter la
+ * carte veuille dire « je passe au large » (§4.29).
+ *
+ * Vingt cases : on parait a quarante pixels d'un bord, et il ne faut pas
+ * qu'un pas de trop dans la mauvaise direction, la premiere seconde, envoie
+ * au monde suivant.
+ */
+const DISTANCE_D_ARMEMENT = 640;
+
+/**
  * Part de la direction demandee par l'IA reprise a chaque image.
  *
  * Assez haut pour que le heros reste reactif, assez bas pour qu'un changement
@@ -651,6 +671,37 @@ export class ArenaScene extends Phaser.Scene {
   private competenceEnEvolution: CompetenceDef | null = null;
   private optionsEvolution: EvolutionDef[] = [];
 
+  // ------------------------------------------------------------- la marche
+
+  /**
+   * La marche (DESIGN.md §4.29) : tant qu'elle dure, **le village n'est pas le
+   * notre**.
+   *
+   * Rien de ce qui appartient au Protecteur ne tourne : pas de horde, pas de
+   * nuit, pas d'arrivant a la porte, pas de navire, pas d'amenagement, pas de
+   * sauvegarde. Le village, lui, vit sa vie — c'est ce qu'on vient regarder de
+   * loin avant de repondre (§4.29 : « on voit ce qui se voit de loin »).
+   */
+  private enMarche = false;
+  /** Le point ou l'on a paru : la sortie ne s'arme qu'une fois qu'on s'en est eloigne */
+  private departDeLaMarche: Point = { x: 0, y: 0 };
+  /** Vrai des qu'on a quitte le bord par lequel on est arrive : on peut alors passer au large */
+  private sortieArmee = false;
+  /** Combien de villages on a deja laisses derriere soi (§4.29 : refuser coute) */
+  private marches = 0;
+  /** Celui qui sort nous parler ; `null` tant que personne n'est venu */
+  private gardien: Villageois | null = null;
+  /** Son chemin jusqu'a nous : un champ de directions a lui, le temps qu'il vienne */
+  private cheminDuGardien: Parcours | null = null;
+  /** Le point vers lequel ce champ pointe : on ne le refait que si l'on s'en eloigne */
+  private cibleDuGardien: Point = { x: 0, y: 0 };
+  /** Vrai quand il a dit ce qu'il avait a dire : on ne le rappelle pas deux fois */
+  private rencontreFaite = false;
+  /** Vrai pendant le fondu qui nous emmene au monde suivant : plus rien ne doit se declencher */
+  private quitteLeMonde = false;
+  /** Le dezoom d'entree (§4.10) : le seul mouvement de camera automatique du jeu */
+  private entreeCamera: Phaser.Tweens.Tween | null = null;
+
   // ------------------------------------------------------------ la sauvegarde
 
   /** L'emplacement joue, de 1 a 3 (DESIGN.md §4.28) */
@@ -674,10 +725,24 @@ export class ArenaScene extends Phaser.Scene {
     graineVillage?: number;
     /** Pour rejouer un monde precis (les captures) ; sinon, tire au sort — zero est le classique */
     graineMonde?: number;
+    /** Combien de villages on a deja passes (§4.29) : on n'arrive pas neuf au troisieme */
+    marches?: number;
+    /** Pour les captures et les tests : commencer installe, sans la marche */
+    sansLaMarche?: boolean;
   }): void {
     this.registry.set("classe", data.classe ?? "guerrier");
     this.emplacement = data.emplacement ?? 1;
     this.reprise = data.reprise ?? null;
+    this.marches = data.marches ?? 0;
+    // On marche vers le village a chaque partie neuve (§4.29). Une partie
+    // reprise commence installee : elle a deja repondu, il y a des jours de
+    // cela. Et les captures peuvent s'en passer — elles veulent le village,
+    // pas la route qui y mene.
+    this.enMarche = !this.reprise && !data.sansLaMarche;
+    this.gardien = null;
+    this.rencontreFaite = false;
+    this.sortieArmee = false;
+    this.quitteLeMonde = false;
     // Une partie neuve tire son village ; une partie reprise garde le sien.
     // Une sauvegarde d'avant le generateur (18 septembre 2026) n'a pas de
     // graine : elle prend zero, toujours la meme, plutot qu'un village qui
@@ -927,6 +992,9 @@ export class ArenaScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, MONDE.largeur, MONDE.hauteur);
     this.cameras.main.setZoom(ZOOM_DEFAUT);
     this.cameras.main.startFollow(this.hero, true, 0.12, 0.12);
+    // La poursuite est lissee : sans ce cadrage, la premiere seconde de jeu se
+    // passe a rattraper le heros depuis l'angle de la carte (vu en capture).
+    this.cameras.main.centerOn(this.hero.x, this.hero.y);
     this.ouvrirLaMerAuHero(this.hero);
     this.configurerZoom();
     this.configurerTouches();
@@ -956,6 +1024,7 @@ export class ArenaScene extends Phaser.Scene {
     this.events.on("poste-habitant", this.tournerPosteCivil, this);
     this.events.on("saisie-clavier", (enCours: boolean) => (this.saisieEnCours = enCours), this);
     this.events.on("porte", this.repondreALaPorte, this);
+    this.events.on("rencontre-reponse", this.repondreALaRencontre, this);
     this.events.on("vendre", this.vendreAuNavire, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.events.off("choix-fait", this.resoudreChoix, this);
@@ -964,6 +1033,7 @@ export class ArenaScene extends Phaser.Scene {
       this.events.off("posture-habitant", this.tournerPostureCivile, this);
       this.events.off("poste-habitant", this.tournerPosteCivil, this);
       this.events.off("porte", this.repondreALaPorte, this);
+      this.events.off("rencontre-reponse", this.repondreALaRencontre, this);
       this.events.off("vendre", this.vendreAuNavire, this);
     });
 
@@ -977,16 +1047,10 @@ export class ArenaScene extends Phaser.Scene {
     if (this.reprise) {
       this.reprendreLaPartie(this.reprise);
       this.reprise = null;
+    } else if (this.enMarche) {
+      this.commencerLaMarche();
     } else {
-      this.events.emit("annonce", "Jour 1 — le village se reveille", "village");
-      // ⚠️ **Le premier visiteur est offert**, des le premier matin (decision du
-      // 10 aout 2026). Au rythme de croisiere — un tous les 2 a 3 jours, et une
-      // journee dure 45 minutes reelles — la premiere porte se serait ouverte
-      // apres deux heures de jeu. On peut apprendre un jeu pendant deux heures
-      // sans jamais rencontrer un de ses systemes : c'est ce qu'on evite ici.
-      // Le rythme, lui, ne bouge pas : il reprend des la deuxieme arrivee.
-      this.prochaineArriveeJournee = 1;
-      this.enregistrer();
+      this.sInstaller(false);
     }
 
     this.surveillerLaFermeture();
@@ -1097,6 +1161,10 @@ export class ArenaScene extends Phaser.Scene {
    */
   private enregistrer(force = false): void {
     if (!this.village) return;
+    // Tant qu'on marche, il n'y a pas de partie a sauver : on n'a pas encore
+    // de village (§4.29). Enregistrer ici ecraserait l'emplacement avec un
+    // village qui n'est pas le notre, et qu'on va peut-etre refuser.
+    if (this.enMarche) return;
 
     this.revision += 1;
     const sauvegarde = capturer(this.partieEnCours, this.time.now);
@@ -1319,10 +1387,373 @@ export class ArenaScene extends Phaser.Scene {
    */
   private composerEquipe(): void {
     const choisie = (this.registry.get("classe") as ClassId) ?? ORDRE_CLASSES[0]!;
-    const hero = new Hero(this, CITE.x, CITE.y + 60, CLASSES[choisie]);
+    // Une partie neuve ne commence plus au village : on parait au bord, par le
+    // front le plus loin, et on marche (§4.29). Une partie reprise retrouve son
+    // heros la ou la sauvegarde l'a laisse — ce point-ci n'est alors qu'un
+    // point de passage, remplace quelques lignes plus loin.
+    const depart = this.enMarche
+      ? ouLonParait(mondeCourant()).point
+      : { x: CITE.x, y: CITE.y + 60 };
+    this.departDeLaMarche = { ...depart };
+    const hero = new Hero(this, depart.x, depart.y, CLASSES[choisie]);
     hero.estIncarne = true;
     this.heros.push(hero);
     this.equipe.add(hero);
+  }
+
+  // ------------------------------------------------------- la marche (§4.29)
+
+  /** Vrai tant qu'on marche vers un village qui n'est pas encore le notre. */
+  get enChemin(): boolean {
+    return this.enMarche;
+  }
+
+  /**
+   * On parait loin, seul, et on marche (DESIGN.md §4.29).
+   *
+   * **Rien de ce qui appartient au Protecteur ne tourne encore** : le cycle est
+   * a l'arret (donc ni horde, ni nuit, ni arrivant, ni survivant, ni navire),
+   * et on n'enregistre pas — il n'y a pas encore de partie a sauver. Le village,
+   * lui, vit : c'est exactement ce qu'on vient voir de loin avant de repondre.
+   *
+   * La seule aide est une **direction**, en une phrase. La minimap a ete
+   * ecartee (§4.10) : chercher fait partie du chemin.
+   */
+  private commencerLaMarche(): void {
+    const monde = mondeCourant();
+    const cap = capVers(this.departDeLaMarche, monde.village);
+    console.log(
+      `[marche] village n${this.marches + 1} · ${Math.round(longueurDeLaMarche(monde, this.departDeLaMarche))} px ${cap}`,
+    );
+
+    this.prochaineArriveeJournee = null;
+    this.events.emit("annonce", annonceDArrivee(cap), "toi");
+    this.dezoomerALEntree();
+  }
+
+  /**
+   * L'entree en jeu : tres zoomee sur le heros, puis la camera dezoome seule
+   * (DESIGN.md §4.10, tranche le 9 septembre 2026).
+   *
+   * ⚠️ **C'est le seul mouvement de camera automatique du jeu.** Le §4.11
+   * verrouille le zoom libre : on ne prend la camera au joueur qu'une fois, au
+   * moment ou il n'a encore rien a faire. Un coup de molette pendant le
+   * mouvement l'annule — c'est sa camera, pas la notre.
+   */
+  private dezoomerALEntree(): void {
+    const cam = this.cameras.main;
+    cam.setZoom(ZOOM_MAX);
+    cam.fadeIn(700, 0, 0, 0);
+    this.entreeCamera = this.tweens.add({
+      targets: cam,
+      zoom: ZOOM_DEFAUT,
+      duration: 2600,
+      delay: 900,
+      ease: "Sine.easeInOut",
+      onComplete: () => (this.entreeCamera = null),
+    });
+  }
+
+  /**
+   * La marche, une fois par image : on regarde la porte, et on regarde le bord.
+   *
+   * Trois moments seulement, et ils s'excluent : quelqu'un vient vers nous, ou
+   * on est assez pres d'une porte pour qu'on nous voie, ou on s'en va.
+   */
+  private majMarche(): void {
+    if (!this.enMarche || this.quitteLeMonde) return;
+    const hero = this.hero;
+    if (!hero || hero.etat === "mort") return;
+
+    if (this.gardien) {
+      this.menerLeGardien(hero);
+      return;
+    }
+    if (!this.rencontreFaite) this.guetterLaPorte(hero);
+    this.guetterLeDepart(hero);
+  }
+
+  /** La porte la plus proche d'un point, en pixels du monde ; `null` s'il n'y en a aucune. */
+  private porteLaPlusProche(x: number, y: number): Point | null {
+    let choisie: Point | null = null;
+    let meilleure = Infinity;
+    for (const piece of this.planVillage.enceinte) {
+      if (piece.piece !== "porte") continue;
+      const centre = Grille.centreCase(piece.colonne, piece.ligne);
+      const d = Math.hypot(centre.x - x, centre.y - y);
+      if (d < meilleure) {
+        meilleure = d;
+        choisie = centre;
+      }
+    }
+    return choisie;
+  }
+
+  /**
+   * Est-on assez pres pour qu'on nous voie ? (§4.29, 20 septembre au soir)
+   *
+   * **On ne s'installe pas dans un village : on se presente a sa porte.** Dix
+   * cases avant, quelqu'un lache ce qu'il fait et vient vers nous.
+   */
+  private guetterLaPorte(hero: Hero): void {
+    const porte = this.porteLaPlusProche(hero.x, hero.y);
+    const cible = porte ?? { x: VILLAGE.x, y: VILLAGE.y };
+    const marge = porte ? 0 : VILLAGE.rayon;
+    const vu = Math.hypot(cible.x - hero.x, cible.y - hero.y) <= REGLAGES_MARCHE.vue + marge;
+    // ⚠️ **Ou dans le village, meme sans porte.** Une enceinte trouee se
+    // traverse par une breche, et un village ou l'on entre sans que personne ne
+    // vienne serait un village vide. On se presente a la porte quand il y en a
+    // une devant nous ; sinon, c'est d'etre entre qui nous annonce.
+    if (!vu && !dansLeVillage(hero.x, hero.y)) return;
+
+    // ⚠️ **Le champ de directions d'abord, celui qui vient ensuite.** Vu en
+    // jeu : l'habitant le plus proche a vol d'oiseau etait de l'autre cote du
+    // mur et mettait vingt secondes a faire le tour, pendant qu'un autre,
+    // dehors, nous regardait. On les compare donc en **pas de chemin**, ce que
+    // le champ sait deja dire.
+    const chemin = new Parcours(this.grille);
+    this.cheminDuGardien = chemin;
+    this.tracerLeCheminDuGardien(hero);
+    const gardien = this.village.appelerQuelquun(hero.x, hero.y, (v) => {
+      const pas = chemin.pasDepuis(v.x, v.y);
+      return pas < 0 ? Infinity : pas;
+    });
+    this.rencontreFaite = true;
+    if (!gardien) {
+      // Personne pour repondre : il n'y a plus de village a proteger, il n'y a
+      // qu'un endroit ou s'installer. Ca ne se produit pas au depart — trois
+      // habitants sont toujours la — mais la marche ne doit pas rester bloquee.
+      this.events.emit("annonce", "Personne ne vient. Ce village n'a plus de voix.", "toi");
+      this.sInstaller(false);
+      return;
+    }
+
+    gardien.etat = "parle";
+    this.gardien = gardien;
+    this.events.emit("annonce", `${gardien.nom} sort du village et vient vers toi`, "village");
+  }
+
+  /**
+   * Ou un habitant peut poser le pied.
+   *
+   * ⚠️ **Ce n'est pas `passeUnMonstre`, et l'ecart est tout le sujet** : un
+   * monstre traverse la liste des murs parce qu'il les **frappe** (§4.6) ;
+   * celui qui vient nous parler, lui, sort par la porte. Un mur, une tour, une
+   * maison, un batiment l'arretent — la porte, une ruine et un champ non.
+   */
+  private passeUnVillageois(c: Case): boolean {
+    if (c.terrain !== "sable" && c.terrain !== "herbe" && c.terrain !== "sous-bois") return false;
+    if (c.occupation === "mur" || c.occupation === "tour") return false;
+    if (c.occupation === "batiment" || c.occupation === "maison") return false;
+    if (c.occupation !== "douve-eau") return true;
+    const douve = this.constructions.en(c.colonne * CASE + CASE / 2, c.ligne * CASE + CASE / 2);
+    return douve !== null && (douve.pont || douve.enjambee);
+  }
+
+  /**
+   * Le champ de directions qui mene le gardien jusqu'a nous.
+   *
+   * ⚠️ **Il en faut un, la ligne droite ne suffit pas** : vu en jeu — il
+   * sortait de sa maison, marchait droit sur nous et restait colle au mur
+   * pendant vingt secondes, velocite a fond et position figee. C'est le meme
+   * probleme que les monstres depuis le §4.29, et la meme reponse
+   * (`parcours.ts`), avec sa regle a lui : un habitant contourne les murs au
+   * lieu de les frapper.
+   *
+   * Il se refait **quand on s'est deplace**, pas par image (§4.17).
+   */
+  private tracerLeCheminDuGardien(hero: Hero): void {
+    this.cibleDuGardien = { x: hero.x, y: hero.y };
+    this.cheminDuGardien?.recalculer(this.cibleDuGardien, (c) => this.passeUnVillageois(c));
+  }
+
+  /** Il marche vers nous, et il parle quand il y est. */
+  private menerLeGardien(hero: Hero): void {
+    const gardien = this.gardien;
+    if (!gardien || !gardien.regles.vivant) {
+      this.gardien = null;
+      return;
+    }
+
+    const d = Math.hypot(hero.x - gardien.x, hero.y - gardien.y);
+    if (d > REGLAGES_MARCHE.parole) {
+      const chemin = this.cheminDuGardien;
+      if (chemin && Math.hypot(hero.x - this.cibleDuGardien.x, hero.y - this.cibleDuGardien.y) > 120) {
+        this.tracerLeCheminDuGardien(hero);
+      }
+      // Droit sur nous quand la voie est libre, le champ sinon — la meme regle
+      // qu'un monstre qui contourne un lac (§4.29).
+      const droit =
+        chemin === null || chemin.ligneLibre(gardien, hero, (c) => this.passeUnVillageois(c));
+      const vers = droit
+        ? { x: (hero.x - gardien.x) / d, y: (hero.y - gardien.y) / d }
+        : chemin.direction(gardien.x, gardien.y);
+      if (vers) {
+        gardien.setVelocity(vers.x * REGLAGES_MARCHE.vitesse, vers.y * REGLAGES_MARCHE.vitesse);
+      } else {
+        // Aucun chemin : il ne peut pas nous rejoindre (on est de l'autre cote
+        // d'un lac). Il parle de la ou il est plutot que de pietiner.
+        gardien.setVelocity(0, 0);
+        this.ouvrirLaRencontre(gardien);
+      }
+      return;
+    }
+
+    gardien.setVelocity(0, 0);
+    orienter(gardien, hero.x - gardien.x, SEUIL_REGARD_PIXELS);
+    this.ouvrirLaRencontre(gardien);
+  }
+
+  /**
+   * Ce qu'il raconte, et sa question.
+   *
+   * ⚠️ **La parole se tire de la graine du monde**, pas du `Rng` de la partie :
+   * un meme monde raconte toujours la meme histoire, comme il a toujours la
+   * meme mer. Et elle ne dit que ce qui se voit de loin (§4.29) — c'est
+   * `core/marche.ts` qui tient cette regle, pas la scene.
+   */
+  private ouvrirLaRencontre(gardien: Villageois): void {
+    const enceinte = this.planVillage.enceinte;
+    const parole = paroleDuGardien(
+      {
+        habitants: this.village.habitants.filter((v) => v.regles.vivant).length,
+        mursDebout: enceinte.filter((p) => p.piece !== "ruine").length,
+        breches: enceinte.filter((p) => p.piece === "ruine").length,
+        douves: this.planVillage.douves.length > 0,
+        fronts: frontsOuverts(),
+      },
+      new Rng(this.graineMonde + 1),
+    );
+
+    this.enPause = true;
+    this.debutPause = this.time.now;
+    this.physics.pause();
+    this.anims.pauseAll();
+    this.effacerDestination();
+    this.events.emit("rencontre", {
+      nom: gardien.nom,
+      lignes: parole,
+      question: QUESTION_DU_GARDIEN,
+    });
+  }
+
+  /**
+   * La reponse (§4.29, 20 septembre 2026 au soir).
+   *
+   * ⚠️ **Refuser ne coute encore rien, et c'est une dette assumee.** Le design
+   * dit qu'un village qu'on laisse mourir peut se jeter sur nous, tous
+   * ensemble : ca demande des humains hostiles, donc de l'or et de
+   * l'experience sur leurs cadavres, donc les deux traits du §4.23 qui
+   * regardent qui est en face. C'est le morceau suivant, pas celui-ci.
+   */
+  private repondreALaRencontre(accepte: boolean): void {
+    this.reprendreLeJeu();
+
+    const gardien = this.gardien;
+    this.gardien = null;
+    this.cheminDuGardien = null;
+    if (gardien) {
+      gardien.setVelocity(0, 0);
+      gardien.etat = "en-route";
+    }
+
+    if (accepte) {
+      this.sInstaller(true);
+      return;
+    }
+    this.events.emit(
+      "annonce",
+      "Tu as dit non. Reprends la route — le prochain est plus loin.",
+      "toi",
+    );
+  }
+
+  /**
+   * On s'en va : par n'importe quel bord, et le monde d'apres est un autre
+   * monde (§4.29, « on ne revient jamais en arriere »).
+   *
+   * ⚠️ La sortie ne s'arme qu'une fois qu'on s'est eloigne de la ou l'on a
+   * paru : on nait a quarante pixels d'un bord, et repartir dans la seconde
+   * n'est pas un choix, c'est un accident de geometrie.
+   */
+  private guetterLeDepart(hero: Hero): void {
+    if (!this.sortieArmee) {
+      const parcouru = Math.hypot(
+        hero.x - this.departDeLaMarche.x,
+        hero.y - this.departDeLaMarche.y,
+      );
+      if (parcouru > DISTANCE_D_ARMEMENT) this.sortieArmee = true;
+      return;
+    }
+
+    const bord = 48;
+    const dedans =
+      hero.x > PRATICABLE.x + bord &&
+      hero.x < PRATICABLE.x + PRATICABLE.largeur - bord &&
+      hero.y > PRATICABLE.y + bord &&
+      hero.y < PRATICABLE.y + PRATICABLE.hauteur - bord;
+    if (dedans) return;
+
+    this.passerAuLarge();
+  }
+
+  /**
+   * Le village suivant : un autre monde, tire d'une autre graine.
+   *
+   * ⚠️ **Ce n'est pas encore l'errance du §4.29**, et il faut le dire : le
+   * design veut un monde qui se genere **devant** le joueur, a l'infini, et des
+   * villages qui s'espacent a chaque refus. Ici, chaque village est un monde
+   * entier qu'on recommence — ce qui donne le meme geste (on passe, on marche
+   * plus loin, on ne revient pas) sans la continuite. La continuite attend que
+   * la carte se peigne par morceaux au lieu d'un bloc : c'est la meme limite
+   * qui a fait livrer la zone jouable a x2 plutot qu'a x3 (`monde.ts`).
+   */
+  private passerAuLarge(): void {
+    this.quitteLeMonde = true;
+    this.events.emit("annonce", "Tu passes au large. La route continue.", "toi");
+    const cam = this.cameras.main;
+    cam.fadeOut(700, 0, 0, 0);
+    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.stop("ui");
+      this.scene.start("arena", {
+        classe: this.registry.get("classe") as ClassId,
+        emplacement: this.emplacement,
+        marches: this.marches + 1,
+      });
+    });
+  }
+
+  /**
+   * On s'installe : le jour 1 commence ici, et pas avant.
+   *
+   * C'est ce moment-la qui remplace l'ancien depart du jeu — village fixe,
+   * sept heros, jour 1 des la premiere image. Tout ce qui etait fait dans
+   * `create` a la naissance d'une partie neuve est fait ici : le premier
+   * visiteur offert, le compte a rebours des hordes, et la premiere sauvegarde.
+   *
+   * @param donneeALaParole vrai quand on vient de repondre a la porte ; faux
+   *        quand la partie commence deja installee (une capture, un test)
+   */
+  private sInstaller(donneeALaParole: boolean): void {
+    this.enMarche = false;
+    this.gardien = null;
+
+    if (donneeALaParole) {
+      this.events.emit("annonce", "Tu as donne ta parole. Ce village est le tien.", "toi");
+    }
+    this.events.emit("annonce", "Jour 1 — le village se reveille", "village");
+    // ⚠️ **Le premier visiteur est offert**, des le premier matin (decision du
+    // 10 aout 2026). Au rythme de croisiere — un tous les 2 a 3 jours — la
+    // premiere porte se serait ouverte apres des heures de jeu. On peut
+    // apprendre un jeu pendant deux heures sans jamais rencontrer un de ses
+    // systemes : c'est ce qu'on evite ici. Le rythme, lui, ne bouge pas.
+    this.prochaineArriveeJournee = 1;
+    // Le temps de la partie commence a l'installation : la marche n'est pas du
+    // temps de survie, et les hordes ne doivent pas avoir couru pendant.
+    this.debut = this.time.now;
+    this.prochaineApparition = this.time.now + 1200;
+    this.programmerHorde();
+    this.enregistrer();
   }
 
   /**
@@ -1722,6 +2153,11 @@ export class ArenaScene extends Phaser.Scene {
 
   private configurerZoom(): void {
     this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => {
+      // Un coup de molette reprend la camera au dezoom d'entree : le §4.11
+      // promet un zoom libre, et une animation qui tire dans l'autre sens
+      // pendant qu'on regle le sien serait exactement le contraire.
+      this.entreeCamera?.stop();
+      this.entreeCamera = null;
       const cam = this.cameras.main;
       cam.setZoom(Phaser.Math.Clamp(cam.zoom - dy * 0.0016, ZOOM_MIN, ZOOM_MAX));
     });
@@ -2055,7 +2491,9 @@ export class ArenaScene extends Phaser.Scene {
     this.majCycle(delta);
     this.survivants.mettreAJour();
     this.eglise.majorer(delta, this.time.now);
-    this.majPort(delta);
+    // Le port est un acquis du village, pas de celui qui passe devant : aucun
+    // navire n'accoste tant qu'on n'a pas donne sa parole (§4.29).
+    if (!this.enMarche) this.majPort(delta);
     this.village.majorer(delta);
     this.recolterALaMain(delta);
     this.majFantome();
@@ -2064,7 +2502,11 @@ export class ArenaScene extends Phaser.Scene {
     this.majPortes();
     // Les champs poussent une fois par seconde, jamais par image (§4.17).
     this.champs.majorer(this.time.now, this.village.auTravail("fermier"), this.village.stocks);
-    this.fairePartirLesVagues();
+    // Tant qu'on marche, les nuits n'ont pas commence : on ne defend pas encore
+    // ce village, et il n'est pas attaque pour nous faire une demonstration
+    // (§4.29). C'est l'installation qui lance le compte a rebours.
+    if (this.enMarche) this.majMarche();
+    else this.fairePartirLesVagues();
     this.majPoses();
     this.majTeintes();
     // Le micro-gel se rend la main tout seul, sur horodatage.
@@ -3295,6 +3737,8 @@ export class ArenaScene extends Phaser.Scene {
 
   private sonnerLaCloche(): void {
     this.lacherLOutil();
+    // La cloche d'un village qu'on n'a pas encore accepte ne nous obeit pas.
+    if (this.enMarche) return;
     this.village.sonnerCloche();
     // Les portes ne se ferment pas a la seconde : elles attendent que plus
     // personne ne soit dehors (§4.20, bloc 7b). C'est `majPortes` qui regarde.
@@ -3346,6 +3790,13 @@ export class ArenaScene extends Phaser.Scene {
 
     if (this.amenagement) {
       this.fermerAmenagement();
+      return;
+    }
+
+    // On n'amenage pas le village des autres (§4.29) : tant qu'on n'a pas
+    // donne sa parole, on n'est qu'un etranger devant un mur.
+    if (this.enMarche) {
+      this.events.emit("annonce", "Ce village n'est pas le tien.", "toi");
       return;
     }
 
@@ -5141,13 +5592,19 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private majCycle(delta: number): void {
-    const bascule = this.cycle.avancer(delta);
+    // ⚠️ **Le temps ne commence qu'a l'installation** (§4.29) : pendant la
+    // marche le cycle est a l'arret, et tout ce qui pend a lui avec — la nuit,
+    // la porte, l'appel d'un survivant. On garde le ciel, pour qu'il ait la
+    // couleur du jour, et rien d'autre.
+    const bascule = this.cycle.avancer(this.enMarche ? 0 : delta);
 
     if (bascule === "crepuscule") this.tomberLaNuit();
     else if (bascule === "aube") this.leverLeJour();
 
-    this.regarderLaPorte();
-    this.regarderLHorizon();
+    if (!this.enMarche) {
+      this.regarderLaPorte();
+      this.regarderLHorizon();
+    }
     this.teinterLeCiel();
   }
 

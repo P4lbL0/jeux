@@ -721,6 +721,13 @@ Une planche de propositions a servi de test, et elle a fait remonter trois défa
 
 ## Tranché récemment
 
+- ✅ **La marche est codée** (20 septembre 2026, au soir) : on paraît par le bord le plus loin,
+  on n'a qu'un **cap** en une phrase, la caméra dézoome seule à l'entrée, **rien du Protecteur
+  ne tourne** tant qu'on marche (ni cycle, ni horde, ni porte, ni navire, ni sauvegarde), un
+  habitant vient poser sa question, accepter fait commencer le jour 1, refuser ou passer au
+  large mène au monde suivant. ⚠️ **Refuser ne coûte encore rien** et l'errance n'est pas
+  continue : chaque village est un monde qu'on recommence, faute d'une carte qui se peigne par
+  morceaux (§4.29, §5)
 - ✅ Garde-fou de la permadeath → **la règle des 20% + le totem d'immortalité** (§4.3)
 - ✅ Tous les héros morts → **fin de partie**
 - ✅ Village tombé → **fin de partie**

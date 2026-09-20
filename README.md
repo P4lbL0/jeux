@@ -38,6 +38,31 @@ musique de guerre **toute la nuit** et **des qu'un heros se bat**, en fondu ench
 une coupure. La bande-son se refait avec `npm run son` (sons libres de droits, credits dans
 `src/assets/son/CREDITS.md`).
 
+### Le debut d'une partie : la marche (§4.29)
+
+On ne commence plus **dans** un village. On **parait seul** par le bord le plus loin du
+monde tire — quinze a vingt secondes de marche —, la camera est d'abord tres zoomee puis
+dezoome toute seule, et le journal ne donne qu'un **cap** : « Tu es seul. De la fumee monte
+au SUD-EST. » Pas de minimap : chercher fait partie du chemin.
+
+Tant qu'on marche, **rien de ce qui appartient au Protecteur ne tourne** : pas de nuit, pas
+de horde, personne a la porte, pas de navire, pas d'amenagement, et **aucune sauvegarde** —
+il n'y a pas encore de partie a sauver. Le village, lui, vit : ses habitants travaillent
+dehors, et c'est ce qu'on vient regarder de loin.
+
+A dix cases d'une porte, **un habitant lache son travail et vient nous parler**. Il raconte
+ce qui s'est passe, combien ils sont, ce qui tient encore, ce qui rode — jamais leurs
+maladies ni leurs reserves —, puis il pose **sa** question : *Veux-tu nous proteger ?*
+
+- **« Je vous protegerai »** : le jeu commence. Jour 1, le premier visiteur, les hordes, la
+  premiere sauvegarde.
+- **« Je passe mon chemin »** : la route continue. On quitte la carte par n'importe quel
+  bord, et le village suivant est **un autre monde**. On ne revient jamais en arriere.
+
+⚠️ Deux choses du §4.29 **manquent encore** : refuser en face ne coute rien (le village qui
+se jette sur nous vient apres), et l'errance n'est pas continue — chaque village est un
+monde qu'on recommence, tant que la carte se peint d'un seul bloc.
+
 ### La sauvegarde et le compte (§4.28)
 
 La partie s'enregistre **sur cet appareil**, dans le `localStorage`, sur trois
@@ -315,9 +340,13 @@ des breches.
 
 ## La carte
 
-Le village est adosse a la **mer** a l'ouest et a la **montagne** au sud
-(DESIGN.md §4.6). Ces deux bords sont **infranchissables** : les monstres ne
-peuvent arriver que du **nord** ou de l'**est**.
+**Une graine, un monde** (DESIGN.md §4.29, `src/core/monde.ts`). La carte n'est plus une
+formule unique : chaque partie tire la sienne, par assemblage de regles — la **mer** sur un
+des quatre bords ou absente, un **relief** (une chaine le long d'un bord, un massif au
+milieu, un piton), un **lac**, des **bois**, puis le **village** pose sur l'herbe pres d'une
+eau, et ses **postes** cherches sur le terrain. La graine **zero** rend la carte d'avant le
+20 septembre 2026 — mer a l'ouest, montagne au sud, village dans l'angle —, celle des
+sauvegardes anciennes et des tests.
 
 ```
                     ↓ front nord
@@ -327,15 +356,16 @@ peuvent arriver que du **nord** ou de l'**est**.
    ~ plage  ~ |                                |
    ~~~~~~~~~~ +--------------------------------+
                 MONTAGNE   ·   FORET
+            (la graine zero : la carte d'avant)
 ```
 
-Les fronts s'ouvrent **progressivement**, et toujours **annonces** : le nord
-seul jusqu'a la vague 4, l'un des deux jusqu'a la 9, les deux ensuite. Ouvrir un
-flanc est un levier de difficulte qui ne change aucun chiffre — il change **ou
-il faut etre**.
+Les **fronts** sont les bords par lesquels on entre a pied : de **un a quatre** selon le
+monde. Ils s'ouvrent **progressivement**, et toujours **annonces** : le plus loin du village
+seul jusqu'a la vague 4, un seul tire au sort jusqu'a la 9, deux ensuite. Ouvrir un flanc
+est un levier de difficulte qui ne change aucun chiffre — il change **ou il faut etre**.
 
-Trois **postes de travail** sont traces sur la carte : la plage, la mine et la
-foret. Un habitant y travaille en continu, et le joueur peut y recolter lui-meme
+Quatre **postes de travail** sont cherches sur le terrain : la plage, la mine, la foret et
+les champs. Un habitant y travaille en continu, et le joueur peut y recolter lui-meme
 **en frappant** — mais seulement le jour. Ce sont les endroits que la defense
 doit couvrir : c'est la qu'on a quelque chose a perdre.
 
@@ -350,7 +380,13 @@ src/
     ia.ts            decisions des heros joues par l'IA (fonction pure, testee)
     ordres.ts        postures, formations et postes (fonction pure, testee)
     affinites.ts     experience de groupe par paire de heros (testee)
-    carte.ts         terrain, flancs fermes et fronts (fonction pure, testee)
+    monde.ts         une graine, un monde : mer, relief, lacs, bois, village,
+                     postes et fronts, par assemblage de regles (testee)
+    carte.ts         la facade du monde charge : terrain et fronts (testee)
+    marche.ts        la marche : ou l'on parait, le cap, et ce que dit celui
+                     qui tient la porte (testee)
+    parcours.ts      le champ de directions : contourner l'eau et la roche,
+                     et sortir par la porte (testee)
     cycle.ts         le jour, la nuit, les effectifs et les hordes (testee)
     habitants.ts     metiers, cadence, progression et faim (testee)
     arrivants.ts     la porte : indices, questions, degres de folie,

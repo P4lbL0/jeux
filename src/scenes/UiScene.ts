@@ -10,6 +10,7 @@ import { PanneauVillage } from "../game/panneauVillage";
 import { PanneauPort } from "../game/panneauPort";
 import type { Hero } from "../game/entities";
 import { BoiteJournal } from "../game/journal";
+import { PanneauRencontre, type ParoleDeRencontre } from "../game/rencontre";
 import { PanneauEtat } from "../game/ui/panneauEtat";
 import { POLICE } from "../game/ui/chrome";
 import type { ArenaScene } from "./ArenaScene";
@@ -39,6 +40,7 @@ export class UiScene extends Phaser.Scene {
   private port!: PanneauPort;
   private etat!: PanneauEtat;
   private boiteJournal!: BoiteJournal;
+  private rencontre!: PanneauRencontre;
 
   constructor() {
     super("ui");
@@ -87,6 +89,10 @@ export class UiScene extends Phaser.Scene {
 
     this.boiteJournal = new BoiteJournal(this);
 
+    // La rencontre a la porte (§4.29) : le seul panneau ou c'est quelqu'un
+    // d'autre qui pose la question, et nous qui repondons.
+    this.rencontre = new PanneauRencontre(this);
+
     // « ? » deplie la ligne des touches (§4.10). L'arene garde la main sur la
     // touche parce que c'est elle qui sait si une saisie est en cours — taper
     // un nom ne doit pas ouvrir l'aide.
@@ -98,6 +104,7 @@ export class UiScene extends Phaser.Scene {
     evenements.on("fin-de-partie", this.afficherFin, this);
     evenements.on("basculer-village", this.basculerVillage, this);
     evenements.on("arrivant", this.ouvrirLaPorte, this);
+    evenements.on("rencontre", this.ouvrirLaRencontre, this);
     evenements.on("basculer-port", this.basculerPort, this);
     // Sans ce nettoyage, les ecouteurs s'empileraient a chaque nouvelle partie.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -106,6 +113,7 @@ export class UiScene extends Phaser.Scene {
       evenements.off("fin-de-partie", this.afficherFin, this);
       evenements.off("basculer-village", this.basculerVillage, this);
       evenements.off("arrivant", this.ouvrirLaPorte, this);
+      evenements.off("rencontre", this.ouvrirLaRencontre, this);
       evenements.off("basculer-port", this.basculerPort, this);
       evenements.off("basculer-aide", this.basculerAide, this);
     });
@@ -162,6 +170,22 @@ export class UiScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * Quelqu'un vient nous parler a la porte du village ou l'on arrive (§4.29).
+   *
+   * C'est le renversement du nouveau depart : la fiche d'observation nous
+   * demande « le laisse-t-on entrer ? », celui-ci nous demande « veux-tu nous
+   * proteger ? ». Le jeu est deja en pause quand on arrive ici : la scene s'en
+   * charge avant d'emettre, comme pour la porte et le choix de competence.
+   */
+  private ouvrirLaRencontre(parole: ParoleDeRencontre): void {
+    this.rencontre.afficher(
+      parole,
+      () => this.arene.events.emit("rencontre-reponse", true),
+      () => this.arene.events.emit("rencontre-reponse", false),
+    );
+  }
+
   /** La meme fiche, pour un habitant (DESIGN.md §4.10). */
   private ouvrirFicheHabitant(index: number): void {
     const villageois = this.arene.village.habitants[index];
@@ -206,7 +230,11 @@ export class UiScene extends Phaser.Scene {
     this.capacites.rafraichir();
     this.village.rafraichir(this.arene.etatVillage);
     this.port.rafraichir(this.arene.etatPort);
-    this.etat.rafraichir(this.arene.etatVillage, this.arene.resume, this.time.now);
+    // Le compteur du village n'existe pas tant qu'on n'a pas de village (§4.29).
+    this.etat.montrer(!this.arene.enChemin);
+    if (!this.arene.enChemin) {
+      this.etat.rafraichir(this.arene.etatVillage, this.arene.resume, this.time.now);
+    }
 
     this.boiteJournal.rafraichir(this.arene.journal);
   }

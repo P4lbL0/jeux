@@ -97,7 +97,7 @@ try {
     const jeu = (window as unknown as Fenetre).__jeu!;
     jeu.scene.stop("titre");
     if (jeu.scene.isActive("menu")) jeu.scene.stop("menu");
-    jeu.scene.start("arena", { classe: "guerrier", emplacement: 1, graineVillage: 7 });
+    jeu.scene.start("arena", { classe: "guerrier", emplacement: 1, graineVillage: 7, sansLaMarche: true });
   });
   await page.waitForFunction(
     () => {

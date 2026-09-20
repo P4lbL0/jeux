@@ -114,7 +114,7 @@ const lancer = async (graineMonde: number) => {
     const jeu = (window as unknown as Fenetre).__jeu!;
     jeu.scene.stop("titre");
     if (jeu.scene.isActive("menu")) jeu.scene.stop("menu");
-    jeu.scene.start("arena", { classe: "guerrier", emplacement: 1, graineVillage: 7, graineMonde: g });
+    jeu.scene.start("arena", { classe: "guerrier", emplacement: 1, graineVillage: 7, graineMonde: g, sansLaMarche: true });
   }, graineMonde);
   await page.waitForFunction(
     () => {

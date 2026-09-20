@@ -89,7 +89,7 @@ try {
       jeu.scene.stop("titre");
       if (jeu.scene.isActive("menu")) jeu.scene.stop("menu");
       // Un village different par monde, pour voir aussi le generateur de village.
-      jeu.scene.start("arena", { classe: "guerrier", emplacement: 1, graineMonde: g, graineVillage: 7 + g });
+      jeu.scene.start("arena", { classe: "guerrier", emplacement: 1, graineMonde: g, graineVillage: 7 + g, sansLaMarche: true });
     }, graine);
     await page.waitForFunction(
       () => {

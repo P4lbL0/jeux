@@ -111,14 +111,18 @@ Le §4.29 est **le mode principal et le seul**. La moitié faite : un héros, un
 on tombe où le sort veut. La moitié qui reste, **découpée en blocs courts** que je valide un
 par un :
 
-4. **L'errance** : on apparaît loin de tout, le monde se génère devant, jamais derrière ; le
-   premier village arrive en deux à trois minutes de marche ; refuser coûte (le suivant est
-   deux fois plus loin). Aujourd'hui `MONDE` fait 2000 × 1500 en constante : la zone jouable
-   doit devenir un **paramètre** (§4.29, « on monte de ×1 à ×3 en mesurant »).
-5. **Le village qu'on choisit** : on voit de loin le terrain, la taille, les défenses
-   debout, les habitants dehors — jamais les maladies, le stress, les réserves ; un village
-   déjà peuplé (le générateur pose déjà douves et ponts-levis, il lui manque les gens et les
-   stocks) ; le monde se fige quand on s'installe.
+4. ✅ **La zone jouable en paramètre** (20 septembre au soir) : `MONDE` est une façade,
+   `TAILLE_JOUABLE` vaut **×2**, mesuré — c'est la peinture de la carte qui plafonne.
+4bis. ✅ **La marche** (20 septembre, tard) : on paraît par le bord le plus loin, un cap en une
+   phrase, la caméra dézoome seule, rien du Protecteur ne tourne, **quelqu'un vient poser sa
+   question à la porte**, accepter installe, refuser ou passer au large mène au monde suivant.
+   ⚠️ **Deux manques assumés** : refuser en face ne coûte rien (le village qui nous attaque
+   tous ensemble, §4.29, est le morceau suivant), et l'errance n'est **pas continue** — chaque
+   village est un monde qu'on recommence, tant que la carte se peint d'un seul bloc.
+5. **Le village qu'on choisit** : un village **déjà peuplé** (le générateur pose déjà douves
+   et ponts-levis, il lui manque les gens et les stocks) ; **le monde se fige** quand on
+   s'installe (`TAILLE_JOUABLE` existe, rien ne la pose encore). Ce qu'on voit de loin et ce
+   qu'on nous cache est déjà tenu par `core/marche.ts`.
 6. **Le budget cadeaux / menaces** : un seul nombre, une seule table, annoncé en une phrase
    avant d'entrer ; les fronts de un à quatre (la presqu'île à un seul front n'est jamais
    tirée aujourd'hui : à ajouter au générateur).
