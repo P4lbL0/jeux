@@ -527,8 +527,9 @@ function lisezmoi(durees: Map<string, number[]>): string {
  * (`bruit-<evenement>.ogg` et `.mp3`) et leurs credits.
  */
 const CHOIX: Record<string, number> = {
-  // Angelos, le 20 septembre 2026, sur la page d'ecoute. Pas de « sort » : aucun
-  // des trois ne va, il veut une boule de feu ou une incantation — a rechercher.
+  // Angelos, le 20 septembre 2026, sur la page d'ecoute. Le « sort » est venu
+  // d'une deuxieme planche : les trois premiers n'allaient pas, il voulait une
+  // boule de feu ou une incantation — c'est la boule de feu.
   pioche: 1,
   hache: 2,
   semis: 2,
@@ -539,6 +540,7 @@ const CHOIX: Record<string, number> = {
   toux: 1,
   lame: 3,
   tir: 2,
+  sort: 1,
   morsure: 4,
   chute: 1,
 };

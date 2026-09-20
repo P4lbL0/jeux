@@ -17,6 +17,7 @@ Choisis par Angelos sur les planches d'ecoute (`npm run bruits`), poses par
 | toux | [Old Man Cough](https://opengameart.org/content/old-man-cough) | AntumDeluge | CC0 |
 | lame | [3 Melee sounds](https://opengameart.org/content/3-melee-sounds) | remaxim | CC0 |
 | tir | [Swishes Sound Pack](https://opengameart.org/content/swishes-sound-pack) | artisticdude | CC0 |
+| sort | [Fireball (Julien Matthey, relaye en CC0)](https://opengameart.org/content/fireball-1) | diligentcircle | CC0 |
 | morsure | [Tiny vicious creature](https://opengameart.org/content/tiny-vicious-creature) | Darsycho | CC0 |
 | chute | [Impact Sounds (impactSoft_heavy_000)](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 |
 | chute | [RPG Audio (cloth3)](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 |
