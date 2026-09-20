@@ -88,7 +88,8 @@ try {
       const jeu = (window as unknown as Fenetre).__jeu!;
       jeu.scene.stop("titre");
       if (jeu.scene.isActive("menu")) jeu.scene.stop("menu");
-      jeu.scene.start("arena", { classe: "guerrier", emplacement: 1, graineMonde: g, graineVillage: 7 });
+      // Un village different par monde, pour voir aussi le generateur de village.
+      jeu.scene.start("arena", { classe: "guerrier", emplacement: 1, graineMonde: g, graineVillage: 7 + g });
     }, graine);
     await page.waitForFunction(
       () => {
@@ -112,6 +113,20 @@ try {
     });
     await cadrer(hero.x, hero.y - 60, 1.3);
     await capturer(`graine-${graine}-village`);
+
+    // Un angle de l'enceinte de pres : les tours, les douves, les ponts-levis.
+    const coin = await page.evaluate(() => {
+      const arene = (window as unknown as Fenetre).__jeu!.scene.getScene("arena") as Arene & {
+        planVillage: { enceinte: { colonne: number; ligne: number; piece: string }[] };
+      };
+      const portes = arene.planVillage.enceinte.filter((m) => m.piece === "porte");
+      const cible = portes[0] ?? arene.planVillage.enceinte[0];
+      return cible ? { x: cible.colonne * 32 + 16, y: cible.ligne * 32 + 16 } : null;
+    });
+    if (coin) {
+      await cadrer(coin.x, coin.y, 2.8);
+      await capturer(`graine-${graine}-porte`);
+    }
   }
 } finally {
   await navigateur.close();

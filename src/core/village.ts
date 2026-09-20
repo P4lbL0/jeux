@@ -32,7 +32,7 @@
  * **plan** ; c'est la scene qui pose les images et les corps.
  */
 
-import { GRAINE_CLASSIQUE, mondeCourant, PORT, POSTES, profondeurDeRoche, type Point, type Terrain } from "./carte";
+import { distanceALEau, GRAINE_CLASSIQUE, mondeCourant, PORT, POSTES, profondeurDeRoche, type Point, type Terrain } from "./carte";
 import type { TypeConstruction } from "./constructions";
 import { CASE, Grille } from "./grille";
 import { Rng } from "./rng";
@@ -66,11 +66,22 @@ export interface MaisonPlan extends CasePlan {
 /** Combien de maisons sont debout quand on arrive : une par habitant du depart. */
 export const MAISONS_DEBOUT_AU_DEPART = 3;
 
+/** Une douve que le village avait deja : seche, ou en eau. */
+export interface DouvePlan extends CasePlan {
+  eau: boolean;
+}
+
 export interface PlanVillage {
   graine: number;
   /** La case de l'eglise */
   centre: CasePlan;
   enceinte: MurPlan[];
+  /**
+   * Les douves de depart (§4.29, 20 septembre 2026) : un village sur deux en
+   * a, collees a l'enceinte ; en eau si elles touchent la mer ou un lac. Une
+   * porte devant une douve en eau est un pont-levis.
+   */
+  douves: DouvePlan[];
   /** Le coin haut-gauche de chaque emprise de 2 x 2 */
   maisons: MaisonPlan[];
   /**
@@ -126,8 +137,9 @@ const PROFONDEUR_BASTION = { min: 2, max: 3 };
  * entre quatre et sept — et jamais jusqu'a un poste : la mine, la plage, les
  * champs restent dehors, ils doivent etre defendus, pas offerts.
  */
-const PORTEE_MIN = 5;
-const PORTEE_MAX = 7;
+/** Quatre a six cases depuis l'eglise (cinq a sept avant le 20 septembre 2026) : une place plus serree, « pour que ca fasse plus village ». */
+const PORTEE_MIN = 4;
+const PORTEE_MAX = 6;
 const PORTEE_PLANCHER = 4;
 const CASES_DE_LISIERE = 2;
 /** Jusqu'ou on compte l'herbe : au-dela, c'est la plaine, et ca ne borne rien. */
@@ -176,8 +188,12 @@ const PAN_SANS_TOUR = 10;
 /** Deux portes sur le meme pan ne sont jamais plus proches que ca. */
 const ECART_ENTRE_PORTES = 4;
 
-const MAISONS_MIN = 12;
-const MAISONS_MAX = 15;
+/**
+ * Plus de maisons, plus serrees (20 septembre 2026, Angelos : « resserrer les
+ * maisons pour que ca fasse plus village ») : entre quatorze et dix-huit.
+ */
+const MAISONS_MIN = 16;
+const MAISONS_MAX = 20;
 /**
  * Une maison se tient a une case au moins de l'emprise de l'eglise : c'est le
  * parvis. Trois cases depuis la case centrale, l'emprise en prenant une.
@@ -189,20 +205,34 @@ const MARGE_EGLISE = 3;
  * font pas village » (Angelos, 18 septembre 2026). Trois a la file, jamais —
  * ce serait une rangee, donc un lotissement.
  */
-const CHANCE_DE_SE_TOUCHER = 0.85;
-/** Une maison prefere etre pres de l'eglise : le village se serre autour de sa place. */
-const PORTEE_DU_COEUR = 4;
+const CHANCE_DE_SE_TOUCHER = 0.95;
+/** Une maison prefere etre pres de l'eglise : le village se serre autour de sa place. Trois cases depuis le 20 septembre 2026 (quatre avant). */
+const PORTEE_DU_COEUR = 3;
 /** Une maison dans les arbres, c'est possible, mais l'herbe passe avant. */
 const PENALITE_SOUS_BOIS = 0.3;
 /** Trois maisons collees a la file, c'est une rangee : on refuse la troisieme. */
 const PORTEE_RANGEE = 2;
-/** Au-dela, la maison serait cernee : deux voisines qui la touchent, pas trois. */
-const VOISINES_QUI_TOUCHENT = 2;
+/** Au-dela, la maison serait cernee : trois voisines qui la touchent, pas quatre (deux avant le 20 septembre 2026). */
+const VOISINES_QUI_TOUCHENT = 3;
 
-/** Ce sur quoi un mur tient de lui-meme. */
-const SOL_DES_MURS: Terrain[] = ["herbe"];
-/** Ce que le mur traverse pour aller jusqu'a l'eau. */
-const SOL_DE_LA_JETEE: Terrain[] = ["sable"];
+/**
+ * Ce sur quoi un mur tient de lui-meme : l'herbe et le sable (20 septembre
+ * 2026 — l'herbe seule avant : une plage entre deux pans laissait un trou par
+ * lequel les monstres entraient).
+ */
+const SOL_DES_MURS: Terrain[] = ["herbe", "sable"];
+/**
+ * Mais pas la plage : un sable a moins de trois cases de l'eau ne porte pas un
+ * pan — un mur qui longerait le rivage laisserait le haut-fond ouvert derriere
+ * lui. La, c'est la **jetee** qui ferme : le bout du pan va jusqu'a la mer.
+ */
+const PLAGE_SANS_MUR = CASE * 3;
+/**
+ * Ce que le mur traverse pour aller jusqu'a l'eau : le sable, puis le
+ * haut-fond, jusqu'a la mer — sinon les monstres passent par l'eau peu
+ * profonde (20 septembre 2026).
+ */
+const SOL_DE_LA_JETEE: Terrain[] = ["sable", "haut-fond"];
 /** Ce sur quoi on pose une maison : tout ce qui porte, la lisiere comprise. */
 const SOL_DES_MAISONS: Terrain[] = ["herbe", "sable", "sous-bois"];
 
@@ -375,12 +405,17 @@ function tientUnMur(grille: Grille, c: number, l: number, sols: Terrain[]): bool
   const terrain = terrainDe(grille, c, l);
   if (terrain === null) return false;
   const centre = Grille.centreCase(c, l);
+  // Jamais sur le port : il n'est pas encore dans la grille quand le plan se
+  // tire, et un mur prevu la ne se dresserait pas — un trou dans l'enceinte.
+  if (Math.hypot(centre.x - PORT.x, centre.y - PORT.y) <= PORT.emprise) return false;
   if (!sols.includes(terrain)) {
     // Le sous-bois ouvert compte comme de l'herbe pour un mur.
     const boisOuvert = terrain === "sous-bois" && sols === SOL_DES_MURS && profondeurDeRoche(centre.x, centre.y) < -BOIS_FERME_PRES_DE_LA_ROCHE;
     if (!boisOuvert) return false;
   }
-  return grille.constructible(centre.x, centre.y);
+  // La plage ne porte pas un pan ; la jetee, elle, la traverse.
+  if (terrain === "sable" && sols === SOL_DES_MURS && distanceALEau(centre.x, centre.y) <= PLAGE_SANS_MUR) return false;
+  return grille.constructible(centre.x, centre.y, true);
 }
 
 /** Nord, est, sud, ouest : y a-t-il un mur ? */
@@ -703,12 +738,15 @@ function loger(
     // c'est possible mais moins probable. Et pres de l'eglise avant loin d'elle :
     // c'est ce qui serre le village autour de sa place au lieu de l'eparpiller.
     // Le bruit casse les alignements.
-    if (aLaRue < CASE * 1.5) continue;
+    if (aLaRue < CASE * 0.75) continue;
     const auCoeur = Math.hypot(c + 0.5 - centre.colonne, l + 0.5 - centre.ligne);
+    // Le coeur pese triple, le bruit moitie moins, et une maison borde la rue
+    // de pres (20 septembre 2026) : les maisons se serrent autour de l'eglise
+    // et le long des rues, au lieu de s'etaler sur la place.
     const score =
-      Math.exp(-(aLaRue - CASE * 1.5) / (CASE * 2)) +
-      Math.exp(-auCoeur / PORTEE_DU_COEUR) +
-      rng.range(0, 0.6) -
+      Math.exp(-(aLaRue - CASE * 0.75) / (CASE * 2)) +
+      3 * Math.exp(-auCoeur / PORTEE_DU_COEUR) +
+      rng.range(0, 0.3) -
       (dansLesArbres ? PENALITE_SOUS_BOIS : 0);
     candidates.push({ c, l, score });
   }
@@ -759,6 +797,68 @@ function loger(
   return maisons;
 }
 
+// --------------------------------------------------------------- les douves
+
+/** Un village sur deux nait avec des douves ; en eau si elles touchent l'eau. */
+const CHANCE_DE_DOUVES = 0.5;
+/** Ce sur quoi une douve se creuse : la terre ferme et le haut-fond, comme pour le joueur. */
+const SOL_DES_DOUVES: Terrain[] = ["herbe", "sable", "sous-bois", "haut-fond"];
+/** L'eau qui remplit : ce que touche une douve pour se mettre en eau. */
+const EAUX: Terrain[] = ["haut-fond", "mer", "abysse"];
+
+/**
+ * Les douves de depart (§4.29, §4.20) : un anneau colle a l'enceinte, a huit
+ * voisines — aux angles sortants la douve tourne aussi, sinon l'eau ne passe
+ * pas l'angle. En eau, de proche en proche, depuis les cases qui touchent la
+ * mer ou un lac ; ce que l'eau n'atteint pas reste sec. Un village loin de
+ * toute eau n'a que des fosses secs.
+ */
+function creuser(rng: Rng, grille: Grille, murs: Map<string, CasePlan>, place: Set<string>): DouvePlan[] {
+  if (!rng.chance(CHANCE_DE_DOUVES)) return [];
+  const cases = new Map<string, CasePlan>();
+  for (const m of murs.values()) {
+    for (let dl = -1; dl <= 1; dl++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dc === 0 && dl === 0) continue;
+        const c = m.colonne + dc;
+        const l = m.ligne + dl;
+        const clef = cleCase(c, l);
+        if (murs.has(clef) || place.has(clef) || cases.has(clef)) continue;
+        const terrain = terrainDe(grille, c, l);
+        if (terrain === null || !SOL_DES_DOUVES.includes(terrain)) continue;
+        const centre = Grille.centreCase(c, l);
+        if (!grille.constructible(centre.x, centre.y, true)) continue;
+        cases.set(clef, { colonne: c, ligne: l });
+      }
+    }
+  }
+  if (cases.size === 0) return [];
+
+  // L'eau : depuis les cases qui touchent l'eau, en quatre voisins.
+  const enEau = new Set<string>();
+  const pile: CasePlan[] = [];
+  for (const c of cases.values()) {
+    const toucheLEau = VOISINES.some(([dc, dl]) => {
+      const t = terrainDe(grille, c.colonne + dc, c.ligne + dl);
+      return t !== null && EAUX.includes(t);
+    });
+    if (toucheLEau) {
+      enEau.add(cleCase(c.colonne, c.ligne));
+      pile.push(c);
+    }
+  }
+  while (pile.length > 0) {
+    const c = pile.pop()!;
+    for (const [dc, dl] of VOISINES) {
+      const clef = cleCase(c.colonne + dc, c.ligne + dl);
+      if (!cases.has(clef) || enEau.has(clef)) continue;
+      enEau.add(clef);
+      pile.push(cases.get(clef)!);
+    }
+  }
+  return [...cases.values()].map((c) => ({ ...c, eau: enEau.has(cleCase(c.colonne, c.ligne)) }));
+}
+
 // ----------------------------------------------------------------- le plan
 
 /**
@@ -788,6 +888,7 @@ export function genererVillage(
   const enceinte = garnir(rng, murs, place, centre, sorties);
   const portes = enceinte.filter((m) => m.piece === "porte");
   const maisons = loger(rng, grille, place, coeur, murs, caseCentre, portes);
+  const douves = creuser(rng, grille, murs, place);
 
   const emprise = new Set<string>();
   for (const clef of place) {
@@ -796,13 +897,13 @@ export function genererVillage(
       for (let dc = -1; dc <= 1; dc++) emprise.add(cleCase(c + dc, l + dl));
     }
   }
-  for (const m of murs.values()) {
+  for (const m of [...murs.values(), ...douves]) {
     for (let dl = -1; dl <= 1; dl++) {
       for (let dc = -1; dc <= 1; dc++) emprise.add(cleCase(m.colonne + dc, m.ligne + dl));
     }
   }
 
-  return { graine, centre: caseCentre, enceinte, maisons, emprise, place };
+  return { graine, centre: caseCentre, enceinte, douves, maisons, emprise, place };
 }
 
 /**

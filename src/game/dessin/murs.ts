@@ -505,7 +505,12 @@ export function peindreMurRuine(toile: Toile, variante: number): void {
  * parapet crenele, une porte au pied — **et rien dessus** : la place est celle
  * de l'occupant, et c'est lui qui la rend utile.
  */
-export const HAUTEUR_TOUR = 30;
+/**
+ * Vingt-quatre depuis le 20 septembre 2026 (trente avant) : une tour de trente
+ * couvrait toute la case derriere elle, et une douve qui y passait semblait
+ * s'arreter sous la tour — « les tours empietent sur les douves » (Angelos).
+ */
+export const HAUTEUR_TOUR = 24;
 export const TOUR = { largeur: CASE, hauteur: CASE + HAUTEUR_TOUR + 3 + 1 + MARGE_BASSE } as const;
 export const CLE_TOUR = "bati-tour";
 const SOL_TOUR = TOUR.hauteur - MARGE_BASSE;
@@ -726,14 +731,23 @@ export function peindrePorte(
     // Vu d'en haut : leve, le tablier est une cloison de planches en travers,
     // avec ses deux chaines ; baisse, la poutre seule, et les planches sont
     // sur la douve.
+    // ⚠️ Un tablier leve vu d'en haut n'etait qu'un trait de quatre pixels :
+    // « les ponts-levis doivent se voir meme releves » (Angelos, 20 septembre
+    // 2026). Leve, il est dessine **large** — douze pixels de planches en
+    // travers du passage, un bord clair, un flanc sombre —, pour se lire
+    // comme une cloison dressee et non comme la poutre du linteau.
     const part = position === "fermee" ? 1 : position === "entrouverte" ? 0.55 : 0;
-    const epaisseur = Math.round(4 * part);
+    const epaisseur = Math.round(12 * part);
     toile.rect(cx - 2, r.y(bout) - H, 4, longueur, ECORCE.corps);
     toile.rect(cx - 2, r.y(bout) - H, 1, longueur, ECORCE.clair);
     if (epaisseur > 0) {
-      toile.rect(cx - 2, r.y(bout) - H, epaisseur, longueur, BATTANT);
-      toile.rect(cx - 2, r.y(bout) - H, 1, longueur, BOIS.clair);
-      for (let g = bout + 3; g < CASE - bout; g += 4) toile.rect(cx - 2, r.y(g) - H, epaisseur, 1, FER.corps);
+      const x0 = cx - Math.floor(epaisseur / 2);
+      toile.rect(x0, r.y(bout) - H, epaisseur, longueur, BATTANT);
+      toile.rect(x0, r.y(bout) - H, 1, longueur, BOIS.clair);
+      toile.rect(x0 + epaisseur - 1, r.y(bout) - H, 1, longueur, BOIS.sombre);
+      // Les planches, en long ; les traverses de fer, en travers.
+      for (let px = x0 + 3; px < x0 + epaisseur - 1; px += 3) toile.rect(px, r.y(bout) - H, 1, longueur, BOIS.sombre);
+      for (let g = bout + 3; g < CASE - bout; g += 5) toile.rect(x0, r.y(g) - H, epaisseur, 1, FER.corps);
     }
     chaine(toile, cx - 2, r.y(bout) - H, cx + 2, r.y(bout) - H + 2);
     chaine(toile, cx - 2, r.y(CASE - bout) - H - 1, cx + 2, r.y(CASE - bout) - H - 3);

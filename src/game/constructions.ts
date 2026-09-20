@@ -390,7 +390,7 @@ export class Constructions {
       return type === "douve" ? "Il y a deja une douve ici : clic pour la remplir d'eau." : "Une douve : comble-la d'abord (clic droit en amenagement).";
     }
     if (c.occupation === "champ") return "Un champ est seme ici.";
-    if (!this.grille.constructible(x, y)) return "Le sol ne porte pas.";
+    if (!this.grille.constructible(x, y, true)) return "Le sol ne porte pas.";
     if (
       this.grille.aProximite(x, y, CASES_LIBRES_AUTOUR_DES_BATIMENTS, IMPOSENT_UNE_DISTANCE)
     ) {
@@ -595,6 +595,21 @@ export class Constructions {
   }
 
   /**
+   * Un pont-levis **sans rien payer** : celui que le village avait deja quand
+   * on arrive (§4.29, un village tire avec ses douves). Il faut quand meme une
+   * douve en eau devant.
+   *
+   * @returns vrai s'il vient d'etre dresse
+   */
+  dresserEnPontLevis(porte: Construction): boolean {
+    if (!porte.battant || porte.pontLevis || this.douvesDevant(porte).length === 0) return false;
+    porte.pontLevis = true;
+    porte.habiller();
+    this.majPonts();
+    return true;
+  }
+
+  /**
    * Quelles douves en eau sont sous un tablier baisse : celles qui touchent,
    * dans son axe, un pont-levis entierement ouvert. Refait a chaque
    * changement d'etat d'une porte, jamais par image.
@@ -631,7 +646,7 @@ export class Constructions {
    */
   dresser(x: number, y: number, type: TypeConstruction, matiere: MatiereMur = "bois"): Construction | null {
     const c = this.grille.caseEn(x, y);
-    if (!c || !this.grille.constructible(x, y)) return null;
+    if (!c || !this.grille.constructible(x, y, true)) return null;
 
     const def = CONSTRUCTIONS[type];
     const centre = this.grille.centreDe(x, y);
@@ -961,7 +976,7 @@ export class Constructions {
     if (!c) return false;
     // On se juge sur la case d'arrivee comme si on batissait, mais sans le prix :
     // meme terrain, meme regle des trois cases, meme refus des cases prises.
-    if (!this.grille.constructible(x, y)) return false;
+    if (!this.grille.constructible(x, y, true)) return false;
     if (this.grille.aProximite(x, y, CASES_LIBRES_AUTOUR_DES_BATIMENTS, IMPOSENT_UNE_DISTANCE)) {
       return false;
     }

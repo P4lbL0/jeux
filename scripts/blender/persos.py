@@ -372,11 +372,12 @@ def familles():
     f = {}
     classes = ["guerrier", "chevalier", "mage", "assassin", "rodeur", "oracle", "necromancien"]
     for classe in classes:
-        for palier in (0, 2, 4):
+        # Les cinq paliers avec tous leurs gestes (20 septembre 2026) : les
+        # planches entrent dans le jeu, il faut chaque combinaison que le four
+        # cuisait — une montee de rang change la planche.
+        for palier in range(5):
             cle = f"hero-{classe}-p{palier}"
-            # le palier 0 a tous ses gestes ; les autres, une frame de repos pour la planche
-            gestes = GESTES_HUMAIN if palier == 0 else [("repos", 1, True)]
-            f[cle] = dict(sorte="humain", tenue=tenue_de_hero(classe, palier), gestes=gestes, cadre=cadre_de(CADRE), voute=0.0)
+            f[cle] = dict(sorte="humain", tenue=tenue_de_hero(classe, palier), gestes=GESTES_HUMAIN, cadre=cadre_de(CADRE), voute=0.0)
     for nom, b in BETES.items():
         f[f"monstre-{nom}"] = dict(sorte="bete", bete=b, gestes=GESTES_BETE, cadre=cadre_de(b["cadre"]))
     # le revenant : un mort qui marche, un humain aux os, voute, en haillons

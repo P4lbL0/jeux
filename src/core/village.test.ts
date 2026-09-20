@@ -37,13 +37,38 @@ describe("Le generateur de villages", () => {
     expect(villages.size).toBe(GRAINES.length);
   });
 
-  it("ne dresse un mur que la ou le sol porte, et jamais dans la foret", () => {
+  it("ne dresse un mur que la ou le sol porte — l'herbe, le sable, et le haut-fond jusqu'a la mer —, jamais dans la foret", () => {
     for (const plan of plans.values()) {
+      let dansLEau = 0;
       for (const m of plan.enceinte) {
         const centre = Grille.centreCase(m.colonne, m.ligne);
-        expect(grille.constructible(centre.x, centre.y)).toBe(true);
-        expect(["herbe", "sable"]).toContain(terrainEn(centre.x, centre.y));
+        expect(grille.constructible(centre.x, centre.y, true)).toBe(true);
+        const t = terrainEn(centre.x, centre.y);
+        expect(["herbe", "sable", "haut-fond"]).toContain(t);
+        if (t === "haut-fond") dansLEau += 1;
       }
+      // La jetee entre dans l'eau (20 septembre 2026) : sinon les monstres
+      // contournent par le haut-fond.
+      expect(dansLEau, `graine ${plan.graine}`).toBeGreaterThan(0);
+    }
+  });
+
+  it("nait parfois avec des douves, collees a l'enceinte, en eau quand elles touchent la mer", () => {
+    const avec = [...plans.values()].filter((p) => p.douves.length > 0);
+    expect(avec.length).toBeGreaterThan(0);
+    for (const plan of avec) {
+      const murs = new Set(plan.enceinte.map((m) => cleCase(m.colonne, m.ligne)));
+      for (const d of plan.douves) {
+        expect(murs.has(cleCase(d.colonne, d.ligne))).toBe(false);
+        expect(plan.place.has(cleCase(d.colonne, d.ligne))).toBe(false);
+        let touche = false;
+        for (let dl = -1; dl <= 1 && !touche; dl++) {
+          for (let dc = -1; dc <= 1; dc++) if (murs.has(cleCase(d.colonne + dc, d.ligne + dl))) touche = true;
+        }
+        expect(touche).toBe(true);
+      }
+      // Le village classique touche la mer : ses douves sont en eau.
+      expect(plan.douves.some((d) => d.eau)).toBe(true);
     }
   });
 
@@ -108,11 +133,11 @@ describe("Le generateur de villages", () => {
     }
   });
 
-  it("pose au moins neuf maisons et quinze au plus, une seule ferme, sans se chevaucher ni toucher un mur", () => {
+  it("pose au moins neuf maisons et vingt au plus, une seule ferme, sans se chevaucher ni toucher un mur", () => {
     for (const plan of plans.values()) {
-      // Douze visees, mais la place est ce qu'elle est : entre la mer et la foret.
+      // Seize visees, mais la place est ce qu'elle est : entre la mer et la foret.
       expect(plan.maisons.length).toBeGreaterThanOrEqual(9);
-      expect(plan.maisons.length).toBeLessThanOrEqual(15);
+      expect(plan.maisons.length).toBeLessThanOrEqual(20);
       expect(plan.maisons.filter((m) => m.ferme).length).toBe(1);
 
       const murs = new Set(plan.enceinte.map((m) => cleCase(m.colonne, m.ligne)));

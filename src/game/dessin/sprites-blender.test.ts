@@ -3,6 +3,9 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { cleEglise, cleMaison, CLE_FERME, CLE_MAISON_RUINE, VARIANTES_MAISON } from "./batiments";
 import { DECORS } from "./decor";
+import { ORDRE_CLASSES } from "../../core/classes";
+import { familleDeHero } from "./heros";
+import { familleDeMonstre } from "./monstres";
 
 /**
  * Les sprites rendus par Blender (`scripts/blender/`, bloc 7z, etage 6).
@@ -30,6 +33,10 @@ const CLES_CONNUES = new Set<string>([
   CLE_FERME,
   CLE_MAISON_RUINE,
   ...[1, 2, 3, 4].map(cleEglise),
+  // Les planches de personnages (20 septembre 2026) : une par classe et par
+  // palier, une par archetype de monstre — la cle du four, `<famille>-planche`.
+  ...ORDRE_CLASSES.flatMap((classe) => [0, 1, 2, 3, 4].map((palier) => `${familleDeHero(classe, palier)}-planche`)),
+  ...["fonceur", "essaim", "cracheur", "brute", "kamikaze", "revenant"].map((id) => `${familleDeMonstre(id)}-planche`),
 ]);
 
 describe("Sprites Blender — src/assets", () => {

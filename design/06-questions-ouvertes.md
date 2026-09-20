@@ -1000,3 +1000,28 @@ Une planche de propositions a servi de test, et elle a fait remonter trois défa
 
 **Ouvert depuis ce jour :** la presqu'ile a un seul front (aucun tirage n'en produit) ; les
 mondes sans mer, ou le port est sur un lac — le navire y accoste quand meme, faute de mieux.
+
+### Le 20 septembre 2026, plus tard — le retour d'Angelos sur les captures
+
+> Sept remarques sur `captures/jeu/2026-09-20-douves/`, toutes codees le jour meme.
+
+- ✅ **Les murs entrent dans l'eau.** Un mur, une tour, une porte ou une douve se posent sur le
+  haut-fond, jusqu'a la mer ; la jetee du generateur traverse le sable puis le haut-fond. Les
+  monstres passent par le haut-fond (physique et parcours) : sans le mur dans l'eau, ils
+  contournaient par la plage. **La plage ne porte pas un pan** (sable a moins de trois cases
+  de l'eau) : c'est la jetee qui ferme, pas un mur qui longe le rivage.
+- ✅ **Les villages naissent parfois avec des douves et des ponts-levis** : un sur deux, un
+  anneau colle a l'enceinte, en eau depuis la mer ou un lac de proche en proche ; chaque porte
+  devant l'eau est deja un pont-levis. Le joueur ne paie rien : c'etait la.
+- ✅ **Le pont-levis leve se voit** : douze pixels de planches en travers du passage, au lieu
+  d'un trait de quatre.
+- ✅ **Les tours** passent de trente a vingt-quatre pixels de haut : une tour de trente couvrait
+  toute la case derriere elle, et la douve semblait s'arreter sous la tour.
+- ✅ **Les rues de la place sont pavees**, comme le parvis ; dehors, elles restent de terre.
+- ✅ **Les maisons se serrent** : seize a vingt par village, le coeur pese triple, une maison
+  borde la rue a trois quarts de case, trois voisines qui touchent ; et la place d'un monde
+  tire fait quatre a six cases (cinq a sept avant) — le classique garde ses bornes.
+- ✅ **Les personnages Blender sont dans le jeu** : heros aux cinq paliers, six monstres.
+  Villageois, familiers et mort-vivant restent au code.
+
+**Ouvert :** les villageois en low-poly Blender (l'atelier n'a pas de rig de villageois).

@@ -125,7 +125,37 @@ export function cuire(scene: Phaser.Scene, modele: Modele): Cuisson {
   }
   const bilan: Cuisson = { famille: modele.famille, frames: total, plages };
 
-  if (scene.textures.exists(cle)) return bilan;
+  if (scene.textures.exists(cle)) {
+    // Deja cuite, ou deja decoupee : les animations existent.
+    if (scene.anims.exists(`${modele.famille}-${modele.gestes[0]?.cle ?? ""}`)) return bilan;
+    // **Une planche livree par Blender** (`src/assets/<famille>-planche.png`,
+    // 20 septembre 2026) : la texture existe, chargee au demarrage, mais rien
+    // ne l'a encore decoupee. On la decoupe en frames et en animations, dans
+    // l'ordre des gestes du modele — le meme que `scripts/blender/persos.py`.
+    // Une planche qui n'a pas le bon nombre de frames est jetee : le code
+    // redessine, plutot que de jouer des gestes decales.
+    const livree = scene.textures.get(cle);
+    const image = livree.getSourceImage() as { width: number; height: number };
+    if (image.width === total * modele.taille && image.height === modele.taille) {
+      for (let i = 0; i < total; i += 1) livree.add(i, 0, i * modele.taille, 0, modele.taille, modele.taille);
+      for (const plage of plages) {
+        const geste = modele.gestes.find((g) => g.cle === plage.cle)!;
+        const cleAnim = `${modele.famille}-${plage.cle}`;
+        if (!scene.anims.exists(cleAnim)) {
+          scene.anims.create({
+            key: cleAnim,
+            frames: scene.anims.generateFrameNumbers(cle, { start: plage.debut, end: plage.fin }),
+            frameRate: geste.cadence,
+            repeat: geste.boucle ? -1 : 0,
+          });
+        }
+        if (geste.evenement) EVENEMENTS.set(cleAnim, { evenement: geste.evenement, frame: geste.frameCle ?? 0 });
+      }
+      return bilan;
+    }
+    console.warn(`[four] planche ${cle} inattendue (${image.width}x${image.height}, ${total} frames de ${modele.taille} attendues) : redessinee`);
+    scene.textures.remove(cle);
+  }
 
   const texture = scene.textures.createCanvas(cle, total * modele.taille, modele.taille);
   if (!texture) throw new Error(`Cuisson impossible : ${cle}`);

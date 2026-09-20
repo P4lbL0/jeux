@@ -196,11 +196,16 @@ try {
       if (r) refusPont.push(r);
       else if (a.constructions.convertirEnPontLevis(p, a.village.stocks)) ponts += 1;
     }
-    return { cibles: cibles.size, creusees, refus, remplies, seches, ponts, portes: a.constructions.portes.length, refusPont: [...new Set(refusPont)] };
+    // Le village peut etre ne avec ses douves et ses ponts-levis (§4.29) : on
+    // compte ce qu'il y a a la fin, pas seulement ce qu'on vient de faire.
+    const douvesTotal = a.constructions.toutes.filter((d) => d.def.id === "douve").length;
+    const enEau = a.constructions.toutes.filter((d) => d.def.id === "douve" && d.eau).length;
+    const pontsTotal = a.constructions.portes.filter((p) => p.pontLevis).length;
+    return { cibles: cibles.size, creusees, refus, remplies, seches, ponts, douvesTotal, enEau, pontsTotal, portes: a.constructions.portes.length, refusPont: [...new Set(refusPont)] };
   });
   noter(
     "un anneau de douves colle a l'enceinte se creuse, se met en eau depuis la mer, et chaque porte devant l'eau devient un pont-levis",
-    anneau.creusees > 20 && anneau.remplies >= anneau.creusees * 0.8 && anneau.ponts >= 1,
+    anneau.douvesTotal > 20 && anneau.enEau >= anneau.douvesTotal * 0.8 && anneau.pontsTotal >= 1,
     anneau,
   );
   const eglise = await page.evaluate(() => {

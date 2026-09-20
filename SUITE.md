@@ -1044,9 +1044,13 @@ dessiner les sprites au code tant que la planche n'est pas jugée.
   `planche-personnages-actuel.png` (les mêmes lignes, dessinées par le code aujourd'hui,
   `scripts/planche-personnages-actuel.ts`). Quelques pixels sortent encore du cadre de 20
   sur l'attaque et la mort (l'épée, le corps couché) : à régler si la direction est gardée.
-- **Si Angelos valide** : écrire les planches `<famille>-planche.png` dans `src/assets/` et
-  apprendre au four (`four.ts`) à découper une planche livrée en frames et en animations au
-  lieu de la dessiner — une trentaine de lignes, prévues, pas écrites.
+- **Branché le 20 septembre 2026** (Angelos : « applique aussi les nouveaux trucs pour les
+  persos ») : les sept classes aux **cinq paliers** avec tous leurs gestes et les six
+  archétypes sont rendus par Blender (`persos.py` rend désormais chaque palier en entier,
+  ~35 min) et livrés dans `src/assets/<famille>-planche.png` ; le four (`four.ts`) découpe
+  une planche livrée en frames et en animations dans l'ordre des gestes du modèle, et
+  redessine au code si la planche n'a pas le bon nombre de frames. Les villageois, les
+  familiers et le mort-vivant restent dessinés par le code — l'atelier ne les a pas.
 
 ### Le bloc 7b — la forteresse (fait le 20 septembre 2026)
 

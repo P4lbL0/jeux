@@ -187,10 +187,15 @@ export class Grille {
    * libre. Le cout, la distance au village et le reste sont des regles de jeu,
    * pas des regles de terrain : elles vivent ailleurs.
    */
-  constructible(x: number, y: number): boolean {
+  constructible(x: number, y: number, dansLEau = false): boolean {
     const c = this.caseEn(x, y);
     if (!c) return false;
     if (!REBATISSABLES.includes(c.occupation)) return false;
+    // Un mur, une tour, une porte ou une douve peuvent entrer dans le
+    // haut-fond (20 septembre 2026) : c'est ce qui ferme une enceinte contre la
+    // mer ou un lac, sinon les monstres passaient par l'eau peu profonde. Une
+    // maison ou un champ, jamais.
+    if (dansLEau && c.terrain === "haut-fond") return true;
     return c.terrain === "sable" || c.terrain === "herbe" || c.terrain === "sous-bois";
   }
 

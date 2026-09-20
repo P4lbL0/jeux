@@ -1626,7 +1626,7 @@ export class ArenaScene extends Phaser.Scene {
     for (const piece of plan.enceinte) {
       const centre = Grille.centreCase(piece.colonne, piece.ligne);
       if (piece.piece === "ruine") {
-        if (!this.grille.constructible(centre.x, centre.y)) continue;
+        if (!this.grille.constructible(centre.x, centre.y, true)) continue;
         this.grille.poser(centre.x, centre.y, "ruine");
         this.add
           .image(centre.x, centre.y, CLE_MUR_RUINE)
@@ -1637,6 +1637,16 @@ export class ArenaScene extends Phaser.Scene {
       if (seulementLesRuines) continue;
       this.constructions.dresser(centre.x, centre.y, piece.piece);
     }
+    if (seulementLesRuines) return;
+    // Les douves que le village avait deja (§4.29, 20 septembre 2026) : creusees
+    // sans rien payer, en eau si le plan le dit, et chaque porte devant l'eau
+    // est deja un pont-levis. Une partie reprise les retrouve dans sa sauvegarde.
+    for (const douve of plan.douves) {
+      const centre = Grille.centreCase(douve.colonne, douve.ligne);
+      const creusee = this.constructions.dresser(centre.x, centre.y, "douve");
+      if (creusee && douve.eau) this.constructions.remplirDeForce(creusee);
+    }
+    for (const porte of this.constructions.portes) this.constructions.dresserEnPontLevis(porte);
   }
 
   /**
@@ -2638,7 +2648,9 @@ export class ArenaScene extends Phaser.Scene {
    * qu'il faut le voir (§4.20).
    */
   private passeUnMonstre(c: Case): boolean {
-    if (c.terrain !== "sable" && c.terrain !== "herbe" && c.terrain !== "sous-bois") return false;
+    // Le haut-fond passe : on y patauge, et c'est par la qu'un monstre
+    // contourne un mur qui s'arrete au sable — d'ou les murs dans l'eau.
+    if (c.terrain !== "sable" && c.terrain !== "herbe" && c.terrain !== "sous-bois" && c.terrain !== "haut-fond") return false;
     if (c.occupation !== "douve-eau") return true;
     const douve = this.constructions.en(c.colonne * CASE + CASE / 2, c.ligne * CASE + CASE / 2);
     return douve !== null && (douve.pont || douve.enjambee);
@@ -3509,7 +3521,7 @@ export class ArenaScene extends Phaser.Scene {
     // regarder les stocks (§4.24). Les juger ferait refuser un deplacement
     // gratuit faute d'argent, ce qui n'aurait aucun sens.
     const possible = this.deplacee
-      ? this.grille.constructible(centre.x, centre.y) &&
+      ? this.grille.constructible(centre.x, centre.y, true) &&
         !this.grille.aProximite(
           centre.x,
           centre.y,

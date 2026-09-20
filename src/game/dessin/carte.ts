@@ -787,8 +787,11 @@ export function peindreLeSolDuVillage(carte: CartePeinte, sol: SolDuVillage, sel
         partPlace *= 0.7 + 0.3 * borner((usure - 0.25) / 0.25);
       }
 
-      // 2. Les rues : une bande qui tremble d'un pixel ou deux.
+      // 2. Les rues : une bande qui tremble d'un pixel ou deux. **Dans la
+      //    place, elles sont pavees** (Angelos, 20 septembre 2026) : les memes
+      //    paves que le parvis, un peu plus uses ; dehors, un chemin de terre.
       let partRue = 0;
+      let couleurRue = 0;
       if (sol.rues.length > 0) {
         let proche = Number.POSITIVE_INFINITY;
         for (const s of sol.rues) {
@@ -797,6 +800,22 @@ export function peindreLeSolDuVillage(carte: CartePeinte, sol: SolDuVillage, sel
         }
         const demi = DEMI_RUE + (bruitLisse(x, y, 6, sel + 7) - 0.5) * 4;
         partRue = borner((demi - proche + 1) / 3) * 0.92;
+        if (partRue > 0) {
+          if (dansLaPlace(Math.floor(x / CASE), Math.floor(y / CASE))) {
+            const rangee = Math.floor(y / PAVE);
+            const xx = x + (rangee % 2) * 3;
+            const u = ((xx % PAVE) + PAVE) % PAVE;
+            const v = ((y % PAVE) + PAVE) % PAVE;
+            const n = bruit(Math.floor(xx / PAVE), rangee, sel + 13);
+            if (n < 0.22) couleurRue = teinte(RUE, x, y, 1); // un pave parti
+            else if (u === 0 || v === 0) couleurRue = PAVES.sombre;
+            else if (n < 0.66) couleurRue = PAVES.corps;
+            else if (n < 0.9) couleurRue = PAVES.clair;
+            else couleurRue = PAVES.sombre;
+          } else {
+            couleurRue = teinte(RUE, x, y, 1);
+          }
+        }
       }
 
       // 3. Le parvis : des paves a joints sombres, dont il manque d'autant
@@ -845,7 +864,7 @@ export function peindreLeSolDuVillage(carte: CartePeinte, sol: SolDuVillage, sel
         cb += (bb - cb) * part;
       };
       poser(teinte(PLACE, x, y, 0), partPlace);
-      poser(teinte(RUE, x, y, 1), partRue);
+      poser(couleurRue, partRue);
       poser(couleurParvis, partParvis);
 
       pixels[o] = Math.round(cr);
