@@ -63,7 +63,16 @@ export interface MaisonPlan extends CasePlan {
   debout: boolean;
 }
 
-/** Combien de maisons sont debout quand on arrive : une par habitant du depart. */
+/**
+ * Combien de maisons tiennent debout quand rien ne le dit : une par habitant
+ * du depart d'avant le §4.29.
+ *
+ * ⚠️ **Ce n'est plus qu'un defaut.** Depuis que le village qu'on trouve est
+ * deja peuple (§4.29, jalon 5.5), c'est **la population** qui decide combien
+ * de toits tiennent : un village de seize n'est pas un village de trois avec
+ * treize fantomes. La valeur reste ici pour les tests et pour tout appel qui
+ * ne sait pas encore combien ils sont.
+ */
 export const MAISONS_DEBOUT_AU_DEPART = 3;
 
 /** Une douve que le village avait deja : seche, ou en eau. */
@@ -703,6 +712,7 @@ function loger(
   murs: Map<string, CasePlan>,
   centre: CasePlan,
   portes: CasePlan[],
+  maisonsDebout: number,
 ): MaisonPlan[] {
   const centrePx = Grille.centreCase(centre.colonne, centre.ligne);
   const rues = portes.map((p) => Grille.centreCase(p.colonne, p.ligne));
@@ -777,9 +787,14 @@ function loger(
   // Les plus pres de l'eglise tiennent encore debout : le coeur du village a
   // resiste, les ruines sont vers les murs. Lisible, et pareil d'une graine a
   // l'autre.
+  //
+  // Combien, c'est **la population** qui le dit (§4.29) : un toit par tete.
+  // Un village de deux qu'on trouverait avec seize maisons debout serait un
+  // village abandonne, pas un village qui a perdu du monde — et la taille est
+  // justement la premiere chose qu'on voit de loin.
   [...maisons]
     .sort((a, b) => distanceCases(a, centre) - distanceCases(b, centre))
-    .slice(0, MAISONS_DEBOUT_AU_DEPART)
+    .slice(0, Math.max(0, maisonsDebout))
     .forEach((m) => (m.debout = true));
 
   // La ferme est la maison la plus a l'ecart : c'est la ou il y a de la terre.
@@ -877,6 +892,11 @@ export function genererVillage(
   sorties: Point[] = [...POSTES.map((p) => p.position), { x: PORT.x, y: PORT.y }],
   /** Ce qui doit rester hors de la place : les postes, jamais le port, qui est adosse */
   bornes: Point[] = POSTES.map((p) => p.position),
+  /**
+   * Combien de maisons tiennent debout : **la population du village** (§4.29).
+   * Sans elle, le trio d'avant — trois toits, trois habitants.
+   */
+  maisonsDebout: number = MAISONS_DEBOUT_AU_DEPART,
 ): PlanVillage {
   const rng = new Rng(graine);
   const caseCentre = { colonne: grille.colonneDe(centre.x), ligne: grille.ligneDe(centre.y) };
@@ -887,7 +907,7 @@ export function genererVillage(
   const murs = plierAuTerrain(grille, bordDe(place));
   const enceinte = garnir(rng, murs, place, centre, sorties);
   const portes = enceinte.filter((m) => m.piece === "porte");
-  const maisons = loger(rng, grille, place, coeur, murs, caseCentre, portes);
+  const maisons = loger(rng, grille, place, coeur, murs, caseCentre, portes, maisonsDebout);
   const douves = creuser(rng, grille, murs, place);
 
   const emprise = new Set<string>();
@@ -904,6 +924,57 @@ export function genererVillage(
   }
 
   return { graine, centre: caseCentre, enceinte, douves, maisons, emprise, place };
+}
+
+/**
+ * Ou l'on peut se tenir sur la place (§4.29).
+ *
+ * Un village qu'on trouve peut compter vingt habitants et **six toits** : la
+ * mesure est faite (`.tmp/mesurer-maisons.ts`, mediane 6, jamais plus de 14).
+ * Le devant des maisons ne suffit donc pas a loger tout le monde — et un
+ * village dont on ne voit personne sur la place ne se lit pas comme un village
+ * peuple, ce qui est pourtant la premiere chose que le §4.29 demande de voir.
+ *
+ * On rend donc toutes les cases libres de la place, **les plus proches de
+ * l'eglise d'abord** : ni mur, ni tour, ni porte, ni douve, ni maison, ni le
+ * parvis lui-meme. Une case sur deux, pour qu'on ne dessine pas une foule
+ * collee.
+ *
+ * @returns des points en pixels du monde
+ */
+export function placesOuSeTenir(plan: PlanVillage): Point[] {
+  const pris = new Set<string>();
+  for (const m of plan.enceinte) pris.add(cleCase(m.colonne, m.ligne));
+  for (const d of plan.douves) pris.add(cleCase(d.colonne, d.ligne));
+  // Une emprise de maison fait deux cases sur deux, et on ne se tient pas
+  // dedans — les habitants s'y cognent, ils ont un corps.
+  for (const m of plan.maisons) {
+    for (let dl = 0; dl <= 1; dl++) {
+      for (let dc = 0; dc <= 1; dc++) pris.add(cleCase(m.colonne + dc, m.ligne + dl));
+    }
+  }
+
+  const libres: { c: number; l: number; d: number }[] = [];
+  for (const clef of plan.place) {
+    const [c, l] = clef.split(",").map(Number) as [number, number];
+    if (pris.has(clef)) continue;
+    const d = distanceCases({ colonne: c, ligne: l }, plan.centre);
+    // Le parvis reste degage : c'est la que tout converge, et que les blesses
+    // entrent (§4.22).
+    if (d < MARGE_EGLISE) continue;
+    libres.push({ c, l, d });
+  }
+
+  // Le damier d'abord — une case sur deux, donc deux habitants voisins gardent
+  // un pas entre eux —, puis les cases laissees entre elles. Un village peut
+  // compter vingt habitants et n'offrir que dix-huit cases en damier (vu en
+  // test) : mieux vaut se serrer que renvoyer quelqu'un dans l'eglise.
+  const parDistance = (a: { c: number; l: number; d: number }, b: { c: number; l: number; d: number }) =>
+    a.d - b.d || a.c - b.c || a.l - b.l;
+  return [
+    ...libres.filter((p) => (p.c + p.l) % 2 === 0).sort(parDistance),
+    ...libres.filter((p) => (p.c + p.l) % 2 !== 0).sort(parDistance),
+  ].map((p) => Grille.centreCase(p.c, p.l));
 }
 
 /**

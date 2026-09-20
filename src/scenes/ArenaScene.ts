@@ -145,10 +145,11 @@ import {
 } from "../core/cycle";
 import { Village, type Villageois } from "../game/village";
 import { CASE, COLONNES, Grille, IMPOSENT_UNE_DISTANCE, LIGNES, type Case } from "../core/grille";
-import { cleCase, genererVillage, graineDeVillage, type PlanVillage,
+import { cleCase, genererVillage, graineDeVillage, placesOuSeTenir, type PlanVillage,
   tracerLesRues,
   type Segment,
 } from "../core/village";
+import { peuplerLeVillage, type Peuplement } from "../core/peuplement";
 import {
   CASES_LIBRES_AUTOUR_DES_BATIMENTS,
   CONSTRUCTIONS,
@@ -623,6 +624,14 @@ export class ArenaScene extends Phaser.Scene {
   private obstaclesDeRoche!: Phaser.Physics.Arcade.StaticGroup;
   /** Le village tire de la graine : l'enceinte, les maisons, la place (§4.24) */
   private planVillage!: PlanVillage;
+  /**
+   * Qui vit la, et ce qu'il leur reste (§4.29).
+   *
+   * ⚠️ **Calcule avant le plan**, parce que c'est la population qui dit
+   * combien de maisons tiennent encore debout : un village de seize ne se
+   * dessine pas comme un village de trois.
+   */
+  private peuplement!: Peuplement;
   /** Les rues du village, tracees avec le plan : le sol les peint, le decor s'en ecarte. */
   private ruesDuVillage: Segment[] = [];
   /** L'eau qui noie (§4.30) : l'horloge du heros incarne sous la surface. */
@@ -1006,8 +1015,18 @@ export class ArenaScene extends Phaser.Scene {
     preparerEffets(this);
     // Le village de cette partie, tire de sa graine avant tout le reste : le
     // decor doit savoir ou est la place pour n'y rien planter (§4.24).
-    this.planVillage = genererVillage(this.grille, this.graineVillage, EGLISE);
-    console.log(`[arene] village = ${this.graineVillage} · monde = ${decrireLeMonde(mondeCourant())}`);
+    this.peuplement = peuplerLeVillage(this.graineVillage);
+    this.planVillage = genererVillage(
+      this.grille,
+      this.graineVillage,
+      EGLISE,
+      undefined,
+      undefined,
+      this.peuplement.population,
+    );
+    console.log(
+      `[arene] village = ${this.graineVillage} · ${this.peuplement.population} habitants · monde = ${decrireLeMonde(mondeCourant())}`,
+    );
     // La carte de ce monde, cuite maintenant : le sol du village se peint
     // dessus, et elle ne se recuit pas tant que le monde ne change pas.
     cuireLaCarte(this);
@@ -1287,6 +1306,11 @@ export class ArenaScene extends Phaser.Scene {
       niveauEglise: () => this.eglise.niveau,
       litsEglise: () => this.eglise.regles.palier.lits,
       frapperMonstre: (x, y, portee, degats) => this.frapperPourLeVillage(x, y, portee, degats),
+      peuplement: this.peuplement,
+      // Le heros se compose avant le village : son prenom est deja pris, et
+      // `prenomLibre` est le seul endroit du jeu qui en distribue (§4.18).
+      nomsPris: () => this.heros.map((h) => h.personne.nom),
+      placesDeVie: () => this.placesDeVie,
     });
 
     // Un monstre qui rattrape un habitant le tue : c'est la seule fenetre ou on
@@ -1698,6 +1722,19 @@ export class ArenaScene extends Phaser.Scene {
    * ni reserve — c'est `core/marche.ts` qui tient cette regle, et un test qui
    * la garde.
    */
+  /**
+   * Ou se tient quelqu'un qui n'a pas de poste dehors : sur la place, au plus
+   * pres de l'eglise (§4.29, `placesOuSeTenir`).
+   *
+   * ⚠️ **Pas le devant des maisons**, qui etait la premiere idee : un village
+   * pose six toits en moyenne et jamais plus de quatorze (mesure), pendant
+   * qu'il peut compter vingt habitants. Il en serait reste quatorze a se
+   * marcher dessus devant trois portes.
+   */
+  private get placesDeVie(): Point[] {
+    return placesOuSeTenir(this.planVillage);
+  }
+
   private get villageVuDeLoin(): VillageVuDeLoin {
     const enceinte = this.planVillage.enceinte;
     return {

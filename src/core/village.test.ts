@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EGLISE, PORT, POSTES, terrainEn } from "./carte";
 import { Grille } from "./grille";
-import { cleCase, genererVillage, MAISONS_DEBOUT_AU_DEPART, tracerLesRues, type PlanVillage } from "./village";
+import { cleCase, genererVillage, MAISONS_DEBOUT_AU_DEPART, placesOuSeTenir, tracerLesRues, type PlanVillage } from "./village";
 
 const grille = new Grille();
 // L'eglise est dans la grille avant le village, comme dans la scene.
@@ -226,6 +226,50 @@ describe("Le generateur de villages", () => {
           expect(rues.some((s) => depart(s.de) === depart(r.a))).toBe(true);
         }
       }
+    }
+  });
+});
+
+describe("Ou l'on se tient sur la place (§4.29)", () => {
+  it("ne pose personne dans un mur, une douve, une maison ni sur le parvis", () => {
+    for (const plan of plans.values()) {
+      const murs = new Set(plan.enceinte.map((m) => cleCase(m.colonne, m.ligne)));
+      const douves = new Set(plan.douves.map((d) => cleCase(d.colonne, d.ligne)));
+      const maisons = new Set<string>();
+      for (const m of plan.maisons) {
+        for (let dl = 0; dl <= 1; dl++) {
+          for (let dc = 0; dc <= 1; dc++) maisons.add(cleCase(m.colonne + dc, m.ligne + dl));
+        }
+      }
+      for (const place of placesOuSeTenir(plan)) {
+        const c = Math.floor(place.x / 32);
+        const l = Math.floor(place.y / 32);
+        const clef = cleCase(c, l);
+        expect(plan.place.has(clef)).toBe(true);
+        expect(murs.has(clef)).toBe(false);
+        expect(douves.has(clef)).toBe(false);
+        expect(maisons.has(clef)).toBe(false);
+        // Le parvis reste degage : c'est la que les blesses entrent (§4.22).
+        expect(Math.max(Math.abs(c - plan.centre.colonne), Math.abs(l - plan.centre.ligne))).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+
+  it("en offre assez pour un village entier, et les plus pres de l'eglise d'abord", () => {
+    for (const plan of plans.values()) {
+      const places = placesOuSeTenir(plan);
+      // Vingt habitants au plus (§4.29) : un village doit pouvoir les montrer.
+      expect(places.length).toBeGreaterThanOrEqual(20);
+      const centre = { x: plan.centre.colonne * 32 + 16, y: plan.centre.ligne * 32 + 16 };
+      const distances = places.map((p) => Math.hypot(p.x - centre.x, p.y - centre.y));
+      expect(distances[0]).toBeLessThan(distances[distances.length - 1]!);
+    }
+  });
+
+  it("ne donne jamais deux fois le meme pas de porte", () => {
+    for (const plan of plans.values()) {
+      const places = placesOuSeTenir(plan);
+      expect(new Set(places.map((p) => `${p.x},${p.y}`)).size).toBe(places.length);
     }
   });
 });

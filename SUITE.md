@@ -1229,6 +1229,62 @@ de l'or et de l'expérience.
 
 **630 tests verts** (+14).
 
+### Le village déjà peuplé (20 septembre 2026, dans la nuit)
+
+Troisième bloc de la deuxième moitié du jalon 5.5 (§4.29). **Un village qu'on trouve n'a
+plus trois habitants** : il en a de **un à vingt** (décision d'Angelos), avec ses métiers,
+ses réserves et ses toits encore debout.
+
+- **`src/core/peuplement.ts`** (pur, 14 tests) : `tirerLaPopulation` (1 à 20, le tirage
+  penche vers les petits — un gros village est une trouvaille, pas la moyenne),
+  `metiersDe`, `stocksDeDepart` et `REGLAGES_PEUPLEMENT`. Les réserves se comptent **en
+  jours de vivres** et non en unités : c'est le seul chiffre qui veuille dire quelque chose
+  quand la population va du simple au vingtuple, et le test les fait manger pour de bon.
+- **Un village de trois reste exactement celui d'avant** — pêcheur, bûcheron, mineur —, et
+  les champs restent vides sous cinq habitants : y mettre quelqu'un est la seule décision de
+  production que le §4.18 accorde au joueur, elle ne vaudrait rien si le poste était tenu.
+- **Les toits debout suivent les têtes** : `genererVillage` prend un nombre de maisons
+  debout (trois par défaut, pour les tests et pour tout appel qui ne sait pas encore).
+- **Les noms passent enfin par `prenomLibre`.** Le village prenait les premiers prénoms de
+  la liste, dans l'ordre : à trois ça passait, à vingt un habitant finissait par s'appeler
+  comme le héros.
+- **La graine du village seede ses gens**, au lieu d'une constante. « Une graine, un
+  village » vaut maintenant par village : deux villages à l'autre bout du monde ne se
+  ressemblent plus jusqu'au nom.
+
+**Ce qui a été appris en le faisant, et qui a coûté deux reprises :**
+
+- ⚠️ **Sans poste, un habitant disparaît.** La règle d'avant — « pas de poste, donc confiné »
+  — envoyait le forgeron, le charpentier et le guetteur **dans l'église**, donc hors du
+  monde (`disableBody`). À trois habitants ça ne se voyait pas : tous les trois avaient un
+  poste. À vingt, le village en montrait sept. Ils vivent donc **sur la place**
+  (`placesOuSeTenir`, pur, 3 tests) tant qu'il fait jour et que rien ne rôde ; la nuit et à
+  la première menace, ils rentrent comme avant.
+- ⚠️ **Tout envoyer récolter vide le village.** Première version : au-delà des sept métiers,
+  tous les bras en trop partaient à la plage et à la mine. Vu en capture — un village de
+  vingt montrait **quatre personnes**, les seize autres hors de l'écran. Au-delà de sept,
+  **un sur deux sort, un sur deux reste**.
+- ⚠️ **Un village pose six maisons en moyenne, jamais plus de quatorze**
+  (`.tmp/mesurer-maisons.ts`, 180 villages) — là où le code en vise seize à vingt. Les règles
+  de pose (jamais sur la rue, jamais trois à la file, jamais contre l'église) laissent peu de
+  places. **Au-delà de six ou sept habitants, on se serre donc à plusieurs sous un toit** :
+  c'est au budget d'en faire un cadeau à part entière.
+- ⚠️ **On se pose à sa place exacte, pas « à peu près ».** Cinq mineurs visaient le même
+  pixel ; l'écart par identifiant (angle d'or) ne servait à rien tant que la marge d'arrivée
+  restait plus large que lui — deux bûcherons s'arrêtaient à trois pixels l'un de l'autre.
+
+**Vérifié dans le navigateur** : `.tmp/verifier-peuplement.ts`, **36 contrôles**, cinq
+mondes (trois tirés au sort, un gros village forcé, un village mort) — ils sont bien ceux du
+peuplement, tout le monde se voit en plein jour, un toit par tête tant qu'il y en a,
+personne ne se superpose, aucun homonyme du héros, les réserves sont celles qu'ils avaient.
+Et `.tmp/verifier-refus-gros.ts` pour le cas neuf : **vingt habitants qui se jettent sur
+nous** sortent tous avec leur nom, sans que la cadence bouge (23 images/s au calme comme en
+ruée — c'est le plafond de Chromium en headless, mesuré à trois habitants comme à vingt).
+
+**À regarder** : `captures/jeu/2026-09-20-peuplement/`.
+
+**647 tests verts** (+17).
+
 ### Le bloc 7b — la forteresse (fait le 20 septembre 2026)
 
 **Portes, pierre, douves, pont-levis**, sur les décisions d'Angelos du matin (ouverture en

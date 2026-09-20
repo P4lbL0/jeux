@@ -7,6 +7,7 @@ import {
   habitantDe,
   joursDeVivres,
   nourrir,
+  RESSOURCES,
   stocksVides,
   travailler,
   type Habitant,
@@ -15,18 +16,19 @@ import {
   type Ressource,
   type Stocks,
 } from "../core/habitants";
-import { auPiedDeLEglise, EGLISE, POSTES, type PosteTravail } from "../core/carte";
+import { auPiedDeLEglise, EGLISE, POSTES, type Point, type PosteTravail } from "../core/carte";
+import type { Peuplement } from "../core/peuplement";
 import { combatDe, sortDefendre } from "../core/habitants";
 import {
   EFFETS_RUPTURE,
   NOMS_RUPTURE,
-  PRENOMS,
   REGLAGES_STRESS,
   avancerLaJournee,
   coeurLache,
   contracterEtat,
   descendreStress,
   monterStress,
+  prenomLibre,
   resistanceAuStress,
   soignerEtat,
   stressDesEtatsDe,
@@ -79,6 +81,30 @@ export interface ContexteVillage {
    * @returns vrai s'il a touche quelque chose
    */
   frapperMonstre: (x: number, y: number, portee: number, degats: number) => boolean;
+  /**
+   * Le village qu'on trouve : combien ils sont, ce que fait chacun, ce qu'il
+   * leur reste (§4.29, `core/peuplement.ts`).
+   */
+  peuplement: Peuplement;
+  /**
+   * Les prenoms deja portes — le heros, et quiconque existe avant eux.
+   *
+   * ⚠️ Le village prenait jusqu'ici les premiers prenoms de la liste, dans
+   * l'ordre. Avec trois habitants ca passait ; a vingt, un habitant finissait
+   * par s'appeler comme le heros. `prenomLibre` est le seul endroit du jeu qui
+   * distribue un nom (§4.18) : on lui dit ce qui est pris.
+   */
+  nomsPris: () => string[];
+  /**
+   * Ou vivent ceux qui n'ont pas de poste dehors — le devant de leur maison.
+   *
+   * ⚠️ **Sans ca, ils disparaissent.** Un habitant sans poste est « confine »,
+   * donc il entre dans l'eglise, donc son corps est retire du monde. A trois
+   * habitants ca ne se voyait pas : tous les trois avaient un poste. A vingt,
+   * le forgeron, le charpentier et le guetteur s'evaporaient — et **la taille
+   * d'un village est la premiere chose qu'on voit de loin** (§4.29).
+   */
+  placesDeVie: () => Point[];
 }
 
 /**
@@ -144,14 +170,55 @@ function palierDe(villageois: Villageois): number {
 }
 
 /**
- * Les noms qu'on tire. Ils comptent : on les perd.
+ * Le poste d'un metier, s'il y en a un dehors.
  *
- * La source est **commune aux heros et aux habitants** (`core/personne.ts`) :
- * un villageois qui devient heros au jalon 9 ne doit pas changer de prenom en
- * route. Les trois premiers sortent de la liste ecrite a la main, dans l'ordre —
- * la scene demele ensuite les homonymes avec l'equipe, qui se compose avant.
+ * Quatre metiers sur sept sortent travailler — le pecheur, le bucheron, le
+ * mineur, le fermier. Les trois autres — forgeron, charpentier, guetteur —
+ * **restent au village** : ils n'ont pas de poste sur la carte, et leur
+ * travail viendra au bloc 8 (§4.4, les ordres pour tous).
  */
-const NOMS = PRENOMS;
+function posteDe(metier: Metier): PosteTravail | null {
+  return POSTES.find((p) => p.metier === metier) ?? null;
+}
+
+/**
+ * Ou se tient exactement quelqu'un qui travaille a ce poste.
+ *
+ * L'ecart vient de son identifiant — donc il ne change ni d'une image a
+ * l'autre, ni d'une reprise de partie a l'autre.
+ */
+function placeAuPoste(poste: PosteTravail, id: number): Point {
+  return ecarter(poste.position, id, 14, 11);
+}
+
+/**
+ * Le meme ecart, devant chez soi.
+ *
+ * ⚠️ **Il faut le meme ici**, et pour la meme raison qu'aux postes : un
+ * village peut compter plus de tetes que de toits debout — onze habitants pour
+ * neuf maisons, vu en verifiant —, et deux habitants se retrouvaient alors au
+ * **meme pixel**. Plus serre qu'a un poste : on se tient devant sa porte, pas
+ * dans la rue.
+ */
+function placeChezSoi(chezSoi: Point, id: number): Point {
+  // ⚠️ **Jamais un ecart nul** : a zero, un habitant sur trois se tenait au
+  // centre exact de sa case, et deux qui partageaient la meme place — il y a
+  // plus de tetes que de places dans un gros village — finissaient au meme
+  // pixel. Vu en verifiant, a vingt habitants.
+  return ecarter(chezSoi, id, 5, 6);
+}
+
+/** Un point ecarte du centre, toujours le meme pour un identifiant donne. */
+function ecarter(centre: Point, id: number, base: number, pas: number): Point {
+  // L'angle d'or : deux identifiants voisins ne tombent jamais au meme
+  // endroit, ce qu'un simple `id % 4` faisait des qu'un habitant mourait.
+  const angle = id * 2.399963;
+  const rayon = base + (id % 4) * pas;
+  return {
+    x: centre.x + Math.cos(angle) * rayon,
+    y: centre.y + Math.sin(angle) * rayon * 0.7,
+  };
+}
 
 /**
  * Un habitant a l'ecran.
@@ -170,6 +237,17 @@ export class Villageois extends Phaser.Physics.Arcade.Sprite {
 
   /** Prochain instant ou il peut frapper, quand il defend l'eglise (§4.18) */
   prochainCoup = 0;
+
+  /**
+   * Sa place sur le village — la ou il se tient quand il n'a pas de poste
+   * dehors.
+   *
+   * Le forgeron, le charpentier et le guetteur n'ont rien a faire sur la carte
+   * avant le bloc 8 (§4.4). Sans ce point, ils entraient dans l'eglise des la
+   * premiere image et **disparaissaient du monde** : un village de vingt en
+   * montrait sept (§4.29).
+   */
+  placeDeVie: Point | null = null;
 
   /** Sa planche du moment : son metier, et l'etat de son corps (voir `poses.ts`) */
   familleSprite: string;
@@ -252,6 +330,8 @@ export class Village {
    * ignorent tout de l'affaire.
    */
   private readonly journeesDesMortsEnChemin: number[] = [];
+  /** La maison qu'on donnera au prochain habitant */
+  private placeSuivante = 0;
   /** La journee en cours, tenue par la scene a chaque aube */
   private journee = 1;
   /** Le dernier chiffre calcule, pour ne pas le refaire a chaque image */
@@ -260,35 +340,52 @@ export class Village {
   private readonly scene: Phaser.Scene;
   private readonly contexte: ContexteVillage;
   /**
-   * Graine fixe : le courage de depart des trois premiers habitants ne change
-   * pas d'une partie a l'autre. On apprend son village, comme on apprend sa
-   * carte (§4.6).
+   * Le tirage du village : les statistiques, les traits et les visages de ses
+   * habitants en sortent.
+   *
+   * ⚠️ **Il est seede par le village qu'on a trouve**, et plus par une
+   * constante. Avant le §4.29 il n'y avait qu'un village, toujours le meme :
+   * une graine fixe donnait toujours les trois memes personnes, et c'etait une
+   * qualite — on apprenait son village comme sa carte (§4.6). Depuis qu'on en
+   * traverse plusieurs, deux villages a l'autre bout du monde se seraient
+   * ressemble jusqu'au nom. La regle tient toujours, elle tient juste par
+   * village : **une graine, un village**.
    */
-  private readonly rng = new Rng(20260809);
+  private readonly rng: Rng;
 
   constructor(scene: Phaser.Scene, contexte: ContexteVillage) {
     this.scene = scene;
     this.contexte = contexte;
     this.groupe = scene.physics.add.group();
+    this.rng = new Rng(contexte.peuplement.graine);
 
-    // **Trois** habitants, et trois seulement : le village est en ruine (§4.6),
-    // et chaque nouvel arrivant doit se remarquer.
+    // Le village qu'on a trouve, tel qu'il est (§4.29) : de un a vingt, avec
+    // ses metiers et ses reserves. Ce n'est plus le trio de ruines d'avant —
+    // c'en est un cas particulier, celui d'un village de trois.
     //
-    // Les champs restent donc **vides au depart**. C'est voulu : y mettre
-    // quelqu'un veut dire le retirer du bois ou du minerai, et c'est la seule
-    // decision de production que le §4.18 accorde au joueur. Elle ne vaudrait
-    // rien si le poste etait deja tenu.
-    const departs = POSTES.filter((poste) => poste.metier !== "fermier");
-    departs.forEach((poste, index) => {
-      this.ajouter(
-        creerHabitant(NOMS[index] ?? `Habitant ${index}`, poste.metier, "F", this.rng),
-        poste,
-      );
-    });
+    // Les champs restent vides tant qu'ils sont peu : y mettre quelqu'un veut
+    // dire le retirer du bois ou du minerai, et c'est la seule decision de
+    // production que le §4.18 accorde au joueur (`ORDRE_DES_METIERS`).
+    const pris = [...contexte.nomsPris()];
+    for (const metier of contexte.peuplement.metiers) {
+      const nom = prenomLibre(this.rng, pris);
+      pris.push(nom);
+      this.ajouter(creerHabitant(nom, metier, "F", this.rng), posteDe(metier));
+    }
+
+    // Ce qu'il leur restait dans les reserves. Un village qu'on trouve n'a pas
+    // vecu de rien jusqu'a nous.
+    for (const ressource of RESSOURCES) this.stocks[ressource] = contexte.peuplement.stocks[ressource];
   }
 
   ajouter(regles: Habitant, poste: PosteTravail | null): Villageois {
     const villageois = new Villageois(this.scene, regles, poste);
+    // Chacun sa place sur le village, dans l'ordre ou ils arrivent : les plus
+    // pres de l'eglise d'abord (§4.29). S'il y a plus de monde que de places,
+    // on repart au debut — on se serre, et l'ecart de `placeChezSoi` fait que
+    // deux voisins ne tiennent pas le meme pas de porte.
+    const places = this.contexte.placesDeVie();
+    if (places.length > 0) villageois.placeDeVie = places[this.placeSuivante++ % places.length]!;
     this.habitants.push(villageois);
     this.groupe.add(villageois);
     return villageois;
@@ -883,7 +980,6 @@ export class Village {
     const confine =
       rappel ||
       posture === "abri" ||
-      villageois.poste === null ||
       // Celui qui a craque ne va pas travailler : la paranoia refuse de sortir,
       // la terreur lache son poste et se terre (§4.23). L'abattement, lui, le
       // laisse sur place a ne rien faire — c'est `cadence()` qui l'annule.
@@ -899,7 +995,50 @@ export class Village {
       return;
     }
 
+    // ⚠️ **Sans poste, il ne se terre plus dans l'eglise** (§4.29). C'etait la
+    // regle d'avant — « pas de poste, donc confine » —, et elle etait juste
+    // tant qu'on commencait a trois, tous les trois postes tenus. Depuis qu'un
+    // village trouve peut en compter vingt, elle faisait disparaitre le
+    // forgeron, le charpentier et le guetteur du monde des la premiere image.
+    // Il vit donc chez lui, dehors, tant qu'il fait jour et que rien ne rode.
+    if (villageois.poste === null) {
+      if (menace || this.nuit) {
+        this.rentrer(villageois, monstre);
+        return;
+      }
+      this.vivreChezSoi(villageois);
+      return;
+    }
+
     this.allerTravailler(villageois, delta);
+  }
+
+  /**
+   * Il se tient devant sa maison (§4.29).
+   *
+   * Il ne produit rien et il ne se repose pas moins qu'a l'abri : ce n'est pas
+   * un poste, c'est **une presence**. La vie autonome — ce qu'ils font
+   * vraiment de leurs journees — est le bloc 12 (§4.27) ; ici on repond a une
+   * seule question, celle que le §4.29 pose a quelqu'un qui arrive : combien
+   * sont-ils, et est-ce qu'on les voit.
+   */
+  private vivreChezSoi(villageois: Villageois): void {
+    this.sortirDeLEglise(villageois);
+    const chezSoi = placeChezSoi(villageois.placeDeVie ?? { x: EGLISE.x, y: EGLISE.y }, villageois.regles.id);
+    const distance = Phaser.Math.Distance.Between(villageois.x, villageois.y, chezSoi.x, chezSoi.y);
+
+    if (distance > 6) {
+      villageois.etat = "en-route";
+      this.avancerVers(villageois, chezSoi.x, chezSoi.y, REGLAGES_VILLAGE.vitesseTravail);
+      return;
+    }
+
+    // Arrive : il reste "en-route" et non "au-poste". L'etat n'est pas qu'une
+    // etiquette — "au-poste" veut dire qu'on travaille, donc qu'on produit et
+    // qu'on s'use (§4.18, §4.23). Rester chez soi ne fatigue personne.
+    villageois.etat = "en-route";
+    villageois.setVelocity(0, 0);
+    villageois.setPosition(chezSoi.x, chezSoi.y);
   }
 
   /** Un monstre est litteralement sur lui : meme un tetu s'en va. */
@@ -1001,23 +1140,23 @@ export class Village {
   private allerTravailler(villageois: Villageois, delta: number): void {
     this.sortirDeLEglise(villageois);
     const poste = villageois.poste!;
-    const distance = Phaser.Math.Distance.Between(
-      villageois.x,
-      villageois.y,
-      poste.position.x,
-      poste.position.y,
-    );
+    // Chacun sa place autour du poste (§4.29) : a trois habitants un poste
+    // n'accueillait qu'une personne, et viser le point exact suffisait. Depuis
+    // qu'un village de vingt met quatre ou cinq bras a la mine, ils se
+    // superposaient tous au meme pixel — trois sprites pour un seul corps
+    // visible.
+    const place = placeAuPoste(poste, villageois.regles.id);
+    const distance = Phaser.Math.Distance.Between(villageois.x, villageois.y, place.x, place.y);
 
-    if (distance > 26) {
+    // ⚠️ **On se pose a sa place exacte, pas « a peu pres ».** Avec une marge
+    // d'arrivee plus large que l'ecart entre deux places, deux bucherons
+    // s'arretaient a trois pixels l'un de l'autre — mesure en jeu.
+    if (distance > 6) {
       villageois.etat = "en-route";
-      this.avancerVers(
-        villageois,
-        poste.position.x,
-        poste.position.y,
-        REGLAGES_VILLAGE.vitesseTravail * 1.6,
-      );
+      this.avancerVers(villageois, place.x, place.y, REGLAGES_VILLAGE.vitesseTravail * 1.6);
       return;
     }
+    villageois.setPosition(place.x, place.y);
 
     villageois.etat = "au-poste";
     villageois.setVelocity(0, 0);
