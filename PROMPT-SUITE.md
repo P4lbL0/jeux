@@ -1,11 +1,12 @@
-# Prompt de reprise — ce qui reste à coder (20 septembre 2026, tard le soir)
+# Prompt de reprise — ce qui reste à coder (20 septembre 2026, dans la nuit)
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Écrit après **le jalon 5.5 à moitié codé** : un seul héros, un monde tiré par graine, la
-> zone jouable en paramètre, **la marche** (on paraît seul au bord du monde, quelqu'un vient
-> demander notre protection à la porte) et **le refus qui se paie** (le village qui se jette
-> sur nous). **Le design est écrit et tranché** — le grand dépouillage du 9 septembre a fermé
+> Écrit après **le jalon 5.5 fini, à un morceau près** : un seul héros, un monde tiré par
+> graine, **la marche**, **le refus qui se paie**, **le village déjà peuplé** (1 à 20
+> habitants), **le budget cadeaux/menaces**, **la zone jouable ×2** et **la presqu'île à un
+> front**. Il ne reste que **l'errance continue**, le seul chantier d'architecture du
+> projet. **Le design est écrit et tranché** — le grand dépouillage du 9 septembre a fermé
 > toutes les questions ouvertes : la session qui prend la suite a surtout à construire, et à
 > ne demander que ce que le design ne dit pas.
 
@@ -34,11 +35,17 @@ coûte cher ou casse quelque chose.
   cases d'une porte un habitant vient poser sa question ; accepter fait commencer le jour 1,
   refuser **en face** peut faire que le village entier se jette sur nous, passer au large ne
   coûte rien. Tout ce qu'on tue donne de l'or et de l'expérience.
+- **Le village qu'on trouve** (§4.29) : **de 1 à 20 habitants** tirés de sa graine, leurs
+  métiers, leurs réserves en jours de vivres, un toit debout par foyer de quatre — et un
+  **budget** qui compte sur une seule échelle tout ce que le monde offre, et le fait payer en
+  monstres plus nombreux, plus forts, et en malades qu'on découvre une fois installé. La
+  phrase s'annonce avant d'entrer, à part, sur le panneau de la question. La zone jouable fait
+  **deux fois la carte** (2828 × 2121) et la **presqu'île à un front** existe.
 - **Le visuel** : tout est dessiné — personnages, bâtiments, décor, murs, sol, mer — et les
   personnages viennent de **Blender** (121 planches). L'écran-titre est une cinématique
   Blender avec sa bande-son.
 
-**Les chiffres** : 630 tests verts, `npm run build` propre, ~44 000 lignes de TypeScript.
+**Les chiffres** : 666 tests verts, `npm run build` propre, ~45 000 lignes de TypeScript.
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
 
@@ -54,27 +61,20 @@ coûte cher ou casse quelque chose.
 
 ## 3. Ce qui reste à coder
 
-### A. Finir le jalon 5.5 (§4.29) — le chantier en cours
+### A. Finir le jalon 5.5 (§4.29) — il ne reste qu'un morceau
 
-1. **Le village déjà peuplé.** Aujourd'hui tout village démarre à **trois** habitants, quel
-   que soit le monde. Le §4.29 veut qu'on voie de loin **la taille** d'un village et qu'on en
-   tienne compte : il faut donc une population de départ variable, et des stocks. Le
-   générateur pose déjà les douves et les ponts-levis ; il lui manque les gens.
-2. **Le budget cadeaux / menaces.** Un seul nombre, une seule table : tout ce que le monde
-   offre (habitants, défenses debout, église intacte, terrain fermé) se paie en menaces
-   (monstres plus nombreux, plus forts, maladies, incendie déjà parti). Annoncé **en une
-   phrase** avant d'entrer. C'est ce qui donne enfin son sens au refus — un beau village est
-   celui qui annonce les pires nuits.
-3. **La zone qui se ferme à l'installation.** `TAILLE_JOUABLE` (×2, mesurée) existe et n'est
-   posée nulle part : une partie commence encore sur la taille classique.
-4. **La presqu'île à un front** : sur 120 graines, aucun monde n'a un seul front. Le §4.29 en
-   fait le plus gros cadeau du jeu ; il faut l'ajouter au générateur.
-5. ⚠️ **L'errance continue** — le morceau bloqué, et il faut le dire : le design veut un monde
-   qui se génère **devant** le joueur, à l'infini, avec des villages qui s'espacent. Chaque
-   village est aujourd'hui un monde entier qu'on recommence. **La cause est mesurée** : la
-   carte se peint **d'un seul bloc** (1 s à ×2, 1,5 s à ×3). Tant qu'elle n'est pas peinte par
-   morceaux, ni l'errance continue ni la zone ×3 ne sont possibles. **C'est le seul chantier
-   d'architecture qui reste dans ce jalon.**
+1. ⚠️ **L'errance continue** — le seul morceau qui reste, et **le seul chantier
+   d'architecture du projet**. Le design veut un monde qui se génère **devant** le joueur, à
+   l'infini, avec des villages qui s'espacent à chaque refus (le facteur est écrit dans
+   `REGLAGES_MARCHE`, pas appliqué). Chaque village est aujourd'hui un monde entier qu'on
+   recommence. **La cause est mesurée** : la carte se peint **d'un seul bloc**, et une partie
+   s'ouvre en **2,4 à 2,9 s** sur la zone ×2 contre 0,6 s sur la carte classique — c'est ce
+   gel-là qu'on paie à chaque village refusé. Tant qu'elle n'est pas peinte **par morceaux**,
+   ni l'errance continue ni la zone ×3 ne sont possibles.
+
+> Le reste du jalon est **codé** depuis le 20 septembre au soir : le village déjà peuplé, le
+> budget cadeaux/menaces, la zone jouable ×2 et la presqu'île à un front. Le détail est au
+> §4.29, dans ses sections « Codé le… », et dans `SUITE.md`.
 
 ### B. Le jalon 5, ses derniers blocs (`design/05-ordre-de-construction.md`)
 
@@ -113,14 +113,18 @@ coûte cher ou casse quelque chose.
   leur cadre (les pattes, pas le corps).
 - Le panneau ORDRES affiche « toute l'équipe (0) » alors qu'on joue un seul héros : il
   redeviendra juste au bloc 9, quand l'équipe existera de nouveau.
+- Un village pose **six maisons en moyenne** (jamais plus de quatorze) là où le code en vise
+  seize à vingt : c'est pour ça qu'une maison loge une famille de quatre.
+- La presqu'île sort **9 fois sur 100** sur la zone jouable, mais **33 fois sur 100** sur la
+  carte classique : le taux dépend de la place. C'est la zone jouable qui fait foi.
 - La forêt ne ferme pas un flanc (les monstres marchent dans les arbres) : à décider.
 - Le port peut se poser sur un lac, faute de mieux.
 
 ## 4. Par quoi je te demande de commencer
 
-**Le village déjà peuplé, puis le budget.** Dans cet ordre, parce que le budget a besoin
-d'une population variable pour avoir quelque chose à acheter. Découpe-le en morceaux courts
-que je valide un par un, et **montre-moi des captures**.
+**L'errance continue**, c'est-à-dire d'abord **peindre la carte par morceaux** : rien
+d'autre ne débloque ce chantier, et il débloque aussi la zone ×3. Découpe-le en morceaux
+courts que je valide un par un, et **montre-moi des captures**.
 
 Avant de coder : dis-moi ce que tu as compris, ce que tu comptes faire en premier, et pose
 d'un coup les décisions qui te manquent.
@@ -153,7 +157,7 @@ d'un coup les décisions qui te manquent.
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (630)
+npx vitest run   # les tests (666)
 npm run build    # vérifie les types et construit
 
 npx tsx scripts/capturer.ts apres          # les captures du jeu, par Playwright
