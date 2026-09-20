@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MONDE, ligneDeMontagne } from "../../core/carte";
+import { MONDE, TERRAIN } from "../../core/carte";
 import { altitude, releverLeRelief } from "./relief";
 
 describe("Relief — les facettes du sol", () => {
@@ -37,7 +37,9 @@ describe("Relief — les facettes du sol", () => {
 
   it("fait monter la montagne au-dessus de la prairie", () => {
     const x = 1000;
-    const pied = ligneDeMontagne(x);
+    // Le pied moyen de la montagne du monde classique : l'ondulation fait
+    // moins de trente pixels, les deux echantillons sont a 250 et 300 de la.
+    const pied = TERRAIN.montagne;
     const loin = [0, 60, 120, 180].map((d) => altitude(x + d, pied + 250));
     const prairie = [0, 60, 120, 180].map((d) => altitude(x + d, pied - 300));
     const moyenne = (t: number[]) => t.reduce((a, b) => a + b, 0) / t.length;

@@ -972,3 +972,31 @@ Une planche de propositions a servi de test, et elle a fait remonter trois défa
   au lieu de « x3 » (§4.10)
 - ✅ **La ligne des touches se replie** : une ligne courte en bas au centre, `?` la déplie.
   Une plaque opaque permanente masquerait le terrain sous le héros qu'on pilote (§4.10)
+
+### Le 20 septembre 2026 — un seul heros, un monde tire, les douves eprouvees
+
+> Demande d'Angelos, codee le jour meme (§4.29, §4.20). Ce qui suit fait foi.
+
+- ✅ **Un seul heros au depart.** L'equipe des sept classes disparait ; on joue la classe
+  choisie, seule, jusqu'au premier villageois forme (bloc 9).
+- ✅ **Le monde se tire a chaque nouvelle aventure** : la mer sur un bord ou absente, une
+  chaine, un massif ou un piton, un lac, des bois, et **le village tombe ou le sort veut** —
+  sur l'herbe, pres d'une eau. La graine zero est la carte d'avant ; les vieilles sauvegardes
+  la reprennent.
+- ✅ **Les fronts se deduisent du terrain** (de deux a quatre pour l'instant) ; le calendrier
+  du §4.6 s'y applique tel quel.
+- ✅ **On ne se noie pas sans passage** : la douve en eau qui fermerait le dernier passage est
+  refusee, comme le mur — sauf contre une porte, ou un pont-levis l'enjambera.
+- ✅ **Les monstres contournent** l'eau, la roche et les douves en eau par un champ de
+  directions recalcule a la pose, et viennent attendre devant le pont-levis leve.
+- Eprouve dans le navigateur (`scripts/verifier-douves.ts`, captures dans
+  `captures/jeu/2026-09-20-douves/`) : l'anneau de douves colle a l'enceinte se met en eau
+  depuis la mer, chaque porte devant l'eau devient un pont-levis, la meute se rassemble devant
+  les ponts la nuit, la derniere mise en eau d'un anneau sans porte est refusee, et une meute
+  lachee derriere un lac le contourne.
+- ⚠️ **Constate, pas corrige** : le flanc que la foret « garde » ne l'est pas — les monstres
+  marchent dans les arbres, seule la roche et l'eau profonde les arretent. Une douve qui
+  s'arrete la ou le mur s'arrete laisse donc passer par la lisiere. C'etait deja vrai avant.
+
+**Ouvert depuis ce jour :** la presqu'ile a un seul front (aucun tirage n'en produit) ; les
+mondes sans mer, ou le port est sur un lac — le navire y accoste quand meme, faute de mieux.

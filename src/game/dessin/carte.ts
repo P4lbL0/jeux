@@ -1,13 +1,5 @@
 import type Phaser from "phaser";
-import {
-  MONDE,
-  ligneDEau,
-  ligneDeForet,
-  ligneDeMontagne,
-  ligneDeSable,
-  type Terrain,
-  EGLISE,
-} from "../../core/carte";
+import { MONDE, mondeCourant, terrainEn as terrainDuMonde, type Terrain, EGLISE } from "../../core/carte";
 import { C } from "../ui/couleurs";
 import { bruit, bruitLisse, ligneDeBruit } from "./bruit";
 import { releverLeRelief } from "./relief";
@@ -123,61 +115,59 @@ const OS = melanger(C.os, C.fer, 0.12);
 // ------------------------------------------------------------ les formules
 
 /**
- * Les lignes de `core/carte.ts`, calculees une fois par rangee et par colonne.
+ * Le terrain du monde, echantillonne d'avance sur un treillis de deux pixels.
  *
- * ⚠️ **Ce sont les formules du core, pas une copie.** Elles sont seulement
- * echantillonnees d'avance : appeler `terrainEn` pour chacun des trois millions
- * de pixels coutait une demi-seconde de sinus. Un test verifie que la
- * classification d'ici rend exactement `terrainEn`.
+ * ⚠️ **C'est la formule du core, pas une copie.** Depuis que le monde se tire
+ * (§4.29 — une mer sur n'importe quel bord, des lacs, un massif), il n'y a
+ * plus quatre lignes a echantillonner mais une fonction du point ; l'appeler
+ * pour chacun des trois millions de pixels coutait une demi-seconde. Un point
+ * sur deux dans chaque sens en coute un quart, et le tremblement des lisieres
+ * (six pixels) cache le pas du treillis. Un test verifie que la
+ * classification d'ici rend `terrainEn` sur les points du treillis.
  */
-interface Lignes {
-  eau: Float32Array;
-  sable: Float32Array;
-  foret: Float32Array;
-  montagne: Float32Array;
+export const PAS_DU_CHAMP = 2;
+
+export interface Champ {
+  pas: number;
+  colonnes: number;
+  lignes: number;
+  /** L'index dans `TERRAINS` de chaque point du treillis */
+  terrains: Uint8Array;
+  /** La marge, en points, autour du monde : le tremblement peut sortir */
+  marge: number;
 }
 
-function echantillonner(largeur: number, hauteur: number): Lignes {
-  const marge = TREMBLEMENT + 1;
-  const eau = new Float32Array(hauteur + marge * 2);
-  const sable = new Float32Array(hauteur + marge * 2);
-  for (let y = -marge; y < hauteur + marge; y += 1) {
-    eau[y + marge] = ligneDEau(y);
-    sable[y + marge] = ligneDeSable(y);
+function echantillonner(largeur: number, hauteur: number): Champ {
+  const pas = PAS_DU_CHAMP;
+  const marge = Math.ceil((TREMBLEMENT + 1) / pas);
+  const colonnes = Math.ceil(largeur / pas) + marge * 2;
+  const lignes = Math.ceil(hauteur / pas) + marge * 2;
+  const terrains = new Uint8Array(colonnes * lignes);
+  for (let j = 0; j < lignes; j += 1) {
+    const y = (j - marge) * pas;
+    for (let i = 0; i < colonnes; i += 1) {
+      terrains[j * colonnes + i] = INDEX[terrainDuMonde((i - marge) * pas, y)];
+    }
   }
-  const foret = new Float32Array(largeur + marge * 2);
-  const montagne = new Float32Array(largeur + marge * 2);
-  for (let x = -marge; x < largeur + marge; x += 1) {
-    foret[x + marge] = ligneDeForet(x);
-    montagne[x + marge] = ligneDeMontagne(x);
-  }
-  return { eau, sable, foret, montagne };
+  return { pas, colonnes, lignes, terrains, marge };
 }
 
 /**
- * La nature du sol en un point, lue dans les lignes echantillonnees.
- *
- * Meme ordre que `terrainEn` : l'eau avant la roche, pour que la montagne
- * descende jusqu'au rivage et s'y arrete au lieu de couper le littoral.
+ * La nature du sol en un point, lue dans le treillis : le point le plus
+ * proche. Hors du treillis, le bord le plus proche.
  */
-export function classer(lignes: Lignes, x: number, y: number): Terrain {
-  const marge = TREMBLEMENT + 1;
-  const eau = lignes.eau[y + marge] ?? 0;
-  if (x < eau - 104) return "abysse";
-  if (x < eau - 38) return "mer";
-  if (x < eau) return "haut-fond";
-
-  const montagne = lignes.montagne[x + marge] ?? Infinity;
-  if (y > montagne + 44) return "roche";
-  if (y > montagne) return "eboulis";
-
-  if (x < (lignes.sable[y + marge] ?? 0)) return "sable";
-  if (y > (lignes.foret[x + marge] ?? Infinity)) return "sous-bois";
-  return "herbe";
+export function classer(champ: Champ, x: number, y: number): Terrain {
+  let i = Math.round(x / champ.pas) + champ.marge;
+  let j = Math.round(y / champ.pas) + champ.marge;
+  if (i < 0) i = 0;
+  else if (i >= champ.colonnes) i = champ.colonnes - 1;
+  if (j < 0) j = 0;
+  else if (j >= champ.lignes) j = champ.lignes - 1;
+  return TERRAINS[champ.terrains[j * champ.colonnes + i]!]!;
 }
 
-/** Les lignes du monde, pour les tests. */
-export function lignesDuMonde(): Lignes {
+/** Le champ du monde courant, pour les tests. */
+export function champDuMonde(): Champ {
   return echantillonner(MONDE.largeur, MONDE.hauteur);
 }
 
@@ -196,7 +186,7 @@ export interface CartePeinte {
  * Peint la carte. **Pure** : ni Phaser, ni hasard.
  */
 export function peindreLaCarte(largeur = MONDE.largeur, hauteur = MONDE.hauteur): CartePeinte {
-  const lignes = echantillonner(largeur, hauteur);
+  const champ = echantillonner(largeur, hauteur);
   const pixels = new Uint8ClampedArray(new ArrayBuffer(largeur * hauteur * 4));
   const terrains = new Uint8Array(largeur * hauteur);
 
@@ -224,7 +214,7 @@ export function peindreLaCarte(largeur = MONDE.largeur, hauteur = MONDE.hauteur)
     for (let x = 0; x < largeur; x += 1) {
       const jx = x + Math.round((tremblementX[x]! - 0.5) * 2 * TREMBLEMENT);
       const jy = y + Math.round((tremblementY[x]! - 0.5) * 2 * TREMBLEMENT);
-      rangee[x] = INDEX[classer(lignes, jx, jy)];
+      rangee[x] = INDEX[classer(champ, jx, jy)];
     }
 
     // 2. Le sol, puis les lisieres qui ont besoin de leurs voisins.
@@ -455,7 +445,12 @@ function arete(carte: CartePeinte, x: number, y: number, t: Terrain): void {
  * une carte de deux millions de pixels a chaque fois.
  */
 export function cuireLaCarte(scene: Phaser.Scene): boolean {
-  if (scene.textures.exists(CLE_CARTE)) return false;
+  // Un monde par partie (§4.29) : la carte se recuit quand le monde change,
+  // et seulement la. Recommencer le meme monde ne recuit rien.
+  const graine = mondeCourant().graine;
+  if (scene.textures.exists(CLE_CARTE) && carteCuitePour === graine) return false;
+  if (scene.textures.exists(CLE_CARTE)) scene.textures.remove(CLE_CARTE);
+  if (scene.textures.exists(CLE_MASQUE_EAU)) scene.textures.remove(CLE_MASQUE_EAU);
 
   const texture = scene.textures.createCanvas(CLE_CARTE, MONDE.largeur, MONDE.hauteur);
   const ctx = texture?.getContext();
@@ -465,13 +460,47 @@ export function cuireLaCarte(scene: Phaser.Scene): boolean {
   ctx.putImageData(new ImageData(carte.pixels, carte.largeur, carte.hauteur), 0, 0);
   texture.refresh();
   // La carte vierge reste en memoire : chaque partie repart d'elle avant d'y
-  // peindre son village (`dessinerLeSolDuVillage`). Douze Mo, une fois.
+  // peindre son village (`dessinerLeSolDuVillage`). Douze Mo, une fois par monde.
   carteVierge = carte;
+  carteCuitePour = graine;
+
+  // Le masque d'eau, pour la houle (`mer.ts`) : opaque sur l'eau, rien
+  // ailleurs, a un point sur deux — trois Mo au lieu de douze.
+  const masque = scene.textures.createCanvas(
+    CLE_MASQUE_EAU,
+    Math.ceil(MONDE.largeur / ECHELLE_DU_MASQUE),
+    Math.ceil(MONDE.hauteur / ECHELLE_DU_MASQUE),
+  );
+  const ctxMasque = masque?.getContext();
+  if (masque && ctxMasque) {
+    const image = ctxMasque.createImageData(masque.width, masque.height);
+    for (let j = 0; j < masque.height; j += 1) {
+      for (let i = 0; i < masque.width; i += 1) {
+        const x = Math.min(carte.largeur - 1, i * ECHELLE_DU_MASQUE);
+        const y = Math.min(carte.hauteur - 1, j * ECHELLE_DU_MASQUE);
+        if (carte.terrains[y * carte.largeur + x]! <= INDEX["haut-fond"]) {
+          const k = (j * masque.width + i) * 4;
+          image.data[k] = 255;
+          image.data[k + 1] = 255;
+          image.data[k + 2] = 255;
+          image.data[k + 3] = 255;
+        }
+      }
+    }
+    ctxMasque.putImageData(image, 0, 0);
+    masque.refresh();
+  }
   return true;
 }
 
 /** La carte telle que cuite, avant tout village et tout degat. */
 let carteVierge: CartePeinte | null = null;
+/** La graine du monde dont la carte est cuite, ou null. */
+let carteCuitePour: number | null = null;
+
+/** Le masque d'eau du monde courant, pour la houle : une texture a l'echelle 1/2. */
+export const CLE_MASQUE_EAU = "carte-masque-eau";
+export const ECHELLE_DU_MASQUE = 2;
 
 /** Le nom du terrain d'un index, pour les tests. */
 export function terrainDIndex(index: number): Terrain {

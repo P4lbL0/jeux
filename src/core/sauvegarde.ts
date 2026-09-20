@@ -195,6 +195,12 @@ export interface Sauvegarde {
    */
   graineVillage?: number;
   /**
+   * La graine du monde (§4.29, 20 septembre 2026) : la mer, le relief, les
+   * lacs, l'emplacement du village et des postes. **Optionnelle** : une partie
+   * d'avant en a pas, et prend le monde classique — la carte d'avant.
+   */
+  graineMonde?: number;
+  /**
    * La consigne des portes (§4.20, bloc 7b) : fermees par la cloche, ou
    * ouvertes. Absent dans une sauvegarde d'avant le 20 septembre 2026 :
    * ouvertes — une partie enregistree a la tombee de la nuit a ses portes

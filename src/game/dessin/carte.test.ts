@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { MONDE, terrainEn } from "../../core/carte";
 import {
   classer,
-  lignesDuMonde,
+  champDuMonde,
+  PAS_DU_CHAMP,
   peindreDegat,
   peindreLaCarte,
   PAVES,
@@ -38,14 +39,14 @@ describe("Le bruit", () => {
 
 describe("La carte peinte", () => {
   it("classe le sol exactement comme la formule du core", () => {
-    // Les lignes sont echantillonnees d'avance pour aller vite ; si elles
-    // divergeaient de `terrainEn`, la carte ne serait plus celle que la grille
-    // et les corps physiques connaissent.
-    const lignes = lignesDuMonde();
+    // Le terrain est echantillonne d'avance, un point sur deux, pour aller
+    // vite ; si le treillis divergeait de `terrainEn`, la carte ne serait plus
+    // celle que la grille et les corps physiques connaissent.
+    const champ = champDuMonde();
     for (let i = 0; i < 4000; i += 1) {
-      const x = Math.floor(bruit(i, 1, 9) * MONDE.largeur);
-      const y = Math.floor(bruit(1, i, 9) * MONDE.hauteur);
-      expect(classer(lignes, x, y), `${x},${y}`).toBe(terrainEn(x, y));
+      const x = Math.floor((bruit(i, 1, 9) * MONDE.largeur) / PAS_DU_CHAMP) * PAS_DU_CHAMP;
+      const y = Math.floor((bruit(1, i, 9) * MONDE.hauteur) / PAS_DU_CHAMP) * PAS_DU_CHAMP;
+      expect(classer(champ, x, y), `${x},${y}`).toBe(terrainEn(x, y));
     }
   });
 

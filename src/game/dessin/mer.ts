@@ -107,40 +107,96 @@ const PROFONDEUR_ECUME = -990;
  */
 const DERIVE = { x: 5, y: -8 };
 
+/** Un point du rivage, et de quel cote est la terre. */
+export interface Rivage {
+  x: number;
+  y: number;
+  /** L'angle vers la terre, en radians : c'est l'orientation de la vague */
+  versLaTerre: number;
+}
+
+/** L'ecart entre deux vagues le long du rivage, en pixels. */
+const PAS_D_ECUME = 22;
+
+/**
+ * Releve le rivage d'un monde : des points a intervalle regulier le long de
+ * chaque ligne d'eau — la mer sur n'importe quel bord, un lac au milieu.
+ *
+ * On echantillonne la carte sur une grille, on garde les points a moins
+ * d'une case de l'eau, on les **projette** sur la ligne d'eau (le long de la
+ * pente de la distance), et on ne garde qu'un point par `PAS_D_ECUME`. Pur.
+ *
+ * @param distanceALEau la distance signee a l'eau, negative dedans
+ */
+export function releverLeRivage(
+  monde: { largeur: number; hauteur: number },
+  distanceALEau: (x: number, y: number) => number,
+): Rivage[] {
+  const rivages: Rivage[] = [];
+  const pris = new Set<string>();
+  const pas = 12;
+  const g = 4;
+  for (let y = pas / 2; y < monde.hauteur; y += pas) {
+    for (let x = pas / 2; x < monde.largeur; x += pas) {
+      const d = distanceALEau(x, y);
+      if (Math.abs(d) > 24) continue;
+      const gx = distanceALEau(x + g, y) - distanceALEau(x - g, y);
+      const gy = distanceALEau(x, y + g) - distanceALEau(x, y - g);
+      const n = Math.hypot(gx, gy);
+      if (n < 1e-3) continue;
+      const nx = gx / n;
+      const ny = gy / n;
+      const px = x - nx * d;
+      const py = y - ny * d;
+      if (px < 0 || py < 0 || px >= monde.largeur || py >= monde.hauteur) continue;
+      // Un seul point par cellule de `PAS_D_ECUME` : c'est l'ecart des vagues.
+      const clef = `${Math.floor(px / PAS_D_ECUME)},${Math.floor(py / PAS_D_ECUME)}`;
+      if (pris.has(clef)) continue;
+      pris.add(clef);
+      rivages.push({ x: px, y: py, versLaTerre: Math.atan2(ny, nx) });
+    }
+  }
+  return rivages;
+}
+
 /**
  * Pose la houle et l'ecume sur la carte (§4.30).
  *
- * @param bordDuLarge l'abscisse au-dela de laquelle il peut y avoir du sable.
- *        La houle s'arrete la : elle ne doit **jamais** deborder sur la plage,
- *        et le littoral serpente — seule sa position la plus a l'ouest est sure.
- * @param ligneDEau ou passe le rivage a une hauteur donnee.
+ * @param rivage les points du rivage, d'ou l'ecume bat
+ * @param masqueDEau la cle d'une texture qui couvre le monde, opaque sur l'eau
+ *        et transparente ailleurs : la houle ne deborde **jamais** sur la
+ *        plage, quelle que soit la forme de l'eau.
+ * @param echelleDuMasque de combien la texture du masque est plus petite que le monde
  */
 export function poserLaMer(
   scene: Phaser.Scene,
   monde: { largeur: number; hauteur: number },
-  bordDuLarge: number,
-  ligneDEau: (y: number) => number,
+  rivage: Rivage[],
+  masqueDEau: string,
+  echelleDuMasque: number,
 ): MerAnimee {
   cuireLaMer(scene);
 
   const houle = scene.add
-    .tileSprite(0, 0, bordDuLarge, monde.hauteur, CLE_HOULE)
+    .tileSprite(0, 0, monde.largeur, monde.hauteur, CLE_HOULE)
     .setOrigin(0)
     .setDepth(PROFONDEUR_HOULE);
+  const masque = scene.add.image(0, 0, masqueDEau).setOrigin(0).setScale(echelleDuMasque).setVisible(false);
+  houle.setMask(masque.createBitmapMask());
 
-  // Une vague par bande : le littoral serpente, une seule bande d'ecume sur
-  // toute la hauteur serait une barre droite posee sur une cote qui ondule.
-  for (let bande = 0; bande * ECUME.hauteur < monde.hauteur; bande += 1) {
-    const y = bande * ECUME.hauteur + ECUME.hauteur / 2;
+  // Une vague par point de rivage, tournee vers la terre : la cote serpente
+  // et l'eau peut etre n'importe ou, une barre droite ne suivrait rien.
+  rivage.forEach((r, i) => {
     const sprite = scene.add
-      .sprite(ligneDEau(y) - 2, y, CLE_ECUME)
+      .sprite(r.x - Math.cos(r.versLaTerre) * 2, r.y - Math.sin(r.versLaTerre) * 2, CLE_ECUME)
+      .setRotation(r.versLaTerre)
       .setDepth(PROFONDEUR_ECUME)
       .play(ANIM_ECUME);
-    // ⚠️ **Chaque bande part a un autre moment de sa vague.** En phase, les
-    // quarante-sept vagues battent ensemble et la cote entiere clignote — c'est
-    // le meme defaut que le damier du sol, et il se voit encore plus.
-    sprite.anims.setProgress(bruit(bande, 5, 3));
-  }
+    // ⚠️ **Chaque vague part a un autre moment.** En phase, elles battent
+    // toutes ensemble et la cote entiere clignote — c'est le meme defaut que
+    // le damier du sol, et il se voit encore plus.
+    sprite.anims.setProgress(bruit(i, 5, 3));
+  });
 
   return {
     deriver(delta: number): void {

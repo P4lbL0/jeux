@@ -23,7 +23,8 @@
  */
 
 import { creerArrivant, type Arrivant } from "./arrivants";
-import { estTerreFerme, MONDE, PRATICABLE, VILLAGE, type Point } from "./carte";
+import { CASE, COTES, estTerreFerme, MONDE, mondeCourant, VILLAGE, type Point } from "./carte";
+import { pointDeLisiere, pointDuBord } from "./monde";
 import type { CleEtat } from "./etats";
 import type { Rng } from "./rng";
 
@@ -292,26 +293,38 @@ function tirerLePoint(rng: Rng): Point {
   const marge = REGLAGES_SURVIVANTS.margeDuBord;
   for (let essai = 0; essai < 40; essai++) {
     const point = pointDUnBord(rng, marge);
-    if (estTerreFerme(point.x, point.y)) return point;
+    if (point && estTerreFerme(point.x, point.y)) return point;
   }
-  // Le repli est le coin le plus fiable de la carte : au nord-est, loin de la
-  // mer comme de la montagne. Mieux vaut un survivant a un endroit banal qu'un
-  // survivant dans la roche.
-  return { x: PRATICABLE.x + PRATICABLE.largeur - marge, y: PRATICABLE.y + marge };
+  // Le repli : un point d'apparition du premier front, qui mene toujours au
+  // village. Mieux vaut un survivant a un endroit banal qu'un survivant dans
+  // la roche.
+  const monde = mondeCourant();
+  const front = monde.fronts[0] ?? "nord";
+  return pointDuBord(monde, front, rng.next());
 }
 
-function pointDUnBord(rng: Rng, marge: number): Point {
-  const { x, y, largeur, hauteur } = PRATICABLE;
-  switch (rng.int(0, 3)) {
-    case 0:
-      return { x: rng.range(x, x + largeur), y: y + marge };
-    case 1:
-      return { x: rng.range(x, x + largeur), y: y + hauteur - marge };
-    case 2:
-      return { x: x + marge, y: rng.range(y, y + hauteur) };
-    default:
-      return { x: x + largeur - marge, y: rng.range(y, y + hauteur) };
-  }
+/**
+ * Un point de lisiere tire au sort, **sur n'importe quel cote qui a une terre
+ * reliee au village** (§4.29) : la premiere terre depuis le bord — la plage a
+ * l'ouest du classique, le pied des eboulis au sud. Depuis que l'eau et la
+ * roche peuvent border n'importe quel cote, un cote peut n'en avoir aucune :
+ * on tire parmi ceux qui en ont, et on glisse d'un peu dans la case pour ne
+ * pas toujours paraitre en son centre.
+ */
+function pointDUnBord(rng: Rng, marge: number): Point | null {
+  const monde = mondeCourant();
+  const cotes = COTES.filter((c) => monde.lisieres[c].length > 0);
+  if (cotes.length === 0) return null;
+  const cote = rng.pick(cotes);
+  const point = pointDeLisiere(monde, cote, rng.next());
+  if (!point) return null;
+  const glisse = rng.range(-CASE / 2 + 4, CASE / 2 - 4);
+  const horizontal = cote === "nord" || cote === "sud";
+  const p = horizontal ? { x: point.x + glisse, y: point.y } : { x: point.x, y: point.y + glisse };
+  return {
+    x: Math.min(MONDE.largeur - marge, Math.max(marge, p.x)),
+    y: Math.min(MONDE.hauteur - marge, Math.max(marge, p.y)),
+  };
 }
 
 /**

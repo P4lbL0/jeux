@@ -176,11 +176,33 @@ const PRATICABLES: readonly Terrain[] = ["sable", "herbe", "sous-bois", "haut-fo
 /** Ce qui arrete quelqu'un qui cherche la sortie. Une porte n'en fait pas partie : c'est la sortie. */
 const FERMENT: readonly Occupation[] = ["mur", "tour", "batiment", "maison"];
 
-function praticable(grille: Grille, colonne: number, ligne: number, bouchee: number): boolean {
+/**
+ * Une douve en eau ferme aussi (§4.20) — **sauf contre une porte**, qui peut
+ * devenir un pont-levis : c'est alors un passage possible, et on ne refuse
+ * pas au joueur de creuser sa douve devant sa porte. Une douve seche ne ferme
+ * pas : on la franchit, lentement.
+ */
+function douveFranchissable(grille: Grille, colonne: number, ligne: number): boolean {
+  for (const [dc, dl] of [
+    [0, -1],
+    [1, 0],
+    [0, 1],
+    [-1, 0],
+  ] as const) {
+    if (grille.case(colonne + dc, ligne + dl)?.occupation === "porte") return true;
+  }
+  return false;
+}
+
+function praticable(grille: Grille, colonne: number, ligne: number, bouchee: number, bouchee2 = -1): boolean {
   const c = grille.case(colonne, ligne);
   if (!c) return false;
-  if (ligne * COLONNES + colonne === bouchee) return false;
-  return PRATICABLES.includes(c.terrain) && !FERMENT.includes(c.occupation);
+  const i = ligne * COLONNES + colonne;
+  if (i === bouchee) return false;
+  if (!PRATICABLES.includes(c.terrain) || FERMENT.includes(c.occupation)) return false;
+  // La case qu'on mettrait en eau se juge comme une douve en eau.
+  if (c.occupation === "douve-eau" || i === bouchee2) return douveFranchissable(grille, colonne, ligne);
+  return true;
 }
 
 /**
@@ -192,7 +214,7 @@ function praticable(grille: Grille, colonne: number, ligne: number, bouchee: num
  * c'est ce qui la rend acceptable (§4.20). `bouchee` vaut -1 pour ne rien
  * boucher.
  */
-export function casesAtteintesDuDehors(grille: Grille, bouchee = -1): number {
+export function casesAtteintesDuDehors(grille: Grille, bouchee = -1, miseEnEau = -1): number {
   const vues = new Uint8Array(COLONNES * LIGNES);
   const pile: number[] = [];
   const pousser = (colonne: number, ligne: number) => {
@@ -200,7 +222,7 @@ export function casesAtteintesDuDehors(grille: Grille, bouchee = -1): number {
     const i = ligne * COLONNES + colonne;
     if (vues[i]) return;
     vues[i] = 1;
-    if (praticable(grille, colonne, ligne, bouchee)) pile.push(i);
+    if (praticable(grille, colonne, ligne, bouchee, miseEnEau)) pile.push(i);
   };
   for (let colonne = 0; colonne < COLONNES; colonne++) {
     pousser(colonne, 0);
@@ -242,6 +264,28 @@ export function enfermeraitSansPorte(grille: Grille, x: number, y: number): bool
   const avant = casesAtteintesDuDehors(grille);
   const apres = casesAtteintesDuDehors(grille, i);
   // La case bouchee elle-meme ne compte pas : elle est perdue par definition.
+  return avant - apres > 1;
+}
+
+/**
+ * Mettre cette douve en eau refermerait-il une zone **sans passage** (§4.20) ?
+ *
+ * Le meme raisonnement que le mur : une douve en eau ne se franchit plus, sauf
+ * la ou une porte la touche — un pont-levis possible. Si des cases qu'on
+ * atteignait du dehors ne s'atteignent plus une fois la douve en eau, on
+ * s'isole pour de bon : plus de monstre, mais plus de recolte non plus, et
+ * c'est l'exploit que la regle du mur interdit deja.
+ */
+export function noieraitSansPassage(grille: Grille, x: number, y: number): boolean {
+  const colonne = grille.colonneDe(x);
+  const ligne = grille.ligneDe(y);
+  if (!grille.dedans(colonne, ligne)) return false;
+  const i = ligne * COLONNES + colonne;
+  if (!praticable(grille, colonne, ligne, -1)) return false;
+  // Contre une porte, elle reste un passage : rien ne change.
+  if (douveFranchissable(grille, colonne, ligne)) return false;
+  const avant = casesAtteintesDuDehors(grille);
+  const apres = casesAtteintesDuDehors(grille, -1, i);
   return avant - apres > 1;
 }
 

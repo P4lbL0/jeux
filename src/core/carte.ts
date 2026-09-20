@@ -1,21 +1,47 @@
 /**
- * La carte du village (DESIGN.md §4.6).
+ * La carte du village (DESIGN.md §4.6, §4.29).
  *
- * Le village est adosse a la **mer** a l'ouest et a la **montagne** au sud. Ces
- * deux bords sont infranchissables : les monstres ne peuvent donc arriver que
- * du **nord** ou de l'**est**.
+ * Jusqu'au 20 septembre 2026, ce fichier **etait** la carte : la mer a
+ * l'ouest, la montagne au sud, le village dans l'angle, tout en constantes. Il
+ * n'en est plus que la **facade** : le monde d'une partie est tire par
+ * `monde.ts` (une graine, un monde), charge ici par `chargerLeMonde`, et tout
+ * le code qui lisait `VILLAGE`, `EGLISE`, `PORT`, `POSTES` ou `terrainEn`
+ * continue de le faire sans savoir que ca change d'une partie a l'autre.
  *
- * Ce n'est pas du decor. C'est la regle qui structure tout le combat :
+ * ⚠️ **Les constantes sont donc des objets qu'on remplit**, pas des valeurs
+ * figees : `VILLAGE.x` change quand on charge un autre monde. C'est ce qui
+ * evite de faire descendre un parametre a cent cinquante endroits. Rien ne
+ * doit en copier la valeur au chargement d'un module.
  *
- * - elle donne un sens aux defenses, qui cessent d'etre un encerclement ;
- * - elle rend les ordres du jalon 4 necessaires — deux fronts, un seul heros
- *   incarne, il faut deleguer ;
- * - elle ancre les ressources dans le terrain : on recolte a un endroit, et cet
- *   endroit se defend.
+ * Au chargement, le monde courant est le **classique** — celui d'avant —, pour
+ * que les tests qui le connaissent le retrouvent, et que rien ne se casse tant
+ * qu'une scene n'a pas charge le sien.
  *
- * Ce fichier ne connait pas Phaser : la geometrie et le calendrier des fronts
- * se testent sans lancer le moteur.
+ * Les regles qui restent vraies quel que soit le monde (§4.6) :
+ *
+ * - les monstres n'arrivent que par les **fronts**, les bords ouverts ;
+ * - **l'eglise** est le refuge et le cap des monstres (§4.22) ;
+ * - le port est **un acquis** sur le sable, jamais un objectif.
  */
+
+import {
+  GRAINE_CLASSIQUE,
+  MONDE,
+  distanceALEau as distanceALEauDans,
+  estTerreFermeDans,
+  genererMonde,
+  mondeClassique,
+  pointDuBord,
+  profondeurDeRoche as profondeurDeRocheDans,
+  terrainDuMonde,
+  type Cote,
+  type Monde,
+  type PosteDuMonde,
+  type Terrain,
+} from "./monde";
+
+export { MONDE, CASE, COLONNES, LIGNES, ondulation, GRAINE_CLASSIQUE, COTES } from "./monde";
+export type { Terrain, Cote, Monde } from "./monde";
 
 export interface Point {
   x: number;
@@ -29,154 +55,98 @@ export interface Rectangle {
   hauteur: number;
 }
 
-export const MONDE = { largeur: 2000, hauteur: 1500 };
+/** Les chiffres du monde classique, gardes pour ceux qui les lisent (tests, relief). */
+export { TERRAIN_CLASSIQUE as TERRAIN, AMPLITUDE_CLASSIQUE as AMPLITUDE } from "./monde";
 
-/**
- * De combien le monde s'est agrandi vers le **nord**.
- *
- * La mer borde l'ouest et la montagne le sud : ces deux bords sont fixes, on ne
- * peut donc pas simplement remonter le haut de la carte, le praticable commence
- * deja a y=16. Ajouter de la place au nord, c'est **descendre le sud** — la
- * foret, la montagne, le village et les postes glissent tous de la meme
- * quantite, et l'espace apparait au-dessus.
- *
- * Tout ce qui suit est exprime en fonction de cette constante : c'est le seul
- * nombre a toucher pour agrandir ou reduire a nouveau.
- */
-const DECALAGE_NORD = 300;
+// ------------------------------------------------------------ le monde courant
 
-/** Position moyenne de chaque limite de terrain, en pixels */
-export const TERRAIN = {
-  /** Ligne d'eau moyenne, a l'ouest */
-  mer: 250,
-  /** Largeur moyenne de la plage : c'est le poste du pecheur */
-  plage: 62,
-  /** Lisiere moyenne de la foret, au sud : c'est le poste du bucheron */
-  foret: 850 + DECALAGE_NORD,
-  /** Pied moyen de la montagne, au sud */
-  montagne: 960 + DECALAGE_NORD,
-};
+let courant: Monde = mondeClassique();
 
-/**
- * De combien chaque limite serpente autour de sa position moyenne.
- *
- * Une cote droite se lit comme un mur d'editeur de niveau. Un littoral qui
- * ondule se lit comme un lieu (DESIGN.md §4.11, reference WorldBox).
- */
-export const AMPLITUDE = { cote: 34, plage: 18, foret: 30, montagne: 26 };
-
-/**
- * Ondulation lisse et deterministe.
- *
- * Trois sinus de periodes incommensurables : le motif ne se repete jamais a
- * l'oeil, et pourtant la fonction est pure — la carte est la meme a chaque
- * partie, donc on peut apprendre son terrain.
- *
- * @returns une valeur dans [-amplitude, amplitude]
- */
-export function ondulation(t: number, echelle: number, amplitude: number): number {
-  return (
-    (Math.sin(t / echelle) * 0.5 +
-      Math.sin(t / (echelle * 0.37) + 1.7) * 0.3 +
-      Math.sin(t / (echelle * 0.17) + 4.1) * 0.2) *
-    amplitude
-  );
-}
-
-/** La ligne d'eau a une hauteur donnee. */
-export function ligneDEau(y: number): number {
-  return TERRAIN.mer + ondulation(y, 130, AMPLITUDE.cote);
-}
-
-/** La limite entre le sable et l'herbe. */
-export function ligneDeSable(y: number): number {
-  return ligneDEau(y) + TERRAIN.plage + ondulation(y + 480, 88, AMPLITUDE.plage);
-}
-
-/** La lisiere de la foret a une abscisse donnee. */
-export function ligneDeForet(x: number): number {
-  return TERRAIN.foret + ondulation(x + 910, 118, AMPLITUDE.foret);
-}
-
-/** Le pied de la montagne a une abscisse donnee. */
-export function ligneDeMontagne(x: number): number {
-  return TERRAIN.montagne + ondulation(x, 152, AMPLITUDE.montagne);
+/** Le monde de la partie en cours. */
+export function mondeCourant(): Monde {
+  return courant;
 }
 
 /**
- * Le rectangle ou l'on peut marcher.
- *
- * Il se tient en deca du point le plus **avance** de chaque limite qui
- * ondule : c'est ce qui garantit qu'aucun pas praticable ne tombe dans l'eau
- * ni dans la roche, sans avoir a gerer une collision au pixel pres.
+ * Charge un monde : c'est **le** point d'entree d'une nouvelle partie, et de
+ * la reprise d'une ancienne. Tout ce qui suit lit ce monde-la.
  */
-const MARGE_LIMITE = 8;
-const BAS_PRATICABLE = TERRAIN.montagne - AMPLITUDE.montagne - MARGE_LIMITE;
-const GAUCHE_PRATICABLE = TERRAIN.mer + AMPLITUDE.cote + MARGE_LIMITE;
+export function chargerLeMonde(monde: Monde): Monde {
+  courant = monde;
+  VILLAGE.x = monde.village.x;
+  VILLAGE.y = monde.village.y;
+  EGLISE.x = monde.village.x;
+  EGLISE.y = monde.village.y;
+  PORT.x = monde.port.x;
+  PORT.y = monde.port.y;
+  PORT.versLeLarge = { ...monde.port.versLeLarge };
+  POSTES.length = 0;
+  for (const p of monde.postes) POSTES.push({ ...p, position: { ...p.position } });
+  return monde;
+}
 
-export const PRATICABLE: Rectangle = {
-  x: GAUCHE_PRATICABLE,
-  y: 16,
-  largeur: MONDE.largeur - 16 - GAUCHE_PRATICABLE,
-  hauteur: BAS_PRATICABLE - 16,
-};
+/** Charge le monde d'une graine, et le rend. */
+export function chargerLaGraine(graine: number | undefined): Monde {
+  return chargerLeMonde(genererMonde(graine ?? GRAINE_CLASSIQUE));
+}
 
-/** Les natures de sol de la carte, du large jusqu'au sommet. */
-export type Terrain =
-  | "abysse"
-  | "mer"
-  | "haut-fond"
-  | "sable"
-  | "herbe"
-  | "sous-bois"
-  | "eboulis"
-  | "roche";
+// ----------------------------------------------------------------- le terrain
 
 /**
- * La nature du sol en un point.
+ * Le rectangle ou l'on peut marcher : tout le monde, a seize pixels des bords.
  *
- * L'eau est testee avant la roche : la montagne descend donc jusqu'au rivage
- * et s'y arrete, au lieu de couper le littoral en deux.
+ * ⚠️ Ce n'est plus lui qui tient la mer et la montagne a l'ecart : depuis que
+ * l'eau et la roche peuvent etre n'importe ou (un lac, un massif au milieu),
+ * c'est le **terrain** qui arrete les corps, case par case. Ce rectangle ne
+ * dit plus que « pas hors de la carte ».
  */
+export const PRATICABLE: Rectangle = { x: 16, y: 16, largeur: MONDE.largeur - 32, hauteur: MONDE.hauteur - 32 };
+
+/** La nature du sol en un point du monde courant. */
 export function terrainEn(x: number, y: number): Terrain {
-  const eau = ligneDEau(y);
-  if (x < eau - 104) return "abysse";
-  if (x < eau - 38) return "mer";
-  if (x < eau) return "haut-fond";
-
-  const montagne = ligneDeMontagne(x);
-  if (y > montagne + 44) return "roche";
-  if (y > montagne) return "eboulis";
-
-  if (x < ligneDeSable(y)) return "sable";
-  if (y > ligneDeForet(x)) return "sous-bois";
-  return "herbe";
+  return terrainDuMonde(courant, x, y);
 }
 
 /** Vrai si le sol porte : ni eau, ni roche. */
 export function estTerreFerme(x: number, y: number): boolean {
-  const sol = terrainEn(x, y);
-  return sol === "sable" || sol === "herbe" || sol === "sous-bois";
+  return estTerreFermeDans(courant, x, y);
 }
 
+/** Vrai si on peut y marcher : dans la carte, et sur la terre ferme. */
+export function estPraticable(x: number, y: number): boolean {
+  return (
+    x >= PRATICABLE.x &&
+    x <= PRATICABLE.x + PRATICABLE.largeur &&
+    y >= PRATICABLE.y &&
+    y <= PRATICABLE.y + PRATICABLE.hauteur &&
+    estTerreFerme(x, y)
+  );
+}
+
+/** La distance signee a l'eau la plus proche : negative dans l'eau. */
+export function distanceALEau(x: number, y: number): number {
+  return distanceALEauDans(courant, x, y);
+}
+
+/** De combien on est dans la roche : positif dans l'eboulis et la roche. */
+export function profondeurDeRoche(x: number, y: number): number {
+  return profondeurDeRocheDans(courant, x, y);
+}
+
+// ------------------------------------------------------------------ les lieux
+
 /**
- * Le village, blotti dans l'angle sud-ouest, dos a la mer et a la montagne.
- * Toujours un cercle : c'est la forme que tout le code de refuge attend, et
- * l'angle protege deja ses deux flancs sans qu'on ait besoin de murs.
+ * Le village : l'etendue du bati et du sol de place, toujours un cercle —
+ * c'est la forme que tout le code de refuge attend.
  */
-export const VILLAGE = { x: 470, y: 770 + DECALAGE_NORD, rayon: 150 };
+export const VILLAGE = { x: 470, y: 1070, rayon: 150 };
 
 /**
  * L'eglise, au centre du village (DESIGN.md §4.22).
  *
- * **C'est elle le refuge et le cap des monstres, plus le cercle `VILLAGE`.**
- * Celui-ci ne decrit plus qu'une chose : l'etendue du bati et du sol de place.
- * Tout ce qui converge — les habitants qui fuient, les heros qui rentrent
- * soigner, les monstres — converge sur ce point-ci.
- *
- * Elle est posee au centre exact du village pour que le repli des heros IA
- * continue de fonctionner sans y toucher : `piloter()` les envoie vers le
- * centre de la cite, et c'est la qu'ils trouvent le soin.
+ * **C'est elle le refuge et le cap des monstres.** Tout ce qui converge — les
+ * habitants qui fuient, les heros qui rentrent soigner, les monstres —
+ * converge sur ce point-ci.
  *
  * `emprise` est son occupation au sol, en pixels : le sprite monte bien plus
  * haut (jusqu'a 96 px au niveau 4) mais son corps ne grandit jamais, sinon un
@@ -185,64 +155,34 @@ export const VILLAGE = { x: 470, y: 770 + DECALAGE_NORD, rayon: 150 };
 export const EGLISE = { x: VILLAGE.x, y: VILLAGE.y, emprise: 48 };
 
 /**
- * Le port, sur la plage a l'ouest (DESIGN.md §4.18).
+ * Le port, sur le sable au bord de l'eau (DESIGN.md §4.18).
  *
- * **Il est adosse au flanc ferme**, donc rien ne peut jamais l'atteindre : les
- * monstres n'arrivent que du nord et de l'est (§4.6). C'est ce qui le separe de
- * l'eglise — celle-ci est un objectif qu'on defend, le port est un acquis. Il
- * n'a donc **pas de points de vie**, et ce n'est pas un oubli.
- *
- * Pose au milieu du sable a la latitude du village : assez pres pour qu'on y
- * coure entre deux nuits, assez loin pour qu'on le voie comme un lieu et non
- * comme un batiment de la place. Un test verifie que ce point tombe bien sur du
- * sable — le littoral ondule, et un port dans l'eau ne se verrait qu'en jouant.
+ * Un acquis, pas un objectif : il n'a **pas de points de vie**, et ce n'est pas
+ * un oubli. `versLeLarge` dit de quel cote est l'eau : c'est la que mouille le
+ * navire.
  */
-export const PORT = { x: 288, y: VILLAGE.y, emprise: 40 };
-
-export type Front = "nord" | "est";
-
-export const NOMS_FRONT: Record<Front, string> = { nord: "au NORD", est: "a l'EST" };
+export const PORT: Point & { emprise: number; versLeLarge: Point } = {
+  x: 288,
+  y: VILLAGE.y,
+  emprise: 40,
+  versLeLarge: { x: -1, y: 0 },
+};
 
 /** Les postes de travail des habitants (DESIGN.md §4.18). */
-export interface PosteTravail {
-  id: string;
-  nom: string;
-  metier: "pecheur" | "bucheron" | "mineur" | "fermier";
-  position: Point;
-}
+export type PosteTravail = PosteDuMonde;
 
-export const POSTES: PosteTravail[] = [
-  // Sur la plage, au nord du village : le plus expose au front nord.
-  { id: "plage", nom: "La plage", metier: "pecheur", position: { x: 295, y: 470 + DECALAGE_NORD } },
-  // Au pied de la montagne : le mieux abrite des deux fronts.
-  { id: "mine", nom: "La mine", metier: "mineur", position: { x: 760, y: 915 + DECALAGE_NORD } },
-  // A la lisiere est de la foret : le plus expose au front est.
-  { id: "foret", nom: "La foret", metier: "bucheron", position: { x: 1180, y: 905 + DECALAGE_NORD } },
-  // Les champs, au nord-est du village : en terrain ouvert, entre les deux
-  // fronts. C'est voulu — le ble doit se payer en risque, sinon il ne serait
-  // qu'une deuxieme peche (DESIGN.md §4.18).
-  { id: "champs", nom: "Les champs", metier: "fermier", position: { x: 720, y: 660 + DECALAGE_NORD } },
-];
+export const POSTES: PosteTravail[] = [];
+
+chargerLeMonde(courant);
 
 // --------------------------------------------------------------- geometrie
-
-export function estPraticable(x: number, y: number): boolean {
-  return (
-    x >= PRATICABLE.x &&
-    x <= PRATICABLE.x + PRATICABLE.largeur &&
-    y >= PRATICABLE.y &&
-    y <= PRATICABLE.y + PRATICABLE.hauteur
-  );
-}
 
 /**
  * Est-on dans l'etendue batie du village ?
  *
- * ⚠️ **Ce n'est plus une zone de securite, et ca ne l'a jamais vraiment ete.**
- * Le §4.18 promettait qu'un habitant arrive au village etait « a l'abri » ;
- * le code, lui, l'a toujours tue. La regle est desormais ecrite comme elle se
- * joue : ce qui protege, c'est **d'entrer dans l'eglise**, et rien d'autre
- * (§4.22). Cette fonction ne sert donc qu'a savoir ou s'arrete le bati.
+ * ⚠️ **Ce n'est pas une zone de securite.** Ce qui protege, c'est **d'entrer
+ * dans l'eglise**, et rien d'autre (§4.22). Cette fonction ne sert qu'a savoir
+ * ou s'arrete le bati.
  */
 export function dansLeVillage(x: number, y: number): boolean {
   return Math.hypot(x - VILLAGE.x, y - VILLAGE.y) <= VILLAGE.rayon;
@@ -265,20 +205,44 @@ export function auPiedDeLEglise(x: number, y: number): boolean {
 
 // ------------------------------------------------------------------ fronts
 
+/** Un front, c'est un bord de la carte par lequel on entre a pied. */
+export type Front = Cote;
+
+export const NOMS_FRONT: Record<Front, string> = {
+  nord: "au NORD",
+  est: "a l'EST",
+  sud: "au SUD",
+  ouest: "a l'OUEST",
+};
+
+/** Les fronts du monde courant, du plus loin du village au plus pres. */
+export function frontsOuverts(): Front[] {
+  return courant.fronts;
+}
+
 /**
- * Les fronts ouverts a une vague donnee (DESIGN.md §4.6).
+ * Les fronts ouverts a une vague donnee (DESIGN.md §4.6, §4.29).
  *
- * Ouvrir un flanc est un levier de difficulte a part entiere, et le meilleur
- * des trois : il ne change aucun chiffre, il change **ou il faut etre**. Le
- * §4.17 interdit de faire monter la difficulte par le nombre — celui-ci fait
- * exactement l'inverse d'un ajout d'ennemis.
+ * Ouvrir un flanc est un levier de difficulte a part entiere : il ne change
+ * aucun chiffre, il change **ou il faut etre**. Les quatre premieres nuits
+ * n'ouvrent que le premier front — le plus loin du village, celui qui laisse
+ * le temps de reagir ; jusqu'a la neuvieme, un seul, tire au sort ; ensuite
+ * deux. Un monde qui n'a qu'un bord ouvert (une presqu'ile) n'en ouvre jamais
+ * qu'un : c'est le plus gros cadeau du jeu (§4.29).
  *
- * @param tirage aleatoire dans [0,1), pour la periode ou un seul front s'ouvre
+ * @param tirage aleatoire dans [0,1)
+ * @param ouverts les fronts du monde ; ceux du monde courant par defaut
  */
-export function frontsDeLaVague(vague: number, tirage: number): Front[] {
-  if (vague <= 4) return ["nord"];
-  if (vague <= 9) return [tirage < 0.5 ? "nord" : "est"];
-  return ["nord", "est"];
+export function frontsDeLaVague(vague: number, tirage: number, ouverts: readonly Front[] = courant.fronts): Front[] {
+  const premier = ouverts[0] ?? "nord";
+  if (ouverts.length <= 1) return [premier];
+  if (vague <= 4) return [premier];
+  const i = Math.min(ouverts.length - 1, Math.floor(tirage * ouverts.length));
+  if (vague <= 9) return [ouverts[i]!];
+  // Deux fronts : les deux s'il n'y en a que deux, sinon le tire au sort et
+  // son suivant — jamais le meme deux fois.
+  if (ouverts.length === 2) return [...ouverts];
+  return [ouverts[i]!, ouverts[(i + 1) % ouverts.length]!];
 }
 
 /**
@@ -299,21 +263,12 @@ export function repartition(fronts: Front[], tirage: number): number {
 /**
  * Ou un ennemi apparait sur un front donne.
  *
- * Il surgit au bord de la carte, jamais au milieu : le joueur doit pouvoir
- * regarder dans une direction et savoir ce qui arrive.
+ * Il surgit au bord de la carte, jamais au milieu, et toujours sur une terre
+ * qui mene au village : le joueur doit pouvoir regarder dans une direction et
+ * savoir ce qui arrive.
  *
  * @param tirage aleatoire dans [0,1), la position le long du bord
  */
 export function pointDApparition(front: Front, tirage: number): Point {
-  const marge = 24;
-  if (front === "nord") {
-    return {
-      x: PRATICABLE.x + marge + tirage * (PRATICABLE.largeur - marge * 2),
-      y: PRATICABLE.y + marge,
-    };
-  }
-  return {
-    x: PRATICABLE.x + PRATICABLE.largeur - marge,
-    y: PRATICABLE.y + marge + tirage * (PRATICABLE.hauteur - marge * 2),
-  };
+  return pointDuBord(courant, front, tirage);
 }

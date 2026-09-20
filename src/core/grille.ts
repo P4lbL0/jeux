@@ -14,19 +14,18 @@
  * Ce fichier ne connait pas Phaser.
  */
 
-import { MONDE, estTerreFerme, terrainEn, type Terrain } from "./carte";
+import { estTerreFerme, terrainEn, type Terrain } from "./carte";
+import { CASE, COLONNES, LIGNES } from "./monde";
 
 /**
- * Cote d'une case, en pixels.
+ * Cote d'une case, en pixels — defini dans `monde.ts`, qui en a besoin avant
+ * la grille, et re-exporte d'ici pour tout le monde.
  *
  * 32 px, soit la taille d'un personnage : assez fin pour qu'un mur se pose ou on
  * le vise, assez grossier pour que toute la carte tienne dans ~3000 cases — un
  * parcours complet de la grille coute alors moins qu'une seule image de combat.
  */
-export const CASE = 32;
-
-export const COLONNES = Math.ceil(MONDE.largeur / CASE);
-export const LIGNES = Math.ceil(MONDE.hauteur / CASE);
+export { CASE, COLONNES, LIGNES };
 
 /**
  * Ce qu'on a pose sur une case, par-dessus son terrain.

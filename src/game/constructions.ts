@@ -20,7 +20,7 @@ import {
 } from "../core/constructions";
 import { CASE, Grille, IMPOSENT_UNE_DISTANCE, RACCORDABLES, type Occupation } from "../core/grille";
 import type { Ressource, Stocks } from "../core/habitants";
-import { Battant, REGLAGES_PORTE, aPortee, consigneDeNuit, enfermeraitSansPorte, type PositionPorte } from "../core/portes";
+import { Battant, REGLAGES_PORTE, aPortee, consigneDeNuit, enfermeraitSansPorte, noieraitSansPassage, type PositionPorte } from "../core/portes";
 import { CHANTIERS } from "./dessin/batiments";
 import {
   CLE_TOUR,
@@ -151,6 +151,12 @@ export class Construction extends Phaser.Physics.Arcade.Image {
   eau = false;
   /** Une douve en eau sous le tablier d'un pont-levis baisse : on passe. */
   pont = false;
+  /**
+   * Une douve en eau devant un pont-levis, baisse ou leve : c'est la que les
+   * monstres viennent attendre (§4.20) — le parcours les y mene, meme si le
+   * tablier est leve et que rien ne passe.
+   */
+  enjambee = false;
   /** Jusqu'a quand l'echafaudage se voit ; 0 quand le chantier est fini. */
   chantierJusqua = 0;
   /** Jusqu'a quand elle tremble d'un coup ; un coup par secousse, pas plus. */
@@ -493,9 +499,22 @@ export class Constructions {
     if (douve.def.id !== "douve") return "Ce n'est pas une douve";
     if (douve.eau) return "Cette douve est deja en eau";
     if (!this.eauContre(douve.x, douve.y)) return "Pas d'eau a cote : une douve se remplit depuis la mer, ou depuis une douve en eau";
+    // On ne se noie pas sans passage (§4.20, 20 septembre 2026) : la douve en
+    // eau qui fermerait le dernier passage est refusee, comme le mur. Devant
+    // une porte, elle passe — un pont-levis l'enjambera.
+    if (noieraitSansPassage(this.grille, douve.x, douve.y)) {
+      return "Ca fermerait tout sans passage : garde une porte contre la douve, pour un pont-levis";
+    }
     if (!peutPayer(REMPLISSAGE.cout, stocks)) return `Il faut ${coutEnClair(REMPLISSAGE.cout)} pour la vanne`;
     return null;
   }
+
+  /**
+   * Appele a chaque fois que ce qui **passe** change : une douve mise en eau
+   * ou comblee, un pont-levis qui se leve ou s'abat. C'est la scene qui s'y
+   * branche pour refaire le parcours des monstres (§4.6) — jamais par image.
+   */
+  surChangementDePassage: (() => void) | null = null;
 
   /**
    * Remplit une douve d'eau (§4.20) : depuis la mer, ou de proche en proche
@@ -582,17 +601,23 @@ export class Constructions {
    */
   private majPonts(): void {
     const sousUnPont = new Set<Construction>();
+    const enjambees = new Set<Construction>();
     for (const porte of this.liste) {
-      if (!porte.pontLevis || !porte.battant?.laissePasser) continue;
-      for (const douve of this.douvesDevant(porte)) sousUnPont.add(douve);
+      if (!porte.pontLevis) continue;
+      for (const douve of this.douvesDevant(porte)) {
+        enjambees.add(douve);
+        if (porte.battant?.laissePasser) sousUnPont.add(douve);
+      }
     }
     for (const c of this.liste) {
       if (c.def.id !== "douve" || !c.eau) continue;
+      c.enjambee = enjambees.has(c);
       const pont = sousUnPont.has(c);
       if (pont === c.pont) continue;
       c.pont = pont;
       c.habiller();
     }
+    this.surChangementDePassage?.();
   }
 
   /**
@@ -915,6 +940,8 @@ export class Constructions {
     this.grille.liberer(construction.x, construction.y);
     this.version += 1;
     this.retirer(construction);
+    // Une douve en eau comblee rouvre un passage : le parcours change.
+    if (construction.eau) this.surChangementDePassage?.();
     return rendu;
   }
 

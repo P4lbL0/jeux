@@ -23,6 +23,11 @@ export interface EchosPort {
 /** Distance a laquelle on peut travailler au port, en pixels. */
 export const PORTEE_PORT = 90;
 
+/** Un point a `distance` pixels du quai, vers le large — la ou l'eau est, quel que soit le monde. */
+function auLarge(distance: number): { x: number; y: number } {
+  return { x: PORT.x + PORT.versLeLarge.x * distance, y: PORT.y + PORT.versLeLarge.y * distance };
+}
+
 export class BatimentPort {
   /** Les regles pures. Tout ce qui se decide se decide la-dedans. */
   readonly regles = new Port();
@@ -50,10 +55,11 @@ export class BatimentPort {
       .setDepth(PORT.y + 1)
       .setVisible(false);
 
-    // Le navire mouille **au large**, a l'ouest du quai : c'est ce qui montre
+    // Le navire mouille **au large**, du cote de l'eau : c'est ce qui montre
     // d'ou il vient. Il n'a aucun corps — on ne monte pas dessus.
+    const quai = auLarge(74);
     this.navire = scene.add
-      .image(PORT.x - 74, PORT.y - 6, CLES_PORT.navire)
+      .image(quai.x, quai.y - 6, CLES_PORT.navire)
       .setOrigin(0.5, 0.9)
       .setDepth(PORT.y - 8)
       .setVisible(false);
@@ -99,10 +105,13 @@ export class BatimentPort {
     if (!this.regles.debout || this.regles.navireAQuai) return;
 
     this.regles.navireAQuai = true;
-    this.navire.setVisible(true).setAlpha(0).setX(PORT.x - 140);
+    const loin = auLarge(140);
+    const quai = auLarge(74);
+    this.navire.setVisible(true).setAlpha(0).setPosition(loin.x, loin.y - 6);
     scene.tweens.add({
       targets: this.navire,
-      x: PORT.x - 74,
+      x: quai.x,
+      y: quai.y - 6,
       alpha: 1,
       duration: 2400,
       ease: "Sine.easeOut",
@@ -115,9 +124,11 @@ export class BatimentPort {
     if (!this.regles.navireAQuai) return;
 
     this.regles.navireAQuai = false;
+    const loin = auLarge(160);
     scene.tweens.add({
       targets: this.navire,
-      x: PORT.x - 160,
+      x: loin.x,
+      y: loin.y - 6,
       alpha: 0,
       duration: 2000,
       ease: "Sine.easeIn",

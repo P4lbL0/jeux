@@ -792,6 +792,12 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
   teinte: number | null = null;
   /** Instant de fin du recul : jusque-la, son deplacement laisse la main */
   reculJusqua = 0;
+  /**
+   * La ligne droite vers son cap est-elle libre d'eau et de roche ? Verifiee
+   * tous les quarts de seconde par la scene (§4.29) ; sinon il suit le parcours.
+   */
+  ligneLibre = true;
+  ligneVerifieeA = -Infinity;
   /** Balancement de marche et pose de coup (voir `poses.ts`) */
   pose = nouvellePose();
 

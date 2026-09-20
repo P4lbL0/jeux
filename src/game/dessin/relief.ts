@@ -1,4 +1,4 @@
-import { ligneDEau, ligneDeMontagne } from "../../core/carte";
+import { distanceALEau, profondeurDeRoche } from "../../core/carte";
 import { bruitLisse } from "./bruit";
 
 /**
@@ -55,14 +55,18 @@ const SEUILS = [-0.24, -0.07, 0.07, 0.24];
  *   cretes et d'eclats.
  */
 export function altitude(x: number, y: number): number {
-  const rivage = x - ligneDEau(y);
+  // La distance a l'eau la plus proche, quel que soit le monde : la mer sur
+  // n'importe quel bord, un lac au milieu — la terre monte depuis chaque rive.
+  const rivage = distanceALEau(x, y);
   const terre = Math.min(1, Math.max(0, rivage / 240));
   const douce = terre * terre * (3 - 2 * terre);
 
   let h = douce * 40;
   h += douce * ((bruitLisse(x, y, 230, 61) - 0.5) * 2 * 60 + (bruitLisse(x, y, 90, 62) - 0.5) * 2 * 10);
 
-  const pied = y - ligneDeMontagne(x);
+  // De combien on est dans la roche : une chaine sur un bord ou un massif au
+  // milieu, la montagne monte depuis son pied dans tous les cas.
+  const pied = profondeurDeRoche(x, y);
   if (pied > -10) {
     const dedans = pied + 10;
     // Une rampe douce, et des aretes par-dessus : une pente unique tournee vers

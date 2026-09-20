@@ -8,8 +8,7 @@ import {
   estPraticable,
   estTerreFerme,
   frontsDeLaVague,
-  ligneDeMontagne,
-  ligneDEau,
+  mondeCourant,
   MONDE,
   ondulation,
   PORT,
@@ -22,6 +21,12 @@ import {
   VILLAGE,
   type Front,
 } from "./carte";
+import { ligneDeBande } from "./monde";
+
+/** La ligne d'eau du monde classique, a une hauteur donnee : il a une mer, a l'ouest. */
+const ligneDEau = (y: number) => ligneDeBande(mondeCourant().mer!, y);
+/** Le pied de la montagne du monde classique, a une abscisse donnee. */
+const ligneDeMontagne = (x: number) => ligneDeBande(mondeCourant().montagne!, x);
 
 describe("Carte — le port", () => {
   it("est pose sur le sable, et pas dans l'eau", () => {
@@ -57,28 +62,30 @@ describe("Carte — les flancs fermes", () => {
   });
 
   /**
-   * Le garde-fou du littoral ondulant : la zone praticable est un rectangle,
-   * mais les limites serpentent. Si le rectangle mordait sur l'eau ou sur la
-   * roche, un heros pourrait marcher dans la mer.
+   * Le garde-fou du littoral ondulant : depuis que l'eau et la roche peuvent
+   * etre n'importe ou (§4.29), ce n'est plus un rectangle qui les tient a
+   * l'ecart, c'est le terrain lui-meme. « Praticable » veut dire « dans la
+   * carte, et sur la terre ferme » — jamais dans la mer, jamais dans la roche.
    */
-  it("ne laisse aucun point praticable tomber dans l'eau ou dans la roche", () => {
-    for (let x = PRATICABLE.x; x <= PRATICABLE.x + PRATICABLE.largeur; x += 7) {
-      for (let y = PRATICABLE.y; y <= PRATICABLE.y + PRATICABLE.hauteur; y += 7) {
-        expect(estTerreFerme(x, y)).toBe(true);
+  it("ne dit praticable que la terre ferme, et jamais hors de la carte", () => {
+    for (let x = 0; x <= MONDE.largeur; x += 11) {
+      for (let y = 0; y <= MONDE.hauteur; y += 11) {
+        const dedans =
+          x >= PRATICABLE.x && x <= PRATICABLE.x + PRATICABLE.largeur && y >= PRATICABLE.y && y <= PRATICABLE.y + PRATICABLE.hauteur;
+        expect(estPraticable(x, y)).toBe(dedans && estTerreFerme(x, y));
       }
     }
   });
 
-  it("garde la ligne d'eau a l'ouest du bord praticable, quelle que soit la hauteur", () => {
+  it("garde la ligne d'eau du classique a l'ouest, autour de sa position moyenne", () => {
     for (let y = 0; y <= MONDE.hauteur; y += 3) {
-      expect(ligneDEau(y)).toBeLessThan(PRATICABLE.x);
+      expect(Math.abs(ligneDEau(y) - TERRAIN.mer)).toBeLessThanOrEqual(AMPLITUDE.cote);
     }
   });
 
-  it("garde le pied de la montagne au sud du bord praticable", () => {
-    const bas = PRATICABLE.y + PRATICABLE.hauteur;
+  it("garde le pied de la montagne du classique au sud, autour de sa position moyenne", () => {
     for (let x = 0; x <= MONDE.largeur; x += 3) {
-      expect(ligneDeMontagne(x)).toBeGreaterThan(bas);
+      expect(Math.abs(ligneDeMontagne(x) - TERRAIN.montagne)).toBeLessThanOrEqual(AMPLITUDE.montagne);
     }
   });
 });
@@ -113,7 +120,7 @@ describe("Carte — le littoral", () => {
   });
 
   it("laisse la plage et la foret praticables : ce sont des lieux de travail", () => {
-    expect(terrainEn(PRATICABLE.x + 2, 500)).toBe("sable");
+    expect(terrainEn(ligneDEau(500) + 10, 500)).toBe("sable");
     expect(terrainEn(900, TERRAIN.foret + AMPLITUDE.foret + 10)).toBe("sous-bois");
   });
 

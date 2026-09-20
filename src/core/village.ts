@@ -32,7 +32,7 @@
  * **plan** ; c'est la scene qui pose les images et les corps.
  */
 
-import { PORT, POSTES, type Point, type Terrain } from "./carte";
+import { GRAINE_CLASSIQUE, mondeCourant, PORT, POSTES, profondeurDeRoche, type Point, type Terrain } from "./carte";
 import type { TypeConstruction } from "./constructions";
 import { CASE, Grille } from "./grille";
 import { Rng } from "./rng";
@@ -109,7 +109,7 @@ export const cleCase = (colonne: number, ligne: number): string => `${colonne},$
  * - L'ouest compte peu : la mer est a cinq cases, et le terrain mange ce qui
  *   depasse.
  */
-const PORTEE = {
+const PORTEE_CLASSIQUE = {
   nord: { min: 5, max: 7 },
   sud: { min: 4, max: 4 },
   est: { min: 5, max: 7 },
@@ -117,6 +117,57 @@ const PORTEE = {
 };
 /** Un bastion s'avance d'autant, et jamais moins : a une case, deux tours se touchent. */
 const PROFONDEUR_BASTION = { min: 2, max: 3 };
+
+/**
+ * Les bornes de la forme quand le monde est tire (§4.29, 20 septembre 2026) :
+ * elles se **mesurent sur le terrain** au lieu d'etre ecrites. Dans chaque
+ * direction, on compte l'herbe depuis l'eglise ; la place va jusque-la, plus
+ * deux cases de lisiere (la foret garde le flanc, comme au sud du classique),
+ * entre quatre et sept — et jamais jusqu'a un poste : la mine, la plage, les
+ * champs restent dehors, ils doivent etre defendus, pas offerts.
+ */
+const PORTEE_MIN = 5;
+const PORTEE_MAX = 7;
+const PORTEE_PLANCHER = 4;
+const CASES_DE_LISIERE = 2;
+/** Jusqu'ou on compte l'herbe : au-dela, c'est la plaine, et ca ne borne rien. */
+const HORIZON = 12;
+/** Un poste a moins de quatre cases de l'axe d'un cote borne ce cote. */
+const LARGEUR_D_AXE = 4;
+
+type Cote = "nord" | "est" | "sud" | "ouest";
+const DIRECTIONS: Record<Cote, readonly [number, number]> = { nord: [0, -1], est: [1, 0], sud: [0, 1], ouest: [-1, 0] };
+
+interface PlaceDUnCote {
+  /** L'herbe consecutive depuis l'eglise, au plus `HORIZON` */
+  herbe: number;
+  /** La derniere case que la place peut prendre sans mordre sur un poste */
+  borne: number;
+  /** Ce que la place tire, entre `min` et `max` */
+  min: number;
+  max: number;
+}
+
+/** Mesure, pour chaque cote, ce que le terrain et les postes laissent a la place. */
+function mesurerLaPlace(grille: Grille, centre: CasePlan, bornes: Point[]): Record<Cote, PlaceDUnCote> {
+  const resultat = {} as Record<Cote, PlaceDUnCote>;
+  for (const cote of ["nord", "est", "sud", "ouest"] as const) {
+    const [dc, dl] = DIRECTIONS[cote];
+    let herbe = 0;
+    while (herbe < HORIZON && terrainDe(grille, centre.colonne + dc * (herbe + 1), centre.ligne + dl * (herbe + 1)) === "herbe") herbe += 1;
+    let borne = HORIZON;
+    for (const b of bornes) {
+      const bc = Math.floor(b.x / CASE);
+      const bl = Math.floor(b.y / CASE);
+      const long = dc !== 0 ? (bc - centre.colonne) * dc : (bl - centre.ligne) * dl;
+      const travers = dc !== 0 ? Math.abs(bl - centre.ligne) : Math.abs(bc - centre.colonne);
+      if (long > 0 && travers <= LARGEUR_D_AXE) borne = Math.min(borne, long - 1);
+    }
+    const max = Math.max(PORTEE_PLANCHER, Math.min(PORTEE_MAX, herbe + CASES_DE_LISIERE, borne));
+    resultat[cote] = { herbe, borne, min: Math.min(PORTEE_MIN, max), max };
+  }
+  return resultat;
+}
 
 /** En deca, un bout de mur isole par le terrain n'est qu'un moignon : on l'enleve. */
 const PLUS_PETIT_PAN = 4;
@@ -177,7 +228,53 @@ const VOISINES: readonly (readonly [number, number])[] = [
  * les autres poses sur un de ses cotes, a moitie dedans, a moitie dehors. Leur
  * reunion n'est jamais un simple rectangle, et jamais deux fois la meme.
  */
-function tirerLaForme(rng: Rng, centre: CasePlan): Rectangle[] {
+function tirerLaForme(rng: Rng, centre: CasePlan, grille: Grille, bornes: Point[]): Rectangle[] {
+  // Le monde classique garde la forme validee sur captures le 18 septembre
+  // 2026 : memes bornes, memes tirages, memes villages.
+  if (mondeCourant().graine === GRAINE_CLASSIQUE) return tirerLaFormeClassique(rng, centre);
+
+  const place = mesurerLaPlace(grille, centre, bornes);
+  const principal: Rectangle = {
+    c0: centre.colonne - rng.int(place.ouest.min, place.ouest.max),
+    c1: centre.colonne + rng.int(place.est.min, place.est.max),
+    l0: centre.ligne - rng.int(place.nord.min, place.nord.max),
+    l1: centre.ligne + rng.int(place.sud.min, place.sud.max),
+  };
+  const rectangles = [principal];
+
+  // Un bastion sur un cote qui a de la place derriere le mur : de l'herbe, et
+  // pas de poste. L'etendue du cote, plus la profondeur du bastion.
+  const etendue = (cote: Cote) =>
+    cote === "nord" ? centre.ligne - principal.l0 : cote === "sud" ? principal.l1 - centre.ligne : cote === "est" ? principal.c1 - centre.colonne : centre.colonne - principal.c0;
+  const candidats = (["nord", "est", "sud", "ouest"] as const).filter(
+    (cote) => etendue(cote) + PROFONDEUR_BASTION.min <= Math.min(place[cote].herbe, place[cote].borne),
+  );
+  const tirage = rng.next();
+  const cotes: Cote[] =
+    tirage < 0.35 ? candidats.slice(0, 2) : tirage < 0.6 ? candidats.slice(0, 1) : tirage < 0.85 ? candidats.slice(1, 2) : [];
+  for (const cote of cotes) {
+    const fond = Math.min(place[cote].herbe, place[cote].borne);
+    const profondeur = Math.min(rng.int(PROFONDEUR_BASTION.min, PROFONDEUR_BASTION.max), fond - etendue(cote));
+    if (profondeur < PROFONDEUR_BASTION.min) continue;
+    // Le bastion prend entre le tiers et les deux tiers du cote, jamais tout,
+    // et s'arrete a deux cases des angles — sinon deux tours se touchent.
+    const horizontal = cote === "nord" || cote === "sud";
+    const debut = (horizontal ? principal.c0 : principal.l0) + 2;
+    const fin = (horizontal ? principal.c1 : principal.l1) - 2;
+    const taille = Math.max(4, Math.round((fin - debut + 1) * rng.range(0.35, 0.6)));
+    const depart = rng.int(debut, Math.max(debut, fin - taille + 1));
+    const bout = Math.min(fin, depart + taille - 1);
+    if (cote === "nord") rectangles.push({ c0: depart, c1: bout, l0: principal.l0 - profondeur, l1: centre.ligne });
+    else if (cote === "sud") rectangles.push({ c0: depart, c1: bout, l0: centre.ligne, l1: principal.l1 + profondeur });
+    else if (cote === "est") rectangles.push({ c0: centre.colonne, c1: principal.c1 + profondeur, l0: depart, l1: bout });
+    else rectangles.push({ c0: principal.c0 - profondeur, c1: centre.colonne, l0: depart, l1: bout });
+  }
+  return rectangles;
+}
+
+/** La forme du monde classique : les bornes ecrites, et les bastions au nord et a l'est. */
+function tirerLaFormeClassique(rng: Rng, centre: CasePlan): Rectangle[] {
+  const PORTEE = PORTEE_CLASSIQUE;
   // Le premier rectangle est le coeur du village : c'est la que vont les
   // maisons. Les suivants sont des bastions — de la place pour se battre.
   const principal: Rectangle = {
@@ -267,10 +364,22 @@ function terrainDe(grille: Grille, c: number, l: number): Terrain | null {
   return grille.case(c, l)?.terrain ?? null;
 }
 
+/**
+ * Jusqu'a quelle distance de la roche un sous-bois est « ferme » : la foret au
+ * pied d'une montagne garde le flanc, on n'y mure pas. Un bosquet en pleine
+ * plaine ne garde rien — les monstres le traversent —, et le mur y tient.
+ */
+const BOIS_FERME_PRES_DE_LA_ROCHE = 200;
+
 function tientUnMur(grille: Grille, c: number, l: number, sols: Terrain[]): boolean {
   const terrain = terrainDe(grille, c, l);
-  if (terrain === null || !sols.includes(terrain)) return false;
+  if (terrain === null) return false;
   const centre = Grille.centreCase(c, l);
+  if (!sols.includes(terrain)) {
+    // Le sous-bois ouvert compte comme de l'herbe pour un mur.
+    const boisOuvert = terrain === "sous-bois" && sols === SOL_DES_MURS && profondeurDeRoche(centre.x, centre.y) < -BOIS_FERME_PRES_DE_LA_ROCHE;
+    if (!boisOuvert) return false;
+  }
   return grille.constructible(centre.x, centre.y);
 }
 
@@ -666,11 +775,13 @@ export function genererVillage(
   graine: number,
   centre: Point,
   sorties: Point[] = [...POSTES.map((p) => p.position), { x: PORT.x, y: PORT.y }],
+  /** Ce qui doit rester hors de la place : les postes, jamais le port, qui est adosse */
+  bornes: Point[] = POSTES.map((p) => p.position),
 ): PlanVillage {
   const rng = new Rng(graine);
   const caseCentre = { colonne: grille.colonneDe(centre.x), ligne: grille.ligneDe(centre.y) };
 
-  const forme = tirerLaForme(rng, caseCentre);
+  const forme = tirerLaForme(rng, caseCentre, grille, bornes);
   const place = reunion(forme);
   const coeur = reunion(forme.slice(0, 1));
   const murs = plierAuTerrain(grille, bordDe(place));

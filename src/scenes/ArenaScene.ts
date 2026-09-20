@@ -33,8 +33,13 @@ import {
 import { origineDe, textureDe } from "../game/constructions";
 import { Bruits, chargerLesBruits } from "../game/bruits";
 import { abimerLeSol,
+  CLE_MASQUE_EAU,
+  cuireLaCarte,
   dessinerLeSolDuVillage,
+  ECHELLE_DU_MASQUE,
 } from "../game/dessin/carte";
+import { decrireLeMonde, graineDeMonde } from "../core/monde";
+import { Parcours } from "../core/parcours";
 import { oublierLesPortraits } from "../game/portraits";
 import {
   Double,
@@ -83,19 +88,21 @@ import {
 } from "../core/ordres";
 import { Affinites } from "../core/affinites";
 import {
-  AMPLITUDE,
+  chargerLaGraine,
+  distanceALEau,
   EGLISE,
   estTerreFerme,
   frontsDeLaVague,
-  ligneDEau,
+  frontsOuverts,
+  GRAINE_CLASSIQUE,
   MONDE,
+  mondeCourant,
   NOMS_FRONT,
   PORT,
   POSTES,
   PRATICABLE,
   pointDApparition,
   repartition,
-  TERRAIN,
   terrainEn,
   VILLAGE,
   type Front,
@@ -123,7 +130,7 @@ import {
   villageAttire,
 } from "../core/cycle";
 import { Village, type Villageois } from "../game/village";
-import { CASE, COLONNES, Grille, IMPOSENT_UNE_DISTANCE, LIGNES } from "../core/grille";
+import { CASE, COLONNES, Grille, IMPOSENT_UNE_DISTANCE, LIGNES, type Case } from "../core/grille";
 import { cleCase, genererVillage, graineDeVillage, type PlanVillage,
   tracerLesRues,
   type Segment,
@@ -196,7 +203,7 @@ import {
   cuireLesBatiments,
 } from "../game/dessin/batiments";
 import { CLE_MUR_RUINE, OCCUPANT_TOUR_Y, ORIGINE_MUR_Y } from "../game/dessin/murs";
-import { poserLaMer, type MerAnimee } from "../game/dessin/mer";
+import { poserLaMer, releverLeRivage, type MerAnimee } from "../game/dessin/mer";
 import type { EtatEquipe } from "../game/hud";
 import type { EtatOrdres } from "../game/panneauOrdres";
 import type { GroupeAffiche } from "../game/fichePersonne";
@@ -562,6 +569,13 @@ export class ArenaScene extends Phaser.Scene {
   grille = new Grille();
   /** La graine du village de cette partie : elle traverse la sauvegarde (§4.24) */
   private graineVillage = 0;
+  /** La graine du monde (§4.29) : la mer, le relief, l'endroit ou l'on tombe */
+  private graineMonde = 0;
+  /** Le parcours des monstres vers l'eglise, autour de l'eau et de la roche */
+  private parcours!: Parcours;
+  /** Les corps du terrain : l'eau profonde, que seul le heros incarne traverse, et la roche */
+  private obstaclesDEau!: Phaser.Physics.Arcade.StaticGroup;
+  private obstaclesDeRoche!: Phaser.Physics.Arcade.StaticGroup;
   /** Le village tire de la graine : l'enceinte, les maisons, la place (§4.24) */
   private planVillage!: PlanVillage;
   /** Les rues du village, tracees avec le plan : le sol les peint, le decor s'en ecarte. */
@@ -658,6 +672,8 @@ export class ArenaScene extends Phaser.Scene {
     reprise?: Sauvegarde;
     /** Pour rejouer un village precis (les captures) ; sinon, tiree au sort */
     graineVillage?: number;
+    /** Pour rejouer un monde precis (les captures) ; sinon, tire au sort — zero est le classique */
+    graineMonde?: number;
   }): void {
     this.registry.set("classe", data.classe ?? "guerrier");
     this.emplacement = data.emplacement ?? 1;
@@ -667,10 +683,19 @@ export class ArenaScene extends Phaser.Scene {
     // graine : elle prend zero, toujours la meme, plutot qu'un village qui
     // changerait a chaque rechargement.
     this.graineVillage = data.graineVillage ?? (data.reprise ? (data.reprise.graineVillage ?? 0) : graineDeVillage());
+    // Le monde de la partie (§4.29) : une partie neuve en tire un — la mer, le
+    // relief, les lacs, l'endroit ou l'on tombe ; une partie reprise garde le
+    // sien. Une sauvegarde d'avant le 20 septembre 2026 n'a pas de graine de
+    // monde : elle prend le monde classique, la carte d'avant. **Avant la
+    // grille** : c'est le monde qui dit ou est la terre.
+    this.graineMonde =
+      data.graineMonde ?? (data.reprise ? (data.reprise.graineMonde ?? GRAINE_CLASSIQUE) : graineDeMonde());
+    chargerLaGraine(this.graineMonde);
     // La grille repart de zero : la scene est reutilisee d'une partie a
     // l'autre, et le plan lit le terrain libre — une grille qui garderait les
     // murs de la partie d'avant donnerait un autre village pour la meme graine.
     this.grille = new Grille();
+    this.parcours = new Parcours(this.grille);
     // Une partie neuve prend une identite neuve ; une partie reprise garde la
     // sienne, et c'est elle qui permet de reconnaitre la meme lignee d'un
     // appareil a l'autre (§4.28).
@@ -700,7 +725,8 @@ export class ArenaScene extends Phaser.Scene {
     // pas. Ils le feront le jour ou les heros survivront a une partie (§4.12).
     this.affinites = new Affinites();
     this.prochainTickAffinites = 0;
-    this.fronts = ["nord"];
+    // Le premier front du monde : le plus loin du village (§4.29).
+    this.fronts = [frontsOuverts()[0] ?? "nord"];
     this.partPremierFront = 1;
     this.cycle = new Cycle();
   }
@@ -855,7 +881,10 @@ export class ArenaScene extends Phaser.Scene {
     // Le village de cette partie, tire de sa graine avant tout le reste : le
     // decor doit savoir ou est la place pour n'y rien planter (§4.24).
     this.planVillage = genererVillage(this.grille, this.graineVillage, EGLISE);
-    console.log(`[arene] village = ${this.graineVillage}`);
+    console.log(`[arene] village = ${this.graineVillage} · monde = ${decrireLeMonde(mondeCourant())}`);
+    // La carte de ce monde, cuite maintenant : le sol du village se peint
+    // dessus, et elle ne se recuit pas tant que le monde ne change pas.
+    cuireLaCarte(this);
     // Le sol du village (§4.24) : la place en terre battue, les rues vers les
     // portes et les lieux de travail, le parvis pave — peints dans la carte
     // cuite, une fois, pour cette graine.
@@ -884,14 +913,17 @@ export class ArenaScene extends Phaser.Scene {
     // combat.
     this.graphiquesOrdres = this.add.graphics().setDepth(-400);
 
-    // La mer et la montagne ne sont pas du decor : le monde physique s'arrete
-    // a la plage et a la lisiere (DESIGN.md §4.6).
+    // Le monde physique s'arrete au bord de la carte. La mer, les lacs et la
+    // roche ne sont pas du decor non plus (DESIGN.md §4.6) — mais depuis qu'ils
+    // peuvent etre n'importe ou (§4.29), c'est le **terrain** qui arrete les
+    // corps, case par case (`dresserLeTerrain`), pas un rectangle.
     this.physics.world.setBounds(
       PRATICABLE.x,
       PRATICABLE.y,
       PRATICABLE.largeur,
       PRATICABLE.hauteur,
     );
+    this.dresserLeTerrain();
     this.cameras.main.setBounds(0, 0, MONDE.largeur, MONDE.hauteur);
     this.cameras.main.setZoom(ZOOM_DEFAUT);
     this.cameras.main.startFollow(this.hero, true, 0.12, 0.12);
@@ -982,6 +1014,7 @@ export class ArenaScene extends Phaser.Scene {
       partie: this.identitePartie,
       revision: this.revision,
       graineVillage: this.graineVillage,
+      graineMonde: this.graineMonde,
       maisons: this.maisons,
       chemins: this.chemins,
     };
@@ -1167,7 +1200,14 @@ export class ArenaScene extends Phaser.Scene {
     });
     this.physics.add.collider(this.equipe, this.maisons.groupe);
     this.physics.add.collider(this.village.groupe, this.maisons.groupe);
+    // Les habitants ne traversent ni l'eau profonde ni la roche (§4.29).
+    this.physics.add.collider(this.village.groupe, this.obstaclesDEau);
+    this.physics.add.collider(this.village.groupe, this.obstaclesDeRoche);
     this.dresserLEnceinte(this.planVillage, this.reprise !== null);
+    // Le parcours des monstres (§4.6, §4.29) : refait maintenant que l'enceinte
+    // et ses douves sont la, puis a chaque fois qu'un passage change.
+    this.constructions.surChangementDePassage = () => this.recalculerLeParcours();
+    this.recalculerLeParcours();
 
     // Les monstres butent sur l'eglise et la frappent : c'est leur cap, c'est ce
     // qu'ils viennent detruire (§4.22).
@@ -1270,30 +1310,19 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   /**
-   * Jalon 3 : l'equipe complete est donnee d'emblee, pour pouvoir eprouver le
-   * changement de heros et l'IA. Le vrai recrutement, avec ses rangs, arrive au
-   * jalon 8 (DESIGN.md §4.1).
+   * **Un seul heros, et il n'y en aura pas d'autre a trouver** (DESIGN.md
+   * §4.29, tranche par Angelos le 20 septembre 2026). Jusqu'ici l'equipe des
+   * sept classes etait donnee d'emblee — un reste du jalon 3, pour eprouver le
+   * changement de heros et l'IA. Ces systemes dorment desormais jusqu'au
+   * premier villageois forme (bloc 9) : un jeu qui commence a sept heros ne
+   * raconte pas « je suis le seul qui reste ».
    */
   private composerEquipe(): void {
-    const choisie = this.registry.get("classe") as ClassId;
-    const ordre = [choisie, ...ORDRE_CLASSES.filter((id) => id !== choisie)];
-
-    ordre.forEach((id, i) => {
-      const angle = (i / ordre.length) * Math.PI * 2;
-      const hero = new Hero(
-        this,
-        CITE.x + Math.cos(angle) * 60,
-        CITE.y + Math.sin(angle) * 60,
-        CLASSES[id],
-        undefined,
-        // Les prenoms deja distribues partent avec : sans ca l'equipe sortait
-        // deux Tancrede sur sept, et la barre de heros affiche desormais le nom.
-        this.heros.map((h) => h.personne.nom),
-      );
-      hero.estIncarne = i === 0;
-      this.heros.push(hero);
-      this.equipe.add(hero);
-    });
+    const choisie = (this.registry.get("classe") as ClassId) ?? ORDRE_CLASSES[0]!;
+    const hero = new Hero(this, CITE.x, CITE.y + 60, CLASSES[choisie]);
+    hero.estIncarne = true;
+    this.heros.push(hero);
+    this.equipe.add(hero);
   }
 
   /**
@@ -1317,12 +1346,7 @@ export class ArenaScene extends Phaser.Scene {
     // texture de deux millions de pixels : rien ne peut y etre anime. La mer et
     // le sable d'origine sont gardes pour leur couleur, cette couche n'ajoute
     // que le mouvement (§4.30).
-    this.mer = poserLaMer(
-      this,
-      MONDE,
-      Math.floor(TERRAIN.mer - AMPLITUDE.cote),
-      ligneDEau,
-    );
+    this.mer = poserLaMer(this, MONDE, releverLeRivage(MONDE, distanceALEau), CLE_MASQUE_EAU, ECHELLE_DU_MASQUE);
 
     this.semerLeDecor();
     this.construireVillage();
@@ -1339,7 +1363,9 @@ export class ArenaScene extends Phaser.Scene {
    * filtre, il poussait des arbres dans la mer et au milieu du village.
    */
   private semerLeDecor(): void {
-    const rng = new Rng(20260807);
+    // La graine du monde entre dans celle du decor : deux mondes n'ont pas les
+    // memes arbres, et le meme monde a toujours les siens.
+    const rng = new Rng(20260807 + this.graineMonde);
 
     const semer = (
       essais: number,
@@ -2546,22 +2572,81 @@ export class ArenaScene extends Phaser.Scene {
    * (`majEau`), la mer le noie — c'est la regle, pas un mur.
    */
   private ouvrirLaMerAuHero(hero: Hero): void {
-    const corps = hero.body as Phaser.Physics.Arcade.Body | null;
-    if (!corps) return;
-    corps.setBoundsRectangle(
-      new Phaser.Geom.Rectangle(0, PRATICABLE.y, PRATICABLE.x + PRATICABLE.largeur, PRATICABLE.hauteur),
-    );
+    // L'eau ne l'arrete plus : c'est le collisionneur du terrain qui le laisse
+    // passer (`dresserLeTerrain`), lui seul. L'abysse le rejette (`majEau`),
+    // la mer le noie — c'est la regle, pas un mur.
     this.noyade.reinitialiser();
     this.dernierePositionTenable = { x: hero.x, y: hero.y };
   }
 
-  /** Un heros qu'on ne pilote plus reprend les limites du monde, et ressort de l'eau. */
+  /** Un heros qu'on ne pilote plus ressort de l'eau. */
   private quitterLEau(hero: Hero): void {
-    const corps = hero.body as Phaser.Physics.Arcade.Body | null;
-    corps?.setBoundsRectangle();
     hero.facteurEau = 1;
     hero.enfoncer(0);
     this.noyade.reinitialiser();
+  }
+
+  /**
+   * L'eau profonde et la roche arretent les corps (§4.6, §4.29).
+   *
+   * Un corps statique invisible par **plage de cases** — une rangee de roche
+   * d'un seul tenant fait un seul corps, pas trente — pour la mer, les lacs,
+   * l'eboulis et la roche. Le haut-fond ne compte pas : on y patauge. Le heros
+   * incarne, et lui seul, traverse l'eau (§4.30 : « personne ne nage », mais
+   * on s'enfonce) ; personne ne traverse la roche.
+   */
+  private dresserLeTerrain(): void {
+    this.obstaclesDEau = this.physics.add.staticGroup();
+    this.obstaclesDeRoche = this.physics.add.staticGroup();
+    const eau: Terrain[] = ["mer", "abysse"];
+    const roche: Terrain[] = ["eboulis", "roche"];
+    for (const [sols, groupe] of [
+      [eau, this.obstaclesDEau],
+      [roche, this.obstaclesDeRoche],
+    ] as const) {
+      for (let ligne = 0; ligne < LIGNES; ligne++) {
+        let debut = -1;
+        for (let colonne = 0; colonne <= COLONNES; colonne++) {
+          const c = colonne < COLONNES ? this.grille.case(colonne, ligne) : null;
+          const dedans = c !== null && sols.includes(c.terrain);
+          if (dedans && debut < 0) debut = colonne;
+          if (!dedans && debut >= 0) {
+            const largeur = (colonne - debut) * CASE;
+            const zone = this.add.zone(debut * CASE + largeur / 2, ligne * CASE + CASE / 2, largeur, CASE);
+            groupe.add(zone);
+            debut = -1;
+          }
+        }
+      }
+    }
+    const saufLeHerosIncarne: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (a, b) => {
+      const hero = (a instanceof Hero ? a : b) as Hero;
+      return !hero.estIncarne;
+    };
+    this.physics.add.collider(this.equipe, this.obstaclesDEau, undefined, saufLeHerosIncarne);
+    this.physics.add.collider(this.ennemis, this.obstaclesDEau);
+    this.physics.add.collider(this.equipe, this.obstaclesDeRoche);
+    this.physics.add.collider(this.ennemis, this.obstaclesDeRoche);
+    // Les habitants sont branches plus tard, avec les autres collisions du
+    // village : il n'existe pas encore ici.
+  }
+
+  /**
+   * Ce qu'un monstre traverse a pied : la terre ferme, sauf une douve en eau.
+   * Les murs passent — il les frappe. Une douve devant un pont-levis passe
+   * aussi, tablier leve ou non : c'est la qu'il vient attendre, et c'est la
+   * qu'il faut le voir (§4.20).
+   */
+  private passeUnMonstre(c: Case): boolean {
+    if (c.terrain !== "sable" && c.terrain !== "herbe" && c.terrain !== "sous-bois") return false;
+    if (c.occupation !== "douve-eau") return true;
+    const douve = this.constructions.en(c.colonne * CASE + CASE / 2, c.ligne * CASE + CASE / 2);
+    return douve !== null && (douve.pont || douve.enjambee);
+  }
+
+  /** Le champ de directions vers l'eglise : a la pose, jamais par image (§4.17). */
+  private recalculerLeParcours(): void {
+    this.parcours.recalculer(EGLISE, (c) => this.passeUnMonstre(c));
   }
 
   /**
@@ -2779,8 +2864,22 @@ export class ArenaScene extends Phaser.Scene {
     if (e.cibleMaison && (!e.cibleMaison.debout || !e.cibleMaison.active)) {
       e.cibleMaison = this.maisons.laPlusProcheDebout(e.x, e.y);
     }
-    const cible = this.cibleDe(e) ?? e.cibleMaison?.centre ?? EGLISE;
+    const proie = this.cibleDe(e);
+    const cible = proie ?? e.cibleMaison?.centre ?? EGLISE;
     let angle = Phaser.Math.Angle.Between(e.x, e.y, cible.x, cible.y);
+    // Un lac, un massif, une douve en eau entre lui et son cap : il suit le
+    // parcours (§4.29) au lieu de buter dedans. Une proie en vue se poursuit
+    // droit. La ligne se verifie tous les quarts de seconde, pas par image.
+    if (!proie) {
+      if (maintenant >= e.ligneVerifieeA + 250) {
+        e.ligneVerifieeA = maintenant;
+        e.ligneLibre = this.parcours.ligneLibre(e, cible, (c) => this.passeUnMonstre(c));
+      }
+      if (!e.ligneLibre) {
+        const suivre = this.parcours.direction(e.x, e.y);
+        if (suivre) angle = Math.atan2(suivre.y, suivre.x);
+      }
+    }
     // Une douve en eau devant lui : il ne nage pas, il cherche la porte (§4.20).
     angle = this.constructions.contournement(e.x, e.y, angle) ?? angle;
     orienter(e, Math.cos(angle), SEUIL_REGARD_PIXELS);
@@ -4971,10 +5070,28 @@ export class ArenaScene extends Phaser.Scene {
    */
   private ramenerSurTerre(x: number, y: number): Phaser.Math.Vector2 {
     const marge = 8;
-    return new Phaser.Math.Vector2(
-      Phaser.Math.Clamp(x, PRATICABLE.x + marge, PRATICABLE.x + PRATICABLE.largeur - marge),
-      Phaser.Math.Clamp(y, PRATICABLE.y + marge, PRATICABLE.y + PRATICABLE.hauteur - marge),
-    );
+    const px = Phaser.Math.Clamp(x, PRATICABLE.x + marge, PRATICABLE.x + PRATICABLE.largeur - marge);
+    const py = Phaser.Math.Clamp(y, PRATICABLE.y + marge, PRATICABLE.y + PRATICABLE.hauteur - marge);
+    if (estTerreFerme(px, py)) return new Phaser.Math.Vector2(px, py);
+    // Dans l'eau ou dans la roche : la case de terre ferme la plus proche, en
+    // cercles de plus en plus larges. Douze cases au plus — au-dela, on reste
+    // ou l'on est.
+    const c0 = this.grille.colonneDe(px);
+    const l0 = this.grille.ligneDe(py);
+    for (let rayon = 1; rayon <= 12; rayon++) {
+      let meilleure: { x: number; y: number; d: number } | null = null;
+      for (let dl = -rayon; dl <= rayon; dl++) {
+        for (let dc = -rayon; dc <= rayon; dc++) {
+          if (Math.max(Math.abs(dc), Math.abs(dl)) !== rayon) continue;
+          const centre = Grille.centreCase(c0 + dc, l0 + dl);
+          if (!this.grille.dedans(c0 + dc, l0 + dl) || !estTerreFerme(centre.x, centre.y)) continue;
+          const d = Math.hypot(centre.x - px, centre.y - py);
+          if (!meilleure || d < meilleure.d) meilleure = { x: centre.x, y: centre.y, d };
+        }
+      }
+      if (meilleure) return new Phaser.Math.Vector2(meilleure.x, meilleure.y);
+    }
+    return new Phaser.Math.Vector2(px, py);
   }
 
   private ennemisDansRayon(x: number, y: number, rayon: number): Ennemi[] {

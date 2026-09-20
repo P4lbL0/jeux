@@ -7,6 +7,7 @@ import {
   centreDeCase,
   consigneDeNuit,
   enfermeraitSansPorte,
+  noieraitSansPassage,
 } from "./portes";
 
 /**
@@ -169,5 +170,108 @@ describe("On ne peut pas se murer sans porte (§4.20)", () => {
     const grille = new Grille();
     // La mer, a l'ouest : on n'y pose rien, et ca ne ferme rien.
     expect(enfermeraitSansPorte(grille, 8, 600)).toBe(false);
+  });
+});
+
+/**
+ * Les douves autour d'un village (§4.20, 20 septembre 2026) : une douve en
+ * eau ferme comme un mur, sauf contre une porte — un pont-levis possible.
+ * Eprouve en configurations, autour d'un carre de murs sur l'herbe, loin de
+ * tout, comme pour la regle du mur.
+ */
+describe("Les douves — on ne se noie pas sans passage", () => {
+  /** Un carre de murs de rayon `r` cases autour de (c, l), avec une porte au nord. */
+  function fort(grille: Grille, c: number, l: number, r: number): void {
+    for (let dl = -r; dl <= r; dl++) {
+      for (let dc = -r; dc <= r; dc++) {
+        if (Math.max(Math.abs(dc), Math.abs(dl)) !== r) continue;
+        const p = centreDeCase(c + dc, l + dl);
+        grille.poser(p.x, p.y, dc === 0 && dl === -r ? "porte" : "mur");
+      }
+    }
+  }
+  /** Un anneau de douves seches de rayon `r`, en laissant `trous` cases vides. */
+  function douves(grille: Grille, c: number, l: number, r: number, trous: [number, number][] = []): [number, number][] {
+    const posees: [number, number][] = [];
+    for (let dl = -r; dl <= r; dl++) {
+      for (let dc = -r; dc <= r; dc++) {
+        if (Math.max(Math.abs(dc), Math.abs(dl)) !== r) continue;
+        if (trous.some(([tc, tl]) => tc === dc && tl === dl)) continue;
+        const p = centreDeCase(c + dc, l + dl);
+        grille.poser(p.x, p.y, "douve");
+        posees.push([c + dc, l + dl]);
+      }
+    }
+    return posees;
+  }
+  // Un coin d'herbe du monde classique, loin du village : colonne 35, ligne 12.
+  const C = 35;
+  const L = 12;
+
+  it("laisse mettre en eau une douve seche qui ne ferme rien", () => {
+    const grille = new Grille();
+    const p = centreDeCase(C, L);
+    grille.poser(p.x, p.y, "douve");
+    expect(noieraitSansPassage(grille, p.x, p.y)).toBe(false);
+  });
+
+  it("refuse la derniere mise en eau d'un anneau sans porte contre lui", () => {
+    const grille = new Grille();
+    fort(grille, C, L, 2);
+    // L'anneau de douves a deux cases du mur : aucune porte ne le touche.
+    const anneau = douves(grille, C, L, 4);
+    // Tout en eau sauf une, au milieu d'un cote — un angle ne relie rien, on
+    // ne passe pas en diagonale.
+    const dc = C + 4;
+    const dl = L;
+    for (const [c, l] of anneau) {
+      if (c === dc && l === dl) continue;
+      const p = centreDeCase(c, l);
+      grille.poser(p.x, p.y, "douve-eau");
+    }
+    const derniere = centreDeCase(dc, dl);
+    expect(noieraitSansPassage(grille, derniere.x, derniere.y)).toBe(true);
+    // Et une douve seche a la place : on passe, lentement — ca ne ferme rien.
+    expect(casesAtteintesDuDehors(grille)).toBeGreaterThan(casesAtteintesDuDehors(grille, -1, dl * 63 + dc));
+  });
+
+  it("accepte l'anneau complet quand une douve touche la porte : le pont-levis passera", () => {
+    const grille = new Grille();
+    fort(grille, C, L, 2);
+    // L'anneau colle au mur : la douve du nord touche la porte.
+    const anneau = douves(grille, C, L, 3);
+    for (const [c, l] of anneau) {
+      const p = centreDeCase(c, l);
+      expect(noieraitSansPassage(grille, p.x, p.y), `${c},${l}`).toBe(false);
+      grille.poser(p.x, p.y, "douve-eau");
+    }
+    // Le dedans reste atteint du dehors : par la porte, puis la douve devant elle.
+    const dedans = centreDeCase(C, L);
+    const avant = casesAtteintesDuDehors(grille);
+    grille.poser(dedans.x, dedans.y, "mur");
+    expect(avant - casesAtteintesDuDehors(grille)).toBe(1);
+  });
+
+  it("refuse le mur qui fermerait l'enceinte quand la seule porte est murree par l'eau", () => {
+    const grille = new Grille();
+    fort(grille, C, L, 2);
+    // Une douve en eau devant la porte, mais aussi sur les cotes : la porte
+    // ne mene qu'a la douve, et la douve touche la porte — c'est un passage.
+    const devant = centreDeCase(C, L - 3);
+    grille.poser(devant.x, devant.y, "douve-eau");
+    // Boucher la porte elle-meme par un mur : ca ferme sans porte.
+    const porte = centreDeCase(C, L - 2);
+    expect(enfermeraitSansPorte(grille, porte.x, porte.y)).toBe(true);
+  });
+
+  it("ne compte pas une douve seche comme un mur", () => {
+    const grille = new Grille();
+    fort(grille, C, L, 2);
+    // Un anneau sec, complet, sans aucune porte contre lui : on passe quand meme.
+    douves(grille, C, L, 4);
+    const avant = casesAtteintesDuDehors(grille);
+    const dedans = centreDeCase(C + 1, L + 1);
+    grille.poser(dedans.x, dedans.y, "mur");
+    expect(avant - casesAtteintesDuDehors(grille)).toBe(1);
   });
 });
