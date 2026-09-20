@@ -1085,11 +1085,27 @@ bord pour une tête de 3,2 cachait la tête, perd un pixel.
   (héros au palier 0, villageois à l'usure 0 sans sang, toutes les bêtes) — sinon elle ferait
   quatre-vingt-douze lignes —, et une **planche d'usure** neuve montre les six états de chaque
   métier au repos et au travail.
-- **À juger** : `captures/blender/2026-09-20-personnages/planche-{personnages,usure,paliers}.png`,
+**Jugé, et retouché dans la foulée** (Angelos, sur la planche : « Blender, avec deux
+retouches »). Ce qui a été corrigé :
+
+- **La voûte de l'usure était trop forte** : 0,18 par cran, soit 20,6° à l'usure maximale,
+  là où `corps.ts` dit 14,3°. Elle est **alignée sur le code**, pas sur un chiffre inventé.
+- **Quatre métiers tombaient dans le même brun** (bûcheron, mineur, charpentier, survivant).
+  Chaque métier prend maintenant **la matière qu'il touche** — le pêcheur l'eau, le mineur la
+  pierre, le charpentier le bois, le bûcheron la feuille, le forgeron la braise. L'écart le
+  plus serré entre deux tabliers passe de **25 à 38** (distance RVB), mesuré avant de lancer
+  le rendu plutôt que jugé à l'œil après.
+- **Le survivant n'a plus de tablier du tout.** À huit, les teintes ne pouvaient plus
+  s'écarter ; et un inconnu ne porte pas les couleurs d'un métier — sa silhouette entièrement
+  sombre le dit mieux qu'une huitième teinte. C'est ce que le §4.18 disait déjà de lui.
+- ⚠️ **Une seule table de tabliers.** `villageois.ts` exporte `TABLIERS`, et
+  `scripts/blender/palette.ts` l'importe. Les deux fichiers dupliquaient les mêmes formules
+  mot pour mot : c'était la garantie qu'ils divergent un jour.
+
+- **À regarder** : `captures/blender/2026-09-20-personnages/planche-{personnages,usure,paliers}.png`,
   `captures/planches/2026-09-20-villageois/code-contre-blender.png` (les huit métiers au code
-  et en Blender, côte à côte) et `captures/jeu/2026-09-20-villageois-blender/` (en jeu).
-  ⚠️ **Le code reste plus lisible que Blender pour les villageois** : le tablier y est plus
-  grand, les bras et les jambes s'y détachent. C'est à trancher sur image.
+  et en Blender, côte à côte ; `avant-retouches.png` garde l'état illisible d'avant) et
+  `captures/jeu/2026-09-20-villageois-blender/` (en jeu).
 
 ### Le bloc 7b — la forteresse (fait le 20 septembre 2026)
 

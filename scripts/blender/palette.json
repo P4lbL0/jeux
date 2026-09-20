@@ -153,44 +153,39 @@
       "clair": 7760757
     },
     "tablier_pecheur": {
-      "sombre": 7696749,
-      "corps": 11578790,
-      "clair": 12367273
+      "sombre": 6908266,
+      "corps": 10330273,
+      "clair": 11512998
     },
     "tablier_fermier": {
-      "sombre": 9074518,
-      "corps": 13874817,
-      "clair": 14007439
+      "sombre": 9074258,
+      "corps": 13808763,
+      "clair": 13941387
     },
     "tablier_bucheron": {
-      "sombre": 7697492,
-      "corps": 11645310,
-      "clair": 12433549
+      "sombre": 6449467,
+      "corps": 9543510,
+      "clair": 10988657
     },
     "tablier_mineur": {
-      "sombre": 7694680,
-      "corps": 11640964,
-      "clair": 12430481
+      "sombre": 5986647,
+      "corps": 8816003,
+      "clair": 10459537
     },
     "tablier_forgeron": {
-      "sombre": 8281425,
-      "corps": 12553337,
-      "clair": 13082250
+      "sombre": 7950919,
+      "corps": 12024681,
+      "clair": 12685950
     },
     "tablier_charpentier": {
-      "sombre": 7563614,
-      "corps": 11444365,
-      "clair": 12299416
+      "sombre": 7562837,
+      "corps": 11377535,
+      "clair": 12233102
     },
     "tablier_guetteur": {
       "sombre": 8224121,
       "corps": 12500921,
       "clair": 13025974
-    },
-    "tablier_survivant": {
-      "sombre": 5722443,
-      "corps": 8419695,
-      "clair": 10195331
     },
     "chair_usee": {
       "sombre": 8352868,

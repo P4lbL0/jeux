@@ -2,7 +2,7 @@ import type { Metier } from "../../core/habitants";
 import { C } from "../ui/couleurs";
 import type { Geste, Modele } from "./four";
 import type { Toile } from "./pinceau";
-import { BOIS, FER, TISSU, TOILE, desaturer, matiere, melanger, type Matiere } from "./palette";
+import { BOIS, FER, TISSU, TOILE, matiere, melanger, type Matiere } from "./palette";
 import {
   CADRE,
   K,
@@ -52,17 +52,30 @@ export type MetierDessine = Metier | "survivant";
  * ⚠️ Toutes descendent de l'**os** : un tablier est ce que le corps a de plus
  * clair, c'est lui qui donne la silhouette a deux valeurs. Le colorer sombre le
  * ferait disparaitre dans la tunique, et le villageois redeviendrait un bloc.
+ *
+ * ⚠️ **Une teinte par metier, et elles doivent s'ecarter a vingt pixels.**
+ * Ecartees le 20 septembre 2026 au soir : bucheron, mineur, charpentier et
+ * survivant tombaient tous les quatre dans le meme brun. Chaque metier prend
+ * donc la matiere qu'il touche — le pecheur l'eau, le mineur la pierre, le
+ * charpentier le bois, le bucheron la feuille, le forgeron la braise —, et
+ * **aucune paire ne descend plus sous trente-huit** de distance RVB (la plus
+ * serree etait a vingt-cinq).
+ *
+ * **C'est `scripts/blender/palette.ts` qui les exporte a Blender** : une seule
+ * table, sinon le rendu et le dessin derivent l'un de l'autre.
  */
-const TABLIERS: Record<MetierDessine, Matiere> = {
-  pecheur: matiere(melanger(C.os, C.acier, 0.45)),
-  fermier: matiere(melanger(C.os, C.laiton, 0.4)),
-  bucheron: matiere(melanger(C.os, C.bile, 0.45)),
-  mineur: matiere(melanger(C.os, BOIS.corps, 0.45)),
-  forgeron: matiere(melanger(C.os, C.sangSeche, 0.35)),
-  charpentier: TOILE,
+export const TABLIERS: Record<MetierDessine, Matiere | null> = {
+  pecheur: matiere(melanger(C.os, C.acier, 0.65)),
+  fermier: matiere(melanger(C.os, C.laiton, 0.45)),
+  bucheron: matiere(melanger(C.os, C.bile, 0.8)),
+  mineur: matiere(melanger(melanger(C.os, C.acier, 0.6), C.plaque, 0.22)),
+  forgeron: matiere(melanger(C.os, C.sangSeche, 0.45)),
+  charpentier: matiere(melanger(C.os, BOIS.corps, 0.5)),
   guetteur: matiere(melanger(C.os, C.cielSale, 0.45)),
-  // Un inconnu ne porte pas les couleurs d'un metier : il est delave et sale.
-  survivant: matiere(desaturer(melanger(TOILE.corps, C.fer, 0.28), 0.3)),
+  // ⚠️ **Pas de tablier du tout** : un inconnu ne porte pas les couleurs d'un
+  // metier, et sa silhouette entierement sombre le dit mieux qu'une huitieme
+  // teinte — a huit, elles ne pouvaient plus s'ecarter.
+  survivant: null,
 };
 
 /** L'outil de chaque metier. Il n'apparait qu'au travail. */
@@ -195,7 +208,7 @@ export function gestesDeVillageois(metier: MetierDessine): readonly Geste[] {
 export function tenueDeVillageois(metier: MetierDessine, corps: Corps): Apparence {
   return {
     tunique: TISSU,
-    ventre: TABLIERS[metier],
+    ventre: TABLIERS[metier] ?? undefined,
     // Le guetteur porte une capuche : il est dehors la nuit. Les autres, le
     // chapeau a bord plat.
     coiffe: metier === "guetteur" ? { genre: "casque", matiere: TISSU } : { genre: "chapeau", matiere: BOIS },

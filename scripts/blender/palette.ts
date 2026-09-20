@@ -2,6 +2,7 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { C } from "../../src/game/ui/couleurs";
 import { CLASSES, ORDRE_CLASSES } from "../../src/core/classes";
+import { TABLIERS } from "../../src/game/dessin/villageois";
 import {
   ARDOISE,
   BOIS,
@@ -73,14 +74,14 @@ const MATIERES: Record<string, Matiere> = {
   // Les villageois (20 septembre 2026, soir) : le tablier de chaque metier —
   // les memes melanges que `villageois.ts` —, la chair d'un corps use, et les
   // deux familiers qui flottent.
-  tablier_pecheur: matiere(melanger(C.os, C.acier, 0.45)),
-  tablier_fermier: matiere(melanger(C.os, C.laiton, 0.4)),
-  tablier_bucheron: matiere(melanger(C.os, C.bile, 0.45)),
-  tablier_mineur: matiere(melanger(C.os, BOIS.corps, 0.45)),
-  tablier_forgeron: matiere(melanger(C.os, C.sangSeche, 0.35)),
-  tablier_charpentier: TOILE,
-  tablier_guetteur: matiere(melanger(C.os, C.cielSale, 0.45)),
-  tablier_survivant: matiere(desaturer(melanger(TOILE.corps, C.fer, 0.28), 0.3)),
+  // ⚠️ **Repris de `villageois.ts`, jamais recopie** : les huit teintes y etaient
+  // dupliquees mot pour mot, ce qui garantissait qu'un jour le rendu et le
+  // dessin derivent l'un de l'autre.
+  ...Object.fromEntries(
+    Object.entries(TABLIERS)
+      .filter(([, m]) => m !== null)
+      .map(([metier, m]) => [`tablier_${metier}`, m!]),
+  ),
   chair_usee: matiere(desaturer(melanger(CHAIR.corps, C.os, 0.3), 0.3)),
   familier: matiere(desaturer(melanger(C.cielSale, C.fer, 0.3), 0.25)),
   spectre: matiere(melanger(C.os, C.fer, 0.3)),

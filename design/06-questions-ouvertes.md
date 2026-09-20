@@ -1037,10 +1037,13 @@ mondes sans mer, ou le port est sur un lac — le navire y accoste quand meme, f
   un familier que ses yeux ; et la mort enfoncait le corps sous le sol.
 - ✅ **Le tablier du villageois occupe le haut du buste**, pas son bas comme au code : la
   camera regarde depuis -Y, et le bras avant masque le torse aux deux tiers.
-- ⚠️ **Ouvert, et a trancher sur image** : le **code reste plus lisible** que Blender pour un
-  villageois — tablier plus grand, bras et jambes detaches. Comparaison dans
-  `captures/planches/2026-09-20-villageois/code-contre-blender.png`. A l'usure 2 le
-  villageois Blender est tres courbe, et quatre metiers bruns (bucheron, mineur, charpentier,
-  survivant) restent proches.
+- ✅ **Tranche sur image le soir meme** : « Blender, avec deux retouches ». La voute de
+  l'usure est ramenee a celle de `corps.ts` (elle etait une fois et demie trop forte), et
+  chaque metier prend **la matiere qu'il touche** — l'eau, la pierre, le bois, la feuille, la
+  braise —, ce qui porte l'ecart le plus serre entre deux tabliers de vingt-cinq a
+  trente-huit. **Le survivant n'a plus de tablier** : a huit, les teintes ne s'ecartaient
+  plus, et un inconnu ne porte pas les couleurs d'un metier.
+- ✅ **Une seule table de tabliers** : `villageois.ts` l'exporte, la palette Blender
+  l'importe. Les deux la dupliquaient mot pour mot.
 - ⚠️ **Reste rogne** : les deux dernieres frames de la mort du golem et de la brute sortent de
   cinq pixels sous leur cadre (les pattes, pas le corps).

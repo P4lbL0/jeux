@@ -485,8 +485,15 @@ def familles():
                     sorte="humain",
                     tenue=dict(tunique="tissu", jambes="tissu", peau="chair" if usure == 0 else "chair_usee",
                                coiffe="capuche" if metier == "guetteur" else "chapeau", plastron=False, cape=None,
-                               laiton=False, arme=outil, bouclier=False, ventre=f"tablier_{metier}", sang=bool(sang)),
-                    gestes=GESTES_VILLAGEOIS, cadre=cadre_de(CADRE), voute=0.18 * usure, outil_au_travail=True,
+                               laiton=False, arme=outil, bouclier=False,
+                               # ⚠️ Le survivant n'a **pas** de tablier (`villageois.ts`) : un
+                               # inconnu ne porte pas les couleurs d'un metier, et a huit les
+                               # teintes ne pouvaient plus s'ecarter a vingt pixels.
+                               ventre=None if metier == "survivant" else f"tablier_{metier}",
+                               sang=bool(sang)),
+                    # ⚠️ La voute est celle de `corps.ts` (`dos = usure * 0.25`, usure de 0 a 1),
+                    # pas une de plus : a 0,18 par cran le villageois use etait plie en deux.
+                    gestes=GESTES_VILLAGEOIS, cadre=cadre_de(CADRE), voute=0.125 * usure, outil_au_travail=True,
                 )
     # Les familiers : deux flammes qui flottent, et le golem de pierre.
     for nom, b in FAMILIERS.items():
