@@ -1,10 +1,9 @@
-import type Phaser from "phaser";
-import { MONDE, mondeCourant, terrainEn as terrainDuMonde, type Terrain, EGLISE } from "../../core/carte";
+import { MONDE, terrainEn as terrainDuMonde, type Terrain } from "../../core/carte";
 import { C } from "../ui/couleurs";
 import { bruit, bruitLisse, ligneDeBruit } from "./bruit";
-import { releverLeRelief } from "./relief";
+import { releverLeRelief, type Relief } from "./relief";
 import { BRULE, CRATERE, TERRE } from "./sol";
-import { cleCase, type PlanVillage, type Segment } from "../../core/village";
+import { cleCase, type Segment } from "../../core/village";
 import {
   EAU,
   EBOULIS,
@@ -21,7 +20,38 @@ import {
 } from "./palette";
 
 /**
- * La carte entiere, peinte par le code en une seule passe (DESIGN.md §4.30).
+ * La carte, peinte par le code **morceau par morceau** (DESIGN.md §4.30, §4.29).
+ *
+ * ⚠️ **Ce fichier est pur** : ni Phaser, ni hasard, ni texture. Tout ce qui
+ * depose des pixels dans le moteur vit dans [`morceaux.ts`](morceaux.ts). Il
+ * n'en a pas toujours ete ainsi — la carte etait peinte ici **d'un seul bloc**
+ * et poussee dans une unique texture de deux millions de pixels. Ce bloc-la
+ * etait le dernier verrou d'architecture du projet : il coutait **1,0 s a x2 et
+ * 2,2 s a x3** (mesure hors navigateur, donc un plancher), il gelait le jeu a
+ * chaque village refuse — et il rendait la zone x3 carrement **impossible**,
+ * parce que 4 243 pixels de large depassent la taille maximale de texture de
+ * beaucoup de cartes graphiques (4 096).
+ *
+ * Depuis la nuit du 20 septembre 2026, on peint donc des **morceaux** : des carres du
+ * monde, chacun avec son coin en pixels du monde (`x0`, `y0`), peints
+ * independamment et raccordes sans couture. Les trois pieges du raccord sont
+ * traites ici, et ils sont tout le sujet :
+ *
+ * 1. **Le bruit part d'un x du monde** (`ligneDeBruit`, parametre `depart`) :
+ *    une tache doit tomber au meme endroit quel que soit le morceau qui la
+ *    peint.
+ * 2. **Une rangee connait celle du dessus**, meme la premiere : la crete de la
+ *    montagne et l'ombre au pied de l'eboulis se lisent d'une rangee a
+ *    l'autre. On classe donc la rangee juste au-dessus du morceau avant de
+ *    commencer, sans la peindre.
+ * 3. **Une rangee deborde de trois pixels a droite** : l'ecume regarde devant
+ *    elle (`rangee[x + 3]`), et sans ce debord le dernier pixel d'un morceau
+ *    n'aurait pas d'ecume.
+ *
+ * Les details, eux, se sement par **case du monde** : un morceau peint toutes
+ * les cases qui le touchent, y compris celles qui debordent d'un cote ou de
+ * l'autre, et chacun garde la part qui tombe chez lui. Un os a cheval sur deux
+ * morceaux est donc peint deux fois, en deux moities qui se rejoignent.
  *
  * **Une matiere, pas des carreaux.** La premiere carte etait un pavage de
  * carreaux de 8 px pioches dans une planche : elle se lisait comme un damier de
@@ -43,13 +73,10 @@ import {
  *    case sur six, jamais toutes. C'est l'irregularite qui casse l'oeil, pas
  *    la quantite (§4.30).
  *
- * ⚠️ **Deux millions de pixels, cuits une fois, jamais retouches par image**
- * (§4.17 regle 3). Un etat de case (cratere, chemin) s'ecrira plus tard **dans
- * cette texture**, case par case, exactement comme un mur s'ecrit dans la
- * grille. Ce fichier ne connait Phaser que pour deposer l'image.
+ * ⚠️ **Des millions de pixels, cuits une fois, jamais retouches par image**
+ * (§4.17 regle 3). Un etat de case (cratere, chemin) s'ecrit **dans la texture
+ * du morceau**, case par case, exactement comme un mur s'ecrit dans la grille.
  */
-
-export const CLE_CARTE = "carte";
 
 /** La case de la grille, en pixels : c'est le pas des details rares. */
 const CASE = 32;
@@ -129,36 +156,52 @@ export const PAS_DU_CHAMP = 2;
 
 export interface Champ {
   pas: number;
+  /** Le point du monde que porte l'index (0, 0) du treillis. */
+  ox: number;
+  oy: number;
   colonnes: number;
   lignes: number;
   /** L'index dans `TERRAINS` de chaque point du treillis */
   terrains: Uint8Array;
-  /** La marge, en points, autour du monde : le tremblement peut sortir */
-  marge: number;
-}
-
-function echantillonner(largeur: number, hauteur: number): Champ {
-  const pas = PAS_DU_CHAMP;
-  const marge = Math.ceil((TREMBLEMENT + 1) / pas);
-  const colonnes = Math.ceil(largeur / pas) + marge * 2;
-  const lignes = Math.ceil(hauteur / pas) + marge * 2;
-  const terrains = new Uint8Array(colonnes * lignes);
-  for (let j = 0; j < lignes; j += 1) {
-    const y = (j - marge) * pas;
-    for (let i = 0; i < colonnes; i += 1) {
-      terrains[j * colonnes + i] = INDEX[terrainDuMonde((i - marge) * pas, y)];
-    }
-  }
-  return { pas, colonnes, lignes, terrains, marge };
 }
 
 /**
- * La nature du sol en un point, lue dans le treillis : le point le plus
- * proche. Hors du treillis, le bord le plus proche.
+ * Echantillonne le terrain sur un rectangle du monde, avec la marge que le
+ * tremblement des lisieres, le debord d'ecume et la rangee du dessus reclament.
+ *
+ * ⚠️ **Un champ par morceau, pas un pour le monde.** Un treillis sur la zone x3
+ * entiere pese 3,4 Mo et coute 280 ms d'un coup — c'est-a-dire exactement le gel
+ * qu'on vient supprimer. Celui d'un morceau de 512 coute six millisemes.
+ */
+function echantillonner(x0: number, y0: number, largeur: number, hauteur: number): Champ {
+  const pas = PAS_DU_CHAMP;
+  // ⚠️ **Une case entiere de marge, pas seulement le tremblement.** Un morceau
+  // doit pouvoir semer les details des cases qui le **touchent** sans lui
+  // appartenir : leur graine tombe chez le voisin, mais leurs pixels debordent
+  // chez lui (voir `terrainSeme`). Sans cette marge, un os a cheval sur deux
+  // morceaux serait coupe net sur la couture.
+  const marge = Math.ceil((CASE + TREMBLEMENT + 1 + DEBORD_A_DROITE) / pas);
+  const ox = x0 - marge * pas;
+  const oy = y0 - marge * pas;
+  const colonnes = Math.ceil(largeur / pas) + marge * 2 + 1;
+  const lignes = Math.ceil(hauteur / pas) + marge * 2 + 1;
+  const terrains = new Uint8Array(colonnes * lignes);
+  for (let j = 0; j < lignes; j += 1) {
+    const y = oy + j * pas;
+    for (let i = 0; i < colonnes; i += 1) {
+      terrains[j * colonnes + i] = INDEX[terrainDuMonde(ox + i * pas, y)];
+    }
+  }
+  return { pas, ox, oy, colonnes, lignes, terrains };
+}
+
+/**
+ * La nature du sol en un point du monde, lue dans le treillis : le point le
+ * plus proche. Hors du treillis, le bord le plus proche.
  */
 export function classer(champ: Champ, x: number, y: number): Terrain {
-  let i = Math.round(x / champ.pas) + champ.marge;
-  let j = Math.round(y / champ.pas) + champ.marge;
+  let i = Math.round((x - champ.ox) / champ.pas);
+  let j = Math.round((y - champ.oy) / champ.pas);
   if (i < 0) i = 0;
   else if (i >= champ.colonnes) i = champ.colonnes - 1;
   if (j < 0) j = 0;
@@ -168,13 +211,29 @@ export function classer(champ: Champ, x: number, y: number): Terrain {
 
 /** Le champ du monde courant, pour les tests. */
 export function champDuMonde(): Champ {
-  return echantillonner(MONDE.largeur, MONDE.hauteur);
+  return echantillonner(0, 0, MONDE.largeur, MONDE.hauteur);
 }
 
 // ------------------------------------------------------------- la peinture
 
-/** Une carte peinte : ses pixels, et la nature de sol de chacun. */
+/**
+ * De combien une rangee deborde a droite : l'ecume regarde trois pixels devant
+ * elle pour savoir si le sable approche.
+ */
+const DEBORD_A_DROITE = 3;
+
+/**
+ * Un morceau de carte peint : son coin dans le monde, ses pixels, et la nature
+ * de sol de chacun.
+ *
+ * ⚠️ **Tout ce qui s'y ecrit se parle en pixels du monde**, jamais en pixels du
+ * morceau : un cratere, une rue, un pave ne savent pas dans quel morceau ils
+ * tombent, et ne doivent pas avoir a le savoir. C'est `index` qui traduit.
+ */
 export interface CartePeinte {
+  /** Le coin haut-gauche du morceau, en pixels du monde. */
+  x0: number;
+  y0: number;
   largeur: number;
   hauteur: number;
   pixels: Uint8ClampedArray<ArrayBuffer>;
@@ -182,53 +241,133 @@ export interface CartePeinte {
   terrains: Uint8Array;
 }
 
+/** L'index d'un point du monde dans un morceau, ou -1 s'il tombe dehors. */
+function index(carte: CartePeinte, x: number, y: number): number {
+  const i = x - carte.x0;
+  const j = y - carte.y0;
+  if (i < 0 || j < 0 || i >= carte.largeur || j >= carte.hauteur) return -1;
+  return j * carte.largeur + i;
+}
+
+/** Un morceau vide, pret a etre peint. */
+export function preparerUnMorceau(x0: number, y0: number, largeur: number, hauteur: number): CartePeinte {
+  return {
+    x0,
+    y0,
+    largeur,
+    hauteur,
+    pixels: new Uint8ClampedArray(new ArrayBuffer(largeur * hauteur * 4)),
+    terrains: new Uint8Array(largeur * hauteur),
+  };
+}
+
 /**
- * Peint la carte. **Pure** : ni Phaser, ni hasard.
+ * Ce qu'un morceau doit avoir sous la main pour se peindre : le treillis de
+ * terrain de son coin de monde, et le relief, qui lui est **commun a tous**.
  */
-export function peindreLaCarte(largeur = MONDE.largeur, hauteur = MONDE.hauteur): CartePeinte {
-  const champ = echantillonner(largeur, hauteur);
-  const pixels = new Uint8ClampedArray(new ArrayBuffer(largeur * hauteur * 4));
-  const terrains = new Uint8Array(largeur * hauteur);
+export interface Atelier {
+  champ: Champ;
+  relief: Relief;
+  /** Les tampons d'une rangee, alloues une fois pour tout le morceau. */
+  tampons: Tampons;
+}
 
-  const carte: CartePeinte = { largeur, hauteur, pixels, terrains };
-  const relief = releverLeRelief(largeur, hauteur);
+interface Tampons {
+  tremblementX: Float32Array;
+  tremblementY: Float32Array;
+  regions: Float32Array;
+  taches: Float32Array;
+  tachesFines: Float32Array;
+  rangee: Uint8Array;
+  rangeeDuDessus: Uint8Array;
+}
 
-  // Les tampons d'une rangee : le tremblement des lisieres, les deux echelles
-  // de taches. Alloues une fois, remplis a chaque rangee.
-  const tremblementX = new Float32Array(largeur);
-  const tremblementY = new Float32Array(largeur);
-  const regions = new Float32Array(largeur);
-  const taches = new Float32Array(largeur);
-  const tachesFines = new Float32Array(largeur);
-  const rangee = new Uint8Array(largeur);
-  const rangeeDuDessus = new Uint8Array(largeur);
+function tamponsPour(largeur: number): Tampons {
+  const l = largeur + DEBORD_A_DROITE;
+  return {
+    tremblementX: new Float32Array(l),
+    tremblementY: new Float32Array(l),
+    regions: new Float32Array(l),
+    taches: new Float32Array(l),
+    tachesFines: new Float32Array(l),
+    rangee: new Uint8Array(l),
+    rangeeDuDessus: new Uint8Array(l),
+  };
+}
 
-  for (let y = 0; y < hauteur; y += 1) {
-    ligneDeBruit(y, 11, 1, largeur, tremblementX);
-    ligneDeBruit(y, 11, 2, largeur, tremblementY);
-    ligneDeBruit(y, 52, 5, largeur, regions);
-    ligneDeBruit(y, 22, 3, largeur, taches);
-    ligneDeBruit(y, 8, 4, largeur, tachesFines);
+/**
+ * Ouvre l'atelier d'un morceau : le treillis de terrain de son coin de monde,
+ * la rangee juste au-dessus de lui deja classee, et les tampons.
+ *
+ * @param relief le relief du monde, commun a tous les morceaux — il coute
+ *        quarante millisemes pour la zone x3 entiere, on ne le refait pas
+ *        soixante-trois fois.
+ */
+export function ouvrirLAtelier(morceau: CartePeinte, relief: Relief): Atelier {
+  const champ = echantillonner(morceau.x0, morceau.y0, morceau.largeur, morceau.hauteur);
+  const tampons = tamponsPour(morceau.largeur);
+  // ⚠️ **La rangee du dessus, meme pour la premiere rangee du morceau.** La
+  // crete de roche et l'ombre au pied de l'eboulis se lisent d'une rangee a
+  // l'autre : sans elle, chaque morceau aurait un trait plat en haut.
+  classerUneRangee(morceau, champ, tampons, morceau.y0 - 1, tampons.rangeeDuDessus);
+  return { champ, relief, tampons };
+}
+
+/** Classe la nature du sol d'une rangee entiere, tremblement compris. */
+function classerUneRangee(
+  morceau: CartePeinte,
+  champ: Champ,
+  tampons: Tampons,
+  y: number,
+  sortie: Uint8Array,
+): void {
+  const large = morceau.largeur + DEBORD_A_DROITE;
+  const { tremblementX, tremblementY } = tampons;
+  ligneDeBruit(y, 11, 1, large, tremblementX, morceau.x0);
+  ligneDeBruit(y, 11, 2, large, tremblementY, morceau.x0);
+  for (let i = 0; i < large; i += 1) {
+    const x = morceau.x0 + i;
+    const jx = x + Math.round((tremblementX[i]! - 0.5) * 2 * TREMBLEMENT);
+    const jy = y + Math.round((tremblementY[i]! - 0.5) * 2 * TREMBLEMENT);
+    sortie[i] = INDEX[classer(champ, jx, jy)];
+  }
+}
+
+/**
+ * Peint une tranche de rangees d'un morceau, de `j0` a `j1` (indices du
+ * morceau, `j1` exclu). **Pure.**
+ *
+ * C'est le grain de la cuisson : on en fait autant qu'il en tient dans le
+ * budget d'une image, et pas une de plus (§4.17 regle 3).
+ */
+export function peindreDesRangees(morceau: CartePeinte, atelier: Atelier, j0: number, j1: number): void {
+  const { champ, relief, tampons } = atelier;
+  const { largeur, pixels, terrains } = morceau;
+  const large = largeur + DEBORD_A_DROITE;
+  const { regions, taches, tachesFines, rangee, rangeeDuDessus } = tampons;
+
+  for (let j = j0; j < j1; j += 1) {
+    const y = morceau.y0 + j;
+    ligneDeBruit(y, 52, 5, large, regions, morceau.x0);
+    ligneDeBruit(y, 22, 3, large, taches, morceau.x0);
+    ligneDeBruit(y, 8, 4, large, tachesFines, morceau.x0);
 
     // 1. La nature du sol, avec la lisiere qui tremble.
-    for (let x = 0; x < largeur; x += 1) {
-      const jx = x + Math.round((tremblementX[x]! - 0.5) * 2 * TREMBLEMENT);
-      const jy = y + Math.round((tremblementY[x]! - 0.5) * 2 * TREMBLEMENT);
-      rangee[x] = INDEX[classer(champ, jx, jy)];
-    }
+    classerUneRangee(morceau, champ, tampons, y, rangee);
 
     // 2. Le sol, puis les lisieres qui ont besoin de leurs voisins.
-    for (let x = 0; x < largeur; x += 1) {
-      const terrain = TERRAINS[rangee[x]!]!;
+    for (let i = 0; i < largeur; i += 1) {
+      const x = morceau.x0 + i;
+      const terrain = TERRAINS[rangee[i]!]!;
       const m = MATIERES[terrain];
       // Trois echelles : les regions, les taches, le grain. Les grandes
       // dessinent des zones, les petites cassent leurs bords.
-      const v = regions[x]! * 0.45 + taches[x]! * 0.35 + tachesFines[x]! * 0.2;
+      const v = regions[i]! * 0.45 + taches[i]! * 0.35 + tachesFines[i]! * 0.2;
 
       // Les taches : douces, rares, et plus timides sur l'eau, ou la houle fait
       // deja le travail. ⚠️ Mesure sur planche : a 0,5 de sombre et un seuil a
       // 0,36, la prairie tournait au camouflage.
-      const eau = rangee[x]! <= 2;
+      const eau = rangee[i]! <= 2;
       let couleur = m.corps;
       if (eau) {
         // L'eau garde ses taches : elle est plate, et elle bouge par-dessus
@@ -237,48 +376,157 @@ export function peindreLaCarte(largeur = MONDE.largeur, hauteur = MONDE.hauteur)
         else if (v > 0.74) couleur = melanger(m.corps, m.clair, 0.22);
       } else {
         // La terre prend le ton de sa facette : c'est le relief (`relief.ts`).
-        couleur = TONS[rangee[x]!]![relief.marche(x, y) + 2]!;
+        couleur = TONS[rangee[i]!]![relief.marche(x, y) + 2]!;
       }
 
       // La crete de la montagne : la roche accroche la lumiere la ou elle
       // sort de l'eboulis. C'est ce qui fait lire une falaise et non une bande.
-      if (y > 0 && terrain === "roche" && rangeeDuDessus[x] === INDEX.eboulis) {
+      if (terrain === "roche" && rangeeDuDessus[i] === INDEX.eboulis) {
         couleur = ROCHE.clair;
-      } else if (y > 0 && terrain === "eboulis" && rangeeDuDessus[x]! >= INDEX.sable && rangeeDuDessus[x]! <= INDEX["sous-bois"]) {
+      } else if (terrain === "eboulis" && rangeeDuDessus[i]! >= INDEX.sable && rangeeDuDessus[i]! <= INDEX["sous-bois"]) {
         // L'ombre de l'herbe sur l'eboulis : un pied de pente.
         couleur = EBOULIS.sombre;
       }
 
       // L'ecume : le haut-fond qui touche le sable, trouee, jamais un trait.
       if (terrain === "haut-fond") {
-        const sable = rangee[x + 1] === INDEX.sable || rangee[x + 2] === INDEX.sable;
+        const sable = rangee[i + 1] === INDEX.sable || rangee[i + 2] === INDEX.sable;
         if (sable && bruit(x, y, 31) > 0.3) couleur = ECUME;
-        else if (rangee[x + 3] === INDEX.sable && bruit(x, y, 32) > 0.65) couleur = HAUT_FOND.clair;
+        else if (rangee[i + 3] === INDEX.sable && bruit(x, y, 32) > 0.65) couleur = HAUT_FOND.clair;
       }
 
-      const i = (y * largeur + x) * 4;
-      pixels[i] = (couleur >> 16) & 0xff;
-      pixels[i + 1] = (couleur >> 8) & 0xff;
-      pixels[i + 2] = couleur & 0xff;
-      pixels[i + 3] = 255;
-      terrains[y * largeur + x] = rangee[x]!;
+      const o = (j * largeur + i) * 4;
+      pixels[o] = (couleur >> 16) & 0xff;
+      pixels[o + 1] = (couleur >> 8) & 0xff;
+      pixels[o + 2] = couleur & 0xff;
+      pixels[o + 3] = 255;
+      terrains[j * largeur + i] = rangee[i]!;
     }
 
     rangeeDuDessus.set(rangee);
   }
-
-  // 3. Les details rares, case par case.
-  for (let cy = 0; cy * CASE < hauteur; cy += 1) {
-    for (let cx = 0; cx * CASE < largeur; cx += 1) semerLesDetails(carte, cx, cy);
-  }
-
-  return carte;
 }
 
-/** Le terrain d'un pixel, ou `null` hors de la carte. */
-function terrainEn(carte: CartePeinte, x: number, y: number): Terrain | null {
-  if (x < 0 || y < 0 || x >= carte.largeur || y >= carte.hauteur) return null;
-  return TERRAINS[carte.terrains[y * carte.largeur + x]!]!;
+/**
+ * Seme les details d'un morceau, une fois ses rangees peintes.
+ *
+ * ⚠️ **Une case de marge de chaque cote.** Un os fait sept pixels de long : a
+ * cheval sur la frontiere de deux morceaux, il faut que les **deux** le
+ * peignent, chacun gardant sa moitie. `point` refuse tout ce qui tombe hors du
+ * morceau, la couture se fait donc toute seule.
+ */
+export function semerLesDetailsDuMorceau(morceau: CartePeinte, atelier: Atelier): void {
+  const c0 = Math.floor(morceau.x0 / CASE) - 1;
+  const l0 = Math.floor(morceau.y0 / CASE) - 1;
+  const c1 = Math.floor((morceau.x0 + morceau.largeur - 1) / CASE) + 1;
+  const l1 = Math.floor((morceau.y0 + morceau.hauteur - 1) / CASE) + 1;
+  for (let cy = l0; cy <= l1; cy += 1) {
+    for (let cx = c0; cx <= c1; cx += 1) semerLesDetails(morceau, atelier.champ, cx, cy);
+  }
+}
+
+/**
+ * Peint un morceau d'un coup. **Pure** : ni Phaser, ni hasard.
+ *
+ * C'est le chemin des tests, des planches et de la vignette — en jeu, la
+ * cuisson passe par `ouvrirLAtelier` + `peindreDesRangees`, qui savent
+ * s'arreter au milieu.
+ */
+export function peindreUnMorceau(
+  x0: number,
+  y0: number,
+  largeur: number,
+  hauteur: number,
+  relief = releverLeRelief(x0 + largeur, y0 + hauteur),
+): CartePeinte {
+  const morceau = preparerUnMorceau(x0, y0, largeur, hauteur);
+  const atelier = ouvrirLAtelier(morceau, relief);
+  peindreDesRangees(morceau, atelier, 0, hauteur);
+  semerLesDetailsDuMorceau(morceau, atelier);
+  return morceau;
+}
+
+/** La carte entiere, d'un bloc : les tests, `scripts/planche.ts`. */
+export function peindreLaCarte(largeur = MONDE.largeur, hauteur = MONDE.hauteur): CartePeinte {
+  return peindreUnMorceau(0, 0, largeur, hauteur);
+}
+
+// -------------------------------------------------------------- la vignette
+
+/**
+ * Un pixel de vignette pour huit pixels du monde.
+ *
+ * ⚠️ **Huit et pas seize, et c'est une capture qui l'a tranche.** A seize, la
+ * vignette faisait 177 pixels de large : etiree sur la carte et sur le fond du
+ * menu, elle se lisait en **gros blocs** qui accrochaient l'oeil. Le filtrage
+ * doux n'est pas une option — le jeu est en `pixelArt`, et Phaser reimpose le
+ * plus proche voisin a chaque envoi de texture. Il n'y avait donc qu'un levier,
+ * la finesse : huit coute quatre fois plus, soit une trentaine de millisemes a
+ * x2, ce qui reste vingt fois moins que la carte qu'on vient de supprimer.
+ */
+export const PAS_DE_VIGNETTE = 8;
+
+/**
+ * Le monde entier, en tout petit (decision d'Angelos, 20 septembre 2026, dans la nuit).
+ *
+ * **C'est ce qu'on voit d'un morceau pas encore peint.** Elle est etiree sous
+ * les morceaux : le monde a donc sa forme et ses couleurs des la premiere
+ * image, floue, et chaque morceau net s'y pose en s'approchant. Sans elle, un
+ * coup de molette pendant les deux premieres secondes montrerait un trou noir
+ * autour du heros.
+ *
+ * Elle ne coute presque rien — un pixel pour seize, soit 53 000 points pour la
+ * zone x3, une dizaine de millisemes — parce qu'elle ne fait qu'une chose : la
+ * couleur de corps de la matiere. Ni relief, ni lisiere, ni detail : tout ce
+ * qui s'y verrait serait un pixel de large.
+ *
+ * Elle sert aussi de **fond aux deux ecrans d'avant-partie** (menu, choix de
+ * classe), qui affichaient jusqu'ici la carte entiere — et payaient donc sa
+ * cuisson pour un monde qu'on n'allait meme pas jouer.
+ */
+export function peindreLaVignette(
+  largeur = MONDE.largeur,
+  hauteur = MONDE.hauteur,
+  pas = PAS_DE_VIGNETTE,
+): { largeur: number; hauteur: number; pixels: Uint8ClampedArray<ArrayBuffer> } {
+  const l = Math.max(1, Math.ceil(largeur / pas));
+  const h = Math.max(1, Math.ceil(hauteur / pas));
+  const pixels = new Uint8ClampedArray(new ArrayBuffer(l * h * 4));
+  for (let j = 0; j < h; j += 1) {
+    const y = Math.min(hauteur - 1, j * pas + pas / 2);
+    for (let i = 0; i < l; i += 1) {
+      const x = Math.min(largeur - 1, i * pas + pas / 2);
+      const couleur = MATIERES[terrainDuMonde(x, y)].corps;
+      const o = (j * l + i) * 4;
+      pixels[o] = (couleur >> 16) & 0xff;
+      pixels[o + 1] = (couleur >> 8) & 0xff;
+      pixels[o + 2] = couleur & 0xff;
+      pixels[o + 3] = 255;
+    }
+  }
+  return { largeur: l, hauteur: h, pixels };
+}
+
+/**
+ * La nature du sol au point ou se seme un detail — **meme juste a cote du
+ * morceau**.
+ *
+ * Dedans, c'est ce que la peinture a ecrit, au pixel pres. Dehors, on **refait
+ * le calcul du voisin** : le meme tremblement, tire du meme bruit du monde, sur
+ * le meme treillis. Les deux morceaux choisissent donc le meme detail pour une
+ * case a cheval, et chacun en garde sa moitie.
+ *
+ * ⚠️ `ligneDeBruit(y, e, sel, …)` et `bruitLisse(x, y, e, sel)` rendent la meme
+ * valeur — c'est la meme interpolation bilineaire, prise dans l'autre ordre.
+ * C'est ce qui permet de refaire ici, point par point, ce que la peinture fait
+ * par rangees.
+ */
+function terrainSeme(carte: CartePeinte, champ: Champ, x: number, y: number): Terrain {
+  const i = index(carte, x, y);
+  if (i >= 0) return TERRAINS[carte.terrains[i]!]!;
+  const jx = x + Math.round((bruitLisse(x, y, 11, 1) - 0.5) * 2 * TREMBLEMENT);
+  const jy = y + Math.round((bruitLisse(x, y, 11, 2) - 0.5) * 2 * TREMBLEMENT);
+  return classer(champ, jx, jy);
 }
 
 /**
@@ -288,8 +536,9 @@ function terrainEn(carte: CartePeinte, x: number, y: number): Terrain | null {
  * detail s'arrete donc la ou le sol change, sans qu'on ait a le savoir.
  */
 function point(carte: CartePeinte, x: number, y: number, couleur: number, terrain: Terrain): void {
-  if (terrainEn(carte, x, y) !== terrain) return;
-  const i = (y * carte.largeur + x) * 4;
+  const j = index(carte, x, y);
+  if (j < 0 || TERRAINS[carte.terrains[j]!] !== terrain) return;
+  const i = j * 4;
   carte.pixels[i] = (couleur >> 16) & 0xff;
   carte.pixels[i + 1] = (couleur >> 8) & 0xff;
   carte.pixels[i + 2] = couleur & 0xff;
@@ -323,12 +572,11 @@ function trait(
  * **Une case sur six environ en porte un, les autres rien.** Un detail par case
  * redonnerait un motif, donc un damier — c'est la lecon du sol du 13 aout.
  */
-function semerLesDetails(carte: CartePeinte, cx: number, cy: number): void {
+function semerLesDetails(carte: CartePeinte, champ: Champ, cx: number, cy: number): void {
   const de = bruit(cx, cy, 41);
   const x = cx * CASE + 4 + Math.floor(bruit(cx, cy, 42) * (CASE - 8));
   const y = cy * CASE + 4 + Math.floor(bruit(cx, cy, 43) * (CASE - 8));
-  const terrain = terrainEn(carte, x, y);
-  if (!terrain) return;
+  const terrain = terrainSeme(carte, champ, x, y);
 
   switch (terrain) {
     case "herbe": {
@@ -436,72 +684,6 @@ function arete(carte: CartePeinte, x: number, y: number, t: Terrain): void {
   trait(carte, x, y + 1, x + 5, y + 1, ROCHE.sombre, t);
 }
 
-// -------------------------------------------------------------- la cuisson
-
-/**
- * Depose la carte peinte dans une texture, une fois (§4.17 regle 3).
- *
- * Recommencer une partie relance `create()` : sans ce garde, on refabriquerait
- * une carte de deux millions de pixels a chaque fois.
- */
-export function cuireLaCarte(scene: Phaser.Scene): boolean {
-  // Un monde par partie (§4.29) : la carte se recuit quand le monde change,
-  // et seulement la. Recommencer le meme monde ne recuit rien.
-  const graine = mondeCourant().graine;
-  if (scene.textures.exists(CLE_CARTE) && carteCuitePour === graine) return false;
-  if (scene.textures.exists(CLE_CARTE)) scene.textures.remove(CLE_CARTE);
-  if (scene.textures.exists(CLE_MASQUE_EAU)) scene.textures.remove(CLE_MASQUE_EAU);
-
-  const texture = scene.textures.createCanvas(CLE_CARTE, MONDE.largeur, MONDE.hauteur);
-  const ctx = texture?.getContext();
-  if (!texture || !ctx) return false;
-
-  const carte = peindreLaCarte();
-  ctx.putImageData(new ImageData(carte.pixels, carte.largeur, carte.hauteur), 0, 0);
-  texture.refresh();
-  // La carte vierge reste en memoire : chaque partie repart d'elle avant d'y
-  // peindre son village (`dessinerLeSolDuVillage`). Douze Mo, une fois par monde.
-  carteVierge = carte;
-  carteCuitePour = graine;
-
-  // Le masque d'eau, pour la houle (`mer.ts`) : opaque sur l'eau, rien
-  // ailleurs, a un point sur deux — trois Mo au lieu de douze.
-  const masque = scene.textures.createCanvas(
-    CLE_MASQUE_EAU,
-    Math.ceil(MONDE.largeur / ECHELLE_DU_MASQUE),
-    Math.ceil(MONDE.hauteur / ECHELLE_DU_MASQUE),
-  );
-  const ctxMasque = masque?.getContext();
-  if (masque && ctxMasque) {
-    const image = ctxMasque.createImageData(masque.width, masque.height);
-    for (let j = 0; j < masque.height; j += 1) {
-      for (let i = 0; i < masque.width; i += 1) {
-        const x = Math.min(carte.largeur - 1, i * ECHELLE_DU_MASQUE);
-        const y = Math.min(carte.hauteur - 1, j * ECHELLE_DU_MASQUE);
-        if (carte.terrains[y * carte.largeur + x]! <= INDEX["haut-fond"]) {
-          const k = (j * masque.width + i) * 4;
-          image.data[k] = 255;
-          image.data[k + 1] = 255;
-          image.data[k + 2] = 255;
-          image.data[k + 3] = 255;
-        }
-      }
-    }
-    ctxMasque.putImageData(image, 0, 0);
-    masque.refresh();
-  }
-  return true;
-}
-
-/** La carte telle que cuite, avant tout village et tout degat. */
-let carteVierge: CartePeinte | null = null;
-/** La graine du monde dont la carte est cuite, ou null. */
-let carteCuitePour: number | null = null;
-
-/** Le masque d'eau du monde courant, pour la houle : une texture a l'echelle 1/2. */
-export const CLE_MASQUE_EAU = "carte-masque-eau";
-export const ECHELLE_DU_MASQUE = 2;
-
 /** Le nom du terrain d'un index, pour les tests. */
 export function terrainDIndex(index: number): Terrain {
   return TERRAINS[index]!;
@@ -578,50 +760,6 @@ export function peindreDegat(
       pixels[i + 2] = Math.round(pixels[i + 2]! + ((couleur & 0xff) - pixels[i + 2]!) * part);
     }
   }
-}
-
-/** Les scenes dont la carte attend d'etre renvoyee au moteur. */
-const rafraichissements = new WeakSet<Phaser.Scene>();
-
-/**
- * Abime le sol du monde, a cet endroit.
- *
- * ⚠️ **Un seul envoi de texture par image, quel que soit le nombre de degats.**
- * `refresh()` renvoie deux millions de pixels au moteur ; vingt murs qui
- * tombent dans la meme image le feraient vingt fois. On peint tout de suite
- * dans le canevas, et on ne le renvoie qu'a la fin de l'image.
- *
- * @param rayon en pixels du monde ; le bord tremble autour.
- */
-export function abimerLeSol(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  degat: DegatDuSol,
-  rayon: number,
-): void {
-  const texture = scene.textures.get(CLE_CARTE) as Phaser.Textures.CanvasTexture;
-  if (!texture || typeof texture.getContext !== "function") return;
-  const ctx = texture.getContext();
-
-  const marge = Math.ceil(rayon * 1.2);
-  const x0 = Math.max(0, Math.round(x) - marge);
-  const y0 = Math.max(0, Math.round(y) - marge);
-  const x1 = Math.min(MONDE.largeur, Math.round(x) + marge);
-  const y1 = Math.min(MONDE.hauteur, Math.round(y) + marge);
-  if (x1 <= x0 || y1 <= y0) return;
-
-  const image = ctx.getImageData(x0, y0, x1 - x0, y1 - y0);
-  const sel = Math.round(x * 7 + y * 13) & 0xffff;
-  peindreDegat(image.data, x1 - x0, y1 - y0, x - x0, y - y0, rayon, degat, sel);
-  ctx.putImageData(image, x0, y0);
-
-  if (rafraichissements.has(scene)) return;
-  rafraichissements.add(scene);
-  scene.events.once("postupdate", () => {
-    rafraichissements.delete(scene);
-    texture.refresh();
-  });
 }
 
 // ------------------------------------------------------ le sol du village
@@ -744,11 +882,14 @@ export function peindreLeSolDuVillage(carte: CartePeinte, sol: SolDuVillage, sel
     return Math.hypot(x - (s.de.x + dx * t), y - (s.de.y + dy * t));
   };
 
-  // La boite de tout ce qui se peint, pour ne pas parcourir deux millions de pixels.
-  let x0 = largeur;
-  let y0 = hauteur;
-  let x1 = 0;
-  let y1 = 0;
+  // La boite de tout ce qui se peint, pour ne pas parcourir deux millions de
+  // pixels. ⚠️ Elle est en pixels du **monde**, et se rabat ensuite sur le
+  // morceau : un village est a cheval sur six ou sept morceaux, et chacun n'a
+  // le droit d'ecrire que chez lui.
+  let x0 = carte.x0 + largeur;
+  let y0 = carte.y0 + hauteur;
+  let x1 = carte.x0;
+  let y1 = carte.y0;
   const etendre = (ax: number, ay: number, bx: number, by: number) => {
     x0 = Math.min(x0, ax);
     y0 = Math.min(y0, ay);
@@ -760,10 +901,10 @@ export function peindreLeSolDuVillage(carte: CartePeinte, sol: SolDuVillage, sel
     etendre(Math.min(s.de.x, s.a.x) - 10, Math.min(s.de.y, s.a.y) - 10, Math.max(s.de.x, s.a.x) + 10, Math.max(s.de.y, s.a.y) + 10);
   }
   etendre(sol.parvis.x - sol.parvis.rayon - 8, sol.parvis.y - sol.parvis.rayon - 8, sol.parvis.x + sol.parvis.rayon + 8, sol.parvis.y + sol.parvis.rayon + 8);
-  x0 = Math.max(0, Math.floor(x0));
-  y0 = Math.max(0, Math.floor(y0));
-  x1 = Math.min(largeur, Math.ceil(x1));
-  y1 = Math.min(hauteur, Math.ceil(y1));
+  x0 = Math.max(carte.x0, Math.floor(x0));
+  y0 = Math.max(carte.y0, Math.floor(y0));
+  x1 = Math.min(carte.x0 + largeur, Math.ceil(x1));
+  y1 = Math.min(carte.y0 + hauteur, Math.ceil(y1));
   if (x1 <= x0 || y1 <= y0) return;
 
   const teinte = (m: Matiere, x: number, y: number, decalage: number): number => {
@@ -773,7 +914,7 @@ export function peindreLeSolDuVillage(carte: CartePeinte, sol: SolDuVillage, sel
 
   for (let y = y0; y < y1; y += 1) {
     for (let x = x0; x < x1; x += 1) {
-      const i = y * largeur + x;
+      const i = (y - carte.y0) * largeur + (x - carte.x0);
       const terrain = TERRAINS[terrains[i]!];
       if (!terrain || !TERRAINS_FOULES.has(terrain)) continue;
 
@@ -872,36 +1013,4 @@ export function peindreLeSolDuVillage(carte: CartePeinte, sol: SolDuVillage, sel
       pixels[o + 2] = Math.round(cb);
     }
   }
-}
-
-/**
- * Peint le sol de ce village dans la carte du monde.
- *
- * La carte redevient d'abord vierge : la place de la partie d'avant, ses
- * brulures et ses crateres s'en vont avec elle — la scene est reutilisee a
- * chaque partie, la texture aussi.
- */
-export function dessinerLeSolDuVillage(scene: Phaser.Scene, plan: PlanVillage, rues: Segment[]): void {
-  const texture = scene.textures.get(CLE_CARTE) as Phaser.Textures.CanvasTexture;
-  if (!texture || typeof texture.getContext !== "function" || !carteVierge) return;
-  const ctx = texture.getContext();
-  const { largeur, hauteur } = carteVierge;
-
-  ctx.putImageData(new ImageData(carteVierge.pixels, largeur, hauteur), 0, 0);
-  const image = ctx.getImageData(0, 0, largeur, hauteur);
-
-  const enceinte = new Set(plan.enceinte.map((m) => cleCase(m.colonne, m.ligne)));
-  const place = [...plan.place]
-    .filter((clef) => !enceinte.has(clef))
-    .map((clef) => {
-      const [colonne, ligne] = clef.split(",").map(Number) as [number, number];
-      return { colonne, ligne };
-    });
-  peindreLeSolDuVillage(
-    { largeur, hauteur, pixels: image.data as Uint8ClampedArray<ArrayBuffer>, terrains: carteVierge.terrains },
-    { place, rues, parvis: { x: EGLISE.x, y: EGLISE.y, rayon: RAYON_DU_PARVIS } },
-    plan.graine,
-  );
-  ctx.putImageData(image, 0, 0);
-  texture.refresh();
 }

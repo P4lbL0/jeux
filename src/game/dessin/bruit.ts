@@ -57,7 +57,14 @@ export function bruitLisse(x: number, y: number, echelle: number, sel: number): 
  * ne sont haches qu'a chaque changement de colonne de grille : le reste n'est
  * que de l'interpolation. C'est ce qui rend la cuisson de la carte instantanee.
  *
+ * ⚠️ **Elle part d'un x du monde, pas de zero.** Depuis que la carte se peint
+ * **par morceaux** (§4.29, 20 septembre 2026, dans la nuit), une rangee ne commence plus au
+ * bord gauche du monde : elle commence au bord gauche de son morceau. Le bruit
+ * doit rester celui du **monde** — sinon deux morceaux voisins n'auraient pas
+ * la meme tache a leur frontiere, et chaque raccord se verrait comme un trait.
+ *
  * @param sortie le tampon a remplir, long d'au moins `largeur`
+ * @param depart le x du monde du premier point de la rangee
  */
 export function ligneDeBruit(
   y: number,
@@ -65,23 +72,24 @@ export function ligneDeBruit(
   sel: number,
   largeur: number,
   sortie: Float32Array,
+  depart = 0,
 ): Float32Array {
   const fy = y / echelle;
   const y0 = Math.floor(fy);
   const ty = adoucir(fy - y0);
 
-  let x0 = -1;
+  let x0 = Number.NaN;
   let gauche = 0;
   let droite = 0;
-  for (let x = 0; x < largeur; x += 1) {
-    const fx = x / echelle;
+  for (let i = 0; i < largeur; i += 1) {
+    const fx = (depart + i) / echelle;
     const cx = Math.floor(fx);
     if (cx !== x0) {
       x0 = cx;
       gauche = lerp(bruit(cx, y0, sel), bruit(cx, y0 + 1, sel), ty);
       droite = lerp(bruit(cx + 1, y0, sel), bruit(cx + 1, y0 + 1, sel), ty);
     }
-    sortie[x] = lerp(gauche, droite, adoucir(fx - cx));
+    sortie[i] = lerp(gauche, droite, adoucir(fx - cx));
   }
   return sortie;
 }

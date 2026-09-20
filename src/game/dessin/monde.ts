@@ -1,7 +1,7 @@
 import type Phaser from "phaser";
 import { ORDRE_CLASSES, type ClassId } from "../../core/classes";
 import { cuireLesBatiments } from "./batiments";
-import { cuireLaCarte } from "./carte";
+import { cuireLaVignette } from "./morceaux";
 import { cuireLeDecor } from "./decor";
 import { cuire, type Cuisson } from "./four";
 import { familleDeHero, hero } from "./heros";
@@ -26,7 +26,15 @@ import { familleDeVillageois, villageois, type Corps, type MetierDessine } from 
  * personnages restent dessines par le code.
  */
 export function cuireLeMonde(scene: Phaser.Scene): void {
-  cuireLaCarte(scene);
+  // ⚠️ **La vignette, pas la carte.** Jusqu'a la nuit du 20 septembre 2026 cette ligne
+  // cuisait la carte entiere — pour **toutes** les scenes, donc aussi pour le
+  // menu et l'ecran de choix de classe, qui l'affichaient en fond. Ouvrir le
+  // jeu payait ainsi trois fois une cuisson de deux a trois secondes, pour un
+  // monde qu'on n'allait meme pas jouer. La carte de la partie se peint
+  // desormais par morceaux, dans l'arene et nulle part ailleurs
+  // (`morceaux.ts`) ; ce qui reste ici est le monde en tout petit, une dizaine
+  // de millisemes, et c'est tout ce dont les deux ecrans ont besoin.
+  cuireLaVignette(scene);
   cuireLesSols(scene);
   cuireLeDecor(scene);
   cuireLesBatiments(scene);

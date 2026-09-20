@@ -32,12 +32,13 @@ import {
 } from "../game/dessin/decor";
 import { origineDe, textureDe } from "../game/constructions";
 import { Bruits, chargerLesBruits } from "../game/bruits";
-import { abimerLeSol,
+import {
+  abimerLeSol,
+  CarteDuMonde,
   CLE_MASQUE_EAU,
-  cuireLaCarte,
   dessinerLeSolDuVillage,
   ECHELLE_DU_MASQUE,
-} from "../game/dessin/carte";
+} from "../game/dessin/morceaux";
 import { decrireLeMonde, graineDeMonde } from "../core/monde";
 import {
   QUESTION_DU_GARDIEN,
@@ -623,6 +624,14 @@ export class ArenaScene extends Phaser.Scene {
 
   /** La carte en grille modifiable : c'est elle qu'on batit (DESIGN.md §4.21) */
   grille = new Grille();
+  /**
+   * La carte peinte de ce monde, **par morceaux** (§4.29, `morceaux.ts`).
+   *
+   * Elle cuit toute seule, image par image, au plus pres du heros. Tout ce qui
+   * marque le sol — la place du village, une terre brulee, un cratere — passe
+   * par elle et attend son morceau si celui-ci n'est pas encore peint.
+   */
+  private carte: CarteDuMonde | null = null;
   /** La graine du village de cette partie : elle traverse la sauvegarde (§4.24) */
   private graineVillage = 0;
   /** La graine du monde (§4.29) : la mer, le relief, l'endroit ou l'on tombe */
@@ -1072,17 +1081,28 @@ export class ArenaScene extends Phaser.Scene {
     console.log(
       `[budget] ${valeur.toFixed(0)} points · effectif ${(this.menaces.effectifEnPlus * 100).toFixed(0)} % · ${this.menaces.nuitsDAvance} nuit(s) d'avance · ${this.menaces.malades} malade(s) · « ${this.augureDuMonde} »`,
     );
-    // La carte de ce monde, cuite maintenant : le sol du village se peint
-    // dessus, et elle ne se recuit pas tant que le monde ne change pas.
-    cuireLaCarte(this);
+    // La carte de ce monde. ⚠️ **Elle ne se peint plus d'un bloc** (§4.29,
+    // 20 septembre 2026, dans la nuit) : la vignette est la tout de suite, les morceaux
+    // cuisent image par image, au plus pres du heros d'abord.
+    this.carte?.detruire();
+    this.carte = new CarteDuMonde(this);
+    // ⚠️ Soixante-trois textures de carte ne doivent pas survivre a leur scene :
+    // elles sont globales au jeu, et un retour au menu les laisserait en
+    // memoire jusqu'a la fermeture de l'onglet.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.carte?.detruire();
+      this.carte = null;
+    });
     // Le sol du village (§4.24) : la place en terre battue, les rues vers les
-    // portes et les lieux de travail, le parvis pave — peints dans la carte
-    // cuite, une fois, pour cette graine.
+    // portes et les lieux de travail, le parvis pave. C'est une **ecriture
+    // differee** : elle se pose quand les morceaux du village cuisent — pendant
+    // la marche, on parait a l'autre bout du monde et ce village n'est encore
+    // qu'une fumee a l'horizon.
     this.ruesDuVillage = tracerLesRues(this.planVillage, EGLISE, [
       ...POSTES.map((p) => p.position),
       { x: PORT.x, y: PORT.y },
     ]);
-    dessinerLeSolDuVillage(this, this.planVillage, this.ruesDuVillage);
+    dessinerLeSolDuVillage(this.carte, this.planVillage, this.ruesDuVillage);
     this.construireDecor();
     // Les chemins qui s'usent (§4.24) : une couche transparente juste au-dessus
     // de la carte, et un compte de passages par case. La place ne se marque
@@ -1120,6 +1140,13 @@ export class ArenaScene extends Phaser.Scene {
     // La poursuite est lissee : sans ce cadrage, la premiere seconde de jeu se
     // passe a rattraper le heros depuis l'angle de la carte (vu en capture).
     this.cameras.main.centerOn(this.hero.x, this.hero.y);
+    // ⚠️ **Ce qu'on voit a la premiere image se peint tout de suite**, et rien
+    // de plus. C'est le seul gel qui reste, et il est borne : quatre morceaux
+    // autour du heros, une centaine de millisemes. Tout le reste de la carte
+    // cuit image par image pendant qu'on marche (`avancer`).
+    this.carte?.regarder(this.hero.x, this.hero.y);
+    const vue = this.cameras.main.worldView;
+    this.carte?.cuireTout(vue.x - 64, vue.y - 64, vue.right + 64, vue.bottom + 64);
     this.ouvrirLaMerAuHero(this.hero);
     this.configurerZoom();
     this.configurerTouches();
@@ -1314,7 +1341,7 @@ export class ArenaScene extends Phaser.Scene {
         poufMort(this, x, y, 0x8a7f6d);
         secousse(this, "fort");
         // Le sol garde la trace : l'eglise a brule (§4.21, §4.24).
-        abimerLeSol(this, x, y, "brule", 46);
+        abimerLeSol(this.carte, x, y, "brule", 46);
         this.village.viderLEglise();
       },
     });
@@ -2019,6 +2046,22 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   /**
+   * Fait avancer la peinture de la carte dans le budget d'une image (§4.29).
+   *
+   * **Elle regarde la ou on regarde** : le morceau le plus proche du heros
+   * cuit avant le fond de la carte, et le joueur ne voit donc jamais la
+   * vignette floue la ou il marche. Une fois tout cuit, cet appel ne fait plus
+   * que verifier qu'il n'y a rien a faire.
+   */
+  private avancerLaCarte(): void {
+    const carte = this.carte;
+    if (!carte) return;
+    const hero = this.hero;
+    if (hero) carte.regarder(hero.x, hero.y);
+    carte.avancer();
+  }
+
+  /**
    * La carte du village (DESIGN.md §4.6) : la mer a l'ouest, la montagne au
    * sud, et le village blotti dans l'angle. Les deux fronts restent ouverts au
    * nord et a l'est.
@@ -2031,14 +2074,15 @@ export class ArenaScene extends Phaser.Scene {
     // en pose un seul : `add.image` sur une cle inconnue donne un carre vert.
     cuireLesBatiments(this);
 
-    // Tout le sol tient dans une seule image, cuite au demarrage : la mer
-    // etagee, le littoral qui serpente, la plage, la foret et la roche.
-    this.add.image(0, 0, "carte").setOrigin(0).setDepth(-1000);
+    // Le sol : la vignette du monde en fond, puis les morceaux nets qui s'y
+    // posent en cuisant (§4.29). Ce qu'on a sous les yeux a la premiere image
+    // est peint tout de suite ; le reste suit image par image.
+    this.carte?.poser(-1000);
 
-    // ⚠️ **L'eau bouge par-dessus, jamais dedans.** La carte est une seule
-    // texture de deux millions de pixels : rien ne peut y etre anime. La mer et
-    // le sable d'origine sont gardes pour leur couleur, cette couche n'ajoute
-    // que le mouvement (§4.30).
+    // ⚠️ **L'eau bouge par-dessus, jamais dedans.** Un morceau de carte est une
+    // texture figee : rien ne peut y etre anime. La mer et le sable d'origine
+    // sont gardes pour leur couleur, cette couche n'ajoute que le mouvement
+    // (§4.30).
     this.mer = poserLaMer(this, MONDE, releverLeRivage(MONDE, distanceALEau), CLE_MASQUE_EAU, ECHELLE_DU_MASQUE);
 
     this.semerLeDecor();
@@ -2704,6 +2748,11 @@ export class ArenaScene extends Phaser.Scene {
 
   update(_temps: number, delta: number): void {
     if (this.termine) return;
+    // ⚠️ **La carte cuit avant tout le reste, et meme en pause** (§4.29). Une
+    // pause — le mode d'amenagement, le panneau de la rencontre — est du temps
+    // offert : c'est exactement quand il faut peindre. Le budget est de six
+    // millisemes, il ne mange donc jamais une image.
+    this.avancerLaCarte();
     // Le mode d'amenagement est une pause, mais il n'est pas mort : l'apercu
     // doit suivre la souris, sinon on poserait a l'aveugle (§4.24).
     if (this.amenagement) {
@@ -4449,7 +4498,7 @@ export class ArenaScene extends Phaser.Scene {
 
     poufMort(this, champ.x, champ.y, 0xd8b64a);
     // Il ne reste que de la terre pietinee la ou le ble poussait.
-    abimerLeSol(this, champ.x, champ.y, "terre", 18);
+    abimerLeSol(this.carte, champ.x, champ.y, "terre", 18);
     this.events.emit("annonce", "Un champ est ravage", "guet");
   }
 
@@ -4468,7 +4517,7 @@ export class ArenaScene extends Phaser.Scene {
     poufMort(this, construction.x, construction.y, 0xbfae8a);
     secousse(this, "fort");
     // La ou un mur tombe, la terre est retournee : le sol se souvient.
-    abimerLeSol(this, construction.x, construction.y, "terre", 20);
+    abimerLeSol(this.carte, construction.x, construction.y, "terre", 20);
     if (construction.occupant) this.ejecterDeLaTour(construction);
     else this.constructions.detruire(construction);
   }
@@ -4490,7 +4539,7 @@ export class ArenaScene extends Phaser.Scene {
 
     poufMort(this, centre.x, centre.y, 0xbfae8a);
     secousse(this, "fort");
-    abimerLeSol(this, centre.x, centre.y, "brule", 26);
+    abimerLeSol(this.carte, centre.x, centre.y, "brule", 26);
     this.events.emit("annonce", `Une ${maison.nom.toLowerCase()} est tombee — L pour la relever`, "village");
   }
 
@@ -5681,7 +5730,7 @@ export class ArenaScene extends Phaser.Scene {
 
     this.effetCercle(cible.x, cible.y, 110, 0xd06bff);
     // Le cratere du §4.21 : le meteore l'ecrit dans le sol, et il y reste.
-    abimerLeSol(this, cible.x, cible.y, "cratere", 34);
+    abimerLeSol(this.carte, cible.x, cible.y, "cratere", 34);
     if (hero.estIncarne) this.cameras.main.shake(180, 0.007);
     for (const e of this.ennemisDansRayon(cible.x, cible.y, 110)) {
       this.blesserEnnemi(e, hero.degats * 4, hero);
@@ -6826,7 +6875,7 @@ export class ArenaScene extends Phaser.Scene {
     secousse(this, "moyen");
     hitstop(this, 45);
     // Il brule le sol en s'ouvrant : c'est la premiere terre brulee du jeu.
-    abimerLeSol(this, x, y, "brule", 30);
+    abimerLeSol(this.carte, x, y, "brule", 30);
 
     for (const hero of this.heros) {
       if (!hero.estAuCombat || hero.estInvisible) continue;

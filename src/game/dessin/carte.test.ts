@@ -6,11 +6,15 @@ import {
   PAS_DU_CHAMP,
   peindreDegat,
   peindreLaCarte,
+  PAS_DE_VIGNETTE,
+  peindreLaVignette,
+  peindreUnMorceau,
   PAVES,
   peindreLeSolDuVillage,
   terrainDIndex,
   type CartePeinte,
 } from "./carte";
+import { releverLeRelief } from "./relief";
 import { DECORS, peindreDecor } from "./decor";
 import { bruit, bruitLisse, ligneDeBruit } from "./bruit";
 import { EAU, SABLE, SOL_VERT, clarte, ecart,
@@ -34,6 +38,15 @@ describe("Le bruit", () => {
     for (let x = 0; x < 64; x += 1) {
       expect(sortie[x]).toBeCloseTo(bruitLisse(x, 17, 9, 3), 5);
     }
+  });
+
+  it("rend le meme bruit qu'on parte de zero ou du milieu du monde", () => {
+    // ⚠️ C'est ce qui rend les morceaux raccordables (§4.29) : une rangee de
+    // morceau commence au bord **du morceau**, et son bruit doit rester celui
+    // du monde. Sans le parametre de depart, chaque couture se verrait.
+    const tout = ligneDeBruit(41, 11, 1, 600, new Float32Array(600));
+    const bout = ligneDeBruit(41, 11, 1, 100, new Float32Array(100), 380);
+    for (let i = 0; i < 100; i += 1) expect(bout[i]).toBeCloseTo(tout[380 + i]!, 6);
   });
 });
 
@@ -69,6 +82,57 @@ describe("La carte peinte", () => {
     expect(ecart(lire(1200, 200), SOL_VERT.corps)).toBeLessThan(60);
     // Et le sable est bien plus clair que l'herbe, pour que le rivage se lise.
     expect(ecart(SABLE.corps, SOL_VERT.corps)).toBeGreaterThan(80);
+  });
+
+  it("peint les memes pixels par morceaux que d'un seul bloc", () => {
+    // ⚠️ **C'est le test du chantier de la nuit du 20 septembre 2026** (§4.29). La carte
+    // ne se peint plus d'un bloc : si un morceau divergeait d'un pixel de ce
+    // que la carte entiere aurait peint, chaque couture se verrait comme un
+    // trait — et il y en a soixante-trois sur la zone jouable.
+    //
+    // On prend un bout de monde qui a de tout (le rivage, l'ecume, la terre),
+    // on le peint entier, puis en quatre quarts, et on compare **tout**.
+    const X = 512;
+    const Y = 256;
+    const COTE = 256;
+    const relief = releverLeRelief(MONDE.largeur, MONDE.hauteur);
+    const entier = peindreUnMorceau(X, Y, COTE * 2, COTE * 2, relief);
+    // On compte les ecarts plutot que d'appeler `expect` un quart de million de
+    // fois : le test passait de quelques dizaines de millisemes a douze
+    // secondes, ce qui est le genre de test qu'on finit par ne plus lancer.
+    for (const [dx, dy] of [
+      [0, 0],
+      [COTE, 0],
+      [0, COTE],
+      [COTE, COTE],
+    ] as const) {
+      const quart = peindreUnMorceau(X + dx, Y + dy, COTE, COTE, relief);
+      let ecarts = 0;
+      let premier = "";
+      for (let j = 0; j < COTE; j += 1) {
+        for (let i = 0; i < COTE; i += 1) {
+          const a = (j * COTE + i) * 4;
+          const b = ((j + dy) * COTE * 2 + i + dx) * 4;
+          for (let c = 0; c < 4; c += 1) {
+            if (quart.pixels[a + c] === entier.pixels[b + c]) continue;
+            ecarts += 1;
+            if (!premier) {
+              premier = `au pixel ${i},${j} canal ${c} : ${quart.pixels[a + c]} au lieu de ${entier.pixels[b + c]}`;
+            }
+          }
+        }
+      }
+      expect(ecarts, `morceau ${dx},${dy} — ${premier}`).toBe(0);
+    }
+  });
+
+  it("donne au monde en tout petit les couleurs du monde en grand", () => {
+    // La vignette est ce qu'on voit d'un morceau pas encore peint : si elle
+    // mentait sur la couleur, chaque morceau qui cuit ferait un a-coup.
+    const vignette = peindreLaVignette();
+    expect(vignette.largeur).toBe(Math.ceil(MONDE.largeur / PAS_DE_VIGNETTE));
+    expect(vignette.hauteur).toBe(Math.ceil(MONDE.hauteur / PAS_DE_VIGNETTE));
+    for (let i = 3; i < vignette.pixels.length; i += 4) expect(vignette.pixels[i]).toBe(255);
   });
 
   it("se peint en moins d'une seconde", () => {
@@ -157,7 +221,7 @@ describe("Le sol du village", () => {
       pixels[i * 4 + 2] = SOL_VERT.corps & 0xff;
       pixels[i * 4 + 3] = 255;
     }
-    return { largeur, hauteur, pixels, terrains };
+    return { x0: 0, y0: 0, largeur, hauteur, pixels, terrains };
   };
   const couleurEn = (carte: CartePeinte, x: number, y: number) => {
     const o = (y * carte.largeur + x) * 4;

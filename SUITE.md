@@ -1337,6 +1337,114 @@ tous là après, et l'effectif de la première nuit vaut exactement ce que le bu
 
 **664 tests verts** (+17 : 14 pour le budget, 3 pour les foyers).
 
+### La carte se peint par morceaux (20 septembre 2026, tard dans la nuit)
+
+**Le dernier verrou d'architecture du projet.** La carte se peignait **d'un seul bloc** :
+une texture unique de la taille du monde, cuite avant la première image. Trois choses en
+découlaient, et les trois étaient des murs.
+
+1. **Le gel.** Mesuré dans le navigateur avant de toucher à quoi que ce soit
+   (`.tmp/mesurer-entree.ts`, graines 11/23/47/58) : ouvrir une partie prenait **1,9 à
+   3,7 s** sur la zone jouable. On le payait à chaque village refusé, puisque refuser tire
+   un monde neuf.
+2. **La zone ×3 était impossible**, et pas seulement chère : **4 243 pixels de large
+   dépassent la taille maximale de texture** de beaucoup de cartes graphiques (4 096).
+   Aucun réglage n'y pouvait rien — ça n'avait jamais été vu.
+3. **L'errance continue était bloquée** : un monde qui se peint d'un bloc ne peut se
+   fabriquer qu'à l'arrêt.
+
+**Et le gel se payait trois fois avant de jouer.** `cuireLeMonde` est appelé par *toutes*
+les scènes, donc aussi par le menu et par l'écran de choix de classe, qui affichaient la
+carte en fond — pour un monde qu'on n'allait même pas jouer.
+
+#### Ce qui est codé
+
+- **`src/game/dessin/carte.ts` devient pur** : ni Phaser, ni texture. Il ne sait plus que
+  peindre des **morceaux** — des carrés du monde qui portent leur coin (`x0`, `y0`) et se
+  peignent **par tranches de rangées**.
+- **`src/game/dessin/morceaux.ts`** (neuf) porte tout le reste : la vignette, la file de
+  cuisson, le budget par image, le masque d'eau, et les écritures dans la carte.
+- **La vignette d'abord** : le monde entier en tout petit (un pixel pour huit, une
+  quinzaine de millisecondes), étirée sous les morceaux. Le monde a sa forme et ses
+  couleurs **dès la première image**, floue ; les morceaux nets s'y posent en cuisant.
+  C'est aussi le fond des deux écrans d'avant-partie, qui n'ont plus rien à cuire.
+- **Ce qu'on voit à la première image est peint tout de suite**, et rien de plus : quatre
+  morceaux autour du héros. Le reste cuit **image par image, au plus près du héros**, dans
+  un budget de six millisecondes — **même en pause**, parce qu'une pause est du temps offert.
+- **Ce qui s'écrit dans la carte attend son morceau.** Le sol du village, un cratère, une
+  terre brûlée sont des **écritures différées** : elles se posent quand le morceau visé
+  cuit, et tout de suite s'il l'est déjà. Pendant la marche, on paraît à l'autre bout du
+  monde — rien n'oblige à cuire un village qu'on ne voit pas encore.
+- **La carte redevient vierge sans se repeindre** : un morceau garde ses pixels d'origine à
+  la première écriture qui le salit. Un village en salit sept ; garder la carte vierge en
+  double coûtait trente mégaoctets à ×2, soixante-huit à ×3.
+
+#### Les trois coutures, et comment elles se referment
+
+Un morceau peint sans savoir ce que son voisin a peint. Trois choses se lisent pourtant
+d'un morceau à l'autre, et chacune aurait fait un trait visible tous les 384 pixels.
+
+- **Le bruit part d'un x du monde** (`ligneDeBruit`, paramètre `depart`) : une tache doit
+  tomber au même endroit quel que soit le morceau qui la peint.
+- **Une rangée connaît celle du dessus**, même la première : la crête de roche et l'ombre au
+  pied de l'éboulis se lisent d'une rangée à l'autre. On classe donc la rangée juste
+  au-dessus du morceau avant de commencer, sans la peindre. Et une rangée **déborde de trois
+  pixels à droite**, parce que l'écume regarde devant elle.
+- **Un détail à cheval est peint deux fois, en deux moitiés.** Un os fait sept pixels : semé
+  dans la dernière case d'un morceau, il déborde chez le voisin. Les deux le sèment donc, et
+  chacun garde ce qui tombe chez lui. Il a fallu pour ça que le treillis de terrain porte
+  **une case entière de marge** et que `terrainSeme` sache refaire, point par point, le
+  calcul que le voisin a fait par rangées.
+
+⚠️ **Un test le garde** : la même zone, peinte d'un bloc et en quatre quarts, doit rendre
+**exactement** les mêmes pixels, les quatre canaux compris. C'est le seul test qui vaille
+ici — une couture ne se voit pas dans un chiffre.
+
+#### Ce que ça a coûté, mesuré
+
+- ⚠️ **Le masque d'eau de la houle est devenu le poste le plus cher du jeu.** Il le tirait
+  gratuitement des pixels de la carte ; sans carte d'un bloc, il a fallu le recalculer —
+  **400 à 800 ms** pour 1,5 million d'appels à la formule du terrain, soit la moitié du gel
+  qu'on venait d'enlever. Il se remplit désormais **morceau par morceau** (chacun connaît
+  déjà son terrain au pixel près), il n'est renvoyé au moteur que s'il a vraiment changé —
+  un morceau de plaine n'y touche pas — et cinq fois par seconde au plus : six mégaoctets
+  par envoi, c'est la texture la plus lourde du jeu.
+- ⚠️ **La vignette s'efface dès qu'on ne voit plus que du cuit.** La laisser sous les
+  morceaux, c'est repeindre l'écran entier une fois de plus à chaque image, **toute la
+  partie**. Mesuré : deux à trois images par seconde perdues pour rien.
+- ⚠️ **Un morceau fini par image, jamais deux.** Finir un morceau, c'est fabriquer un
+  canevas et l'envoyer au moteur. Deux dans la même image donnaient des à-coups de 190 ms —
+  un gel de moins, un hoquet de plus, ce qui n'est pas le marché qu'on avait passé.
+- **Le côté d'un morceau est une mesure, pas un goût.** Trois tailles essayées dans le
+  navigateur (`.tmp/ou-passe-le-temps.ts`, GL logiciel — les écarts restent vrais) :
+
+  | Côté | pendant la cuisson | une fois tout cuit | pire image |
+  |---|---|---|---|
+  | 512 | 14-15 i/s | **20 i/s** | 116-119 ms |
+  | **384** | **15-16 i/s** | **20 i/s** | **86-87 ms** |
+  | 256 | 16-17 i/s | 16-19 i/s | 74-80 ms |
+
+  Le régime sans carte à peindre est de **20 i/s** — le chiffre d'avant le chantier, mesuré
+  en remettant l'ancien code — et il ne doit pas bouger. À 256 il bouge, et on le paierait
+  **toute la partie** pour gagner sur les trois premières secondes.
+
+#### Le résultat
+
+**Une partie s'ouvre en 0,46 à 0,53 s**, contre 1,9 à 3,7 s la veille. Le menu et l'écran de
+classe ne cuisent plus rien. Et la carte peut désormais être aussi grande qu'on veut : elle
+n'est plus une texture, elle en est cinquante.
+
+**Vérifié dans le navigateur** (`.tmp/verifier-morceaux.ts`, trois mondes tirés, avec la
+marche) : **24 contrôles sur 24**. La partie s'ouvre sous la seconde, la cadence tient
+pendant la cuisson, aucune image ne dépasse 120 ms, le jeu revient au régime d'avant une
+fois tout cuit, les 48 morceaux finissent de cuire tout seuls.
+
+**À regarder** : `captures/jeu/2026-09-20-morceaux/` — les coutures au zoom maximal
+(`apres-couture-*`), le monde entier (`apres-monde-entier`), et les deux écrans
+d'avant-partie sur leur vignette.
+
+**669 tests verts** (+3).
+
 ### La zone qui se ferme, et la presqu'île (20 septembre 2026, dans la nuit)
 
 Les deux derniers morceaux du jalon 5.5 **en dehors de l'errance continue**.

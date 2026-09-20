@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { CLASSES } from "../core/classes";
 import { creerTexturesPlaceholder } from "../game/art";
+import { CLE_VIGNETTE } from "../game/dessin/morceaux";
 import {
   comparer,
   ilYA,
@@ -145,8 +146,14 @@ export class MenuScene extends Phaser.Scene {
       // ce qui fait que le menu appartient au jeu. Ce qui n'etait pas voulu,
       // c'est qu'on ecrive du texte dessus sans fond. Les plaques qui suivent
       // sont opaques, comme partout ailleurs (§4.10).
-      this.add.tileSprite(0, 0, this.scale.width, this.scale.height, "carte")
+      // ⚠️ **La vignette du monde, pas la carte.** Cet ecran affichait la carte
+      // entiere — et payait donc sa cuisson, deux a trois secondes, pour un
+      // monde qu'on n'allait meme pas jouer (§4.29, 20 septembre 2026, dans la nuit). La
+      // vignette est le meme monde en tout petit, etire : floue, ce qui va
+      // bien a un fond qu'on ne regarde pas.
+      this.add.image(0, 0, CLE_VIGNETTE)
         .setOrigin(0)
+        .setDisplaySize(this.scale.width, this.scale.height)
         .setAlpha(0.5);
       // Un voile de fer par-dessus : sans lui, l'herbe saturee de midi tire tout
       // l'ecran vers le vert et le titre perd son ombre de sang. Trop epais, en

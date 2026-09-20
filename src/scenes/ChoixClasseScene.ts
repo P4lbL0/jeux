@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { CLASSES, ORDRE_CLASSES, type ClassId } from "../core/classes";
 import { creerTexturesPlaceholder, echellePortrait } from "../game/art";
+import { CLE_VIGNETTE } from "../game/dessin/morceaux";
 import { portraitDeHero } from "../game/dessin/monde";
 import type { Emplacement } from "../core/sauvegarde";
 import {
@@ -83,10 +84,12 @@ export class ChoixClasseScene extends Phaser.Scene {
 
     // Le monde lui-meme en fond, assombri : c'est le village qu'on s'apprete a
     // defendre. La cle utilisee ici etait « herbe », qui n'a jamais existe —
-    // l'ecran affichait donc le damier de texture manquante de Phaser. Poser la
-    // carte plutot que la tuile de prairie evite au passage la grille de
-    // repetition : elle fait 1600x1200, elle ne se repete pas a l'ecran.
-    this.add.tileSprite(0, 0, l, h, "carte").setOrigin(0).setAlpha(0.5);
+    // l'ecran affichait donc le damier de texture manquante de Phaser.
+    //
+    // ⚠️ **C'est la vignette du monde, pas la carte** (§4.29, 20 septembre 2026,
+    // dans la nuit). Afficher la carte entiere obligeait a la cuire ici, soit deux a
+    // trois secondes de gel avant meme d'avoir choisi sa classe.
+    this.add.image(0, 0, CLE_VIGNETTE).setOrigin(0).setDisplaySize(l, h).setAlpha(0.5);
     // Le meme voile de fer que l'ecran de depart : ces deux ecrans donnent le
     // ton avant qu'on ait joue une seconde, et ils doivent se ressembler (§4.10).
     const voile = this.add.graphics();
