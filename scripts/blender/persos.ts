@@ -23,7 +23,9 @@ const BLENDER =
 const args = process.argv.slice(2);
 const iDossier = args.indexOf("--dossier");
 const dossier = iDossier >= 0 ? args[iDossier + 1] : undefined;
-const filtres = args.filter((a, i) => a !== "--dossier" && i !== iDossier + 1);
+// ⚠️ Sans `--dossier`, `iDossier + 1` vaut zero et jetait le **premier** filtre
+// (trouve le 20 septembre 2026 : « villageois- » ne rendait rien).
+const filtres = args.filter((a, i) => a !== "--dossier" && (iDossier < 0 || i !== iDossier + 1));
 
 function lancer(commande: string, argv: string[]): void {
   const r = spawnSync(commande, argv, { stdio: "inherit", shell: commande === "python" });

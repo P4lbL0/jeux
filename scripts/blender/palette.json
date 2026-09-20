@@ -77,6 +77,136 @@
       "corps": 6647674,
       "clair": 8948362
     },
+    "chair": {
+      "sombre": 8219988,
+      "corps": 12428926,
+      "clair": 12956045
+    },
+    "os": {
+      "sombre": 8484972,
+      "corps": 12826533,
+      "clair": 13286568
+    },
+    "sang": {
+      "sombre": 9580064,
+      "corps": 14696490,
+      "clair": 14575954
+    },
+    "monstre": {
+      "sombre": 3545881,
+      "corps": 4923934,
+      "clair": 7754826
+    },
+    "monstre_pale": {
+      "sombre": 4140329,
+      "corps": 5848633,
+      "clair": 8349789
+    },
+    "monstre_bile": {
+      "sombre": 4273184,
+      "corps": 6113834,
+      "clair": 8548434
+    },
+    "monstre_fer": {
+      "sombre": 2955543,
+      "corps": 4005403,
+      "clair": 7098696
+    },
+    "monstre_sang": {
+      "sombre": 4397590,
+      "corps": 6234138,
+      "clair": 8672071
+    },
+    "classe_guerrier": {
+      "sombre": 5778728,
+      "corps": 8535863,
+      "clair": 10250331
+    },
+    "classe_chevalier": {
+      "sombre": 3820126,
+      "corps": 5336461,
+      "clair": 8030616
+    },
+    "classe_mage": {
+      "sombre": 4862290,
+      "corps": 7030394,
+      "clair": 9203082
+    },
+    "classe_assassin": {
+      "sombre": 2369324,
+      "corps": 2962749,
+      "clair": 6381920
+    },
+    "classe_rodeur": {
+      "sombre": 3754552,
+      "corps": 5270865,
+      "clair": 7965038
+    },
+    "classe_oracle": {
+      "sombre": 7628406,
+      "corps": 11508660,
+      "clair": 12364211
+    },
+    "classe_necromancien": {
+      "sombre": 3616831,
+      "corps": 4997979,
+      "clair": 7760757
+    },
+    "tablier_pecheur": {
+      "sombre": 7696749,
+      "corps": 11578790,
+      "clair": 12367273
+    },
+    "tablier_fermier": {
+      "sombre": 9074518,
+      "corps": 13874817,
+      "clair": 14007439
+    },
+    "tablier_bucheron": {
+      "sombre": 7697492,
+      "corps": 11645310,
+      "clair": 12433549
+    },
+    "tablier_mineur": {
+      "sombre": 7694680,
+      "corps": 11640964,
+      "clair": 12430481
+    },
+    "tablier_forgeron": {
+      "sombre": 8281425,
+      "corps": 12553337,
+      "clair": 13082250
+    },
+    "tablier_charpentier": {
+      "sombre": 7563614,
+      "corps": 11444365,
+      "clair": 12299416
+    },
+    "tablier_guetteur": {
+      "sombre": 8224121,
+      "corps": 12500921,
+      "clair": 13025974
+    },
+    "tablier_survivant": {
+      "sombre": 5722443,
+      "corps": 8419695,
+      "clair": 10195331
+    },
+    "chair_usee": {
+      "sombre": 8352868,
+      "corps": 12628632,
+      "clair": 13154719
+    },
+    "familier": {
+      "sombre": 5330524,
+      "corps": 7831946,
+      "clair": 9738133
+    },
+    "spectre": {
+      "sombre": 6971733,
+      "corps": 10392192,
+      "clair": 11576206
+    },
     "trou": {
       "sombre": 4210497,
       "corps": 4210497,

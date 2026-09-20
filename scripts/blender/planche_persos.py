@@ -1,6 +1,6 @@
 """Reduit les frames de `persos.py` a la taille du jeu et les pose sur une planche.
 
-    python scripts/blender/planche_persos.py [--dossier <dossier>]
+    python scripts/blender/planche_persos.py [--dossier <dossier>] [<prefixe>...]
 
 Pour chaque famille rendue dans `.tmp/blender/persos/` :
   - chaque frame est reduite comme un sprite du monde (`reduire.py` : la matiere
@@ -9,7 +9,11 @@ Pour chaque famille rendue dans `.tmp/blender/persos/` :
     jeu) part dans `.tmp/blender/persos/planches/<famille>-planche.png` ;
   - et une planche a juger, zoom x4, part dans le dossier de captures : une
     ligne par famille, le repos, la marche, l'attaque, la mort — plus la ligne
-    des paliers pour les heros.
+    des paliers pour les heros et celle de l'usure pour les villageois.
+
+Un prefixe nu ne reduit que les familles qui commencent ainsi : les
+quatre-vingt-douze familles demandent vingt minutes, une retouche sur les betes
+n'a pas a les repayer.
 """
 import glob
 import json
@@ -30,9 +34,15 @@ PLANCHES = os.path.join(TMP, "planches")
 os.makedirs(PLANCHES, exist_ok=True)
 
 args = sys.argv[1:]
-dossier = args[args.index("--dossier") + 1] if "--dossier" in args else os.path.join(
+i_dossier = args.index("--dossier") if "--dossier" in args else -1
+dossier = args[i_dossier + 1] if i_dossier >= 0 else os.path.join(
     RACINE, "captures", "blender", f"{date.today().isoformat()}-personnages")
 os.makedirs(dossier, exist_ok=True)
+# Les arguments nus filtrent les familles, comme ceux de `persos.ts`.
+# ⚠️ Sans `--dossier`, `i_dossier + 1` vaut zero : le premier filtre serait jete
+# (le meme piege que `persos.ts` a corrige le 20 septembre 2026).
+FILTRES = [a for i, a in enumerate(args)
+           if not a.startswith("--") and (i_dossier < 0 or i != i_dossier + 1)]
 
 ZOOM = 4
 FOND = (78, 92, 49, 255)     # l'herbe du jeu, a peu pres
@@ -81,7 +91,9 @@ def planche_a_juger(familles):
     for cle, (meta, frames, _) in familles.items():
         plages = {p["cle"]: p for p in meta["plages"]}
         morceaux = []
-        for geste in ("repos", "marche", "attaque", "incantation", "charge", "touche", "mort", "toux"):
+        # ⚠️ « travail » compris : c'est le seul geste ou le villageois tient son
+        # outil, donc le seul ou son metier se lit.
+        for geste in ("repos", "marche", "travail", "attaque", "incantation", "charge", "touche", "mort", "toux"):
             if geste not in plages:
                 continue
             p = plages[geste]
@@ -103,6 +115,61 @@ def planche_a_juger(familles):
                 x += coller(planche, f, x, y + hauteur_ligne - meta["hauteur"] * ZOOM - 4) + 2
             x += 18
         y += hauteur_ligne
+    return planche
+
+
+def est_repere(cle):
+    """Les familles qu'on juge cote a cote, une par silhouette.
+
+    Un heros par classe au **palier zero**, un villageois par metier a l'**usure
+    zero sans sang**, et toutes les betes. Les paliers, l'usure et le sang ne
+    changent pas la silhouette : ils ont leurs propres planches, et les mettre ici
+    donnerait quatre-vingt-douze lignes illisibles.
+    """
+    if cle.startswith("hero-"):
+        return cle.endswith("-p0")
+    if cle.startswith("villageois-"):
+        return cle.endswith("-u0-s0")
+    return True
+
+
+def planche_usure(familles):
+    """Les villageois qui s'usent : une ligne par metier, six etats, repos et travail.
+
+    L'usure voute et palit, le sang tache : ce qui se juge ici, c'est qu'un
+    villageois reste **le meme homme** d'un cran a l'autre, et qu'un blesse se
+    voie sans qu'on le confonde avec un autre metier.
+    """
+    metiers = {}
+    for cle, (meta, frames, _) in familles.items():
+        if not cle.startswith("villageois-"):
+            continue
+        _, metier, usure, sang = cle.split("-")
+        plages = {p["cle"]: p for p in meta["plages"]}
+        repos = frames[plages["repos"]["debut"]]
+        # le travail au cinq-sixieme : l'impact, outil en main (`villageois.ts`)
+        travail = plages.get("travail")
+        geste = frames[travail["fin"]] if travail else repos
+        metiers.setdefault(metier, {})[(int(usure[1:]), int(sang[1:]))] = (repos, geste)
+    if not metiers:
+        return None
+    etats = [(u, s) for u in range(3) for s in (0, 1)]
+    pas = 2 * (20 * ZOOM) + 14
+    planche = Image.new("RGBA", (130 + len(etats) * pas + 16, 44 + len(metiers) * (CADRE_MAX * ZOOM + 12)), FOND)
+    d = ImageDraw.Draw(planche)
+    d.text((12, 10), f"Les villageois : l'usure (0 a 2) et le sang, au repos et au travail, zoom x{ZOOM}", fill=TEXTE)
+    for j, (u, s) in enumerate(etats):
+        d.text((130 + j * pas, 26), f"u{u}{' sang' if s else ''}", fill=TEXTE)
+    for i, (metier, etats_du_metier) in enumerate(metiers.items()):
+        y = 42 + i * (CADRE_MAX * ZOOM + 12)
+        d.text((12, y + CADRE_MAX * ZOOM // 2 - 6), metier, fill=TEXTE)
+        for j, etat in enumerate(etats):
+            paire = etats_du_metier.get(etat)
+            if paire is None:
+                continue
+            x = 130 + j * pas
+            for f in paire:
+                x += coller(planche, f, x, y + CADRE_MAX * ZOOM - f.height * ZOOM) + 4
     return planche
 
 
@@ -140,6 +207,8 @@ if __name__ == "__main__":
     familles = {}
     for meta_fichier in sorted(glob.glob(os.path.join(TMP, "*.json"))):
         cle = os.path.basename(meta_fichier)[:-5]
+        if FILTRES and not any(cle.startswith(f) for f in FILTRES):
+            continue
         meta, frames, deborde = frames_de(cle)
         planche_famille(cle, meta, frames)
         familles[cle] = (meta, frames, deborde)
@@ -148,11 +217,13 @@ if __name__ == "__main__":
     if not familles:
         print("[persos] rien a reduire dans .tmp/blender/persos/")
         sys.exit(1)
-    # les gestes complets d'abord (palier 0 et betes), les paliers a part
-    completes = {k: v for k, v in familles.items() if v[0]["frames"] > 1}
-    planche_a_juger(completes).save(os.path.join(dossier, "planche-personnages.png"))
-    print(f"[persos] {os.path.join(dossier, 'planche-personnages.png')}")
-    p = planche_paliers(familles)
-    if p is not None:
-        p.save(os.path.join(dossier, "planche-paliers.png"))
-        print(f"[persos] {os.path.join(dossier, 'planche-paliers.png')}")
+    # une ligne par silhouette (§ `est_repere`) ; paliers et usure a part
+    completes = {k: v for k, v in familles.items() if v[0]["frames"] > 1 and est_repere(k)}
+    if completes:
+        planche_a_juger(completes).save(os.path.join(dossier, "planche-personnages.png"))
+        print(f"[persos] {os.path.join(dossier, 'planche-personnages.png')}")
+    for nom, faire in (("planche-paliers.png", planche_paliers), ("planche-usure.png", planche_usure)):
+        p = faire(familles)
+        if p is not None:
+            p.save(os.path.join(dossier, nom))
+            print(f"[persos] {os.path.join(dossier, nom)}")

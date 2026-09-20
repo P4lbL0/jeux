@@ -1,11 +1,12 @@
-# Prompt de reprise — ce qui reste à coder (20 septembre 2026)
+# Prompt de reprise — ce qui reste à coder (20 septembre 2026, soir)
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Écrit le 19 septembre 2026, après le bloc 7a (maisons destructibles, village en ruines) et
-> le son de l'écran-titre. **Le design est écrit et tranché** (le grand dépouillage du
-> 9 septembre a fermé toutes les questions ouvertes) : la session qui prend la suite a
-> surtout à construire, et à ne demander que ce que le design ne dit pas.
+> Écrit le 20 septembre 2026 au soir, après la première moitié du jalon 5.5 (un seul héros,
+> un monde tiré par graine), le retour sur les douves et les ponts-levis, et le passage des
+> héros et des monstres en low-poly Blender. **Le design est écrit et tranché** (le grand
+> dépouillage du 9 septembre a fermé toutes les questions ouvertes) : la session qui prend la
+> suite a surtout à construire, et à ne demander que ce que le design ne dit pas.
 
 ---
 
@@ -13,153 +14,142 @@ Tu reprends **Le Protecteur**, mon jeu en cours. C'est mon premier jeu, je ne su
 développeur : je décide du design, tu construis, et tu me dis franchement quand une idée
 coûte cher ou casse quelque chose.
 
+## 0. ✅ Le chantier des villageois Blender est fini (20 septembre 2026, au soir)
+
+**Plus rien à reprendre ici.** Les villageois, les familiers et le mort-vivant sont rendus,
+livrés et branchés : **121 planches** dans `src/assets/` (35 héros, 6 monstres, 48 villageois,
+3 familiers, le mort-vivant), typecheck propre, 595 tests verts, tout est commité.
+
+Deux bugs du rig ont été trouvés **en regardant les planches** et corrigés au passage :
+
+- **les bêtes n'avaient pas de corps** — l'échelle de la boule reprenait une conversion déjà
+  faite, le corps sortait 10,5 fois trop petit ; les six monstres livrés le matin même étaient
+  dans cet état, leurs planches sont refaites ;
+- **la mort passait sous le sol** — la racine pivote au sol, donc le corps bascule seul ; on le
+  descendait en plus.
+
+⚠️ **Ce qui reste à juger, et qui t'attend** : le **code est plus lisible que Blender pour un
+villageois** (tablier plus grand, bras et jambes détachés). La comparaison est dans
+`captures/planches/2026-09-20-villageois/code-contre-blender.png`. Angelos tranche ; s'il
+garde Blender, deux retouches sont identifiées — la courbure à l'usure 2, et quatre métiers
+bruns trop proches (bûcheron, mineur, charpentier, survivant).
+
 ## 1. Où on en est
 
-Ce qui tourne vraiment, et qui est récent :
+Ce qui tourne vraiment, et qui est récent (tout est dans `SUITE.md`, section par section) :
 
-- **Le monde en low-poly Blender** (bâtiments, décor, ruine de maison) et un sol en facettes
-  de relief (18 septembre).
-- **Le générateur de villages par graine** : forme, enceinte, tours, portes, brèches,
-  12 à 15 maisons serrées autour de la place (validé le 18-19 septembre).
-- **Le bloc 7a** (19 septembre) : les maisons ont un corps et 200 PV, le village démarre en
-  ruines (trois maisons debout près de l'église), bâtir / relever (L) / démolir (clic droit) /
-  déplacer, 40 % des monstres pillent les maisons, survol qui nomme ce qu'on pointe, les
-  pauses gèlent les animations, sauvegarde des maisons rétro-compatible.
-- **L'écran-titre** : cinématique Blender (9 s + boucle), puis **du son** (19 septembre) —
-  vent, feu, cris au loin, glas, et la **musique de guerre** (« Lament of the War ») qui
-  boucle sans couture ; écran « clic ou touche pour entrer » quand le navigateur bloque le
-  son ; haut-parleur et touche M ; **PARAMÈTRES** règle trois volumes (musique, ambiance,
-  effets), retenus d'une visite à l'autre.
-- **La musique en partie** (19 septembre, au soir) : la calme le jour (« Lament for a
-  Warrior's Soul », choisie à l'oreille), la guerre toute la nuit et dès qu'un héros se bat,
-  en fondu enchaîné à puissance constante ; les fondus s'écoutent dans
-  `captures/son/2026-09-19-musiques/partie-*.mp3`.
-- **Les restes du dépouillage** (19 septembre, au soir) : deux cases, seuil de 65 habitants
-  (hordes continues au-delà), quatre actives (oublier ou acheter un emplacement), paliers de
-  mur et de porte bois → fer segment par segment (la pierre attend le bloc 7b).
-- **Le sol du village** (19 septembre, au soir) : la place en terre battue, les rues vers les
-  lieux de travail, le parvis pavé, peints dans la carte cuite ; captures dans
-  `captures/jeu/2026-09-19-sol-du-village/`.
-- **L'eau qui noie** (19 septembre, au soir) : seul le héros incarné entre dans l'eau, il
-  s'y enfonce et ralentit, une bulle prévient, et trois secondes de mer le noient.
-- **Les chemins qui s'usent** (20 septembre, après minuit) : un passage par case et par
-  marcheur (habitants et héros), visible à 30, pâlit chaque aube sans passage, effacé à la
-  quatrième ; peints dans une couche transparente au-dessus de la carte ; sauvés. Captures
-  dans `captures/jeu/2026-09-20-chemins/`, **à juger**.
-- **Les derniers détails de vie** (20 septembre, au petit matin) : du linge devant chaque
-  maison debout, des filets qui sèchent au poste de pêche et contre le port, un registre des
-  poses pour que rien ne se chevauche. « Le feu » de la liste était l'**incendie** : tranché
-  (allumage, extinction, propagation, §4.21) et rangé au jalon 6, pas codé.
-- En dessous, un noyau de règles pur (`src/core/`) couvert par **544 tests**.
+- **Un seul héros au départ** (20 septembre) : on joue la classe choisie, seule. L'équipe des
+  sept classes a disparu ; ordres, formations et IA de repli dorment jusqu'au premier
+  villageois formé (bloc 9).
+- **Une graine, un monde** (`src/core/monde.ts`, 20 septembre) : la mer sur un des quatre
+  bords ou absente, une chaîne le long d'un bord, un massif au milieu ou un simple piton, un
+  lac, des bois ; le village posé au sort sur l'herbe près d'une eau ; les quatre postes de
+  travail cherchés sur le terrain ; les **fronts déduits des bords** par lesquels on rejoint
+  le village à pied (deux à quatre). **La graine zéro est la carte d'avant**, au chiffre
+  près : les vieilles sauvegardes la reprennent, et les tests qui connaissent la carte
+  tournent dessus. `src/core/carte.ts` n'est plus qu'une façade : `VILLAGE`, `EGLISE`,
+  `PORT`, `POSTES` sont des objets remplis par `chargerLeMonde`.
+- **Le terrain arrête les corps case par case** (eau profonde, roche) et **les monstres
+  contournent** (`src/core/parcours.ts`, un champ de directions vers l'église recalculé à la
+  pose, suivi seulement quand la ligne droite est coupée).
+- **La forteresse complète** (bloc 7b + retour du 20 septembre) : murs, tours, portes et
+  douves jusque **dans le haut-fond**, jetée du générateur jusqu'à la mer, la plage qui ne
+  porte pas un pan ; **un village sur deux naît avec ses douves et ses ponts-levis** ; on ne
+  se noie pas sans passage (la douve en eau qui fermerait tout est refusée, sauf contre une
+  porte) ; pont-levis levé visible ; tours de 24 px ; rues pavées dans la place ; maisons
+  plus nombreuses et serrées (16 à 20).
+- **Les héros et les monstres en low-poly Blender** : héros aux cinq paliers, six monstres,
+  rendus par `npm run persos`, livrés dans `src/assets/<famille>-planche.png`, découpés par
+  le four. Le code reste le secours de toute planche absente ou au mauvais compte de frames.
+  **Les villageois, c'est le chantier du §0.**
+- Le reste du monde en low-poly Blender (bâtiments, décor), le sol en facettes, la
+  cinématique et le son de l'écran-titre, la musique en partie, treize bruits, les chemins
+  qui s'usent, les détails de vie, l'eau qui noie.
+- En dessous, un noyau de règles pur (`src/core/`) couvert par **595 tests**.
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
 
-- `SUITE.md` : l'état complet, section par section, les pièges connus, et « Tout de suite ».
-- `DESIGN.md` (le sommaire), puis dans `design/` : `05-ordre-de-construction.md` (l'ordre des
-  blocs), `06-questions-ouvertes.md` (**« Le grand dépouillage du 9 septembre 2026 »** en tête :
-  c'est là que sont les décisions les plus récentes), et **`4.17-tenir-la-fluidite.md` — ses
-  cinq règles ne se négocient pas**.
-- Les sections des blocs que tu vas toucher (voir la liste plus bas).
+- `SUITE.md` : l'état complet, les pièges connus, et « Tout de suite ».
+- `DESIGN.md` (le sommaire), puis dans `design/` : `4.29-le-nouveau-depart.md` (**« Codé le
+  20 septembre 2026 »** en bas : ce qui est fait et ce qui reste), `05-ordre-de-construction.md`
+  (l'ordre des blocs), `06-questions-ouvertes.md` (**le grand dépouillage du 9 septembre** en
+  tête, et **les deux sections du 20 septembre** tout en bas), et **`4.17-tenir-la-fluidite.md`
+  — ses cinq règles ne se négocient pas**.
 - `README.md` pour la structure et les commandes.
 - L'état de git : `git log --oneline -10` et `git status`.
 - ⚠️ **La fin de chaque fichier de `design/`, et `design/a-faire.md`** : je colle mes idées en
   vrac tout en bas, sans les mettre en forme, et parfois sans le dire. Va les chercher.
+- Les scripts qui te servent à voir : `npx tsx scripts/capturer-mondes.ts 0,1,2` (le monde
+  entier, le village, une porte, pour des graines ; 0 est le classique),
+  `npx tsx scripts/verifier-douves.ts` (quatre scénarios de douves dans le navigateur),
+  `npx tsx scripts/capturer-villages.ts`, `npm run persos -- <filtre>` (Blender). Les captures
+  vont dans `captures/<type>/<date>-<sujet>/`, jamais en vrac.
+- ⚠️ Pièges connus des scripts : une **fiche d'arrivant** peut s'ouvrir pendant un test et
+  mettre la partie en pause (pose `prochaineArriveeJournee = 9_999` sur la scène) ; sous
+  `tsx`, pas de fonction nommée dans un `page.evaluate` (`__name`) ; les scripts jetables
+  vont dans `.tmp/` (ignoré par git), pas dans le scratchpad ; un rendu Blender long se lance
+  en tâche de fond et se surveille dans son fichier de log, jamais en bloquant.
 
 ## 3. Ce qui reste à coder
 
 Dans l'ordre où je te le suggère ; c'est à moi de trancher l'ordre, propose-le-moi.
 
-### A. Les petits restes (une session chacun, au plus)
+### A. Finir le chantier en cours, puis juger (une session)
 
-1. ✅ **Appliquer ce que le dépouillage du 9 septembre a tranché** — fait le 19 septembre au
-   soir (`SUITE.md`, « Les restes du dépouillage ») : deux cases, seuil de 65, quatre actives
-   (oublier ou acheter ; la fusion attend le jalon 6.5), paliers bois → fer pour le mur et la
-   porte. Reste de ce point : **la pierre**, avec sa ressource, au bloc 7b.
-2. ✅ **Le sol du village** — place, rues, parvis et détails de vie (puits, tonneaux, tas de
-   bois, charrette, en sprites Blender) le 19 septembre au soir, jugés sur captures. ✅ **Les
-   chemins qui s'usent** le 20 septembre (`SUITE.md`, « Les chemins qui s'usent »). ✅ **Les
-   cordes à linge et les filets** le 20 septembre au petit matin (`SUITE.md`, « Les derniers
-   détails de vie »). « Le feu » était l'incendie : jalon 6, tranché au §4.21, pas codé.
-3. ✅ **L'eau qui noie** — fait le 19 septembre au soir (`SUITE.md`, « L'eau qui noie »).
-   Les ronds de poste sont partis le 18 septembre ; les filets marquent la pêche depuis le
-   20 ; restent la mine et les bûches qui disent eux-mêmes où l'on travaille.
+1. **Les villageois Blender** : le §0 ci-dessus.
+2. **Les mondes tirés** : `captures/jeu/2026-09-20-mondes-2/` (murs dans l'eau, rues pavées,
+   maisons serrées, héros Blender) et `2026-09-20-douves-2/` (anneau en eau, meute la nuit
+   devant les ponts levés, lac contourné). Ce que j'ai pu dire et qui n'est pas encore fait
+   se règle là.
+3. **Jouer une vraie partie longue** sur un monde tiré : le stress, l'église, le port, les
+   arrivées, la folie, les douves et les ponts-levis la nuit n'ont jamais tourné assez
+   longtemps pour être jugés. Les dettes connues sont en bas de `SUITE.md`.
 
-### B. Le son, phase 2
+### B. La deuxième moitié du jalon 5.5 (§4.29) — le gros chantier
 
-Tout le socle existe (`src/game/son.ts`, `src/game/panneauSon.ts`, `scripts/son/`,
-`npm run son`) ; voir `SUITE.md`, « Le son de l'écran-titre », et le §4.10, « Le son ».
+Le §4.29 est **le mode principal et le seul**. La moitié faite : un héros, un monde tiré,
+on tombe où le sort veut. La moitié qui reste, **découpée en blocs courts** que je valide un
+par un :
 
-4. ✅ **La musique en partie** — fait le 19 septembre au soir (`SUITE.md`, « La musique en
-   partie ») : calme le jour, guerre toute la nuit et dès qu'un héros se bat, 15 s de maintien
-   après le dernier coup, fondus à puissance constante (guerre 3 s, calme 6 s). Reste à
-   **juger à l'oreille** les trois `partie-*.mp3` — en particulier `partie-crepuscule.mp3`
-   (la guerre part de son intro) contre `partie-crepuscule-sans-intro.mp3` (une ligne à
-   changer dans `src/game/musique.ts` si elle plaît mieux).
-5. ⏳ **Les planches d'écoute sont faites** (20 septembre au petit matin, `npm run bruits`,
-   `captures/son/2026-09-20-bruits/ecoute.html`) : treize événements, deux à quatre candidats
-   CC0 chacun. ✅ **Douze bruits choisis et livrés** le matin même (`CHOIX`, `npm run bruits --
-   --livrer`, `src/assets/son/bruit-*`) ; **le sort attend une deuxième planche** (boule de feu
-   ou incantation, cinq candidats dans `sort.mp3`). **Le branchement dans le jeu est fait**
-   (`src/game/bruits.ts` : écouteurs de frame clé, un sur deux, distance, huit voix, vérifié
-   avec les fichiers). Décisions prises : tout en enregistrements
-   libres ; atténués par la distance, un coup sur deux, huit voix au plus ; aucun cri avant le
-   jalon 6.7. Le point d'origine, pour mémoire :
-   **Les bruits de la partie**, branchés sur les **événements nommés** que les animations
-   émettent déjà (coup de pioche, hache, toux, semis, chute d'arbre) ; puis les coups, les
-   morts, les cris des villageois et des monstres (le §4.23 prévoit que les monstres
-   **hurlent** et que le **Cri** du Chevalier Sacré leur répond). Sources : **CC0 seulement**,
-   et **lis le `robots.txt` de chaque site** avant de télécharger (OpenGameArt et Kenney
-   oui ; Freesound et BigSoundBank interdisent les robots). Ce qui n'existe pas en CC0 se
-   fabrique (`scripts/son/synthese.ts`).
-6. ⚠️ **Tu ne peux pas écouter** : règle les niveaux sur mesures (niveaux par demi-seconde,
-   spectres), et fais-moi des **fichiers d'écoute** dans `captures/son/` pour que je juge à
-   l'oreille.
+4. **L'errance** : on apparaît loin de tout, le monde se génère devant, jamais derrière ; le
+   premier village arrive en deux à trois minutes de marche ; refuser coûte (le suivant est
+   deux fois plus loin). Aujourd'hui `MONDE` fait 2000 × 1500 en constante : la zone jouable
+   doit devenir un **paramètre** (§4.29, « on monte de ×1 à ×3 en mesurant »).
+5. **Le village qu'on choisit** : on voit de loin le terrain, la taille, les défenses
+   debout, les habitants dehors — jamais les maladies, le stress, les réserves ; un village
+   déjà peuplé (le générateur pose déjà douves et ponts-levis, il lui manque les gens et les
+   stocks) ; le monde se fige quand on s'installe.
+6. **Le budget cadeaux / menaces** : un seul nombre, une seule table, annoncé en une phrase
+   avant d'entrer ; les fronts de un à quatre (la presqu'île à un seul front n'est jamais
+   tirée aujourd'hui : à ajouter au générateur).
+7. **Ce que le monde tiré a laissé ouvert** : la forêt ne ferme pas un flanc (les monstres
+   marchent dans les arbres, seules la roche et l'eau profonde arrêtent) — décider si les bois
+   denses arrêtent ; le port sur un lac (le navire y accoste faute de mieux).
 
 ### C. Le jalon 5, ses derniers blocs (`design/05-ordre-de-construction.md`)
 
-7. ✅ **Bloc 7b — la forteresse** (§4.20) : **codé le 20 septembre 2026** — portes en 2 s,
-   cloche qui attend que tout le monde soit rentré, ouverture automatique devant les nôtres
-   sans monstre près, refus du mur qui fermerait sans porte, pierre de la mine, douves sèches
-   et en eau, pont-levis. Reste : « une personne par seconde », les habitants ralentis dans
-   une douve sèche, le chantier qui occupe un bâtisseur (bloc 8). À juger en jouant.
 8. **Bloc 8 — les ordres pour tous** (§4.4) : n'importe qui fait n'importe quoi, sélection
    puis menu d'ordres ; un héros au travail produit beaucoup plus vite, seulement le jour,
-   et ça le fatigue.
-9. **Bloc 9 — le village armé** (§4.18) : entraînement, métier de milicien. ⚠️ **Le
-   dépouillage du 9 septembre a changé ce bloc** : on ne devient plus héros par l'usure, on
-   **naît avec un don** (1 habitant sur 10, 1 don sur 20 majeur). Relis le §4.18 et le §4.1
-   avant de le découper.
-10. **Bloc 10 — le confort** (§4.10, « Le menu d'options ») : la **pause Échap**, les
-    **touches remappables** (toutes), et le panneau des volumes — `PanneauSon` existe déjà,
-    il n'y a qu'à le réutiliser.
+   et ça le fatigue. Le chantier qui occupe un bâtisseur (reste du 7b) va là.
+9. **Bloc 9 — le village armé** (§4.18) : entraînement, milicien, et surtout **la seule
+   source de héros du jeu** depuis le §4.29 : on ne devient pas héros par l'usure, on **naît
+   avec un don** (1 habitant sur 10, 1 don sur 20 majeur). Le centre d'apprentissage est un
+   bâtiment neuf. Relis le §4.18, le §4.1 et le §4.29 avant de le découper — c'est ce bloc
+   qui réveille les ordres, les formations et l'IA de repli, endormis depuis le 20 septembre.
+10. **Bloc 10 — le confort** (§4.10) : la pause Échap, les touches remappables, le panneau
+    des volumes (`PanneauSon` existe).
 
-### D. Le gros chantier
+### D. Écrit, pas codé
 
-11. **Le §4.29 — le nouveau départ**, devenu **le mode principal et le seul** : un héros
-    seul, l'errance, puis un village aléatoire déjà peuplé qu'on choisit. C'est le plus gros
-    morceau restant du projet : **découpe-le en blocs courts** que je valide un par un.
-
-### E. Écrit, pas codé
-
-12. Les sections de la deuxième vague de design (10 août) : **§4.25** tags, fusions et
-    synergies ; **§4.26** la mémoire du village (relations, souvenirs, légendes) ; **§4.27**
-    la vie autonome ; et le **jalon 6.5** (les builds).
-13. Puis les **jalons 6 à 12** (`SUITE.md`, « Jalons suivants ») : le ciel et les
-    catastrophes, les défenses qui tirent, la restauration, le recrutement, la narration,
-    **la défaite et le retour du héros en antagoniste** (le plus important, §4.12), le
-    leaderboard.
-
-### F. Et entre deux blocs : jouer
-
-14. **Jouer une vraie partie longue.** Le stress, l'église, le port, les arrivées et la folie
-    n'ont jamais tourné assez longtemps pour être jugés ; tous les chiffres du dépouillage
-    sont faits pour être corrigés là. Les dettes connues sont en bas de `SUITE.md` (défenseurs
-    civils qui meurent en deux coups, combinaison Écho + Capacités affinées + Danse des
-    ombres jamais vérifiée, martyre qui ne déclenche pas `tomber()`).
+11. **§4.25** tags, fusions et synergies ; **§4.26** la mémoire du village ; **§4.27** la vie
+    autonome ; le **jalon 6.5** (les builds).
+12. Les **jalons 6 à 12** (`SUITE.md`, « Jalons suivants ») : le ciel et les catastrophes
+    (l'incendie est tranché au §4.21), les défenses qui tirent, la restauration, la narration,
+    **la défaite et le retour du héros en antagoniste** (§4.12), le leaderboard.
 
 ## 4. Puis tu me fais l'état des lieux, et tu t'arrêtes
 
-Avant d'écrire une ligne de code, dis-moi **où on en est exactement** : ce qui **tourne
+Une fois le §0 fini et commité, dis-moi **où on en est exactement** : ce qui **tourne
 vraiment**, ce qui est **écrit mais pas codé**, et ce que tu as trouvé **en vrac au bas des
 fichiers de design**. Puis propose-moi le **premier morceau**, ce qu'il contient, et ce qui
 te manque pour le faire.
@@ -177,6 +167,8 @@ te manque pour le faire.
 - **Ma dernière décision fait foi**, même quand elle contredit le design : tu signales la
   contradiction une fois, avec ce qu'elle coûte, puis tu réécris le paragraphe périmé.
 - **On ne jette jamais `src/core/`** : une règle qui change devient une modification du
-  noyau plus ses tests. Les tests restent verts.
-- À la fin de chaque morceau : typecheck, tests, commit poussé, `SUITE.md` et la section du
-  design à jour, et le journal de portfolio.
+  noyau plus ses tests. Les tests restent verts. **La graine zéro reste la carte d'avant.**
+- **Tout ce qui se voit passe par Blender** (`scripts/blender/`), le code dessiné n'est plus
+  qu'un secours ; un PNG dans `src/assets/` remplace le dessin sous la même clé.
+- À la fin de chaque morceau : typecheck, tests, commit poussé (un seul par chantier, sans
+  trailer d'outil), `SUITE.md` et la section du design à jour, et le journal de portfolio.

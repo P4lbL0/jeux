@@ -2,7 +2,7 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-09-20, au petit matin. **544 tests verts.**
+> Dernière mise à jour : 2026-09-20, au soir. **595 tests verts.**
 >
 > ✅ **Le bloc 7z est fini et branché (10 septembre 2026) : tout ce qui se voit est dessiné
 > par le code, et il n'y a plus un seul PNG.** La direction est tranchée avec Angelos ce
@@ -1049,8 +1049,47 @@ dessiner les sprites au code tant que la planche n'est pas jugée.
   archétypes sont rendus par Blender (`persos.py` rend désormais chaque palier en entier,
   ~35 min) et livrés dans `src/assets/<famille>-planche.png` ; le four (`four.ts`) découpe
   une planche livrée en frames et en animations dans l'ordre des gestes du modèle, et
-  redessine au code si la planche n'a pas le bon nombre de frames. Les villageois, les
-  familiers et le mort-vivant restent dessinés par le code — l'atelier ne les a pas.
+  redessine au code si la planche n'a pas le bon nombre de frames.
+
+### Tout le monde passe en Blender (20 septembre 2026, au soir)
+
+Demande d'Angelos : « fais tout avec Blender pour les villageois etc. ». **121 planches** dans
+`src/assets/` — les 35 héros, les 6 monstres, les **48 villageois** (8 métiers × 3 crans
+d'usure × avec ou sans sang), les **3 familiers** et le **mort-vivant**.
+
+**Deux bugs du rig trouvés en regardant les planches, et corrigés.** Aucun ne se voyait à la
+compilation :
+
+- **Les bêtes n'avaient pas de corps.** `Rig.boule` ramène déjà le rayon au monde (`r * P`) ;
+  `bete()` reprenait ce `* P` dans l'échelle, donc le corps sortait **10,5 fois trop petit** et
+  disparaissait à la réduction. Un monstre n'était plus que ses pattes, ses épines et sa
+  queue ; les deux familiers, qui n'ont qu'un corps, se réduisaient à deux pixels d'yeux.
+  ⚠️ **Les six monstres livrés le matin même étaient dans cet état** : leurs planches sont
+  refaites.
+- **La mort passait sous le sol.** La racine pivote au sol, donc le corps bascule de lui-même ;
+  on le descendait **en plus**, et un golem mort tombait six pixels sous son cadre. On ne le
+  remonte plus que de ce qu'il faut pour le poser sur son flanc.
+
+**Le villageois a demandé quatre essais**, parce que la caméra regarde le personnage **depuis
+-Y** : c'est le *flanc* du buste qu'elle voit, et le **bras avant** (il pend à y = -4) masque le
+torse jusqu'aux deux tiers de sa hauteur. Une plaque contre la face avant ne donnait qu'une
+tranche de deux pixels ; une boîte englobante dépassait de deux dixièmes de pixel du jeu, soit
+rien après réduction ; le tablier empilé en bas du buste tombait derrière le bras. Il occupe
+donc le **haut** du buste, là où on le voit — anatomiquement un plastron, mais à vingt pixels
+ce qui compte est qu'on distingue un pêcheur gris d'un forgeron rouge. Le chapeau, qui à 5,4 de
+bord pour une tête de 3,2 cachait la tête, perd un pixel.
+
+- **L'atelier gagne un filtre de réduction** : `planche_persos.py <prefixe>...` ne réduit que
+  les familles voulues. Réduire les 92 familles demande vingt minutes, et une retouche sur les
+  bêtes n'a pas à les repayer. La **planche à juger** ne garde qu'une ligne par silhouette
+  (héros au palier 0, villageois à l'usure 0 sans sang, toutes les bêtes) — sinon elle ferait
+  quatre-vingt-douze lignes —, et une **planche d'usure** neuve montre les six états de chaque
+  métier au repos et au travail.
+- **À juger** : `captures/blender/2026-09-20-personnages/planche-{personnages,usure,paliers}.png`,
+  `captures/planches/2026-09-20-villageois/code-contre-blender.png` (les huit métiers au code
+  et en Blender, côte à côte) et `captures/jeu/2026-09-20-villageois-blender/` (en jeu).
+  ⚠️ **Le code reste plus lisible que Blender pour les villageois** : le tablier y est plus
+  grand, les bras et les jambes s'y détachent. C'est à trancher sur image.
 
 ### Le bloc 7b — la forteresse (fait le 20 septembre 2026)
 

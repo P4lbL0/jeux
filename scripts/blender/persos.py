@@ -126,8 +126,11 @@ CASQUE_DES, PLASTRON_DES, CAPE_DES, LAITON_DES = 1, 2, 3, 4
 
 
 def humain(rig, tunique, jambes="tissu", peau="chair", coiffe=None, plastron=False, cape=None,
-           laiton=False, arme=None, bouclier=False, voute=0.0):
-    """Le corps de `corps.ts`, en pixels du jeu : hanche a 4,4, epaule a 8,8, tete a 12."""
+           laiton=False, arme=None, bouclier=False, voute=0.0, ventre=None, sang=False):
+    """Le corps de `corps.ts`, en pixels du jeu : hanche a 4,4, epaule a 8,8, tete a 12.
+
+    `ventre` est le tablier d'un villageois (sa matiere), `sang` une tache sur la tunique.
+    """
     HANCHE, EPAULE, COU = 4.4, 8.8, 0.8
     rig.joint("racine", (0, 0, 0))
     rig.joint("bassin", (0, 0, HANCHE * P), "racine")
@@ -138,7 +141,29 @@ def humain(rig, tunique, jambes="tissu", peau="chair", coiffe=None, plastron=Fal
         rig.piece(jambes, (2.8, 2.4, 1.0), (0.4, 0, -HANCHE + 0.5), f"jambe_{cote}")
     # le buste : pivot au bassin, il se penche
     rig.joint("buste", (0, 0, 0), "bassin")
-    rig.piece(tunique, (2.6, 6.2, EPAULE - HANCHE), (0, 0, (EPAULE - HANCHE) / 2), "buste")
+    if ventre:
+        # Le tablier **est** le haut du buste, et pas son bas comme `corps.ts`.
+        #
+        # ⚠️ Trois essais avant celui-la, le 20 septembre 2026 au soir. Plaque
+        # contre la face +X, il ne se voyait qu'en tranche de deux pixels : la
+        # camera regarde depuis -Y, c'est le **flanc** du buste qu'elle voit.
+        # Boite un peu plus grande que le buste, il ne depassait que de deux
+        # dixiemes de pixel du jeu — rien une fois reduit. Piece empilee sous la
+        # tunique, il tombait derriere le **bras avant**, qui pend a y = -4 donc
+        # devant le torse et le masque jusqu'aux deux tiers de sa hauteur.
+        #
+        # Ce qui reste visible du torse, c'est donc son haut : le metier y monte.
+        # Anatomiquement c'est un plastron plutot qu'un tablier ; a vingt pixels
+        # ce qui compte est qu'on distingue un pecheur gris d'un forgeron rouge.
+        # Plus de la moitie du buste, sinon la tunique sombre — l'autre moitie du
+        # signalement — disparait entre la tete et les jambes.
+        HAUT = (EPAULE - HANCHE) * 0.55
+        rig.piece(tunique, (2.6, 6.2, EPAULE - HANCHE - HAUT), (0, 0, (EPAULE - HANCHE - HAUT) / 2), "buste")
+        rig.piece(ventre, (2.6, 6.2, HAUT), (0, 0, EPAULE - HANCHE - HAUT / 2), "buste")
+    else:
+        rig.piece(tunique, (2.6, 6.2, EPAULE - HANCHE), (0, 0, (EPAULE - HANCHE) / 2), "buste")
+    if sang:
+        rig.piece("sang", (0.6, 2.4, 1.6), (1.5, -1.2, (EPAULE - HANCHE) * 0.6), "buste")
     if plastron:
         rig.piece("fer", (3.2, 5.9, 2.6), (0.1, 0, (EPAULE - HANCHE) / 2 - 0.2), "buste")
     if cape:
@@ -156,6 +181,14 @@ def humain(rig, tunique, jambes="tissu", peau="chair", coiffe=None, plastron=Fal
             rig.piece("laiton", (4.2, 1.2, 0.8), (0.2, 0, COU + 4.2), "cou")
     elif coiffe == "capuche":
         rig.piece(tunique, (4.0, 4.0, 2.4), (-0.2, 0, COU + 3.0), "cou")
+    elif coiffe == "chapeau":
+        # Le chapeau a bord plat des villageois : un disque et une calotte.
+        # ⚠️ A 5,4 de bord pour une tete de 3,2, vu d'en haut il **cachait la
+        # tete** et le villageois n'etait plus qu'un couvre-chef sur une masse
+        # noire. Le bord depasse d'un demi-pixel de chaque cote, pas davantage,
+        # et il coiffe la tete au lieu de flotter au-dessus.
+        rig.piece("bois", (3.8, 4.0, 0.5), (0.2, 0, COU + 2.9), "cou")
+        rig.piece("bois", (2.6, 2.8, 1.0), (0.2, 0, COU + 3.6), "cou")
     # les bras : pivot a l'epaule, ils pendent ; l'avant est le plus pres de la camera (-Y)
     for cote, y in (("avant", -4.0), ("arriere", 4.0)):
         rig.joint(f"bras_{cote}", (0, y * P, (EPAULE - HANCHE) * P - 0.5 * P), "buste")
@@ -194,6 +227,28 @@ def peindre_arme(rig, arme, laiton):
         rig.piece("bois", (0.7, 0.7, 4.0), (0.9, 0, 1.8), m, rot=(0, math.radians(-22), 0))
         rig.piece("bois", (0.7, 0.7, 4.0), (0.9, 0, -1.8), m, rot=(0, math.radians(22), 0))
         rig.piece("toile", (0.3, 0.3, 7.0), (-0.1, 0, 0), m)
+    # Les outils des villageois (`villageois.ts`) : un manche, et une seule
+    # chose au bout — a vingt pixels c'est cette chose-la qu'on lit.
+    elif arme == "pioche":
+        rig.piece("bois", (0.8, 0.8, 6.5), (0, 0, -1.5), m)
+        rig.piece("fer", (3.6, 0.8, 0.9), (0.6, 0, -4.5), m, rot=(0, math.radians(12), 0))
+    elif arme == "hache":
+        rig.piece("bois", (0.8, 0.8, 6.0), (0, 0, -1.3), m)
+        rig.piece("fer", (2.2, 0.7, 2.4), (1.2, 0, -3.6), m)
+    elif arme == "houe":
+        rig.piece("bois", (0.7, 0.7, 7.0), (0, 0, -1.8), m)
+        rig.piece("fer", (2.2, 0.6, 1.4), (1.0, 0, -5.0), m, rot=(0, math.radians(40), 0))
+    elif arme == "canne":
+        rig.piece("bois", (0.6, 0.6, 8.0), (0, 0, -2.5), m)
+        rig.piece("toile", (0.25, 0.25, 4.0), (1.2, 0, -6.0), m, rot=(0, math.radians(-30), 0))
+    elif arme == "marteau":
+        rig.piece("bois", (0.8, 0.8, 4.5), (0, 0, -0.8), m)
+        rig.piece("fer", (1.6, 1.4, 2.6), (0.2, 0, -3.2), m)
+    elif arme == "maillet":
+        rig.piece("bois", (0.8, 0.8, 4.5), (0, 0, -0.8), m)
+        rig.piece("bois", (2.4, 1.6, 1.8), (0.2, 0, -3.2), m)
+    elif arme == "baton":
+        rig.piece("bois", (0.7, 0.7, 7.5), (0, 0, -1.5), m)
 
 
 def posture_humain(geste, t, voute=0.0):
@@ -234,6 +289,19 @@ def posture_humain(geste, t, voute=0.0):
     elif geste == "toux":
         u = t / 0.3 if t < 0.3 else 1 - (t - 0.3) / 0.7
         p.update(buste=voute + 0.4 * u, tete=0.2 * u, bras_avant=2.5, bras_arriere=0.1, outil=False)
+    elif geste == "travail":
+        # le coup de pioche de `villageois.ts` : le bras monte jusqu'a la moitie
+        # du geste, frappe jusqu'aux cinq sixiemes, et le sixieme est l'impact
+        FIN_MONTEE, FIN_FRAPPE = 0.5, 5 / 6
+        if t < FIN_MONTEE:
+            u = lisse(t / FIN_MONTEE)
+            p.update(bras_avant=0.3 - 2.5 * u, buste=voute - 0.15 * u)
+        else:
+            u = lisse(min(1.0, (t - FIN_MONTEE) / (FIN_FRAPPE - FIN_MONTEE)))
+            p.update(bras_avant=-2.2 + 3.4 * u, buste=voute + 0.3 * u, sursaut=0.4 * u)
+        p["bras_arriere"] = -0.2
+        p["jambe_avant"] = 0.25
+        p["jambe_arriere"] = -0.2
     return p
 
 
@@ -286,26 +354,36 @@ def bete(rig, b):
     n, lp, ep = b["pattes"][0], b["pattes"][1] * k, max(0.9, b["pattes"][2] * k)
     rt, museau = b["tete"][0] * k, b["tete"][1] * k
     queue = b["queue"] * k
+    flotte = b.get("flotte", False)
+    yeux = b.get("yeux", "sang")
     rig.joint("racine", (0, 0, 0))
-    # le corps : un ovoide, le ventre a la hauteur des pattes
-    rig.joint("corps", (0, 0, (lp + H * 0.45) * P), "racine")
-    rig.boule(m, 1.0, (0, 0, 0), "corps", graine=3, bosses=0.1, echelle=(L / 2 * P, H * 0.42 * P, H / 2 * P))
-    # les pattes : pivot sous le corps, par paires le long de X
+    # le corps : un ovoide, le ventre a la hauteur des pattes — ou en l'air, s'il flotte
+    rig.joint("corps", (0, 0, ((3.0 if flotte else lp) + H * 0.45) * P), "racine")
+    # ⚠️ L'echelle multiplie un rayon **deja** ramene au monde (`Rig.boule` fait
+    # `r * P`) : la reprendre en `* P` divisait le corps par PX_PAR_UNITE et le
+    # faisait disparaitre. Une bete n'avait plus que ses pattes, un familier rien.
+    rig.boule(m, 1.0, (0, 0, 0), "corps", graine=3, bosses=0.1, echelle=(L / 2, H * 0.42, H / 2))
+    # les pattes : pivot sous le corps, par paires le long de X ; rien si ca flotte
     paires = n // 2
     for k in range(paires):
         x = -L / 2 + L / (paires + 1) * (k + 1) - 0.5
         for cote, y in (("avant", -H * 0.28), ("arriere", H * 0.28)):
             nom = f"patte_{k}_{cote}"
             rig.joint(nom, (x * P, y * P, -H * 0.3 * P), "corps")
-            rig.piece(m, (ep, ep, lp + 1), (0, 0, -(lp + 1) / 2 + 0.5), nom)
-    # la tete : pivot a l'avant du corps
+            if not flotte:
+                rig.piece(m, (ep, ep, lp + 1), (0, 0, -(lp + 1) / 2 + 0.5), nom)
+    # la tete : pivot a l'avant du corps ; une flamme n'en a pas, ses yeux sont sur le corps
     rig.joint("cou", ((L / 2 - 1) * P, 0, H * 0.1 * P), "corps")
-    rig.boule(m, rt, (rt * 0.6, 0, 0), "cou", graine=5, bosses=0.08)
-    if museau > 0:
-        rig.piece(m, (museau + 1, rt * 1.1, rt * 0.9), (rt * 0.6 + rt * 0.7 + museau / 2, 0, -rt * 0.15), "cou")
-    # les yeux : le seul sang frais du monde
-    rig.piece("sang", (0.6, 0.7, 0.7), (rt * 0.9, -rt * 0.75, rt * 0.35), "cou")
-    rig.piece("sang", (0.6, 0.7, 0.7), (rt * 0.9, rt * 0.75, rt * 0.35), "cou")
+    if rt > 0:
+        rig.boule(m, rt, (rt * 0.6, 0, 0), "cou", graine=5, bosses=0.08)
+        if museau > 0:
+            rig.piece(m, (museau + 1, rt * 1.1, rt * 0.9), (rt * 0.6 + rt * 0.7 + museau / 2, 0, -rt * 0.15), "cou")
+        # les yeux : le seul sang frais du monde (ou l'os et le laiton des familiers)
+        rig.piece(yeux, (0.6, 0.7, 0.7), (rt * 0.9, -rt * 0.75, rt * 0.35), "cou")
+        rig.piece(yeux, (0.6, 0.7, 0.7), (rt * 0.9, rt * 0.75, rt * 0.35), "cou")
+    else:
+        rig.piece(yeux, (0.6, 0.7, 0.7), (0.4, -L * 0.18, H * 0.15), "cou")
+        rig.piece(yeux, (0.6, 0.7, 0.7), (0.4, L * 0.18, H * 0.15), "cou")
     # le dos
     if b["dos"] == "epines":
         for i in range(4):
@@ -353,11 +431,19 @@ def posture_bete(geste, t, b):
 def poser_bete(rig, p, b):
     k = b["cadre"] / 32 * (0.82 if b["cadre"] == CADRE_GROS else 1.0)
     lp, H = b["pattes"][1] * k, b["corps"][1] * k
+    ventre = 3.0 if b.get("flotte", False) else lp
     rig.placer("racine", (p["corps_x"], 0, -p["corps_z"]))
-    # rouler sur le flanc : autour de X, et on descend le corps au sol
+    # rouler sur le flanc : autour de X, et on pose le corps au sol
     rig.tourner("racine", x=p["roulis"])
     if p["roulis"] > 0:
-        rig.placer("racine", (p["corps_x"], 0, -(lp + H * 0.45 - H * 0.35) * math.sin(p["roulis"])))
+        # ⚠️ La racine tourne **au sol** : le corps bascule donc de lui-meme, et
+        # le descendre encore l'enfonce dessous (un golem mort passait six pixels
+        # sous son cadre). On ne fait que le **remonter** quand la bascule le
+        # ferait passer sous le sol : son demi-axe vertical tourne avec lui, de
+        # `H / 2` debout a `H * 0.42` couche sur le flanc.
+        r = p["roulis"]
+        demi = math.hypot(H * 0.42 * math.sin(r), H / 2 * math.cos(r))
+        rig.placer("racine", (p["corps_x"], 0, max(0.0, demi - (ventre + H * 0.45) * math.cos(r))))
     rig.tourner("corps", y=-p["tangage"])
     rig.tourner("cou", y=p["cou"])
     for k, a in enumerate(p["pattes"]):
@@ -380,13 +466,47 @@ def familles():
             f[cle] = dict(sorte="humain", tenue=tenue_de_hero(classe, palier), gestes=GESTES_HUMAIN, cadre=cadre_de(CADRE), voute=0.0)
     for nom, b in BETES.items():
         f[f"monstre-{nom}"] = dict(sorte="bete", bete=b, gestes=GESTES_BETE, cadre=cadre_de(b["cadre"]))
-    # le revenant : un mort qui marche, un humain aux os, voute, en haillons
-    f["monstre-revenant"] = dict(
-        sorte="humain",
-        tenue=dict(tunique="tissu", jambes="tissu", peau="os", coiffe=None, plastron=False, cape=None, laiton=False, arme=None, bouclier=False),
-        gestes=GESTES_BETE, cadre=cadre_de(CADRE), voute=0.35,
-    )
+    # le revenant : un mort qui marche, un humain aux os, voute, en haillons ;
+    # le mort-vivant du Necromancien est le meme corps (le jeu ne change que les yeux)
+    for cle in ("monstre-revenant", "mort-vivant"):
+        f[cle] = dict(
+            sorte="humain",
+            tenue=dict(tunique="tissu", jambes="tissu", peau="os", coiffe=None, plastron=False, cape=None, laiton=False, arme=None, bouclier=False),
+            gestes=GESTES_BETE, cadre=cadre_de(CADRE), voute=0.35,
+        )
+    # Les villageois (20 septembre 2026, soir) : `villageois.ts` — un metier, un
+    # tablier, un outil qui n'est en main qu'au travail, trois crans d'usure
+    # (il se voute, il palit) et le sang d'un blesse.
+    for metier, outil in OUTILS.items():
+        for usure in range(3):
+            for sang in (0, 1):
+                cle = f"villageois-{metier}-u{usure}-s{sang}"
+                f[cle] = dict(
+                    sorte="humain",
+                    tenue=dict(tunique="tissu", jambes="tissu", peau="chair" if usure == 0 else "chair_usee",
+                               coiffe="capuche" if metier == "guetteur" else "chapeau", plastron=False, cape=None,
+                               laiton=False, arme=outil, bouclier=False, ventre=f"tablier_{metier}", sang=bool(sang)),
+                    gestes=GESTES_VILLAGEOIS, cadre=cadre_de(CADRE), voute=0.18 * usure, outil_au_travail=True,
+                )
+    # Les familiers : deux flammes qui flottent, et le golem de pierre.
+    for nom, b in FAMILIERS.items():
+        f[nom] = dict(sorte="bete", bete=b, gestes=GESTES_BETE, cadre=cadre_de(b["cadre"]))
     return f
+
+
+# Les outils de `villageois.ts`, par metier ; le survivant n'a qu'un baton.
+OUTILS = {
+    "pecheur": "canne", "fermier": "houe", "bucheron": "hache", "mineur": "pioche",
+    "forgeron": "marteau", "charpentier": "maillet", "guetteur": "baton", "survivant": "baton",
+}
+GESTES_VILLAGEOIS = [("repos", 4, True), ("marche", 6, True), ("travail", 6, True), ("toux", 4, False)]
+
+# Les familiers de `monstres.ts` : la flamme froide du Mage, le golem, le spectre.
+FAMILIERS = {
+    "familier": dict(corps=(8, 10, "familier"), pattes=(4, 0, 0), tete=(0, 0), dos="lisse", queue=0, cadre=CADRE, yeux="os", flotte=True),
+    "familier-golem": dict(corps=(18, 16, "pierre"), pattes=(4, 7, 4.5), tete=(3.5, 1), dos="plaques", queue=0, cadre=CADRE_GROS, yeux="laiton"),
+    "familier-spectre": dict(corps=(6, 12, "spectre"), pattes=(4, 0, 0), tete=(0, 0), dos="lisse", queue=0, cadre=CADRE, yeux="tissu", flotte=True),
+}
 
 
 # ------------------------------------------------------------------ le rendu
@@ -464,7 +584,11 @@ def rendre_famille(cle, f):
         for i in range(frames):
             t = avancement(frames, boucle, i)
             if f["sorte"] == "humain":
-                poser_humain(rig, posture_humain(geste, t, f.get("voute", 0.0)))
+                p = posture_humain(geste, t, f.get("voute", 0.0))
+                # un villageois ne tient son outil qu'au travail (`villageois.ts`)
+                if f.get("outil_au_travail"):
+                    p["outil"] = geste == "travail"
+                poser_humain(rig, p)
             else:
                 poser_bete(rig, posture_bete(geste, t, f["bete"]), f["bete"])
             bpy.context.view_layer.update()

@@ -1024,4 +1024,23 @@ mondes sans mer, ou le port est sur un lac — le navire y accoste quand meme, f
 - ✅ **Les personnages Blender sont dans le jeu** : heros aux cinq paliers, six monstres.
   Villageois, familiers et mort-vivant restent au code.
 
-**Ouvert :** les villageois en low-poly Blender (l'atelier n'a pas de rig de villageois).
+### Le 20 septembre 2026, au soir — tout le monde passe en Blender
+
+> « fais tout avec Blender pour les villageois etc. » Code le soir meme (§4.30).
+
+- ✅ **Les villageois, les familiers et le mort-vivant sont en low-poly Blender** : cent
+  vingt et une planches dans `src/assets/` — trente-cinq heros, six monstres, quarante-huit
+  villageois (huit metiers, trois crans d'usure, avec ou sans sang), trois familiers, le
+  mort-vivant.
+- ✅ **Deux bugs du rig corriges** : le corps des betes sortait dix fois et demie trop petit
+  (une echelle qui reprenait une conversion deja faite) — un monstre n'etait que ses pattes,
+  un familier que ses yeux ; et la mort enfoncait le corps sous le sol.
+- ✅ **Le tablier du villageois occupe le haut du buste**, pas son bas comme au code : la
+  camera regarde depuis -Y, et le bras avant masque le torse aux deux tiers.
+- ⚠️ **Ouvert, et a trancher sur image** : le **code reste plus lisible** que Blender pour un
+  villageois — tablier plus grand, bras et jambes detaches. Comparaison dans
+  `captures/planches/2026-09-20-villageois/code-contre-blender.png`. A l'usure 2 le
+  villageois Blender est tres courbe, et quatre metiers bruns (bucheron, mineur, charpentier,
+  survivant) restent proches.
+- ⚠️ **Reste rogne** : les deux dernieres frames de la mort du golem et de la brute sortent de
+  cinq pixels sous leur cadre (les pattes, pas le corps).

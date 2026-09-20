@@ -6,6 +6,7 @@ import { DECORS } from "./decor";
 import { ORDRE_CLASSES } from "../../core/classes";
 import { familleDeHero } from "./heros";
 import { familleDeMonstre } from "./monstres";
+import { familleDeVillageois } from "./villageois";
 
 /**
  * Les sprites rendus par Blender (`scripts/blender/`, bloc 7z, etage 6).
@@ -36,7 +37,12 @@ const CLES_CONNUES = new Set<string>([
   // Les planches de personnages (20 septembre 2026) : une par classe et par
   // palier, une par archetype de monstre — la cle du four, `<famille>-planche`.
   ...ORDRE_CLASSES.flatMap((classe) => [0, 1, 2, 3, 4].map((palier) => `${familleDeHero(classe, palier)}-planche`)),
-  ...["fonceur", "essaim", "cracheur", "brute", "kamikaze", "revenant"].map((id) => `${familleDeMonstre(id)}-planche`),
+  ...["fonceur", "essaim", "cracheur", "brute", "kamikaze", "revenant", "mort-vivant", "familier", "familier-golem", "familier-spectre"].map(
+    (id) => `${familleDeMonstre(id)}-planche`,
+  ),
+  ...(["pecheur", "fermier", "bucheron", "mineur", "forgeron", "charpentier", "guetteur", "survivant"] as const).flatMap((metier) =>
+    [0, 0.5, 1].flatMap((usure) => [0, 1].map((sang) => `${familleDeVillageois(metier, { usure, sang })}-planche`)),
+  ),
 ]);
 
 describe("Sprites Blender — src/assets", () => {
