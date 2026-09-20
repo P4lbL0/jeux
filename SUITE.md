@@ -2,7 +2,7 @@
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Dernière mise à jour : 2026-09-20, au soir. **595 tests verts.**
+> Dernière mise à jour : 2026-09-20, au soir. **600 tests verts.**
 >
 > ✅ **Le bloc 7z est fini et branché (10 septembre 2026) : tout ce qui se voit est dessiné
 > par le code, et il n'y a plus un seul PNG.** La direction est tranchée avec Angelos ce
@@ -1106,6 +1106,36 @@ retouches »). Ce qui a été corrigé :
   `captures/planches/2026-09-20-villageois/code-contre-blender.png` (les huit métiers au code
   et en Blender, côte à côte ; `avant-retouches.png` garde l'état illisible d'avant) et
   `captures/jeu/2026-09-20-villageois-blender/` (en jeu).
+
+### La zone jouable devient un paramètre (20 septembre 2026, au soir)
+
+Premier bloc de la **deuxième moitié du jalon 5.5** (§4.29, l'errance). Rien ne se voit :
+c'est le socle dont tout le reste dépend.
+
+- **`MONDE` n'est plus une constante, c'est une façade** — le même patron que `VILLAGE`,
+  `EGLISE` et `PORT` dans `carte.ts` : un objet qu'on remplit au chargement. `COLONNES` et
+  `LIGNES` deviennent des liaisons vivantes, posées par `poserLaTaille`, et `PRATICABLE` est
+  recalculé avec. ⚠️ Une `Grille` alloue ses cases à la construction : elle doit naître
+  **après** le chargement du monde, et mourir avec lui.
+- **Un `Monde` porte sa propre taille.** Tout ce qui en reçoit un lit `m.largeur` / `m.hauteur`
+  et non plus le global : **générer** un monde ne doit pas dépendre de celui qui est **chargé**,
+  sans quoi l'errance tirerait chaque monde aux dimensions du précédent.
+- `genererMonde(graine, taille?)` et `chargerLaGraine(graine, taille?)` acceptent une zone.
+  **La graine zéro garde sa carte quoi qu'on demande** : le classique est la carte d'avant, au
+  chiffre près, et les tests qui la connaissent tournent dessus.
+- **Mesuré avant de choisir** (`.tmp/mesurer-taille.ts`, quatre graines) : le tirage et la
+  grille restent négligeables (36 → 91 ms, 1,5 → 2,7 ms) ; c'est la **peinture de la carte**
+  qui décide — 492 ms et 11 Mo à ×1, **1033 ms et 23 Mo à ×2**, 1447 ms et 34 Mo à ×3.
+  **`TAILLE_JOUABLE` est donc ×2** (2828 × 2121). ×3 reviendra le jour où la carte se peindra
+  par morceaux au lieu d'un bloc.
+- ⚠️ **Pas encore appliquée au démarrage** : la zone ne se ferme qu'à l'installation, qui
+  n'est pas codée. Une partie commence toujours sur la taille classique.
+- ⚠️ **Dette repérée** : pendant l'errance, refuser un village tire un monde neuf, donc
+  repeint la carte — une seconde de gel à ×2. Il faudra la peindre par morceaux, ou pendant
+  la marche.
+
+**600 tests verts** (+5 : la taille demandée est rendue, le monde reste jouable à chaque
+taille, le classique est intouchable, `MONDE` et `PRATICABLE` suivent le chargement).
 
 ### Le bloc 7b — la forteresse (fait le 20 septembre 2026)
 

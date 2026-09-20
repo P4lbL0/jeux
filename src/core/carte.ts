@@ -32,16 +32,18 @@ import {
   genererMonde,
   mondeClassique,
   pointDuBord,
+  poserLaTaille,
   profondeurDeRoche as profondeurDeRocheDans,
   terrainDuMonde,
   type Cote,
   type Monde,
   type PosteDuMonde,
+  type Taille,
   type Terrain,
 } from "./monde";
 
-export { MONDE, CASE, COLONNES, LIGNES, ondulation, GRAINE_CLASSIQUE, COTES } from "./monde";
-export type { Terrain, Cote, Monde } from "./monde";
+export { MONDE, CASE, COLONNES, LIGNES, ondulation, GRAINE_CLASSIQUE, COTES, TAILLE_CLASSIQUE } from "./monde";
+export type { Terrain, Cote, Monde, Taille } from "./monde";
 
 export interface Point {
   x: number;
@@ -73,6 +75,12 @@ export function mondeCourant(): Monde {
  */
 export function chargerLeMonde(monde: Monde): Monde {
   courant = monde;
+  // ⚠️ **La taille d'abord** : `PRATICABLE`, la grille et tout ce qui borne un
+  // deplacement en descendent. Un monde charge apres elles jouerait sur les
+  // bornes du precedent.
+  poserLaTaille(monde.largeur, monde.hauteur);
+  PRATICABLE.largeur = monde.largeur - 32;
+  PRATICABLE.hauteur = monde.hauteur - 32;
   VILLAGE.x = monde.village.x;
   VILLAGE.y = monde.village.y;
   EGLISE.x = monde.village.x;
@@ -86,8 +94,8 @@ export function chargerLeMonde(monde: Monde): Monde {
 }
 
 /** Charge le monde d'une graine, et le rend. */
-export function chargerLaGraine(graine: number | undefined): Monde {
-  return chargerLeMonde(genererMonde(graine ?? GRAINE_CLASSIQUE));
+export function chargerLaGraine(graine: number | undefined, taille?: Taille): Monde {
+  return chargerLeMonde(genererMonde(graine ?? GRAINE_CLASSIQUE, taille));
 }
 
 // ----------------------------------------------------------------- le terrain

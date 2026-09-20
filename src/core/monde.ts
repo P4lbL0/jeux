@@ -34,12 +34,83 @@
 import type { Point } from "./carte";
 import { Rng } from "./rng";
 
-export const MONDE = { largeur: 2000, hauteur: 1500 };
+/** Une zone jouable, en pixels. */
+export interface Taille {
+  largeur: number;
+  hauteur: number;
+}
+
+/** La zone jouable du monde classique : la carte d'avant le 20 septembre 2026. */
+export const TAILLE_CLASSIQUE: Taille = { largeur: 2000, hauteur: 1500 };
+
+/**
+ * La zone qui se ferme quand on s'installe (§4.29) : **le double** du classique.
+ *
+ * Le design demandait « x2 a x3, en mesurant ». Mesure du 20 septembre 2026 au
+ * soir (`.tmp/mesurer-taille.ts`), sur quatre graines :
+ *
+ * | zone | tirage | grille | peinture de la carte | texture |
+ * |------|--------|--------|----------------------|---------|
+ * | x1   |  36 ms |  1,5ms |   492 ms             | 11,4 Mo |
+ * | x2   |  64 ms |  2,6ms | **1033 ms**          | 22,9 Mo |
+ * | x3   |  91 ms |  2,7ms |  1447 ms             | 34,3 Mo |
+ *
+ * Tout monte **avec la surface**, et le tirage comme la grille restent
+ * negligeables. Ce qui decide, c'est la **peinture de la carte** : elle peint un
+ * pixel par pixel du monde, une fois au chargement. A x3 elle fige le jeu une
+ * seconde et demie et reserve trente-quatre megaoctets de texture ; a x2 elle
+ * tient dans la seconde que le test de `carte.ts` s'impose deja.
+ *
+ * ⚠️ **x3 n'est pas refuse pour toujours** : il le sera le jour ou la carte se
+ * peindra par morceaux au lieu d'un bloc. Tant qu'elle est monolithique, c'est
+ * elle le plafond, pas la memoire ni le tirage.
+ *
+ * ⚠️ **Pas encore appliquee au demarrage** : la zone ne se ferme qu'a
+ * l'installation, et l'installation n'est pas codee. Une partie commence
+ * aujourd'hui sur `TAILLE_CLASSIQUE`.
+ */
+export const TAILLE_JOUABLE: Taille = { largeur: 2828, hauteur: 2121 };
+
+/**
+ * La zone jouable **du monde charge**, et non plus une constante du jeu.
+ *
+ * ⚠️ C'est une **facade**, comme `VILLAGE` et `EGLISE` dans `carte.ts` : un objet
+ * qu'on remplit au chargement (`poserLaTaille`), jamais une valeur qu'on lit
+ * avant. Le §4.29 veut une zone qui grandit — « on monte de x1 a x3 en
+ * mesurant » —, et une constante ne peut pas grandir.
+ *
+ * Tout ce qui recoit un `Monde` lit **`m.largeur` / `m.hauteur`**, pas ceci :
+ * generer un monde ne doit pas dependre de celui qui est charge.
+ */
+export const MONDE: Taille = { largeur: TAILLE_CLASSIQUE.largeur, hauteur: TAILLE_CLASSIQUE.hauteur };
 
 /** Cote d'une case, en pixels — le meme que `grille.ts`, qui l'importe d'ici. */
 export const CASE = 32;
-export const COLONNES = Math.ceil(MONDE.largeur / CASE);
-export const LIGNES = Math.ceil(MONDE.hauteur / CASE);
+
+/**
+ * La grille de la zone chargee. **Liaisons vivantes** : un `import` les suit.
+ *
+ * ⚠️ Une `Grille` alloue `COLONNES * LIGNES` cases a sa construction — elle doit
+ * donc naitre **apres** `poserLaTaille`, et mourir avec son monde.
+ */
+export let COLONNES = Math.ceil(MONDE.largeur / CASE);
+export let LIGNES = Math.ceil(MONDE.hauteur / CASE);
+
+/** La grille **d'un monde donne** — celui qu'on genere n'est pas celui qu'on joue. */
+export function colonnesDe(m: { largeur: number }): number {
+  return Math.ceil(m.largeur / CASE);
+}
+export function lignesDe(m: { hauteur: number }): number {
+  return Math.ceil(m.hauteur / CASE);
+}
+
+/** Pose la zone jouable. Appelee par `chargerLeMonde`, et par personne d'autre. */
+export function poserLaTaille(largeur: number, hauteur: number): void {
+  MONDE.largeur = largeur;
+  MONDE.hauteur = hauteur;
+  COLONNES = Math.ceil(largeur / CASE);
+  LIGNES = Math.ceil(hauteur / CASE);
+}
 
 export type Cote = "nord" | "est" | "sud" | "ouest";
 export const COTES: readonly Cote[] = ["nord", "est", "sud", "ouest"];
@@ -176,6 +247,9 @@ export interface PosteDuMonde {
 
 export interface Monde {
   graine: number;
+  /** La zone jouable de ce monde-la : le §4.29 la fait grandir, elle n'est plus fixe. */
+  largeur: number;
+  hauteur: number;
   mer: Bande | null;
   /** La largeur de la plage au bord de la mer, et son ondulation */
   plage: { largeur: number; ondulation: Ondulation };
@@ -307,6 +381,10 @@ export function mondeClassique(): Monde {
   const village = { x: 470, y: 1070 };
   const m: Monde = {
     graine: GRAINE_CLASSIQUE,
+    // ⚠️ Le classique garde **sa** taille quoi qu'on demande : c'est la carte
+    // d'avant, au chiffre pres, et les tests qui la connaissent tournent dessus.
+    largeur: TAILLE_CLASSIQUE.largeur,
+    hauteur: TAILLE_CLASSIQUE.hauteur,
     mer: { cote: "ouest", position: TERRAIN_CLASSIQUE.mer, ondulation: { echelle: 130, amplitude: AMPLITUDE_CLASSIQUE.cote, decalage: 0 } },
     plage: { largeur: TERRAIN_CLASSIQUE.plage, ondulation: { echelle: 88, amplitude: AMPLITUDE_CLASSIQUE.plage, decalage: 480 } },
     lacs: [],
@@ -351,18 +429,18 @@ const ESSAIS_DE_MONDE = 12;
  * jusqu'a douze fois ; au-dela, le monde classique. Pure : la meme graine
  * redonne le meme monde.
  */
-export function genererMonde(graine: number): Monde {
+export function genererMonde(graine: number, taille = TAILLE_CLASSIQUE): Monde {
   if (graine === GRAINE_CLASSIQUE) return mondeClassique();
   const rng = new Rng(graine);
   for (let essai = 0; essai < ESSAIS_DE_MONDE; essai++) {
-    const monde = tirerUnMonde(rng, graine);
+    const monde = tirerUnMonde(rng, graine, taille);
     if (monde) return monde;
   }
   return mondeClassique();
 }
 
-function tirerUnMonde(rng: Rng, graine: number): Monde | null {
-  const { largeur, hauteur } = MONDE;
+function tirerUnMonde(rng: Rng, graine: number, taille: Taille): Monde | null {
+  const { largeur, hauteur } = taille;
   const ond = (echelle: number, amplitude: number): Ondulation => ({ echelle, amplitude, decalage: rng.int(0, 4000) });
   const phases = (): [number, number, number] => [rng.range(0, 6.28), rng.range(0, 6.28), rng.range(0, 6.28)];
   /** La coordonnee d'une ligne a `p` pixels d'un bord. */
@@ -447,6 +525,8 @@ function tirerUnMonde(rng: Rng, graine: number): Monde | null {
 
   const monde: Monde = {
     graine,
+    largeur,
+    hauteur,
     mer,
     plage: { largeur: 62, ondulation: ond(88, 18) },
     lacs,
@@ -476,22 +556,22 @@ function tirerUnMonde(rng: Rng, graine: number): Monde | null {
   monde.bords = releverLesBords(monde, atteint);
   monde.lisieres = releverLesLisieres(monde, atteint);
   monde.fronts = COTES.filter((c) => monde.bords[c].length >= 6).sort(
-    (a, b) => distanceAuBord(monde.village, b) - distanceAuBord(monde.village, a),
+    (a, b) => distanceAuBord(monde, monde.village, b) - distanceAuBord(monde, monde.village, a),
   );
   if (monde.fronts.length === 0) return null;
   return monde;
 }
 
-function distanceAuBord(p: Point, cote: Cote): number {
+function distanceAuBord(m: Monde, p: Point, cote: Cote): number {
   switch (cote) {
     case "nord":
       return p.y;
     case "sud":
-      return MONDE.hauteur - p.y;
+      return m.hauteur - p.y;
     case "ouest":
       return p.x;
     case "est":
-      return MONDE.largeur - p.x;
+      return m.largeur - p.x;
   }
 }
 
@@ -508,8 +588,8 @@ function choisirLeSite(m: Monde, rng: Rng): Point | null {
   for (let essai = 0; essai < 320; essai++) {
     // Au centre d'une case, tout de suite : c'est la que l'eglise se pose, et
     // c'est ce point-la qu'on juge — pas un voisin a quelques pixels.
-    const x = Math.round(rng.range(marge, MONDE.largeur - marge) / CASE) * CASE + CASE / 2;
-    const y = Math.round(rng.range(marge, MONDE.hauteur - marge) / CASE) * CASE + CASE / 2;
+    const x = Math.round(rng.range(marge, m.largeur - marge) / CASE) * CASE + CASE / 2;
+    const y = Math.round(rng.range(marge, m.hauteur - marge) / CASE) * CASE + CASE / 2;
     if (terrainDuMonde(m, x, y) !== "herbe") continue;
     // L'herbe autour : un village a besoin d'une place.
     let herbe = 0;
@@ -555,6 +635,8 @@ const TERRE_FERME: readonly Terrain[] = ["sable", "herbe", "sous-bois"];
  * quatre voisins. Un `Uint8Array` de la taille de la grille : 1 si atteinte.
  */
 export function relierAuVillage(m: Monde): Uint8Array {
+  const COLONNES = colonnesDe(m);
+  const LIGNES = lignesDe(m);
   const atteint = new Uint8Array(COLONNES * LIGNES);
   const terre = new Uint8Array(COLONNES * LIGNES);
   for (let l = 0; l < LIGNES; l++) {
@@ -716,6 +798,8 @@ const MARGE_D_APPARITION = 24;
  */
 export function releverLesBords(m: Monde, atteint: Uint8Array): Record<Cote, Point[]> {
   const bords: Record<Cote, Point[]> = { nord: [], est: [], sud: [], ouest: [] };
+  const COLONNES = colonnesDe(m);
+  const LIGNES = lignesDe(m);
   const marge = MARGE_D_APPARITION;
   // Le centre d'une case, ramene dans la carte : la derniere colonne deborde
   // du monde (2000 n'est pas un multiple de 32).
@@ -724,16 +808,16 @@ export function releverLesBords(m: Monde, atteint: Uint8Array): Record<Cote, Poi
   // etre reliee au village, pas la toute premiere rangee.
   const relie = (x: number, y: number) => atteint[Math.floor(y / CASE) * COLONNES + Math.floor(x / CASE)] === 1;
   const haut = 16 + marge;
-  const bas = MONDE.hauteur - 16 - marge;
+  const bas = m.hauteur - 16 - marge;
   const gauche = 16 + marge;
-  const droite = MONDE.largeur - 16 - marge;
+  const droite = m.largeur - 16 - marge;
   for (let c = 0; c < COLONNES; c++) {
-    const x = dansLaCarte(c * CASE + CASE / 2, MONDE.largeur);
+    const x = dansLaCarte(c * CASE + CASE / 2, m.largeur);
     if (relie(x, haut) && estTerreFermeDans(m, x, haut)) bords.nord.push({ x, y: haut });
     if (relie(x, bas) && estTerreFermeDans(m, x, bas)) bords.sud.push({ x, y: bas });
   }
   for (let l = 0; l < LIGNES; l++) {
-    const y = dansLaCarte(l * CASE + CASE / 2, MONDE.hauteur);
+    const y = dansLaCarte(l * CASE + CASE / 2, m.hauteur);
     if (relie(gauche, y) && estTerreFermeDans(m, gauche, y)) bords.ouest.push({ x: gauche, y });
     if (relie(droite, y) && estTerreFermeDans(m, droite, y)) bords.est.push({ x: droite, y });
   }
@@ -753,11 +837,13 @@ const PROFONDEUR_DE_LISIERE = 1 / 3;
  */
 export function releverLesLisieres(m: Monde, atteint: Uint8Array): Record<Cote, Point[]> {
   const lisieres: Record<Cote, Point[]> = { nord: [], est: [], sud: [], ouest: [] };
+  const COLONNES = colonnesDe(m);
+  const LIGNES = lignesDe(m);
   // Le centre de la case, ramene dans la carte sans changer de case : la
   // derniere colonne deborde du monde.
   const centre = (c: number, l: number): Point => ({
-    x: Math.min(MONDE.largeur - 16, Math.max(16, c * CASE + CASE / 2)),
-    y: Math.min(MONDE.hauteur - 16, Math.max(16, l * CASE + CASE / 2)),
+    x: Math.min(m.largeur - 16, Math.max(16, c * CASE + CASE / 2)),
+    y: Math.min(m.hauteur - 16, Math.max(16, l * CASE + CASE / 2)),
   });
   const maxLignes = Math.floor(LIGNES * PROFONDEUR_DE_LISIERE);
   const maxColonnes = Math.floor(COLONNES * PROFONDEUR_DE_LISIERE);
@@ -809,7 +895,7 @@ export function pointDuBord(m: Monde, cote: Cote, tirage: number): Point {
   let points = m.bords[cote];
   if (points.length === 0) {
     const repli = m.fronts.find((f) => m.bords[f].length > 0);
-    points = repli ? m.bords[repli] : [{ x: MONDE.largeur / 2, y: 16 + MARGE_D_APPARITION }];
+    points = repli ? m.bords[repli] : [{ x: m.largeur / 2, y: 16 + MARGE_D_APPARITION }];
   }
   const t = Math.min(0.999999, Math.max(0, tirage)) * points.length;
   const i = Math.floor(t);
@@ -818,8 +904,8 @@ export function pointDuBord(m: Monde, cote: Cote, tirage: number): Point {
   const horizontal = cote === "nord" || cote === "sud";
   const marge = 16 + MARGE_D_APPARITION;
   const glisse = horizontal
-    ? { x: Math.min(MONDE.largeur - marge, Math.max(marge, p.x + reste * (CASE - 8))), y: p.y }
-    : { x: p.x, y: Math.min(MONDE.hauteur - marge, Math.max(marge, p.y + reste * (CASE - 8))) };
+    ? { x: Math.min(m.largeur - marge, Math.max(marge, p.x + reste * (CASE - 8))), y: p.y }
+    : { x: p.x, y: Math.min(m.hauteur - marge, Math.max(marge, p.y + reste * (CASE - 8))) };
   // Le glissement peut mordre sur l'eau au bord d'une case : on reste alors au point sur.
   return estTerreFermeDans(m, glisse.x, glisse.y) ? glisse : { ...p };
 }

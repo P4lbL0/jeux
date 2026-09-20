@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CASE, COLONNES, PRATICABLE, chargerLeMonde } from "./carte";
 import {
   AMPLITUDE_CLASSIQUE,
   COTES,
@@ -17,6 +18,7 @@ import {
   segmentSurTerre,
   terrainDeCase,
   terrainDuMonde,
+  TAILLE_CLASSIQUE,
   type Monde,
 } from "./monde";
 
@@ -192,6 +194,73 @@ describe("Un monde tire — les regles d'assemblage", () => {
     const depart = performance.now();
     genererMonde(4242);
     expect(performance.now() - depart).toBeLessThan(100);
+  });
+});
+
+/**
+ * La zone jouable est un **parametre** (§4.29, 20 septembre 2026 au soir) : le
+ * nouveau depart la fait grandir — « on monte de x1 a x3 en mesurant » — et une
+ * constante ne peut pas grandir. Ce qui est verifie ici, c'est qu'un monde plus
+ * grand reste un monde **jouable** : village dedans, postes trouves, fronts
+ * ouverts. Un generateur qui rendrait un monde vide passerait un test de taille.
+ */
+describe("La zone jouable, en parametre", () => {
+  const TAILLES = [
+    { nom: "x1", largeur: 2000, hauteur: 1500 },
+    { nom: "x2", largeur: 2830, hauteur: 2120 },
+    { nom: "x3", largeur: 3460, hauteur: 2600 },
+  ];
+
+  it("rend un monde de la taille demandee", () => {
+    for (const t of TAILLES) {
+      const m = genererMonde(7, t);
+      expect([m.largeur, m.hauteur], t.nom).toEqual([t.largeur, t.hauteur]);
+    }
+  });
+
+  it("garde un monde jouable a chaque taille : village dedans, quatre postes, au moins un front", () => {
+    for (const t of TAILLES) {
+      for (const graine of [3, 17, 128]) {
+        const m = genererMonde(graine, t);
+        const ou = `${t.nom} graine ${graine}`;
+        expect(m.village.x, ou).toBeGreaterThan(0);
+        expect(m.village.x, ou).toBeLessThan(m.largeur);
+        expect(m.village.y, ou).toBeLessThan(m.hauteur);
+        expect(m.postes.length, ou).toBe(4);
+        expect(m.fronts.length, ou).toBeGreaterThan(0);
+        // Les bords releves tombent dans le monde, pas dans celui d'avant.
+        for (const cote of COTES) {
+          for (const p of m.bords[cote]) {
+            expect(p.x, `${ou} ${cote}`).toBeLessThanOrEqual(m.largeur);
+            expect(p.y, `${ou} ${cote}`).toBeLessThanOrEqual(m.hauteur);
+          }
+        }
+      }
+    }
+  });
+
+  it("ne touche pas au classique : la graine zero garde sa carte, quoi qu'on demande", () => {
+    const m = genererMonde(GRAINE_CLASSIQUE, { largeur: 9000, hauteur: 9000 });
+    expect([m.largeur, m.hauteur]).toEqual([TAILLE_CLASSIQUE.largeur, TAILLE_CLASSIQUE.hauteur]);
+    expect(m.village).toEqual(mondeClassique().village);
+  });
+
+  it("charge la taille du monde, et la rend a `MONDE` et a `PRATICABLE`", () => {
+    const grand = genererMonde(21, TAILLES[2]!);
+    chargerLeMonde(grand);
+    expect([MONDE.largeur, MONDE.hauteur]).toEqual([grand.largeur, grand.hauteur]);
+    expect(PRATICABLE.largeur).toBe(grand.largeur - 32);
+    expect(COLONNES).toBe(Math.ceil(grand.largeur / CASE));
+    // ⚠️ On remet le classique : `MONDE` est global, et le laisser grand
+    // ferait jouer les tests suivants sur les bornes de celui-ci.
+    chargerLeMonde(mondeClassique());
+    expect(MONDE.largeur).toBe(TAILLE_CLASSIQUE.largeur);
+  });
+
+  it("se tire encore en moins de trois cents millisecondes au plus grand", () => {
+    const depart = performance.now();
+    genererMonde(4242, TAILLES[2]!);
+    expect(performance.now() - depart).toBeLessThan(300);
   });
 });
 
