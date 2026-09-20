@@ -95,7 +95,12 @@ Tout le socle existe (`src/game/son.ts`, `src/game/panneauSon.ts`, `scripts/son/
    **juger à l'oreille** les trois `partie-*.mp3` — en particulier `partie-crepuscule.mp3`
    (la guerre part de son intro) contre `partie-crepuscule-sans-intro.mp3` (une ligne à
    changer dans `src/game/musique.ts` si elle plaît mieux).
-5. **Les bruits de la partie**, branchés sur les **événements nommés** que les animations
+5. ⏳ **Les planches d'écoute sont faites** (20 septembre au petit matin, `npm run bruits`,
+   `captures/son/2026-09-20-bruits/ecoute.html`) : treize événements, deux à quatre candidats
+   CC0 chacun ; Angelos choisit, puis on branche. Décisions prises : tout en enregistrements
+   libres ; atténués par la distance, un coup sur deux, huit voix au plus ; aucun cri avant le
+   jalon 6.7. Le point d'origine, pour mémoire :
+   **Les bruits de la partie**, branchés sur les **événements nommés** que les animations
    émettent déjà (coup de pioche, hache, toux, semis, chute d'arbre) ; puis les coups, les
    morts, les cris des villageois et des monstres (le §4.23 prévoit que les monstres
    **hurlent** et que le **Cri** du Chevalier Sacré leur répond). Sources : **CC0 seulement**,

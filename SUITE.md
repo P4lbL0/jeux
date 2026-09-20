@@ -1049,6 +1049,38 @@ le poste de pêche sur la plage existe toujours (`POSTES`, `plage`). Et un proje
 toucherait un héros dans l'eau le ferait tomber avec l'image rognée : `tomber` remet l'image
 entière avant l'animation de mort seulement pour le noyé.
 
+### Le son, phase 2 — les planches d'écoute des bruits (fait le 20 septembre 2026, au petit matin)
+
+**Les décisions d'Angelos, avant de chercher** : une **planche d'écoute par bruit** (il choisit,
+puis on branche tout d'un coup) ; **tout en enregistrements libres**, rien de fabriqué ; le jour,
+les bruits **s'atténuent avec la distance à la caméra, un coup sur deux, huit voix au plus** ;
+**aucun cri avant le jalon 6.7** (ni hurlement de horde, ni Cri du Chevalier).
+
+**`npm run bruits`** (`scripts/son/bruits.ts`, neuf) : pour chacun des **treize événements nommés**
+que les animations portent déjà (`four.ts` : pioche, hache, semis, ligne, enclume, maillet, pas,
+toux, lame, tir, sort, morsure, chute), **deux à quatre candidats CC0** — trente-huit en tout,
+d'OpenGameArt et des packs Kenney *Impact Sounds* et *RPG Audio* —, rognés du silence et ramenés
+à la même crête (−6 dB), dans un fichier par événement : le numéro en bips, puis le bruit deux
+fois. Chaque candidat existe aussi seul (`<événement>-<n>.mp3`), pour la **page `ecoute.html`**
+posée à côté : un bloc par événement avec le moment où le jeu le jouera, une flèche qui joue le
+candidat, une case « aucun », un champ de précision, et le **récapitulatif qui s'écrit tout
+seul** en bas, à coller dans la conversation (choix gardés dans le navigateur). La page est un
+fichier local et pas un artefact : les sons sont sur le disque, une page hébergée ne pourrait
+pas les jouer. `LISEZMOI.md` reprend la table et les sources. Tout est dans
+`captures/son/2026-09-20-bruits/`.
+
+**Les sources** : recherche avancée d'OpenGameArt filtrée *Sound Effect + CC0*, onze secondes
+entre deux requêtes (`Crawl-delay: 10`), la licence relue sur chaque page. Écartés :
+« Fisheefects » (CC-BY), « Battle Sound Effects » (CC-BY), « Breaking Rock » (dérivé d'un son
+Freesound à la licence inconnue). Le téléchargement est **partagé** avec l'écran-titre
+(`scripts/son/sources.ts`, sorti d'`intro.ts`). Les découpes des fichiers longs (la toux, l'enclume
+qui sonne deux secondes, la créature qui grogne dix secondes) ont été choisies **sur mesures**
+(éclats au-dessus de −30 dB sous la crête), pas à l'oreille.
+
+⚠️ **Ce qui attend** : les choix d'Angelos, puis le branchement — les écouteurs d'`animationupdate`
+sur la frame clé (`EVENEMENTS` dans `four.ts`), la piste « effets », l'atténuation et le plafond
+de voix, les fichiers dans `src/assets/son/` et `CREDITS.md`.
+
 ### Les derniers détails de vie (fait le 20 septembre 2026, au petit matin)
 
 **Les cordes à linge et les filets qui sèchent** (§4.24), les deux objets qui manquaient au
@@ -1596,10 +1628,12 @@ murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
    (« Lament of the War ») est choisie, bouclée sans couture, réglable à part dans
    PARAMÈTRES (trois curseurs). ✅ **La musique en partie est livrée** (le soir même, voir sa
    section) : la calme choisie (n° 2), la guerre la nuit et dès qu'un héros se bat, fondus
-   enchaînés. **Reste à juger à l'oreille** les trois `partie-*.mp3`. **Phase 2, ce qui
-   reste** : les bruits de la partie — cris et coups de hache sur les événements que les
-   animations émettent déjà. Tout ce qui reste à coder est rassemblé dans
-   **`PROMPT-SUITE.md`**.
+   enchaînés. **Reste à juger à l'oreille** les trois `partie-*.mp3`. **Phase 2, en cours**
+   (20 septembre au petit matin, voir « Le son, phase 2 ») : les planches d'écoute des bruits
+   sont faites — treize événements, deux à quatre candidats CC0 chacun, dans
+   `captures/son/2026-09-20-bruits/` avec la page `ecoute.html` qui écrit la réponse. **À
+   écouter**, puis on branche (atténuation par distance, un coup sur deux, huit voix ; aucun
+   cri avant le jalon 6.7). Tout ce qui reste à coder est rassemblé dans **`PROMPT-SUITE.md`**.
 4. **Jouer une vraie partie longue.** C'est ce que le cycle raccourci débloque : le stress,
    l'église, le port, les arrivées et la folie n'ont jamais tourné assez longtemps pour être
    jugés. Tous les chiffres du dépouillage sont faits pour être corrigés là.

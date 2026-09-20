@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Les bruits de la partie</title>
+<style>
+  :root { --fond: #1b1917; --papier: #26221f; --trait: #4a423b; --texte: #e8e0d4; --gris: #b5aa9c; --accent: #c9a24a; }
+  body { margin: 0; padding: 24px 16px 96px; background: var(--fond); color: var(--texte); font: 16px/1.5 Georgia, "Times New Roman", serif; }
+  main { max-width: 820px; margin: 0 auto; }
+  h1 { font-weight: normal; letter-spacing: 0.04em; margin: 0 0 4px; }
+  .intro { color: var(--gris); margin: 0 0 24px; }
+  .question { background: var(--papier); border: 1px solid var(--trait); padding: 14px 16px; margin: 0 0 14px; }
+  h2 { margin: 0 0 4px; font-size: 20px; font-weight: normal; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
+  .quand { color: var(--gris); margin: 0 0 10px; font-size: 15px; }
+  .option { display: flex; align-items: center; gap: 10px; padding: 6px 0; cursor: pointer; }
+  .option small { color: var(--gris); margin-left: 6px; }
+  .jouer { width: 34px; height: 30px; border: 1px solid var(--trait); background: #332d28; color: var(--texte); cursor: pointer; }
+  .jouer:hover, .jouer.en-cours { border-color: var(--accent); color: var(--accent); }
+  .precision { width: 100%; box-sizing: border-box; margin-top: 8px; padding: 6px 8px; background: var(--fond); color: var(--texte); border: 1px solid var(--trait); font: inherit; font-size: 15px; }
+  .recap { position: fixed; left: 0; right: 0; bottom: 0; background: var(--papier); border-top: 1px solid var(--trait); padding: 10px 16px; }
+  .recap div { max-width: 820px; margin: 0 auto; display: flex; gap: 10px; align-items: flex-start; }
+  textarea { flex: 1; height: 56px; background: var(--fond); color: var(--texte); border: 1px solid var(--trait); font: inherit; font-size: 14px; padding: 6px 8px; resize: vertical; }
+  .copier { height: 34px; padding: 0 14px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; font: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Les bruits de la partie</h1>
+  <p class="intro">Un bloc par evenement, deux a quatre candidats chacun, tous a la meme force. Clique sur la fleche pour ecouter, coche celui qui va. Le recapitulatif en bas s'ecrit tout seul : copie-le dans la conversation. Tout est CC0 (2026-09-20).</p>
+  
+    <section class="question" data-nom="pioche">
+      <h2>pioche</h2>
+      <p class="quand">Quand : le mineur, a chaque coup (frame d'impact du geste de travail). Juge-le repete : le jeu le jouera des dizaines de fois par journee.</p>
+      
+        <label class="option">
+          <input type="radio" name="pioche" value="1">
+          <button type="button" class="jouer" data-src="pioche-1.mp3" title="Ecouter">&#9654;</button>
+          <span><b>1</b> Kenney, impactMining 000 <small>0.64 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="pioche" value="2">
+          <button type="button" class="jouer" data-src="pioche-2.mp3" title="Ecouter">&#9654;</button>
+          <span><b>2</b> Kenney, impactMining 002 <small>0.56 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="pioche" value="3">
+          <button type="button" class="jouer" data-src="pioche-3.mp3" title="Ecouter">&#9654;</button>
+          <span><b>3</b> Kenney, impactMining 004 <small>0.59 s</small></span>
+        </label>
+      <label class="option">
+        <input type="radio" name="pioche" value="aucun">
+        <span><b>Aucun</b> ne va, on cherche d'autres sources</span>
+      </label>
+      <input type="text" class="precision" placeholder="Precision ou autre reponse (facultatif)">
+    </section>
+    <section class="question" data-nom="hache">
+      <h2>hache</h2>
+      <p class="quand">Quand : le bucheron, a chaque coup. Juge-le repete : le jeu le jouera des dizaines de fois par journee.</p>
+      
+        <label class="option">
+          <input type="radio" name="hache" value="1">
+          <button type="button" class="jouer" data-src="hache-1.mp3" title="Ecouter">&#9654;</button>
+          <span><b>1</b> Kenney, chop <small>0.24 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="hache" value="2">
+          <button type="button" class="jouer" data-src="hache-2.mp3" title="Ecouter">&#9654;</button>
+          <span><b>2</b> kheetor, le coup seul de « tree chop fall thud » <small>0.80 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="hache" value="3">
+          <button type="button" class="jouer" data-src="hache-3.mp3" title="Ecouter">&#9654;</button>
+          <span><b>3</b> Kenney, impactWood heavy 001 <small>0.31 s</small></span>
+        </label>
+      <label class="option">
+        <input type="radio" name="hache" value="aucun">
+        <span><b>Aucun</b> ne va, on cherche d'autres sources</span>
+      </label>
+      <input type="text" class="precision" placeholder="Precision ou autre reponse (facultatif)">
+    </section>
+    <section class="question" data-nom="semis">
+      <h2>semis</h2>
+      <p class="quand">Quand : le fermier, a chaque geste aux champs. Juge-le repete : le jeu le jouera des dizaines de fois par journee.</p>
+      
+        <label class="option">
+          <input type="radio" name="semis" value="1">
+          <button type="button" class="jouer" data-src="semis-1.mp3" title="Ecouter">&#9654;</button>
+          <span><b>1</b> themightyglider, « Sow seeds » <small>0.98 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="semis" value="2">
+          <button type="button" class="jouer" data-src="semis-2.mp3" title="Ecouter">&#9654;</button>
+          <span><b>2</b> Kenney, cloth2 (de l'etoffe qui bouge) <small>0.38 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="semis" value="3">
+          <button type="button" class="jouer" data-src="semis-3.mp3" title="Ecouter">&#9654;</button>
+          <span><b>3</b> Kenney, handleSmallLeather (un sac qu'on manie) <small>0.28 s</small></span>
+        </label>
+      <label class="option">
+        <input type="radio" name="semis" value="aucun">
+        <span><b>Aucun</b> ne va, on cherche d'autres sources</span>
+      </label>
+      <input type="text" class="precision" placeholder="Precision ou autre reponse (facultatif)">
+    </section>
+    <section class="question" data-nom="ligne">
+      <h2>ligne</h2>
+      <p class="quand">Quand : le pecheur, a chaque lancer. Juge-le repete : le jeu le jouera des dizaines de fois par journee.</p>
+      
+        <label class="option">
+          <input type="radio" name="ligne" value="1">
+          <button type="button" class="jouer" data-src="ligne-1.mp3" title="Ecouter">&#9654;</button>
+          <span><b>1</b> qubodup, water splash 02 <small>0.41 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="ligne" value="2">
+          <button type="button" class="jouer" data-src="ligne-2.mp3" title="Ecouter">&#9654;</button>
+          <span><b>2</b> artisticdude swish 7 (le lancer) puis qubodup water splash 04 (la ligne qui tombe) <small>1.33 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="ligne" value="3">
+          <button type="button" class="jouer" data-src="ligne-3.mp3" title="Ecouter">&#9654;</button>
+          <span><b>3</b> rubberduck, splash 03 <small>0.59 s</small></span>
+        </label>
+      <label class="option">
+        <input type="radio" name="ligne" value="aucun">
+        <span><b>Aucun</b> ne va, on cherche d'autres sources</span>
+      </label>
+      <input type="text" class="precision" placeholder="Precision ou autre reponse (facultatif)">
+    </section>
+    <section class="question" data-nom="enclume">
+      <h2>enclume</h2>
+      <p class="quand">Quand : le forgeron, a chaque coup. Juge-le repete : le jeu le jouera des dizaines de fois par journee.</p>
+      
+        <label class="option">
+          <input type="radio" name="enclume" value="1">
+          <button type="button" class="jouer" data-src="enclume-1.mp3" title="Ecouter">&#9654;</button>
+          <span><b>1</b> themightyglider, « Hammer on Anvil » (le premier coup) <small>0.54 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="enclume" value="2">
+          <button type="button" class="jouer" data-src="enclume-2.mp3" title="Ecouter">&#9654;</button>
+          <span><b>2</b> VishwaJai, « Blacksmith's Hammer » <small>0.50 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="enclume" value="3">
+          <button type="button" class="jouer" data-src="enclume-3.mp3" title="Ecouter">&#9654;</button>
+          <span><b>3</b> Kenney, impactMetal heavy 001 <small>0.36 s</small></span>
+        </label>
+      <label class="option">
+        <input type="radio" name="enclume" value="aucun">
+        <span><b>Aucun</b> ne va, on cherche d'autres sources</span>
+      </label>
+      <input type="text" class="precision" placeholder="Precision ou autre reponse (facultatif)">
+    </section>
+    <section class="question" data-nom="maillet">
+      <h2>maillet</h2>
+      <p class="quand">Quand : le charpentier, a chaque coup. Juge-le repete : le jeu le jouera des dizaines de fois par journee.</p>
+      
+        <label class="option">
+          <input type="radio" name="maillet" value="1">
+          <button type="button" class="jouer" data-src="maillet-1.mp3" title="Ecouter">&#9654;</button>
+          <span><b>1</b> Kenney, impactPlank medium 001 <small>0.46 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="maillet" value="2">
+          <button type="button" class="jouer" data-src="maillet-2.mp3" title="Ecouter">&#9654;</button>
+          <span><b>2</b> Kenney, impactWood medium 000 <small>0.25 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="maillet" value="3">
+          <button type="button" class="jouer" data-src="maillet-3.mp3" title="Ecouter">&#9654;</button>
+          <span><b>3</b> AntumDeluge, thwack 03 <small>0.16 s</small></span>
+        </label>
+      <label class="option">
+        <input type="radio" name="maillet" value="aucun">
+        <span><b>Aucun</b> ne va, on cherche d'autres sources</span>
+      </label>
+      <input type="text" class="precision" placeholder="Precision ou autre reponse (facultatif)">
+    </section>
+    <section class="question" data-nom="pas">
+      <h2>pas</h2>
+      <p class="quand">Quand : le guetteur et le survivant, deux pas par geste. Juge-le repete : le jeu le jouera des dizaines de fois par journee.</p>
+      
+        <label class="option">
+          <input type="radio" name="pas" value="1">
+          <button type="button" class="jouer" data-src="pas-1.mp3" title="Ecouter">&#9654;</button>
+          <span><b>1</b> Kenney, footstep grass 000 puis 001 <small>0.62 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="pas" value="2">
+          <button type="button" class="jouer" data-src="pas-2.mp3" title="Ecouter">&#9654;</button>
+          <span><b>2</b> Kenney, footstep 00 puis 01 (RPG Audio) <small>0.69 s</small></span>
+        </label>
+      <label class="option">
+        <input type="radio" name="pas" value="aucun">
+        <span><b>Aucun</b> ne va, on cherche d'autres sources</span>
+      </label>
+      <input type="text" class="precision" placeholder="Precision ou autre reponse (facultatif)">
+    </section>
+    <section class="question" data-nom="toux">
+      <h2>toux</h2>
+      <p class="quand">Quand : un habitant ou un heros malade (§4.23), a chaque quinte. Juge-le repete : le jeu le jouera des dizaines de fois par journee.</p>
+      
+        <label class="option">
+          <input type="radio" name="toux" value="1">
+          <button type="button" class="jouer" data-src="toux-1.mp3" title="Ecouter">&#9654;</button>
+          <span><b>1</b> AntumDeluge, « Old Man Cough » (le debut) <small>1.29 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="toux" value="2">
+          <button type="button" class="jouer" data-src="toux-2.mp3" title="Ecouter">&#9654;</button>
+          <span><b>2</b> frosty ham, « Sick Noises » (les deux premieres toux) <small>0.83 s</small></span>
+        </label>
+      <label class="option">
+        <input type="radio" name="toux" value="aucun">
+        <span><b>Aucun</b> ne va, on cherche d'autres sources</span>
+      </label>
+      <input type="text" class="precision" placeholder="Precision ou autre reponse (facultatif)">
+    </section>
+    <section class="question" data-nom="lame">
+      <h2>lame</h2>
+      <p class="quand">Quand : le guerrier, le chevalier et l'assassin, a chaque coup. Juge-le repete : le jeu le jouera des dizaines de fois par journee.</p>
+      
+        <label class="option">
+          <input type="radio" name="lame" value="1">
+          <button type="button" class="jouer" data-src="lame-1.mp3" title="Ecouter">&#9654;</button>
+          <span><b>1</b> Kenney, knifeSlice <small>0.42 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="lame" value="2">
+          <button type="button" class="jouer" data-src="lame-2.mp3" title="Ecouter">&#9654;</button>
+          <span><b>2</b> StarNinjas, sword 4 <small>0.54 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="lame" value="3">
+          <button type="button" class="jouer" data-src="lame-3.mp3" title="Ecouter">&#9654;</button>
+          <span><b>3</b> remaxim, « sword sound » <small>0.54 s</small></span>
+        </label>
+      <label class="option">
+        <input type="radio" name="lame" value="aucun">
+        <span><b>Aucun</b> ne va, on cherche d'autres sources</span>
+      </label>
+      <input type="text" class="precision" placeholder="Precision ou autre reponse (facultatif)">
+    </section>
+    <section class="question" data-nom="tir">
+      <h2>tir</h2>
+      <p class="quand">Quand : le rodeur, a chaque volee. Juge-le repete : le jeu le jouera des dizaines de fois par journee.</p>
+      
+        <label class="option">
+          <input type="radio" name="tir" value="1">
+          <button type="button" class="jouer" data-src="tir-1.mp3" title="Ecouter">&#9654;</button>
+          <span><b>1</b> artisticdude, swish 3 <small>0.12 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="tir" value="2">
+          <button type="button" class="jouer" data-src="tir-2.mp3" title="Ecouter">&#9654;</button>
+          <span><b>2</b> artisticdude, swish 7 <small>0.18 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="tir" value="3">
+          <button type="button" class="jouer" data-src="tir-3.mp3" title="Ecouter">&#9654;</button>
+          <span><b>3</b> Kenney creak3 (la corde qui se tend) puis artisticdude swish 1 <small>0.37 s</small></span>
+        </label>
+      <label class="option">
+        <input type="radio" name="tir" value="aucun">
+        <span><b>Aucun</b> ne va, on cherche d'autres sources</span>
+      </label>
+      <input type="text" class="precision" placeholder="Precision ou autre reponse (facultatif)">
+    </section>
+    <section class="question" data-nom="sort">
+      <h2>sort</h2>
+      <p class="quand">Quand : le mage, l'oracle et le necromancien, a chaque incantation et a chaque coup. Juge-le repete : le jeu le jouera des dizaines de fois par journee.</p>
+      
+        <label class="option">
+          <input type="radio" name="sort" value="1">
+          <button type="button" class="jouer" data-src="sort-1.mp3" title="Ecouter">&#9654;</button>
+          <span><b>1</b> JaggedStone, magical 1 <small>1.29 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="sort" value="2">
+          <button type="button" class="jouer" data-src="sort-2.mp3" title="Ecouter">&#9654;</button>
+          <span><b>2</b> JaggedStone, magical 3 <small>1.30 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="sort" value="3">
+          <button type="button" class="jouer" data-src="sort-3.mp3" title="Ecouter">&#9654;</button>
+          <span><b>3</b> JaggedStone, magical 5 <small>1.30 s</small></span>
+        </label>
+      <label class="option">
+        <input type="radio" name="sort" value="aucun">
+        <span><b>Aucun</b> ne va, on cherche d'autres sources</span>
+      </label>
+      <input type="text" class="precision" placeholder="Precision ou autre reponse (facultatif)">
+    </section>
+    <section class="question" data-nom="morsure">
+      <h2>morsure</h2>
+      <p class="quand">Quand : un monstre qui attaque, a chaque coup. Juge-le repete : le jeu le jouera des dizaines de fois par journee.</p>
+      
+        <label class="option">
+          <input type="radio" name="morsure" value="1">
+          <button type="button" class="jouer" data-src="morsure-1.mp3" title="Ecouter">&#9654;</button>
+          <span><b>1</b> fvcalderan, « Crunchy bite » <small>0.29 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="morsure" value="2">
+          <button type="button" class="jouer" data-src="morsure-2.mp3" title="Ecouter">&#9654;</button>
+          <span><b>2</b> remaxim, « animal melee sound » <small>0.63 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="morsure" value="3">
+          <button type="button" class="jouer" data-src="morsure-3.mp3" title="Ecouter">&#9654;</button>
+          <span><b>3</b> Kenney, impactPunch heavy 001 <small>0.43 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="morsure" value="4">
+          <button type="button" class="jouer" data-src="morsure-4.mp3" title="Ecouter">&#9654;</button>
+          <span><b>4</b> Darsycho, un claquement de « Tiny vicious creature » <small>0.39 s</small></span>
+        </label>
+      <label class="option">
+        <input type="radio" name="morsure" value="aucun">
+        <span><b>Aucun</b> ne va, on cherche d'autres sources</span>
+      </label>
+      <input type="text" class="precision" placeholder="Precision ou autre reponse (facultatif)">
+    </section>
+    <section class="question" data-nom="chute">
+      <h2>chute</h2>
+      <p class="quand">Quand : un heros ou un monstre qui meurt, quand il touche le sol. Juge-le repete : le jeu le jouera des dizaines de fois par journee.</p>
+      
+        <label class="option">
+          <input type="radio" name="chute" value="1">
+          <button type="button" class="jouer" data-src="chute-1.mp3" title="Ecouter">&#9654;</button>
+          <span><b>1</b> Kenney, impactSoft heavy 000 avec cloth3 (le corps, puis l'etoffe) <small>0.53 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="chute" value="2">
+          <button type="button" class="jouer" data-src="chute-2.mp3" title="Ecouter">&#9654;</button>
+          <span><b>2</b> Kenney, dropLeather avec impactSoft heavy 002 <small>0.63 s</small></span>
+        </label>
+        <label class="option">
+          <input type="radio" name="chute" value="3">
+          <button type="button" class="jouer" data-src="chute-3.mp3" title="Ecouter">&#9654;</button>
+          <span><b>3</b> AntumDeluge, thwack 08 <small>0.70 s</small></span>
+        </label>
+      <label class="option">
+        <input type="radio" name="chute" value="aucun">
+        <span><b>Aucun</b> ne va, on cherche d'autres sources</span>
+      </label>
+      <input type="text" class="precision" placeholder="Precision ou autre reponse (facultatif)">
+    </section>
+</main>
+<div class="recap"><div><textarea id="recap" readonly></textarea><button type="button" class="copier" id="copier">Copier</button></div></div>
+<script>
+(() => {
+  const CLE = "protecteur:bruits:2026-09-20";
+  let etat = {};
+  try { etat = JSON.parse(localStorage.getItem(CLE) || "{}"); } catch (e) { etat = {}; }
+  let courant = null;
+  for (const b of document.querySelectorAll(".jouer")) {
+    b.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      if (courant) { courant.audio.pause(); courant.bouton.classList.remove("en-cours"); }
+      const audio = new Audio(b.dataset.src);
+      courant = { audio, bouton: b };
+      b.classList.add("en-cours");
+      audio.addEventListener("ended", () => b.classList.remove("en-cours"));
+      audio.play().catch(() => b.classList.remove("en-cours"));
+    });
+  }
+  const recap = document.getElementById("recap");
+  const ecrire = () => {
+    const lignes = [];
+    for (const q of document.querySelectorAll(".question")) {
+      const nom = q.dataset.nom;
+      const coche = q.querySelector("input[type=radio]:checked");
+      const precision = q.querySelector(".precision").value.trim();
+      if (coche || precision) lignes.push(nom + " " + (coche ? coche.value : "?") + (precision ? " (" + precision + ")" : ""));
+    }
+    recap.value = lignes.join(", ");
+    try { localStorage.setItem(CLE, JSON.stringify(etat)); } catch (e) {}
+  };
+  for (const q of document.querySelectorAll(".question")) {
+    const nom = q.dataset.nom;
+    const sauve = etat[nom] || {};
+    if (sauve.choix) { const r = q.querySelector('input[value="' + sauve.choix + '"]'); if (r) r.checked = true; }
+    if (sauve.precision) q.querySelector(".precision").value = sauve.precision;
+    q.addEventListener("change", () => {
+      const coche = q.querySelector("input[type=radio]:checked");
+      etat[nom] = { choix: coche ? coche.value : "", precision: q.querySelector(".precision").value };
+      ecrire();
+    });
+    q.querySelector(".precision").addEventListener("input", () => {
+      const coche = q.querySelector("input[type=radio]:checked");
+      etat[nom] = { choix: coche ? coche.value : "", precision: q.querySelector(".precision").value };
+      ecrire();
+    });
+  }
+  document.getElementById("copier").addEventListener("click", () => {
+    recap.select();
+    try { navigator.clipboard.writeText(recap.value); } catch (e) { document.execCommand("copy"); }
+  });
+  ecrire();
+})();
+</script>
+</body>
+</html>

@@ -1,5 +1,4 @@
-import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   aCrete,
@@ -24,6 +23,7 @@ import {
   type Son,
 } from "./dsp";
 import { chercherRaccord, preparerLaBoucle, type Raccord } from "./raccord";
+import { recupererLesSources as recuperer, type Source } from "./sources";
 import { cloche, grondement } from "./synthese";
 
 /**
@@ -65,20 +65,8 @@ const DATE = new Date().toISOString().slice(0, 10);
 const ECOUTE = resolve(`captures/son/${DATE}-musiques`);
 
 // ------------------------------------------------------------------ sources
-
-interface Source {
-  /** Le nom du fichier dans `.tmp/son/sources/`. */
-  fichier: string;
-  /** Ce qu'on telecharge : le fichier, ou l'archive qui le contient. */
-  url: string;
-  /** Le chemin du fichier dans l'archive, quand `url` est une archive. */
-  dansArchive?: string;
-  titre: string;
-  auteur: string;
-  licence: string;
-  page: string;
-  role: string;
-}
+// La forme d'une source et le telechargement vivent dans `sources.ts`, partages
+// avec les bruits de la partie (`bruits.ts`) depuis le 20 septembre 2026.
 
 const OGA = "https://opengameart.org/sites/default/files";
 
@@ -236,43 +224,10 @@ const MUSIQUES: Musique[] = [
   { nom: "calme-3-exploration", source: SOURCES.calme3, a: [82.5, 84.5], b: [161, 163], livree: false },
 ];
 
-const attendre = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Telecharge ce qui manque, poliment (`sources.ts`). */
+const recupererLesSources = () => recuperer(Object.values(SOURCES) as Source[], SOURCES_DIR);
 
-/** Telecharge ce qui manque, poliment : onze secondes entre deux requetes au meme site. */
-async function recupererLesSources(): Promise<void> {
-  mkdirSync(SOURCES_DIR, { recursive: true });
-  const derniere = new Map<string, number>();
-  const archives = new Map<string, string>();
-  for (const source of Object.values(SOURCES) as Source[]) {
-    const cible = `${SOURCES_DIR}/${source.fichier}`;
-    if (existsSync(cible)) continue;
-    let fichier = archives.get(source.url);
-    if (!fichier) {
-      const site = new URL(source.url).host;
-      const ecoule = Date.now() - (derniere.get(site) ?? 0);
-      if (ecoule < 11000) await attendre(11000 - ecoule);
-      console.log(`[son] telechargement : ${source.url}`);
-      const r = await fetch(source.url, {
-        headers: { "User-Agent": "le-protecteur-sons/1.0 (projet de jeu personnel, assets CC0)" },
-      });
-      derniere.set(site, Date.now());
-      if (!r.ok) throw new Error(`[son] ${r.status} sur ${source.url}`);
-      fichier = source.dansArchive ? `${SOURCES_DIR}/archive-${archives.size}.zip` : cible;
-      writeFileSync(fichier, Buffer.from(await r.arrayBuffer()));
-      if (source.dansArchive) archives.set(source.url, fichier);
-    }
-    if (source.dansArchive) {
-      // Le fichier sort de l'archive tel quel, dans son format d'origine.
-      const dossier = `${SOURCES_DIR}/archive-extraite`;
-      mkdirSync(dossier, { recursive: true });
-      const r = spawnSync("tar", ["-xf", fichier, "-C", dossier, source.dansArchive]);
-      if (r.status !== 0) throw new Error(`[son] archive illisible : ${fichier}\n${r.stderr}`);
-      copyFileSync(`${dossier}/${source.dansArchive}`, cible);
-    }
-  }
-}
-
-const src = (s: Source, debut = 0, longueur?: number) => lire(`${SOURCES_DIR}/${s.fichier}`, debut, longueur);
+const src =(s: Source, debut = 0, longueur?: number) => lire(`${SOURCES_DIR}/${s.fichier}`, debut, longueur);
 
 // ----------------------------------------------------------------- les sons
 

@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "sprites": "tsx scripts/blender/tout.ts",
     "intro": "tsx scripts/blender/intro.ts",
-    "son": "tsx scripts/son/intro.ts"
+    "son": "tsx scripts/son/intro.ts",
+    "bruits": "tsx scripts/son/bruits.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.2",
