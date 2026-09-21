@@ -64,7 +64,7 @@ const COULEURS_ETAT: Record<string, string> = {
  * pilote : une plaque opaque permanente y masquerait du terrain qu'on est en
  * train d'esquiver. Elle ne montre donc qu'une ligne courte, et « ? » la deplie.
  */
-const AIDE_COURTE = "ZQSD se deplacer  ·  ESPACE capacite  ·  clic DROIT ordonner";
+const AIDE_COURTE = "ZQSD se deplacer  ·  ESPACE capacite  ·  TAB commander";
 
 /** Depliee : deux colonnes de paires touche / action, en une seule plaque. */
 const AIDE_LONGUE: [string, string][][] = [
@@ -72,7 +72,8 @@ const AIDE_LONGUE: [string, string][][] = [
     ["ZQSD", "se deplacer (ou clic gauche)"],
     ["ESPACE 2 3", "capacites"],
     ["A / E", "changer de heros"],
-    ["clic DROIT", "ordonner"],
+    ["TAB", "commander : clic, ou glisse un cadre"],
+    ["clic DROIT", "ou ils vont"],
     ["W X C", "temporiser, agressif, repli"],
     ["V", "formation"],
     ["ECHAP", "rompez"],

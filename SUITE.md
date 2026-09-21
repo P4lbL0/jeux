@@ -1598,6 +1598,65 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le bloc 8, premier morceau — les ordres pour tous (21 septembre 2026)
+
+**Ce qui marchait avant.** Un héros se commandait à la souris (clic droit, `W`/`X`/`C`,
+`V`). Un habitant, lui, ne se commandait **que** depuis le tableau `F` : un clic faisait
+tourner sa posture, un clic droit son poste. Trois métiers sur sept — forgeron, charpentier,
+guetteur — existaient dans les données depuis le bloc 2 **sans qu'on puisse les donner à
+personne**, parce que le tableau ne savait cycler que les quatre postes de la carte.
+
+**Ce qui marche maintenant.** `Tab` prend le mode commandement ; dedans, le clic gauche
+sélectionne au lieu de déplacer, un cadre tiré prend héros et villageois mélangés, et le
+menu d'ordres s'ouvre collé à la personne. Douze lignes en quatre paquets.
+
+#### Le découpage
+
+- **`src/core/ordres.ts`** (+6 tests) : le catalogue `TACHES` — quinze entrées, leur paquet
+  (`travail` / `civil` / `combat` / `moi`), et pour qui elles valent (`civil`,
+  `combattant`, `tous`). `tachesPour()` rend l'union pour une sélection mélangée. C'est du
+  contenu, donc c'est testé et ça ne connaît pas Phaser.
+- **`src/game/menuOrdres.ts`** (neuf) : la liste verticale, dans le chrome de la maison
+  (plaque de fer, banderole sanglante, liseré d'accent). Ses quinze lignes sont fabriquées
+  **une fois**, écouteurs compris, et recyclées — rien n'est créé en cours de partie.
+- **`src/game/commandement.ts`** : la sélection devient mixte (un `Set<Hero>` et un
+  `Set<Villageois>`), plus `selectionnerDans()` pour le rectangle et `ancrerCivils()`.
+- **`src/game/village.ts`** : un `Villageois` porte enfin une `ancre` et un `suit`, comme un
+  héros. `tenirLePoint()` le conduit ; `changerMetier()` donne les trois métiers sans poste.
+- **`src/scenes/ArenaScene.ts`** : `Tab`, le rectangle, le menu, l'application des tâches.
+
+#### Trois pièges du navigateur, payés ici
+
+1. **`camera.scrollX` n'est pas le coin de la vue quand la caméra est zoomée.** `centerOn`
+   pose `scroll = centre − largeur/2`, **sans diviser par le zoom**. Viser un villageois par
+   `(monde − scrollX) × zoom` tombait à 600 px à côté, et le clic « ratait » sans rien dire.
+   Le coin visible, c'est **`worldView`** — recalculé au rendu suivant seulement (le piège du
+   5.6, encore lui). Écrire `(monde − worldView.x) × zoom`.
+2. **Les deux scènes reçoivent le même clic.** Choisir une ligne du menu (scène `ui`)
+   déclenchait aussi le clic « sur le vide » de l'arène juste derrière : le menu se refermait
+   et un rectangle partait. L'arène demande maintenant `ui.input.hitTestPointer(p)` avant de
+   traiter un clic en mode commandement.
+3. **`Rompez` ne libérait pas les habitants.** Il effaçait `ancre` mais pas `suit`, et
+   `suivreLesProteges()` reposait l'ancre à l'image suivante : la touche ne faisait
+   strictement rien. Invisible en test unitaire, trouvé en pilotant une vraie partie.
+
+#### Vérifié
+
+`node .tmp/verifier-ordres.mjs <graine>` pilote une partie complète et compte 22 contrôles :
+le mode se prend et se rend, un clic sélectionne, le menu montre ses douze lignes, « Aux
+champs » change bien le métier **et** le poste, « Tenir une tour » donne un métier sans
+poste, le cadre ramasse ce qu'il couvre, « Me suivre » colle les ancres sur le héros, et
+*Rompez* les libère. **22/22 sur les graines 0, 1 et 2** — le monde est tiré au sort à chaque
+lancement, donc trois passes.
+
+**709 tests verts** (+6). **À regarder** : `captures/jeu/2026-09-21-bloc8-ordres/`.
+
+#### La dette effacée au passage
+
+Le panneau ORDRES affichait « toute l'équipe (0) » depuis le 5.5, où l'on joue un seul héros.
+Il dit « personne » quand l'équipe IA est vide, et son compteur additionne les deux
+populations.
+
 ### Le jalon 5.6 — les trouvailles de la route (21 septembre 2026)
 
 **Le jalon 5.6 est fini**, dans l'ordre que le §4.31 imposait : les caches, le survivant, la

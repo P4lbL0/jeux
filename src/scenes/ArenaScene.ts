@@ -109,9 +109,12 @@ import {
   NOMS_POSTURE,
   REGLAGES,
   TOLERANCE_ANCRE,
+  tache as tacheDef,
   type Point,
   type Posture,
+  type TacheId,
 } from "../core/ordres";
+import { lignesDuMenu, type ContenuMenu } from "../game/menuOrdres";
 import { Affinites } from "../core/affinites";
 import {
   chargerLaGraine,
@@ -505,6 +508,23 @@ export class ArenaScene extends Phaser.Scene {
   /** Le poste de commandement : selection, ordres, formation (DESIGN.md §4.4) */
   commandement!: Commandement;
   private graphiquesOrdres!: Phaser.GameObjects.Graphics;
+  /**
+   * Le mode commandement (DESIGN.md §4.4, bloc 8, tranche par Angelos le 21
+   * septembre 2026).
+   *
+   * Tab le prend et le rend. Dedans, **le clic gauche ne deplace plus le
+   * heros** : il selectionne, il trace un rectangle, il ouvre le menu d'ordres.
+   * Tout le reste continue de tourner — le §4.4 interdit qu'un ordre arrete le
+   * combat.
+   *
+   * ⚠️ Un mode qu'on oublie est un mode qui pieger : il se voit donc sur toute
+   * la largeur de l'ecran (`PanneauOrdres`), et la moindre autre action le
+   * rend.
+   */
+  private modeCommandement = false;
+  /** Coin de depart du rectangle de selection, en coordonnees du monde */
+  private rectangleDepart: Phaser.Math.Vector2 | null = null;
+  private rectangleCourant: Phaser.Math.Vector2 | null = null;
   /** Experience de groupe : combattre ensemble rend plus fort (DESIGN.md §4.16) */
   affinites = new Affinites();
   private prochainTickAffinites = 0;
@@ -1091,12 +1111,15 @@ export class ArenaScene extends Phaser.Scene {
   get etatOrdres(): EtatOrdres {
     const vises = this.commandement?.destinataires(this.hero ?? null) ?? [];
     const postures = new Set(vises.map((h) => h.ordre.posture));
+    const civils = this.commandement?.civilsSelectionnes.length ?? 0;
     return {
       formation: this.commandement?.formation ?? "libre",
       // Une seule posture affichee quand toute la selection est d'accord :
       // annoncer « Agressif » alors que la moitie temporise serait un mensonge.
       posture: postures.size === 1 ? [...postures][0]! : null,
       nombreVises: vises.length,
+      nombreCivils: civils,
+      mode: this.modeCommandement,
       selectionExplicite: !(this.commandement?.selectionVide ?? true),
       message:
         this.time.now - (this.commandement?.dernierMessageA ?? 0) < 1600
@@ -1267,6 +1290,8 @@ export class ArenaScene extends Phaser.Scene {
     this.events.on("selectionner", this.selectionnerDepuisUi, this);
     this.events.on("posture-habitant", this.tournerPostureCivile, this);
     this.events.on("poste-habitant", this.tournerPosteCivil, this);
+    // Une ligne du menu d'ordres vient d'etre cliquee (§4.4, bloc 8).
+    this.events.on("tache", this.appliquerTache, this);
     this.events.on("saisie-clavier", (enCours: boolean) => (this.saisieEnCours = enCours), this);
     this.events.on("porte", this.repondreALaPorte, this);
     this.events.on("rencontre-reponse", this.repondreALaRencontre, this);
@@ -2909,6 +2934,14 @@ export class ArenaScene extends Phaser.Scene {
         this.ordonnerAncre(p);
         return;
       }
+      // Le mode commandement prend le clic gauche, et lui seul (§4.4, bloc 8) :
+      // on selectionne quelqu'un, ou on commence un rectangle. Le heros ne
+      // bouge plus a la souris tant qu'on y est — c'est le prix du mode, et
+      // c'est ce qui le rend lisible.
+      if (this.modeCommandement) {
+        this.cliquerEnCommandement(p);
+        return;
+      }
       // Une cache a portee, cliquee : on fouille au lieu de marcher (§4.31).
       // Elle passe avant `viser` et apres tout le reste — c'est le seul endroit
       // ou un clic gauche fait autre chose que deplacer, hors amenagement.
@@ -2918,8 +2951,20 @@ export class ArenaScene extends Phaser.Scene {
     });
     // Maintenir guide le heros ; le clic droit, lui, ne se maintient pas.
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
+      if (this.modeCommandement) {
+        if (this.rectangleDepart && p.isDown && !p.rightButtonDown()) {
+          const point = this.cameras.main.getWorldPoint(p.x, p.y);
+          this.rectangleCourant = new Phaser.Math.Vector2(point.x, point.y);
+        }
+        this.majSurvol(p);
+        return;
+      }
       if (p.isDown && !p.rightButtonDown() && !this.enConstruction) viser(p);
       this.majSurvol(p);
+    });
+
+    this.input.on("pointerup", (p: Phaser.Input.Pointer) => {
+      if (this.modeCommandement && this.rectangleDepart) this.fermerLeRectangle(p);
     });
   }
 
@@ -2934,20 +2979,240 @@ export class ArenaScene extends Phaser.Scene {
     const protege = this.alliePres(point.x, point.y);
     const incarne = this.hero ?? null;
 
-    const nombre = this.commandement.ancrer(
-      protege ? { x: protege.x, y: protege.y } : { x: point.x, y: point.y },
-      protege ?? null,
-      incarne,
-      this.sbires,
-    );
-    if (nombre === 0) return;
+    const ancre = protege ? { x: protege.x, y: protege.y } : { x: point.x, y: point.y };
+    // Rien de selectionne : l'ordre vaut pour toute l'equipe IA (§4.4). Ca
+    // n'a jamais valu pour les civils — trente habitants envoyes d'un clic
+    // distrait tenir un carrefour, c'est la production entiere qui s'arrete.
+    const nombre = this.commandement.ancrer(ancre, protege ?? null, incarne, this.sbires);
+    const civils = this.commandement.ancrerCivils(ancre, protege ?? null);
+    if (nombre + civils === 0) return;
 
     this.effetCercle(point.x, point.y, protege ? 34 : 22, protege ? 0x7ee0a0 : 0x5ec8f0);
     this.annoncer(
       protege
-        ? `${nombre} protege${nombre > 1 ? "nt" : ""} ${protege.personne.nom}`
-        : `${nombre} en route`,
+        ? `${nombre + civils} protege${nombre + civils > 1 ? "nt" : ""} ${protege.personne.nom}`
+        : `${nombre + civils} en route`,
     );
+  }
+
+  /**
+   * Tab prend et rend le mode commandement (DESIGN.md §4.4, bloc 8).
+   *
+   * Il ne met rien en pause : le §4.4 est formel, « le combat ne s'arrete
+   * jamais pour donner un ordre ». Ce qu'il change tient en une ligne — le clic
+   * gauche selectionne au lieu de deplacer.
+   */
+  private basculerCommandement(force?: boolean): void {
+    const veut = force ?? !this.modeCommandement;
+    if (veut === this.modeCommandement) return;
+    this.modeCommandement = veut;
+    this.rectangleDepart = null;
+    this.rectangleCourant = null;
+
+    if (!veut) {
+      this.events.emit("fermer-menu-ordres");
+      this.annoncer("");
+      return;
+    }
+    // Entrer dans le mode lache le heros sur place : sinon il continuerait de
+    // courir vers le dernier point clique pendant qu'on donne des ordres.
+    this.effacerDestination();
+    this.lacherLOutil();
+    this.annoncer("Clic : qui  ·  glisse un cadre  ·  clic droit : ou");
+  }
+
+  /**
+   * Le clic gauche en mode commandement.
+   *
+   * Sur quelqu'un : il entre dans la selection et son menu s'ouvre. Sur le
+   * vide : on commence un rectangle — c'est le geste que le §4.4 demande, celui
+   * qui prend « heros et villageois melanges ».
+   */
+  private cliquerEnCommandement(pointeur: Phaser.Input.Pointer): void {
+    // ⚠️ **Les deux scenes recoivent le meme clic.** Sans ce garde-fou,
+    // choisir « Aux champs » dans le menu declenchait aussi le clic « sur le
+    // vide » de l'arene juste derriere : le menu se refermait et un rectangle
+    // partait. Ca ne se voit pas a la compilation, seulement en cliquant.
+    if (this.souSLInterface(pointeur)) return;
+
+    const point = this.cameras.main.getWorldPoint(pointeur.x, pointeur.y);
+    const ajouter = pointeur.event.shiftKey;
+
+    const hero = this.alliePres(point.x, point.y);
+    const civil = hero ? null : this.villageoisPres(point.x, point.y);
+
+    if (hero || civil) {
+      if (!ajouter) this.commandement.effacer();
+      if (hero) this.commandement.basculer(hero);
+      else if (civil) this.commandement.basculerCivil(civil);
+      this.ouvrirLeMenu(pointeur.x, pointeur.y);
+      return;
+    }
+
+    // Le vide : on efface et on commence a tracer. Effacer tout de suite plutot
+    // qu'au relachement donne un retour immediat au clic qui rate.
+    this.events.emit("fermer-menu-ordres");
+    this.rectangleDepart = new Phaser.Math.Vector2(point.x, point.y);
+    this.rectangleCourant = new Phaser.Math.Vector2(point.x, point.y);
+  }
+
+  /** On relache : ce qui est dans le cadre est selectionne, et le menu s'ouvre. */
+  private fermerLeRectangle(pointeur: Phaser.Input.Pointer): void {
+    const depart = this.rectangleDepart;
+    const arrivee = this.rectangleCourant;
+    this.rectangleDepart = null;
+    this.rectangleCourant = null;
+    if (!depart || !arrivee) return;
+
+    const largeur = Math.abs(arrivee.x - depart.x);
+    const hauteur = Math.abs(arrivee.y - depart.y);
+    // Un cadre de trois pixels, c'est un clic qui a bouge : il efface, il ne
+    // selectionne pas.
+    if (largeur < 8 && hauteur < 8) {
+      this.commandement.effacer();
+      return;
+    }
+
+    const nombre = this.commandement.selectionnerDans(
+      { x: Math.min(depart.x, arrivee.x), y: Math.min(depart.y, arrivee.y), largeur, hauteur },
+      this.village.habitants,
+      this.hero ?? null,
+      pointeur.event.shiftKey,
+    );
+    if (nombre === 0) {
+      this.annoncer("Personne dans le cadre");
+      return;
+    }
+    this.ouvrirLeMenu(pointeur.x, pointeur.y);
+  }
+
+  /**
+   * Ce que le menu affiche, et ou.
+   *
+   * Il montre l'union des deux vocabulaires quand la selection est melangee, et
+   * eteint ce que tout le monde fait deja (§4.4).
+   */
+  private ouvrirLeMenu(x: number, y: number): void {
+    const heros = this.commandement.selectionnes;
+    const civils = this.commandement.civilsSelectionnes;
+    if (heros.length + civils.length === 0) {
+      this.events.emit("fermer-menu-ordres");
+      return;
+    }
+
+    const noms = [...heros.map((h) => h.personne.nom), ...civils.map((c) => c.nom)];
+    const titre = noms.length === 1 ? noms[0]! : `${noms.length} selectionnes`;
+    const sousTitre =
+      noms.length === 1
+        ? heros.length === 1
+          ? heros[0]!.classe.nom
+          : NOMS_METIER[civils[0]!.regles.metier]
+        : noms.slice(0, 3).join(", ") + (noms.length > 3 ? "..." : "");
+
+    const contenu: ContenuMenu = {
+      x,
+      y,
+      titre,
+      sousTitre,
+      lignes: lignesDuMenu(this.commandement.populations, (id) => this.dejaFait(id, heros, civils)),
+    };
+    this.events.emit("menu-ordres", contenu);
+  }
+
+  /** Vrai quand toute la selection fait deja ca : la ligne s'eteint. */
+  private dejaFait(id: TacheId, heros: Hero[], civils: Villageois[]): boolean {
+    const def = tacheDef(id);
+    if (!def) return false;
+    if (def.metier) {
+      const concernes = [...civils.map((c) => c.regles.metier)];
+      return concernes.length > 0 && concernes.every((m) => m === def.metier) && heros.length === 0;
+    }
+    if (def.postureCivile) {
+      return civils.length > 0 && civils.every((c) => c.regles.posture === def.postureCivile);
+    }
+    if (def.posture) {
+      return heros.length > 0 && heros.every((h) => h.ordre.posture === def.posture);
+    }
+    return false;
+  }
+
+  /**
+   * Le joueur a choisi une ligne du menu.
+   *
+   * ⚠️ **Chaque tache ne touche que ceux qui la comprennent.** Un rectangle
+   * melange prend des heros et des villageois ; « Prudent » ne veut rien dire
+   * pour un heros, « Agressif » rien pour un pecheur. Appliquer l'une a l'autre
+   * population serait la facon la plus sure de rendre le rectangle inutilisable.
+   */
+  private appliquerTache(id: TacheId): void {
+    const def = tacheDef(id);
+    if (!def) return;
+    const heros = this.commandement.selectionnes;
+    const civils = this.commandement.civilsSelectionnes;
+
+    if (def.metier) {
+      for (const civil of civils) this.village.changerMetier(civil, def.metier);
+      const touches = civils.length;
+      // Les heros au travail arrivent au morceau suivant du bloc 8 : la ligne
+      // est dans le menu, elle le dit au lieu de ne rien faire.
+      if (heros.length > 0 && touches === 0) {
+        this.annoncer("Un heros au travail : bientot");
+      } else {
+        this.annoncer(`${touches} · ${def.libelle.toLowerCase()}`);
+      }
+      this.events.emit("fermer-menu-ordres");
+      return;
+    }
+
+    if (def.postureCivile) {
+      for (const civil of civils) this.village.changerPosture(civil, def.postureCivile);
+      this.annoncer(`${civils.length} · ${NOMS_POSTURE_CIVILE[def.postureCivile]}`);
+      this.events.emit("fermer-menu-ordres");
+      return;
+    }
+
+    if (def.posture) {
+      if (heros.length > 0) this.ordonnerPosture(def.posture);
+      this.events.emit("fermer-menu-ordres");
+      return;
+    }
+
+    if (id === "suivre") {
+      const moi = this.hero ?? null;
+      if (!moi || !moi.estVivant) return;
+      let touches = 0;
+      if (heros.length > 0) {
+        touches += this.commandement.ancrer({ x: moi.x, y: moi.y }, moi, moi, this.sbires);
+      }
+      touches += this.commandement.ancrerCivils({ x: moi.x, y: moi.y }, moi);
+      this.annoncer(`${touches} avec moi`);
+      this.events.emit("fermer-menu-ordres");
+      return;
+    }
+
+    if (id === "rompez") this.rompre();
+  }
+
+  /** Y a-t-il un morceau d'interface sous le pointeur ? */
+  private souSLInterface(pointeur: Phaser.Input.Pointer): boolean {
+    const ui = this.scene.get("ui");
+    if (!ui?.input) return false;
+    return ui.input.hitTestPointer(pointeur).length > 0;
+  }
+
+  /** L'habitant le plus proche du clic, s'il est assez pres pour etre vise. */
+  private villageoisPres(x: number, y: number): Villageois | null {
+    let meilleur: Villageois | null = null;
+    let distance = 26;
+    for (const civil of this.village.habitants) {
+      if (!civil.regles.vivant || civil.etat === "abri") continue;
+      const d = Phaser.Math.Distance.Between(x, y, civil.x, civil.y);
+      if (d < distance) {
+        distance = d;
+        meilleur = civil;
+      }
+    }
+    return meilleur;
   }
 
   /** Le heros le plus proche du clic, s'il est assez pres pour etre vise. */
@@ -2976,7 +3241,11 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private rompre(): void {
-    this.commandement.rompre(this.sbires);
+    // Les habitants aussi : depuis le bloc 8, un villageois peut tenir un point
+    // — et un villageois oublie sur un carrefour ne produit plus rien de la
+    // partie. C'est exactement ce que *Rompez* existe pour eviter (§4.4).
+    this.commandement.rompre(this.sbires, this.village?.habitants ?? []);
+    this.events.emit("fermer-menu-ordres");
     this.annoncer("Rompez");
   }
 
@@ -3043,6 +3312,10 @@ export class ArenaScene extends Phaser.Scene {
       [K.X, () => this.ordonnerPosture("agressif")],
       [K.C, () => this.ordonnerPosture("repli")],
       [K.V, () => this.changerFormation()],
+      // Tab : le mode commandement (§4.4, bloc 8). Elle est seule de son
+      // espece — toutes les autres touches font quelque chose, celle-ci change
+      // ce que fait la souris.
+      [K.TAB, () => this.basculerCommandement()],
       [K.ESC, () => this.rompre()],
       // La cloche : une touche, tout le monde rentre. C'est l'outil de
       // l'urgence — quand une horde tombe, on n'a pas le temps de changer sept
@@ -3290,7 +3563,7 @@ export class ArenaScene extends Phaser.Scene {
    */
   private majCommandement(): void {
     const sbires = this.sbires;
-    this.commandement.suivreLesProteges(sbires);
+    this.commandement.suivreLesProteges(sbires, this.village?.habitants ?? []);
 
     const ancre = this.hero?.estVivant ? { x: this.hero.x, y: this.hero.y } : CITE;
     const menace = this.ennemiLePlusProche(ancre.x, ancre.y, 900);
@@ -3328,6 +3601,38 @@ export class ArenaScene extends Phaser.Scene {
       g.lineBetween(hero.x, hero.y, ancre.x, ancre.y);
       g.lineStyle(1, couleur, 0.7);
       g.strokeCircle(ancre.x, ancre.y, 7);
+    }
+
+    // Les habitants, meme marque et meme trait : le §4.4 ne veut qu'un seul
+    // vocabulaire a l'ecran comme dans le code (bloc 8).
+    for (const civil of this.village?.habitants ?? []) {
+      if (!civil.regles.vivant || civil.etat === "abri") continue;
+
+      if (this.commandement.estSelectionneCivil(civil)) {
+        g.lineStyle(1, 0x5ec8f0, 0.9);
+        g.strokeEllipse(civil.x, civil.y + 5, 16, 8);
+      }
+      const ancre = civil.ancre;
+      if (!ancre) continue;
+      const couleur = civil.suit ? 0x7ee0a0 : 0x5ec8f0;
+      g.lineStyle(1, couleur, 0.2);
+      g.lineBetween(civil.x, civil.y, ancre.x, ancre.y);
+      g.lineStyle(1, couleur, 0.6);
+      g.strokeCircle(ancre.x, ancre.y, 6);
+    }
+
+    // Le rectangle en cours de trace. Il vit ici et non dans l'interface : il
+    // se mesure en coordonnees du monde, donc il doit suivre la camera.
+    const depart = this.rectangleDepart;
+    const arrivee = this.rectangleCourant;
+    if (depart && arrivee) {
+      g.lineStyle(1, 0x5ec8f0, 0.85);
+      g.strokeRect(
+        Math.min(depart.x, arrivee.x),
+        Math.min(depart.y, arrivee.y),
+        Math.abs(arrivee.x - depart.x),
+        Math.abs(arrivee.y - depart.y),
+      );
     }
   }
 

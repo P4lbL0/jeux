@@ -6,6 +6,7 @@ import { ChoixCompetence } from "../game/choixCompetence";
 import { FichePersonne } from "../game/fichePersonne";
 import type { Arrivant } from "../core/arrivants";
 import { PanneauOrdres } from "../game/panneauOrdres";
+import { MenuOrdres, type ContenuMenu } from "../game/menuOrdres";
 import { PanneauVillage } from "../game/panneauVillage";
 import { PanneauPort } from "../game/panneauPort";
 import type { Hero } from "../game/entities";
@@ -37,6 +38,8 @@ export class UiScene extends Phaser.Scene {
   private choix!: ChoixCompetence;
   private fiche!: FichePersonne;
   private ordres!: PanneauOrdres;
+  /** Le menu d'ordres, colle a la personne cliquee (§4.4, bloc 8) */
+  private menu!: MenuOrdres;
   private village!: PanneauVillage;
   private port!: PanneauPort;
   private etat!: PanneauEtat;
@@ -72,6 +75,9 @@ export class UiScene extends Phaser.Scene {
       this.arene.events.emit("saisie-clavier", enCours),
     );
     this.ordres = new PanneauOrdres(this, 12, 12 + 62 + 10);
+    // Le menu ne decide rien : il rend l'identifiant de la ligne cliquee, et
+    // c'est l'arene qui sait ce qu'une tache fait au village (§4.4).
+    this.menu = new MenuOrdres(this, (id) => this.arene.events.emit("tache", id));
     this.village = new PanneauVillage(
       this,
       (index) => this.arene.events.emit("posture-habitant", index),
@@ -112,6 +118,8 @@ export class UiScene extends Phaser.Scene {
     evenements.on("arrivant", this.ouvrirLaPorte, this);
     evenements.on("rencontre", this.ouvrirLaRencontre, this);
     evenements.on("basculer-port", this.basculerPort, this);
+    evenements.on("menu-ordres", this.ouvrirLeMenu, this);
+    evenements.on("fermer-menu-ordres", this.fermerLeMenu, this);
     // Sans ce nettoyage, les ecouteurs s'empileraient a chaque nouvelle partie.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       evenements.off("choix", this.ouvrirChoix, this);
@@ -122,7 +130,17 @@ export class UiScene extends Phaser.Scene {
       evenements.off("rencontre", this.ouvrirLaRencontre, this);
       evenements.off("basculer-port", this.basculerPort, this);
       evenements.off("basculer-aide", this.basculerAide, this);
+      evenements.off("menu-ordres", this.ouvrirLeMenu, this);
+      evenements.off("fermer-menu-ordres", this.fermerLeMenu, this);
     });
+  }
+
+  private ouvrirLeMenu(contenu: ContenuMenu): void {
+    this.menu.afficher(contenu);
+  }
+
+  private fermerLeMenu(): void {
+    this.menu.fermer();
   }
 
   private basculerAide(): void {

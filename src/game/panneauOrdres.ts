@@ -23,6 +23,10 @@ export interface EtatOrdres {
   /** Null quand la selection n'est pas d'accord sur une meme posture */
   posture: Posture | null;
   nombreVises: number;
+  /** Les habitants selectionnes : la deuxieme population du §4.4 (bloc 8) */
+  nombreCivils: number;
+  /** Le mode commandement est-il pris ? Tab le prend et le rend (§4.4) */
+  mode: boolean;
   /** Le joueur a-t-il choisi des heros, ou l'ordre vaut-il pour tout le monde ? */
   selectionExplicite: boolean;
   /** Confirmation fugace du dernier ordre donne ; vide le reste du temps */
@@ -40,7 +44,7 @@ const COULEURS_POSTURE: Record<Posture, string> = {
   repli: T.osMat,
 };
 
-const LARGEUR = 232;
+const LARGEUR = 258;
 const HAUTEUR = 58;
 
 export class PanneauOrdres {
@@ -48,10 +52,13 @@ export class PanneauOrdres {
   private readonly cible: Phaser.GameObjects.Text;
   private readonly posture: Phaser.GameObjects.Text;
   private readonly message: Phaser.GameObjects.Text;
+  private readonly plaque: Plaque;
+  private accentue = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.fond = scene.add.graphics().setDepth(1002);
     const p: Plaque = { x, y, largeur: LARGEUR, hauteur: HAUTEUR };
+    this.plaque = p;
     cadre(this.fond, p);
 
     this.cible = texte(scene, x + 10, y + 8, 11, T.osMat).setDepth(1003);
@@ -60,18 +67,40 @@ export class PanneauOrdres {
   }
 
   rafraichir(etat: EtatOrdres): void {
+    const total = etat.nombreVises + etat.nombreCivils;
+    // ⚠️ **« toute l'equipe (0) » est mort ici.** Il s'affichait depuis le
+    // 5.5 — on joue un seul heros, l'equipe IA est vide, et le panneau
+    // annoncait fierement zero destinataire. Tant qu'on est seul, il dit ce
+    // qu'il faut faire : Tab, puis un clic.
     this.cible.setText(
       etat.selectionExplicite
-        ? `${espacer("ORDRES")}  ${etat.nombreVises} selectionne${etat.nombreVises > 1 ? "s" : ""}`
-        : `${espacer("ORDRES")}  toute l'equipe (${etat.nombreVises})`,
+        ? `${espacer("ORDRES")}  ${total} selectionne${total > 1 ? "s" : ""}`
+        : etat.nombreVises > 0
+          ? `${espacer("ORDRES")}  toute l'equipe (${etat.nombreVises})`
+          : `${espacer("ORDRES")}  personne`,
     );
     teindre(this.cible, etat.selectionExplicite ? T.os : T.osMat);
 
-    const posture = etat.posture ? NOMS_POSTURE[etat.posture] : "postures melangees";
-    this.posture.setText(`${posture}  ·  ${NOMS_FORMATION[etat.formation]}`);
-    teindre(this.posture, etat.posture ? COULEURS_POSTURE[etat.posture] : T.osMat);
+    // Le mode se dit **en laiton et en toutes lettres** : un mode qu'on oublie
+    // est un mode qui pieger, et celui-ci change ce que fait le clic gauche.
+    if (etat.mode) {
+      this.posture.setText("MODE ORDRES  ·  Tab pour sortir");
+      teindre(this.posture, T.laiton);
+    } else {
+      const posture = etat.posture ? NOMS_POSTURE[etat.posture] : "postures melangees";
+      this.posture.setText(`${posture}  ·  ${NOMS_FORMATION[etat.formation]}`);
+      teindre(this.posture, etat.posture ? COULEURS_POSTURE[etat.posture] : T.osMat);
+    }
 
     this.message.setText(etat.message);
+
+    // Le liseré de sang seche marque ce qui est actif (§4.10). La plaque n'est
+    // reprise qu'au changement de mode, jamais par image (§4.17, regle 5).
+    if (etat.mode !== this.accentue) {
+      this.accentue = etat.mode;
+      this.fond.clear();
+      cadre(this.fond, this.plaque, etat.mode);
+    }
   }
 
   detruire(): void {

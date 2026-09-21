@@ -41,7 +41,8 @@ import { ETATS, lireEtat, pireEtat } from "../core/etats";
 import { SEQUELLES, idTrait } from "../core/traits";
 import { ORDRE_RANGS } from "../core/classes";
 import { mortsRecents, satisfactionDuVillage } from "../core/satisfaction";
-import { calerCorps, ECHELLE_PERSONNAGE } from "./entities";
+import { calerCorps, ECHELLE_PERSONNAGE, type Hero } from "./entities";
+import { TOLERANCE_ANCRE } from "../core/ordres";
 import { assurerVillageois, plancheDe } from "./dessin/monde";
 import { animer, nouvellePose } from "./poses";
 
@@ -248,6 +249,19 @@ export class Villageois extends Phaser.Physics.Arcade.Sprite {
    * montrait sept (§4.29).
    */
   placeDeVie: Point | null = null;
+
+  /**
+   * Le point qu'on lui a demande de tenir (DESIGN.md §4.4, bloc 8).
+   *
+   * **C'est exactement l'ancre d'un heros**, et elle a le meme effet : tant
+   * qu'elle est posee, il ne retourne pas a son poste. Le §4.4 n'a qu'un seul
+   * objet `Ordre` pour les trois populations — un habitant n'avait simplement
+   * rien pour le porter jusqu'ici.
+   */
+  ancre: Point | null = null;
+
+  /** Le second cas de l'ancre : une entite a suivre, recopiee a chaque image. */
+  suit: Hero | null = null;
 
   /** Sa planche du moment : son metier, et l'etat de son corps (voir `poses.ts`) */
   familleSprite: string;
@@ -631,8 +645,35 @@ export class Village {
   changerPoste(villageois: Villageois, poste: PosteTravail): void {
     villageois.poste = poste;
     villageois.regles.metier = poste.metier;
+    // Un ordre de travail annule le point qu'on lui tenait de tenir : sinon
+    // l'envoyer a la mine ne ferait rien, et le joueur croirait a un bug.
+    villageois.ancre = null;
+    villageois.suit = null;
     villageois.rhabiller();
     this.contexte.annoncer(`${villageois.nom} part ${poste.nom.toLowerCase()}`);
+  }
+
+  /**
+   * Lui donner un metier, poste ou pas (DESIGN.md §4.4, bloc 8).
+   *
+   * Quatre metiers sur sept ont un poste sur la carte ; le forgeron, le
+   * charpentier et le guetteur travaillent au village. Ils existaient dans les
+   * donnees depuis le bloc 2 **sans qu'on puisse les donner a personne** — le
+   * tableau ne savait que faire tourner les postes. C'est cette porte-la que
+   * le menu d'ordres ouvre.
+   */
+  changerMetier(villageois: Villageois, metier: Metier): void {
+    const poste = posteDe(metier);
+    if (poste) {
+      this.changerPoste(villageois, poste);
+      return;
+    }
+    villageois.poste = null;
+    villageois.regles.metier = metier;
+    villageois.ancre = null;
+    villageois.suit = null;
+    villageois.rhabiller();
+    this.contexte.annoncer(`${villageois.nom} passe ${NOMS_METIER[metier].toLowerCase()}`);
   }
 
   /** Combien d'habitants sont en ce moment **dans** l'eglise (§4.22). */
@@ -1018,6 +1059,15 @@ export class Village {
       return;
     }
 
+    // Un point qu'on lui a demande de tenir passe avant son poste (§4.4) — mais
+    // **apres** la cloche et la fuite : un ordre du joueur ne doit jamais
+    // pouvoir tuer quelqu'un qui aurait eu le temps de rentrer. C'est la meme
+    // regle que « aucune posture ne passe outre les 20 % » cote heros.
+    if (villageois.ancre) {
+      this.tenirLePoint(villageois, villageois.ancre);
+      return;
+    }
+
     // ⚠️ **Sans poste, il ne se terre plus dans l'eglise** (§4.29). C'etait la
     // regle d'avant — « pas de poste, donc confine » —, et elle etait juste
     // tant qu'on commencait a trois, tous les trois postes tenus. Depuis qu'un
@@ -1062,6 +1112,26 @@ export class Village {
     villageois.etat = "en-route";
     villageois.setVelocity(0, 0);
     villageois.setPosition(chezSoi.x, chezSoi.y);
+  }
+
+  /**
+   * Il tient le point qu'on lui a donne (DESIGN.md §4.4, bloc 8).
+   *
+   * Il n'y produit rien : ce n'est pas un poste, c'est une presence — trois
+   * villageois au guet sur un carrefour, ou une escorte qui nous suit. La
+   * tolerance est celle des heros (`TOLERANCE_ANCRE`), sans quoi vingt
+   * habitants se pousseraient au meme pixel sans jamais arriver.
+   */
+  private tenirLePoint(villageois: Villageois, ancre: Point): void {
+    this.sortirDeLEglise(villageois);
+    const distance = Phaser.Math.Distance.Between(villageois.x, villageois.y, ancre.x, ancre.y);
+    villageois.etat = "en-route";
+
+    if (distance > TOLERANCE_ANCRE) {
+      this.avancerVers(villageois, ancre.x, ancre.y, REGLAGES_VILLAGE.vitesseTravail);
+      return;
+    }
+    villageois.setVelocity(0, 0);
   }
 
   /** Un monstre est litteralement sur lui : meme un tetu s'en va. */

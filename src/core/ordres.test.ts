@@ -7,6 +7,10 @@ import {
   REGLAGES,
   FORMATIONS,
   POSTURES,
+  tache,
+  tachesPour,
+  metierDe,
+  TACHES,
   type Point,
 } from "./ordres";
 
@@ -146,5 +150,64 @@ describe("Ordres — les roles", () => {
     expect(roles).toHaveLength(ORDRE_CLASSES.length);
     expect(roles).toContain("avant");
     expect(roles).toContain("arriere");
+  });
+});
+
+describe("le menu d'ordres (bloc 8)", () => {
+  it("un civil ne voit pas les postures de combat, un combattant pas les civiles", () => {
+    const civil = tachesPour(["civil"]).map((t) => t.id);
+    expect(civil).toContain("civil-prudent");
+    expect(civil).not.toContain("posture-agressif");
+
+    const combattant = tachesPour(["combattant"]).map((t) => t.id);
+    expect(combattant).toContain("posture-agressif");
+    expect(combattant).not.toContain("civil-prudent");
+  });
+
+  it("une selection melangee voit l'union des deux vocabulaires", () => {
+    const melange = tachesPour(["civil", "combattant"]).map((t) => t.id);
+    expect(melange).toContain("civil-prudent");
+    expect(melange).toContain("posture-agressif");
+    // Le travail et « me suivre » valent pour les deux populations : ils ne
+    // doivent apparaitre qu'une fois, pas deux.
+    expect(melange.filter((id) => id === "poste-mineur")).toHaveLength(1);
+    expect(melange.filter((id) => id === "suivre")).toHaveLength(1);
+  });
+
+  it("les sept metiers sont proposes, y compris les trois sans poste sur la carte", () => {
+    const metiers = TACHES.filter((t) => t.groupe === "travail").map((t) => t.metier);
+    // Le forgeron, le charpentier et le guetteur existaient dans les donnees
+    // depuis le bloc 2 sans qu'on puisse les donner a personne.
+    expect(metiers).toEqual([
+      "pecheur",
+      "bucheron",
+      "mineur",
+      "fermier",
+      "forgeron",
+      "charpentier",
+      "guetteur",
+    ]);
+  });
+
+  it("rien de selectionne ne propose rien", () => {
+    expect(tachesPour([])).toHaveLength(0);
+  });
+
+  it("chaque identifiant se retrouve, et une seule fois", () => {
+    const ids = TACHES.map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const id of ids) expect(tache(id)?.id).toBe(id);
+    expect(tache("poste-mineur")?.metier).toBe("mineur");
+    expect(metierDe("poste-pecheur")).toBe("pecheur");
+    expect(metierDe("suivre")).toBeNull();
+  });
+
+  it("les groupes se suivent sans jamais revenir en arriere", () => {
+    // Le menu insere un filet a chaque changement de groupe : si un groupe
+    // reapparaissait plus bas, il afficherait deux fois la meme entete.
+    const ordre = ["travail", "civil", "combat", "moi"];
+    const vus: string[] = [];
+    for (const t of TACHES) if (vus.at(-1) !== t.groupe) vus.push(t.groupe);
+    expect(vus).toEqual(ordre);
   });
 });

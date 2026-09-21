@@ -1,4 +1,5 @@
 import type { Role } from "./classes";
+import { NOMS_METIER, type Metier, type PostureCivile } from "./habitants";
 
 /**
  * Les ordres du joueur a ses subordonnes (DESIGN.md §4.4).
@@ -169,4 +170,135 @@ function orientation(ancre: Point, menace: Point | null): Point {
   const dy = menace.y - ancre.y;
   const l = Math.hypot(dx, dy);
   return l === 0 ? { x: 0, y: 1 } : { x: dx / l, y: dy / l };
+}
+
+// --------------------------------------------------- le menu d'ordres (§4.4)
+
+/**
+ * Les deux populations qui obeissent (DESIGN.md §4.4).
+ *
+ * **Rien ne distingue plus un heros d'un habitant du point de vue des ordres**
+ * — seulement de ce qu'il sait faire. C'est tout ce que ce type dit : quelles
+ * lignes du menu ont un sens pour celui qu'on a selectionne. Le commandement,
+ * lui, n'en connait qu'une seule liste.
+ */
+export type Population = "civil" | "combattant";
+
+/**
+ * Ce qu'on peut demander a quelqu'un.
+ *
+ * ⚠️ **Le menu montre tout**, meme ce qui ne sert pas maintenant : c'est la
+ * raison pour laquelle le §4.4 a ecarte le clic droit contextuel. Avec une
+ * quinzaine de taches et d'autres qui s'ajoutent a chaque jalon, deviner ce
+ * qu'une cible declenche est un pari qu'on perd.
+ */
+export type TacheId =
+  | `poste-${Metier}`
+  | "civil-travail"
+  | "civil-prudent"
+  | "civil-abri"
+  | "posture-temporiser"
+  | "posture-agressif"
+  | "posture-repli"
+  | "suivre"
+  | "rompez";
+
+/** Les quatre paquets du menu, dans l'ordre ou ils s'affichent. */
+export type GroupeTache = "travail" | "civil" | "combat" | "moi";
+
+export interface TacheDef {
+  id: TacheId;
+  libelle: string;
+  groupe: GroupeTache;
+  /** A qui elle s'adresse ; `tous` quand les deux populations la comprennent */
+  pour: Population | "tous";
+  /** Le metier vise, pour une tache de travail */
+  metier?: Metier;
+  /** La posture visee, quand c'en est une */
+  posture?: Posture;
+  postureCivile?: PostureCivile;
+}
+
+/**
+ * Ce qu'un metier donne comme ligne de menu.
+ *
+ * Le libelle dit **ce qu'il va faire**, pas le nom du metier : « Couper du
+ * bois » se comprend d'un coup d'oeil la ou « Bucheron » demande de traduire.
+ */
+const LIBELLE_TRAVAIL: Record<Metier, string> = {
+  pecheur: "Aller pecher",
+  bucheron: "Couper du bois",
+  mineur: "A la mine",
+  fermier: "Aux champs",
+  forgeron: "A la forge",
+  charpentier: "A l'atelier",
+  guetteur: "Tenir une tour",
+};
+
+const METIERS_DU_MENU: Metier[] = [
+  "pecheur",
+  "bucheron",
+  "mineur",
+  "fermier",
+  "forgeron",
+  "charpentier",
+  "guetteur",
+];
+
+/**
+ * Le catalogue complet, dans l'ordre du menu.
+ *
+ * **Le travail passe en premier** : c'est ce qu'on vient demander neuf fois sur
+ * dix. Les conduites viennent ensuite — ce sont des reglages, pas des ordres —
+ * et « me suivre » ferme la liste parce que c'est le seul qui deplace vraiment
+ * quelqu'un.
+ */
+export const TACHES: TacheDef[] = [
+  ...METIERS_DU_MENU.map<TacheDef>((metier) => ({
+    id: `poste-${metier}` as TacheId,
+    libelle: LIBELLE_TRAVAIL[metier],
+    groupe: "travail",
+    // Un heros affecte a un poste produit beaucoup plus vite qu'un habitant,
+    // seulement le jour, et ca le fatigue (§4.4).
+    pour: "tous",
+    metier,
+  })),
+  { id: "civil-travail", libelle: "Au travail", groupe: "civil", pour: "civil", postureCivile: "travail" },
+  { id: "civil-prudent", libelle: "Prudent", groupe: "civil", pour: "civil", postureCivile: "prudent" },
+  { id: "civil-abri", libelle: "A l'abri", groupe: "civil", pour: "civil", postureCivile: "abri" },
+  { id: "posture-temporiser", libelle: "Temporiser", groupe: "combat", pour: "combattant", posture: "temporiser" },
+  { id: "posture-agressif", libelle: "Agressif", groupe: "combat", pour: "combattant", posture: "agressif" },
+  { id: "posture-repli", libelle: "Repli", groupe: "combat", pour: "combattant", posture: "repli" },
+  { id: "suivre", libelle: "Me suivre", groupe: "moi", pour: "tous" },
+  { id: "rompez", libelle: "Rompez", groupe: "moi", pour: "tous" },
+];
+
+const PAR_ID = new Map(TACHES.map((t) => [t.id, t]));
+
+export function tache(id: TacheId): TacheDef | null {
+  return PAR_ID.get(id) ?? null;
+}
+
+/**
+ * Ce que le menu affiche pour une selection donnee.
+ *
+ * Une selection **melangee** — un rectangle prend les heros et les villageois
+ * ensemble (§4.4) — voit l'union des deux vocabulaires, et chaque ligne ne
+ * s'applique qu'a ceux qui la comprennent. Cacher ce qui ne vaut que pour la
+ * moitie de la selection obligerait a selectionner deux fois.
+ */
+export function tachesPour(populations: Iterable<Population>): TacheDef[] {
+  const presentes = new Set(populations);
+  if (presentes.size === 0) return [];
+  return TACHES.filter((t) => t.pour === "tous" || presentes.has(t.pour));
+}
+
+/** Le nom du metier derriere une tache de travail, pour les annonces. */
+export function metierDe(id: TacheId): Metier | null {
+  return PAR_ID.get(id)?.metier ?? null;
+}
+
+/** « Bucheron », pour le journal — le menu, lui, dit ce qu'on va faire. */
+export function nomDuMetier(metier: Metier): string {
+  return NOMS_METIER[metier];
 }

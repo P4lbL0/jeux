@@ -5,9 +5,11 @@ import {
   type Formation,
   type Ordre,
   type Point,
+  type Population,
   type Posture,
 } from "../core/ordres";
 import type { Hero, Invocation } from "./entities";
+import type { Villageois } from "./village";
 
 /** Ce que doit offrir tout ce qui obeit : un heros IA comme un mort-vivant. */
 interface Commande {
@@ -25,6 +27,11 @@ interface Commande {
  *
  * Une seule et meme selection commande les heros IA et les mort-vivants : c'est
  * la regle du §4.14, un seul systeme pour les deux.
+ *
+ * ⚠️ **Depuis le bloc 8, elle commande aussi les habitants** (§4.4) : un
+ * rectangle prend les deux populations melangees, et le menu d'ordres montre
+ * l'union de leurs vocabulaires. Deux selections separees auraient voulu dire
+ * deux fois ce fichier, pour un geste que le joueur, lui, fait d'un seul coup.
  */
 export class Commandement {
   formation: Formation = "libre";
@@ -33,6 +40,7 @@ export class Commandement {
   dernierMessageA = 0;
 
   private selection = new Set<Hero>();
+  private civils = new Set<Villageois>();
 
   constructor(private heros: Hero[]) {}
 
@@ -42,18 +50,85 @@ export class Commandement {
     return this.heros.filter((h) => this.selection.has(h) && h.estVivant);
   }
 
+  /** Les habitants selectionnes, les morts oublies en chemin. */
+  get civilsSelectionnes(): Villageois[] {
+    for (const civil of this.civils) if (!civil.regles.vivant) this.civils.delete(civil);
+    return [...this.civils];
+  }
+
   estSelectionne(hero: Hero): boolean {
     return this.selection.has(hero);
   }
 
+  estSelectionneCivil(villageois: Villageois): boolean {
+    return this.civils.has(villageois);
+  }
+
   get selectionVide(): boolean {
-    return this.selectionnes.length === 0;
+    return this.selectionnes.length === 0 && this.civilsSelectionnes.length === 0;
+  }
+
+  /** Combien de tetes en tout, les deux populations confondues. */
+  get nombreSelectionne(): number {
+    return this.selectionnes.length + this.civilsSelectionnes.length;
+  }
+
+  /**
+   * Quelles populations sont dans la selection — donc quelles lignes du menu
+   * ont un sens (§4.4).
+   */
+  get populations(): Population[] {
+    const presentes: Population[] = [];
+    if (this.selectionnes.length > 0) presentes.push("combattant");
+    if (this.civilsSelectionnes.length > 0) presentes.push("civil");
+    return presentes;
   }
 
   basculer(hero: Hero): void {
     if (!hero.estVivant) return;
     if (this.selection.has(hero)) this.selection.delete(hero);
     else this.selection.add(hero);
+  }
+
+  basculerCivil(villageois: Villageois): void {
+    if (!villageois.regles.vivant) return;
+    if (this.civils.has(villageois)) this.civils.delete(villageois);
+    else this.civils.add(villageois);
+  }
+
+  /**
+   * Le rectangle de selection : il prend heros et villageois **melanges**
+   * (§4.4).
+   *
+   * Il **remplace** la selection au lieu de s'y ajouter : on trace un cadre
+   * pour dire « ceux-la », pas « ceux-la en plus des precedents ». Maj le rend
+   * additif, comme partout ailleurs.
+   */
+  selectionnerDans(
+    rectangle: { x: number; y: number; largeur: number; hauteur: number },
+    civils: Villageois[],
+    incarne: Hero | null,
+    ajouter = false,
+  ): number {
+    if (!ajouter) {
+      this.selection.clear();
+      this.civils.clear();
+    }
+    const dedans = (x: number, y: number) =>
+      x >= rectangle.x &&
+      x <= rectangle.x + rectangle.largeur &&
+      y >= rectangle.y &&
+      y <= rectangle.y + rectangle.hauteur;
+
+    for (const hero of this.heros) {
+      if (!hero.estVivant || hero === incarne) continue;
+      if (dedans(hero.x, hero.y)) this.selection.add(hero);
+    }
+    for (const civil of civils) {
+      if (!civil.regles.vivant) continue;
+      if (dedans(civil.x, civil.y)) this.civils.add(civil);
+    }
+    return this.nombreSelectionne;
   }
 
   /** Tous les heros d'une meme classe d'un coup — on peut en avoir plusieurs. */
@@ -70,19 +145,33 @@ export class Commandement {
 
   effacer(): void {
     this.selection.clear();
+    this.civils.clear();
   }
 
   /**
    * « Rompez » : plus de selection, plus de position tenue a la main. Tout le
    * monde rejoint la formation. Sans cette touche, un heros envoye tenir un
    * carrefour y resterait pour le restant de la partie (DESIGN.md §4.4).
+   *
+   * @param civils tous les habitants du village : eux aussi peuvent tenir un
+   *        point depuis le bloc 8, et un villageois oublie sur un carrefour ne
+   *        produirait plus rien de la partie.
    */
-  rompre(sbires: Invocation[]): void {
+  rompre(sbires: Invocation[], civils: Villageois[] = []): void {
     this.selection.clear();
+    this.civils.clear();
     const commandes: Commande[] = [...this.heros, ...sbires];
     for (const commande of commandes) {
       commande.protege = null;
       commande.ordre.ancre = null;
+    }
+    // ⚠️ **`suit` d'abord, `ancre` ensuite.** Effacer la seule ancre ne suffit
+    // pas : `suivreLesProteges` la repose a l'image suivante a partir de
+    // `suit`, et *Rompez* ne faisait donc rien du tout. Vu en jouant, invisible
+    // en test unitaire.
+    for (const civil of civils) {
+      civil.suit = null;
+      civil.ancre = null;
     }
   }
 
@@ -95,6 +184,35 @@ export class Commandement {
     const selection = this.selectionnes;
     const base = selection.length > 0 ? selection : this.heros;
     return base.filter((h) => h.estVivant && h !== incarne);
+  }
+
+  /**
+   * Les civils vises.
+   *
+   * ⚠️ **Rien de selectionne ne veut pas dire « tout le village ».** Pour les
+   * heros, l'ordre par defaut vaut pour l'equipe entiere — ils sont sept au
+   * plus et ils font tous la meme chose. Trente habitants, non : envoyer tout
+   * le village a la mine d'un clic distrait viderait la peche, les champs et
+   * les tours d'un coup, sans rien pour revenir en arriere.
+   */
+  destinatairesCivils(): Villageois[] {
+    return this.civilsSelectionnes;
+  }
+
+  /**
+   * Les civils selectionnes vont tenir ce point (§4.4).
+   *
+   * C'est la meme ancre que pour un heros, et elle a le meme effet : tant
+   * qu'elle est posee, il ne retourne pas a son poste. `suit` est le second cas
+   * de l'ancre — une entite a suivre, recopiee a chaque image.
+   */
+  ancrerCivils(point: Point | null, suit: Hero | null): number {
+    const cibles = this.destinatairesCivils();
+    for (const civil of cibles) {
+      civil.suit = suit;
+      civil.ancre = point ? { x: point.x, y: point.y } : null;
+    }
+    return cibles.length;
   }
 
   // ----------------------------------------------------------------- ordres
@@ -176,7 +294,25 @@ export class Commandement {
    * Les ancres posees sur un allie le suivent. Recalculer ici plutot que dans
    * l'IA garde `core/` a l'ecart des objets de la scene.
    */
-  suivreLesProteges(sbires: Invocation[]): void {
+  suivreLesProteges(sbires: Invocation[], civils: Villageois[] = []): void {
+    for (const civil of civils) {
+      const suit = civil.suit;
+      if (!suit) continue;
+      if (!suit.estVivant || !civil.regles.vivant) {
+        civil.suit = null;
+        civil.ancre = null;
+        continue;
+      }
+      // On deplace l'ancre au lieu d'en fabriquer une : c'est un calcul par
+      // habitant et par image, et un village en compte jusqu'a soixante.
+      if (civil.ancre) {
+        civil.ancre.x = suit.x;
+        civil.ancre.y = suit.y;
+      } else {
+        civil.ancre = { x: suit.x, y: suit.y };
+      }
+    }
+
     const commandes: Commande[] = [...this.heros, ...sbires];
     for (const commande of commandes) {
       const protege = commande.protege;
