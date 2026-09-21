@@ -162,7 +162,7 @@ export class UiScene extends Phaser.Scene {
   private ouvrirLaPorte(
     arrivant: Arrivant,
     etatAnnonce?: string,
-    lieu: "porte" | "sauvetage" = "porte",
+    lieu: "porte" | "sauvetage" | "route" = "porte",
   ): void {
     this.fiche.afficher({
       genre: "arrivant",

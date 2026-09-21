@@ -82,6 +82,11 @@ export class Caches {
     return this.posees.length;
   }
 
+  /** Ou elles sont, pour que rien d'autre ne vienne se poser dessus (§4.31). */
+  get places(): { x: number; y: number }[] {
+    return this.posees.map((c) => c.regles.point);
+  }
+
   /**
    * Pose les caches d'un monde.
    *

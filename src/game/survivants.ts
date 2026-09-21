@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { EGLISE, VILLAGE } from "../core/carte";
+import { VILLAGE } from "../core/carte";
 import {
   REGLAGES_SURVIVANTS,
   tirerLaMeute,
@@ -89,27 +89,47 @@ export interface ContexteSurvivants {
   presenter: (survivant: SpriteSurvivant) => void;
   /** Il est mort en chemin : demi-tarif sur la rumeur (§4.18) */
   noterUneMortEnChemin: () => void;
+  /**
+   * Combien peuvent suivre a la fois : **un** en partie installee (§4.18),
+   * **trois** sur la route (§4.31).
+   */
+  plafond: () => number;
+  /**
+   * Ou il faut le mener pour que la fiche se rejoue, ou `null` sur la route.
+   *
+   * ⚠️ **Sur la route il n'y a pas d'eglise ou le deposer**, et c'est toute la
+   * difference entre les deux moments du meme bloc. On le juge donc **au
+   * contact** — la ou on l'a trouve —, et une fois accepte il marche avec nous
+   * jusqu'a ce qu'on s'installe.
+   */
+  refuge: () => { x: number; y: number } | null;
 }
 
 /**
- * La troupe : au plus un survivant a la fois.
+ * La troupe : **un** survivant en partie installee, **trois** sur la route.
  *
- * **Un seul**, et ce n'est pas une limite technique. Deux appels en meme temps
- * demanderaient de choisir lequel sauver, ce qui est une bonne idee — et une
- * autre idee. Le §4.18 n'en decrit qu'un, et le §4.17 regle 1 veut que tout ce
- * qui parait ait un plafond.
+ * Le plafond de un n'a jamais ete une limite technique : deux appels en meme
+ * temps demanderaient de choisir lequel sauver, ce qui est une bonne idee — et
+ * une autre idee. Le §4.18 n'en decrit qu'un.
+ *
+ * ⚠️ **La route en demande plusieurs, et c'est une autre situation** (§4.31,
+ * 21 septembre 2026). On ne choisit pas entre deux appels simultanes : on
+ * traverse sept mondes a la file, et chacun peut porter quelqu'un. Les laisser
+ * derriere parce qu'on en a deja un serait punir le detour au lieu de le
+ * recompenser. Le plafond reste — c'est la regle 1 du §4.17 — mais il est
+ * decide par l'appelant, qui seul sait ou l'on en est.
  */
 export class Survivants {
-  private courant: SpriteSurvivant | null = null;
+  private troupe: SpriteSurvivant[] = [];
 
   /**
    * Le groupe physique, **cree une fois et jamais vide de sens**.
    *
-   * Il n'y a au plus qu'un survivant, et il n'existe pas la plupart du temps :
-   * le groupe existe pour que l'arene puisse poser **un seul** recouvrement au
-   * demarrage, au lieu d'en ajouter et d'en retirer un a chaque apparition. Un
-   * collider pose et depose en cours de partie est exactement le genre de chose
-   * que le §4.17 regle 4 refuse.
+   * Il y a au plus trois survivants, et aucun la plupart du temps : le groupe
+   * existe pour que l'arene puisse poser **un seul** recouvrement au demarrage,
+   * au lieu d'en ajouter et d'en retirer un a chaque apparition. Un collider
+   * pose et depose en cours de partie est exactement le genre de chose que le
+   * §4.17 regle 4 refuse.
    */
   readonly groupe: Phaser.Physics.Arcade.Group;
 
@@ -120,15 +140,32 @@ export class Survivants {
     this.groupe = scene.physics.add.group();
   }
 
+  /** Le premier de la troupe, pour tout ce qui n'en connait qu'un (§4.18). */
   get present(): SpriteSurvivant | null {
-    return this.courant;
+    return this.troupe[0] ?? null;
   }
 
-  /** Quelqu'un parait au bord, et la discussion le dit une fois. */
-  faireParaitre(regles: Survivant, ligne: string): void {
-    if (this.courant !== null) return;
-    this.courant = new SpriteSurvivant(this.scene, regles);
-    this.groupe.add(this.courant);
+  /** Tous ceux qui sont la, vivants ou non : c'est ce qui traverse les mondes. */
+  get tous(): readonly SpriteSurvivant[] {
+    return this.troupe;
+  }
+
+  /** Ceux qui nous suivent vraiment — ceux-la deviendront des habitants (§4.31). */
+  get suiveurs(): SpriteSurvivant[] {
+    return this.troupe.filter((s) => s.vivant && s.etat === "suit");
+  }
+
+  /** Quelqu'un parait, et la discussion le dit une fois. */
+  faireParaitre(regles: Survivant, ligne: string, deja: "attend" | "suit" = "attend"): void {
+    if (this.troupe.length >= this.contexte.plafond()) return;
+    const sprite = new SpriteSurvivant(this.scene, regles);
+    // Celui qui traverse un monde avec nous ne se redecouvre pas : il marche
+    // deja derriere, et on ne rejoue ni sa meute ni sa fiche (§4.31).
+    sprite.etat = deja;
+    if (deja === "suit") sprite.vu = true;
+    this.troupe.push(sprite);
+    this.groupe.add(sprite);
+    if (ligne === "") return;
     // ⚠️ **Pas la voix du guet.** Elle est en sang frais, et le §4.10 la
     // reserve a ce qui peut tuer. Un appel au loin n'a encore tue personne ;
     // trois lignes rouges d'affilee videraient la couleur de son sens.
@@ -144,10 +181,11 @@ export class Survivants {
    * arbitraire au milieu d'un trajet qu'on est en train de faire.
    */
   auCrepuscule(): void {
-    if (this.courant === null) return;
-    if (this.courant.etat !== "attend") return;
-    this.contexte.annoncer("Plus personne n'appelle. Il n'a pas attendu la nuit", "village");
-    this.retirer();
+    for (const sprite of [...this.troupe]) {
+      if (sprite.etat !== "attend") continue;
+      this.contexte.annoncer("Plus personne n'appelle. Il n'a pas attendu la nuit", "village");
+      this.retirer(sprite);
+    }
   }
 
   /** Il a pris un coup. Il n'encaisse presque rien : il ne se defend pas. */
@@ -159,7 +197,7 @@ export class Survivants {
     sprite.etat = "mort";
     this.contexte.annoncer(`${sprite.nom} est tombe en chemin`, "guet");
     this.contexte.noterUneMortEnChemin();
-    this.retirer();
+    this.retirer(sprite);
   }
 
   /**
@@ -170,8 +208,12 @@ export class Survivants {
    * affectation de vitesse, meme quand la nuit est pleine.
    */
   mettreAJour(): void {
-    const sprite = this.courant;
-    if (sprite === null || !sprite.vivant) return;
+    for (const sprite of this.troupe) {
+      if (sprite.vivant) this.mettreAJourUn(sprite);
+    }
+  }
+
+  private mettreAJourUn(sprite: SpriteSurvivant): void {
     sprite.animer(this.scene.time.now);
 
     const heros = this.contexte.positionDuHeros();
@@ -190,6 +232,16 @@ export class Survivants {
     if (sprite.etat === "attend") {
       // On va **jusqu'a lui** : il ne se ramasse pas en passant.
       if (distance <= REGLAGES_SURVIVANTS.distanceDeContact) {
+        // ⚠️ **Sur la route, la fiche se joue ici et pas au village.** Il n'y a
+        // pas d'eglise ou le deposer, et surtout : « il te suit » suppose qu'on
+        // ait accepte de le prendre. Le dilemme du §4.18 est donc pose au
+        // moment ou l'on arrive sur lui, et l'installation, elle, reste legere.
+        if (this.contexte.refuge() === null) {
+          sprite.etat = "arrive";
+          sprite.setVelocity(0, 0);
+          this.contexte.presenter(sprite);
+          return;
+        }
         sprite.etat = "suit";
         this.contexte.annoncer(`${sprite.nom} se leve et te suit`, "village");
       }
@@ -197,12 +249,15 @@ export class Survivants {
     }
 
     // --- Il suit, et il est plus lent que le heros (§4.18) ---
-    const versEglise = Phaser.Math.Distance.Between(sprite.x, sprite.y, EGLISE.x, EGLISE.y);
-    if (versEglise <= VILLAGE.rayon * 0.5) {
-      sprite.etat = "arrive";
-      sprite.setVelocity(0, 0);
-      this.contexte.presenter(sprite);
-      return;
+    const refuge = this.contexte.refuge();
+    if (refuge) {
+      const versRefuge = Phaser.Math.Distance.Between(sprite.x, sprite.y, refuge.x, refuge.y);
+      if (versRefuge <= VILLAGE.rayon * 0.5) {
+        sprite.etat = "arrive";
+        sprite.setVelocity(0, 0);
+        this.contexte.presenter(sprite);
+        return;
+      }
     }
 
     if (distance <= REGLAGES_SURVIVANTS.distanceDeSuite) {
@@ -214,9 +269,23 @@ export class Survivants {
     this.scene.physics.moveTo(sprite, heros.x, heros.y, vitesse);
   }
 
-  /** Il est accepte, refuse, mort ou parti : dans tous les cas il sort de l'ecran. */
-  retirer(): void {
-    this.courant?.destroy();
-    this.courant = null;
+  /**
+   * Il est accepte, refuse, mort ou parti : dans tous les cas il sort de
+   * l'ecran.
+   *
+   * @param qui celui qu'on retire ; a defaut, le premier de la troupe — c'est
+   *   ce que veut tout le code du §4.18, qui n'en connait qu'un
+   */
+  retirer(qui?: SpriteSurvivant): void {
+    const sprite = qui ?? this.troupe[0];
+    if (!sprite) return;
+    this.troupe = this.troupe.filter((s) => s !== sprite);
+    sprite.destroy();
+  }
+
+  /** Tout le monde sort : on change de monde, ou l'on s'installe (§4.31). */
+  vider(): void {
+    for (const sprite of this.troupe) sprite.destroy();
+    this.troupe = [];
   }
 }

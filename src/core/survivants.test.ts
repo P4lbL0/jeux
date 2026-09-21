@@ -4,6 +4,7 @@ import { estTerreFerme, VILLAGE } from "./carte";
 import { delaiEntreArrivees, reputation } from "./arrivants";
 import {
   creerSurvivant,
+  creerSurvivantDeRoute,
   directionDepuis,
   ETAT_ANNONCE,
   ligneDApparition,
@@ -209,5 +210,58 @@ describe("Survivants — la rumeur", () => {
     const demi = intacte - (intacte - unMort) * REGLAGES_SURVIVANTS.partDeRumeurDUneMortEnChemin;
     expect(demi).toBeLessThan(intacte);
     expect(demi).toBeGreaterThan(unMort);
+  });
+});
+
+describe("Survivants — le survivant de la route (§4.31)", () => {
+  it("parait la ou on le pose, et pas au bord de la carte", () => {
+    const place = { x: 1234, y: 567 };
+    const s = creerSurvivantDeRoute(new Rng(9), place);
+    expect(s.point).toEqual(place);
+    expect(s.meute).toBeNull();
+  });
+
+  it("garde exactement les memes visages et les memes mensonges qu'au village", () => {
+    // ⚠️ C'est tout l'interet du §4.31 : le survivant **remonte** a l'errance,
+    // il n'est pas reecrit. Un survivant de la route peut donc etre fou dans la
+    // meme proportion, et le joueur qui ramasse tout se fera avoir pareil.
+    const fous = Array.from({ length: 1000 }, (_, g) =>
+      creerSurvivantDeRoute(new Rng(g), { x: 100, y: 100 }),
+    ).filter((s) => s.arrivant.folie > 0).length;
+    expect(fous / 1000).toBeGreaterThan(0.15);
+    expect(fous / 1000).toBeLessThan(0.35);
+  });
+
+  it("tire les trois situations, dont le poursuivi qui amene une meute", () => {
+    const situations = new Set(
+      Array.from({ length: 200 }, (_, g) =>
+        creerSurvivantDeRoute(new Rng(g), { x: 100, y: 100 }).situation,
+      ),
+    );
+    expect(situations).toContain("seul");
+    expect(situations).toContain("poursuivi");
+    expect(situations).toContain("blesse");
+  });
+
+  it("ne reprend pas un prenom deja porte, heros compris", () => {
+    const pris = ["Aubin", "Nine", "Gaspard"];
+    for (let g = 0; g < 300; g++) {
+      const s = creerSurvivantDeRoute(new Rng(g), { x: 100, y: 100 }, pris);
+      expect(pris).not.toContain(s.arrivant.personne.nom);
+    }
+  });
+
+  it("garde la route rare : un monde sur trois porte quelqu'un, et trois au plus suivent", () => {
+    // Un sur deux et une route de sept mondes doublerait le village de depart,
+    // ce qui viderait de son sens le budget cadeaux/menaces du §4.29.
+    expect(REGLAGES_SURVIVANTS.chanceParMonde).toBeGreaterThan(0.2);
+    expect(REGLAGES_SURVIVANTS.chanceParMonde).toBeLessThan(0.45);
+    const portent = Array.from({ length: 600 }, (_, g) =>
+      new Rng(g + 1229).chance(REGLAGES_SURVIVANTS.chanceParMonde),
+    ).filter(Boolean).length;
+    expect(portent / 600).toBeGreaterThan(0.25);
+    expect(portent / 600).toBeLessThan(0.45);
+    // Le plafond du §4.17 regle 1 : sans lui, sept mondes font une procession.
+    expect(REGLAGES_SURVIVANTS.troupeMax).toBe(3);
   });
 });

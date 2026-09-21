@@ -322,3 +322,38 @@ describe("Les fous", () => {
     expect(victimeDe(seul, [seul.id], [seul], new Rng(1))).toBeNull();
   });
 });
+
+describe("Les mots de la route (§4.31)", () => {
+  it("ne parle ni d'eglise, ni d'habitants, ni de nuit quand on est sur la route", () => {
+    // ⚠️ On rencontre quelqu'un au milieu d'une plaine : sa fiche ne peut pas
+    // dire « il est entre a l'eglise » ni « il ne connait personne ici ». Le
+    // cycle est meme a l'arret tant qu'on marche (§4.29), donc « en pleine
+    // nuit » ne veut rien dire non plus.
+    const interdits = ["eglise", "chapelle", "habitant", "en pleine nuit", "a la porte"];
+    for (let g = 0; g < 400; g++) {
+      const a = creerArrivant(new Rng(g), 0, [], true);
+      for (const ligne of a.observations) {
+        for (const mot of interdits) expect(ligne.texte.toLowerCase()).not.toContain(mot);
+      }
+      for (const q of a.questions) {
+        expect(q.texte.toLowerCase()).not.toContain("eglise");
+        expect(q.franche.toLowerCase()).not.toContain("chapelle");
+      }
+    }
+  });
+
+  it("garde la meme part de fous : seuls les mots changent", () => {
+    // La route ne doit pas etre plus sure que la porte. C'est le meme tirage,
+    // au meme rang du meme generateur — sinon on aurait fabrique deux systemes.
+    for (let g = 0; g < 200; g++) {
+      const village = creerArrivant(new Rng(g), 0, [], false);
+      const route = creerArrivant(new Rng(g), 0, [], true);
+      expect(route.folie).toBe(village.folie);
+      expect(route.axesTroubles).toEqual(village.axesTroubles);
+      expect(route.observations.map((o) => o.alarmante)).toEqual(
+        village.observations.map((o) => o.alarmante),
+      );
+      expect(route.questions.map((q) => q.cle)).toEqual(village.questions.map((q) => q.cle));
+    }
+  });
+});

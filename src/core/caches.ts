@@ -262,20 +262,14 @@ export function semerLesCaches(
   const r = REGLAGES_CACHES;
   const voulues = combienDeCaches(monde.largeur, monde.hauteur, habite);
   const caches: Cache[] = [];
-  // Un nombre d'essais borne, comme partout ou l'on tire une place sur le
-  // terrain (`survivants.ts`, `monde.ts`) : une boucle sans borne dans un
-  // tirage seede est un gel de partie qui n'arrive qu'une fois sur mille.
-  const essaisMax = voulues * 60;
-  for (let essai = 0; essai < essaisMax && caches.length < voulues; essai++) {
-    const point = {
-      x: rng.range(r.margeDuBord, monde.largeur - r.margeDuBord),
-      y: rng.range(r.margeDuBord, monde.hauteur - r.margeDuBord),
-    };
-    if (!estTerreFermeDans(monde, point.x, point.y)) continue;
-    if (distance(point, monde.village) < r.margeDuVillage) continue;
-    if (depart && distance(point, depart) < r.margeDuDepart) continue;
-    if (caches.some((c) => distance(point, c.point) < r.ecartEntreCaches)) continue;
-
+  for (let i = 0; i < voulues; i++) {
+    const point = placeDeRoute(
+      monde,
+      rng,
+      depart,
+      caches.map((c) => c.point),
+    );
+    if (!point) continue;
     const taille: TailleDeCache = rng.chance(r.partDeGrosses) ? "grosse" : "petite";
     const butin = butinDUneCache(taille, rng);
     caches.push({
@@ -289,6 +283,43 @@ export function semerLesCaches(
     });
   }
   return caches;
+}
+
+/**
+ * Une place valable sur la route : ni dans l'eau, ni au village, ni sous les
+ * pieds du heros a la premiere image, ni collee a ce qu'on y a deja pose.
+ *
+ * **Elle sert aussi au survivant de la route** (§4.31, deuxieme trouvaille) :
+ * ce qu'on trouve en s'ecartant obeit aux memes trois refus, qu'il s'agisse
+ * d'un coffre ou de quelqu'un. C'est la raison d'etre de cette fonction — elle
+ * etait dans le ventre de `semerLesCaches` et il a fallu la sortir telle quelle.
+ *
+ * ⚠️ Le nombre d'essais est **borne**, comme partout ou l'on tire une place sur
+ * le terrain (`survivants.ts`, `monde.ts`) : une boucle sans borne dans un
+ * tirage seede est un gel de partie qui n'arrive qu'une fois sur mille.
+ *
+ * @param occupes les places deja prises, dont il faut s'ecarter
+ * @returns `null` si le monde n'a pas offert de place en soixante essais
+ */
+export function placeDeRoute(
+  monde: Monde,
+  rng: Rng,
+  depart?: Point,
+  occupes: readonly Point[] = [],
+): Point | null {
+  const r = REGLAGES_CACHES;
+  for (let essai = 0; essai < 60; essai++) {
+    const point = {
+      x: rng.range(r.margeDuBord, monde.largeur - r.margeDuBord),
+      y: rng.range(r.margeDuBord, monde.hauteur - r.margeDuBord),
+    };
+    if (!estTerreFermeDans(monde, point.x, point.y)) continue;
+    if (distance(point, monde.village) < r.margeDuVillage) continue;
+    if (depart && distance(point, depart) < r.margeDuDepart) continue;
+    if (occupes.some((p) => distance(point, p) < r.ecartEntreCaches)) continue;
+    return point;
+  }
+  return null;
 }
 
 function distance(a: Point, b: Point): number {

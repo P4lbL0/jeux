@@ -160,6 +160,35 @@ export const OBSERVATIONS: Record<Axe, { alarmante: string; rassurante: string }
   },
 };
 
+/**
+ * Les memes six axes, **dits sur la route** (§4.31, jalon 5.6).
+ *
+ * ⚠️ **Trois des six ne veulent rien dire hors d'un village**, et les laisser
+ * tels quels cassait la scene : on rencontre quelqu'un au milieu d'une plaine
+ * et sa fiche dit « il est entre a l'eglise », « il ne connait personne ici »,
+ * « il s'est presente en pleine nuit » — alors qu'il n'y a ni eglise, ni
+ * habitants, ni nuit (le cycle est a l'arret tant qu'on marche, §4.29).
+ *
+ * Ce qu'on garde, c'est **ce que l'axe mesure** : un axe qui accuse accuse
+ * pareil, un axe qui rassure rassure pareil, et la part de fous ne bouge pas
+ * d'un centieme. Seuls les mots changent. Les trois autres axes — les mains,
+ * l'origine, la besace — se disent tels quels : ils parlent de lui, pas du lieu.
+ */
+export const OBSERVATIONS_DE_ROUTE: Partial<Record<Axe, { alarmante: string; rassurante: string }>> = {
+  heure: {
+    alarmante: "Il t'a laisse approcher sans bouger, les yeux sur tes mains.",
+    rassurante: "Il s'est leve et t'a hele de loin, a decouvert.",
+  },
+  familiarite: {
+    alarmante: "Il connait ton nom, et tu ne le lui as pas dit.",
+    rassurante: "Il ne sait rien de toi, et il le demande.",
+  },
+  eglise: {
+    alarmante: "Il ne dit pas ce qu'il faisait ici, ni depuis quand.",
+    rassurante: "Il montre l'abri ou il dormait, sans qu'on demande.",
+  },
+};
+
 /** Les metiers qu'on peut pretendre exercer a la porte : ceux qui ont un poste. */
 export const METIERS_A_LA_PORTE: Metier[] = ["pecheur", "bucheron", "mineur", "fermier"];
 
@@ -189,6 +218,14 @@ export interface Question {
   franche: string;
   /** Ce que repond celui qui ment */
   evasive: string;
+  /**
+   * La meme question, **posee sur la route** (§4.31), quand celle du village
+   * n'a pas de sens : on ne dit pas « entre a l'eglise » au milieu d'une plaine.
+   *
+   * Absente quand la question tient telle quelle — c'est le cas de la plupart :
+   * elles parlent de lui, de son metier et de sa besace, pas du lieu.
+   */
+  surLaRoute?: { texte: string; franche: string; evasive: string };
 }
 
 export const QUESTIONS: Question[] = [
@@ -293,6 +330,11 @@ export const QUESTIONS: Question[] = [
     texte: "Quelqu'un t'attend ici ?",
     franche: "Non. Je n'attends rien de personne.",
     evasive: "On verra bien qui me reconnait.",
+    surLaRoute: {
+      texte: "Tu attends quelqu'un ?",
+      franche: "Plus personne. C'est bien pour ca que je te suis.",
+      evasive: "On verra bien qui passe.",
+    },
   },
   // --- l'eglise
   {
@@ -301,6 +343,11 @@ export const QUESTIONS: Question[] = [
     texte: "Entre a l'eglise, on parlera au chaud.",
     franche: "Il entre le premier, et il attend a l'interieur.",
     evasive: "Il s'arrete sur le seuil. Je t'attends dehors.",
+    surLaRoute: {
+      texte: "Montre-moi ou tu dormais.",
+      franche: "Il ecarte des branches. Un creux, une couverture roulee.",
+      evasive: "Plus loin. On n'a pas le temps.",
+    },
   },
   {
     cle: "eglise-prie",
@@ -315,6 +362,11 @@ export const QUESTIONS: Question[] = [
     texte: "Tu as enterre les tiens ?",
     franche: "Trois. Je les ai portes moi-meme jusqu'a la chapelle.",
     evasive: "Il n'y avait plus de chapelle.",
+    surLaRoute: {
+      texte: "Tu as enterre les tiens ?",
+      franche: "Trois. Je les ai portes moi-meme jusqu'a la lisiere.",
+      evasive: "Il n'y avait plus personne pour creuser.",
+    },
   },
   // --- la besace
   {
@@ -430,7 +482,12 @@ export interface Arrivant {
  * @param rng seede par l'appelant : une meme graine redonne le meme visiteur,
  *   portrait, mensonges et questions compris (§4.6)
  */
-export function creerArrivant(rng: Rng, journee: number, nomsPris: readonly string[] = []): Arrivant {
+export function creerArrivant(
+  rng: Rng,
+  journee: number,
+  nomsPris: readonly string[] = [],
+  surLaRoute = false,
+): Arrivant {
   const personne = creerPersonne(prenomLibre(rng, nomsPris), rng);
   const metierPretendu = rng.pick(METIERS_A_LA_PORTE);
   const folie = tirerDegre(rng);
@@ -456,15 +513,23 @@ export function creerArrivant(rng: Rng, journee: number, nomsPris: readonly stri
   const observations = montres.map((axe) => ({
     axe,
     alarmante: axesTroubles.includes(axe),
-    texte: texteObservation(axe, axesTroubles.includes(axe), metierPretendu),
+    texte: texteObservation(axe, axesTroubles.includes(axe), metierPretendu, surLaRoute),
   }));
+
+  // ⚠️ **Sur la route, une question qui parle du village prend ses mots de
+  // route** (§4.31). On garde sa cle et son axe — tout ce qui compte l'un ou
+  // l'autre continue de marcher, et la part de fous ne bouge pas d'un
+  // centieme : seuls les mots changent.
+  const questions = melanger(QUESTIONS, rng)
+    .slice(0, REGLAGES_ARRIVEES.questionsTirees)
+    .map((q) => (surLaRoute && q.surLaRoute ? { ...q, ...q.surLaRoute } : q));
 
   return {
     personne,
     metierPretendu,
     folie,
     observations,
-    questions: melanger(QUESTIONS, rng).slice(0, REGLAGES_ARRIVEES.questionsTirees),
+    questions,
     axesTroubles,
     seTrahit: rng.chance(REGLAGES_ARRIVEES.seTrahitParDegre[folie]),
     posees: [],
@@ -472,8 +537,14 @@ export function creerArrivant(rng: Rng, journee: number, nomsPris: readonly stri
   };
 }
 
-function texteObservation(axe: Axe, alarmante: boolean, metier: Metier): string {
-  const modele = OBSERVATIONS[axe][alarmante ? "alarmante" : "rassurante"];
+function texteObservation(
+  axe: Axe,
+  alarmante: boolean,
+  metier: Metier,
+  surLaRoute: boolean,
+): string {
+  const table = (surLaRoute && OBSERVATIONS_DE_ROUTE[axe]) || OBSERVATIONS[axe];
+  const modele = table[alarmante ? "alarmante" : "rassurante"];
   return modele.replace("{outil}", OUTILS[metier] ?? "un outil");
 }
 

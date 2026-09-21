@@ -109,7 +109,14 @@ export type SujetFiche =
        * peril de sa vie. C'est la meme fiche et c'est voulu (§4.10) — mais elle
        * ne doit pas raconter la mauvaise scene.
        */
-      lieu?: "porte" | "sauvetage";
+      /**
+       * Ou la rencontre se joue. **Trois lieux, et les mots changent** :
+       * `porte` a la porte du village (§4.18), `sauvetage` quand on ramene
+       * quelqu'un jusqu'a l'eglise (§4.18), `route` quand on tombe sur lui en
+       * errant (§4.31) — la, il n'y a ni village ou le faire entrer, ni eglise
+       * dont parler, et les boutons le disent.
+       */
+      lieu?: "porte" | "sauvetage" | "route";
       surAccepter: () => void;
       surRefuser: () => void;
     };
@@ -200,7 +207,11 @@ export class FichePersonne {
       yTitre(plaque),
       espacer(
         sujet.genre === "arrivant"
-          ? (sujet.lieu === "sauvetage" ? "DE RETOUR AU VILLAGE" : "A LA PORTE")
+          ? (sujet.lieu === "route"
+              ? "SUR LA ROUTE"
+              : sujet.lieu === "sauvetage"
+                ? "DE RETOUR AU VILLAGE"
+                : "A LA PORTE")
           : sujet.genre === "hero"
             ? "HEROS"
             : "HABITANT",
@@ -324,7 +335,11 @@ export class FichePersonne {
       gauche,
       y + 64,
       sujet.genre === "arrivant"
-        ? (sujet.lieu === "sauvetage" ? "il t'a suivi jusqu'ici" : "il attend a la porte")
+        ? (sujet.lieu === "route"
+            ? "il s'est leve en te voyant"
+            : sujet.lieu === "sauvetage"
+              ? "il t'a suivi jusqu'ici"
+              : "il attend a la porte")
         : "clic sur le nom pour renommer",
       9,
       COULEURS.discret,
@@ -359,9 +374,11 @@ export class FichePersonne {
       const intro = this.texte(
         gauche,
         y + 84,
-        sujet.lieu === "sauvetage"
-          ? "Tu l'as ramene. Il attend ta reponse."
-          : "Un inconnu se presente a la porte.",
+        sujet.lieu === "route"
+          ? "Il n'a nulle part ou aller. Toi non plus."
+          : sujet.lieu === "sauvetage"
+            ? "Tu l'as ramene. Il attend ta reponse."
+            : "Un inconnu se presente a la porte.",
         12,
         COULEURS.attenue,
       ).setWordWrapWidth(bl);
@@ -807,12 +824,21 @@ export class FichePersonne {
       // faire entrer un meurtrier, refuser coute le bras qu'on n'aura pas
       // (§4.18). Les deux boutons ont donc le meme poids visuel — la bile et le
       // sang seche, jamais un vert « valider » et un gris « annuler ».
-      this.bouton(cadre, x + 20, y, 220, 32, (sujet.lieu === "sauvetage" ? "LE FAIRE ENTRER" : "OUVRIR LA PORTE"), C.bile, () => {
+      const oui =
+        sujet.lieu === "route"
+          ? "L'EMMENER AVEC TOI"
+          : sujet.lieu === "sauvetage"
+            ? "LE FAIRE ENTRER"
+            : "OUVRIR LA PORTE";
+      // Sur la route on ne renvoie personne nulle part : on le laisse ou il est,
+      // et c'est plus dur a dire que « le renvoyer ».
+      const non = sujet.lieu === "route" ? "LE LAISSER LA" : "LE RENVOYER";
+      this.bouton(cadre, x + 20, y, 220, 32, oui, C.bile, () => {
         const action = sujet.surAccepter;
         this.fermer();
         action();
       });
-      this.bouton(cadre, x + largeur - 240, y, 220, 32, "LE RENVOYER", C.sangSeche, () => {
+      this.bouton(cadre, x + largeur - 240, y, 220, 32, non, C.sangSeche, () => {
         const action = sujet.surRefuser;
         this.fermer();
         action();

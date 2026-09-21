@@ -118,6 +118,40 @@ export const REGLAGES_SURVIVANTS = {
 
   /** Marge depuis le bord de la carte : il parait au bord, pas dans le vide */
   margeDuBord: 26,
+
+  /**
+   * ------------------------------------------------ la route (§4.31, jalon 5.6)
+   *
+   * Le survivant **remonte a l'errance**. Son code ne change pas d'un iota : ce
+   * qui change, c'est **quand** il parait. Il appartenait a une partie
+   * installee, il devient la deuxieme trouvaille de la route — « le detour qui
+   * change la partie, et pas seulement le compteur ».
+   */
+
+  /**
+   * La chance qu'un monde de la route porte quelqu'un.
+   *
+   * ⚠️ **Un sur trois, et pas plus.** Le §4.31 range le survivant au-dessus des
+   * caches : c'est « la trouvaille qui change la partie ». A un monde sur deux,
+   * une route de sept mondes en offrirait trois ou quatre et le village de
+   * depart doublerait de taille — le budget cadeaux/menaces du §4.29 n'aurait
+   * plus aucun sens. A un sur trois, en croiser un reste un evenement.
+   */
+  chanceParMonde: 0.34,
+
+  /**
+   * Combien peuvent nous suivre a la fois (decision d'Angelos, 21 septembre
+   * 2026 : « il traverse avec nous »).
+   *
+   * ⚠️ **Trois, et c'est un plafond du §4.17 regle 1**, pas un gout. Chacun est
+   * un sprite qui marche, qui encaisse et qui traverse les mondes avec nous ;
+   * sans plafond, une route de sept mondes finirait en procession.
+   *
+   * En partie installee, le §4.18 n'en veut toujours **qu'un** : deux appels en
+   * meme temps demanderaient de choisir lequel sauver, ce qui est une bonne
+   * idee — et une autre idee.
+   */
+  troupeMax: 3,
 } as const;
 
 // -------------------------------------------------------------- les situations
@@ -196,6 +230,40 @@ export function creerSurvivant(
   const point = tirerLePoint(rng);
   return {
     arrivant: creerArrivant(rng, journee, nomsPris),
+    situation,
+    etat: situation === "blesse" ? tirerLEtat(rng) : null,
+    point,
+    direction: directionDepuis(point),
+    meute: null,
+  };
+}
+
+/**
+ * Quelqu'un qu'on trouve **sur la route**, a une place deja choisie (§4.31).
+ *
+ * C'est `creerSurvivant` moins son tirage de place : sur la route, l'endroit
+ * obeit aux trois refus de `placeDeRoute` (ni dans l'eau, ni au village, ni
+ * sous les pieds du heros), pas aux lisieres du bord de carte. Tout le reste —
+ * le visage, les mensonges, la situation, l'etat — est exactement le meme, et
+ * c'est bien l'interet : un survivant de la route peut etre fou dans la meme
+ * proportion qu'un survivant de village.
+ *
+ * ⚠️ **Sa `direction` ne sert a rien ici** et il faut le dire : elle est
+ * calculee depuis le village (§4.18), or on n'a pas de village. Sur la route on
+ * ne l'annonce pas — on le **voit**, ou on passe a cote sans le savoir. C'est
+ * exactement le contrat du §4.31 : rien ne se marque sur une carte.
+ */
+export function creerSurvivantDeRoute(
+  rng: Rng,
+  point: Point,
+  nomsPris: readonly string[] = [],
+): Survivant {
+  const situation = tirerSituation(rng);
+  return {
+    // Le dernier argument dit « sur la route » : la fiche prend alors les mots
+    // qui vont avec (§4.31). Trois de ses six axes parlent du village, et ils
+    // n'ont pas de sens ici.
+    arrivant: creerArrivant(rng, 0, nomsPris, true),
     situation,
     etat: situation === "blesse" ? tirerLEtat(rng) : null,
     point,

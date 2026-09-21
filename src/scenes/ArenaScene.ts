@@ -75,13 +75,15 @@ import { ARCHETYPE_HUMAIN, choisirArchetype } from "../game/ennemis";
 import { POLICE } from "../game/ui/chrome";
 import { Survivants, type SpriteSurvivant } from "../game/survivants";
 import { Caches } from "../game/caches";
-import { REGLAGES_CACHES, semerLesCaches, type Cache } from "../core/caches";
+import { REGLAGES_CACHES, placeDeRoute, semerLesCaches, type Cache } from "../core/caches";
 import {
   creerSurvivant,
+  creerSurvivantDeRoute,
   ETAT_ANNONCE,
   ligneDApparition,
   prochainSurvivant,
   REGLAGES_SURVIVANTS,
+  type Survivant,
 } from "../core/survivants";
 import { piloter, type ContexteIA } from "../core/ia";
 import { animer, animerMort, declencher } from "../game/poses";
@@ -617,6 +619,14 @@ export class ArenaScene extends Phaser.Scene {
   private butinDeLaRoute: Stocks = stocksVides();
   /** Les camps de betes deja leves : on ne les lache qu'une fois */
   private campsLeves = new Set<number>();
+  /**
+   * Ceux qui nous suivent, entre deux mondes (§4.31).
+   *
+   * Ce sont leurs **regles**, pas leurs sprites : un sprite appartient a la
+   * scene qu'on quitte. Ce champ est plein le temps d'un `init`, puis vide des
+   * qu'ils ont repris corps.
+   */
+  private compagnonsDeRoute: Survivant[] = [];
   private prochainSurvivantJournee = 1;
   /** Celui qu'on presente a l'eglise, tant que la fiche est ouverte */
   private survivantALEglise: SpriteSurvivant | null = null;
@@ -890,6 +900,8 @@ export class ArenaScene extends Phaser.Scene {
     argent?: number;
     /** La matiere ramassee sur la route, qui deviendra les reserves (§4.31) */
     butinDeLaRoute?: Stocks;
+    /** Ceux qui nous suivent d'un monde a l'autre (§4.31) */
+    compagnons?: Survivant[];
   }): void {
     this.registry.set("classe", data.classe ?? "guerrier");
     this.emplacement = data.emplacement ?? 1;
@@ -903,6 +915,7 @@ export class ArenaScene extends Phaser.Scene {
     this.argent = data.argent ?? (data.reprise ? this.argent : 0);
     this.butinDeLaRoute = data.butinDeLaRoute ? { ...data.butinDeLaRoute } : stocksVides();
     this.campsLeves = new Set<number>();
+    this.compagnonsDeRoute = data.compagnons ?? [];
     // ⚠️ **Un monde muet n'a personne a qui parler** (§4.29, l'errance
     // continue). Son village est une ruine vide qu'on traverse : c'est ainsi
     // qu'un refus « eloigne le village suivant » sur une carte qui, elle, est
@@ -1440,6 +1453,11 @@ export class ArenaScene extends Phaser.Scene {
       lacherLaMeute: (x, y, combien) => this.lacherLaMeute(x, y, combien),
       presenter: (sprite) => this.presenterLeSurvivant(sprite),
       noterUneMortEnChemin: () => this.village.noterUneMortEnChemin(),
+      // Un en partie installee (§4.18), trois sur la route (§4.31).
+      plafond: () => (this.enMarche ? REGLAGES_SURVIVANTS.troupeMax : 1),
+      // Pas de refuge tant qu'on marche : on le juge la ou on le trouve, et il
+      // marche ensuite avec nous jusqu'au village qu'on finira par accepter.
+      refuge: () => (this.enMarche ? null : { x: EGLISE.x, y: EGLISE.y }),
     });
 
     // Les caches de la route (§4.31). Comme les survivants : elles ne
@@ -1681,6 +1699,8 @@ export class ArenaScene extends Phaser.Scene {
     // Ce que le monde a laisse derriere lui (§4.31) : les caches se sement ici,
     // une fois qu'on sait ou l'on parait — c'est ce point-la qu'elles evitent.
     this.semerLesTrouvailles();
+    this.reposerLesCompagnons();
+    this.semerLeSurvivantDeRoute();
     this.dezoomerALEntree();
   }
 
@@ -2161,6 +2181,86 @@ export class ArenaScene extends Phaser.Scene {
     this.butinDeLaRoute = stocksVides();
   }
 
+  /**
+   * Quelqu'un, peut-etre, quelque part sur ce monde-ci (§4.31, deuxieme
+   * trouvaille).
+   *
+   * ⚠️ **Rien ne l'annonce**, et c'est la difference avec le survivant du
+   * village. Celui du §4.18 appelle, et la discussion dit « quelque part au
+   * nord » ; celui-ci, on le **voit** ou l'on passe a cote sans jamais le
+   * savoir. C'est la regle du §4.31 : ce qu'on trouve ne se marque pas sur une
+   * carte, et chercher fait partie du chemin.
+   */
+  private semerLeSurvivantDeRoute(): void {
+    if (!this.enMarche) return;
+    if (this.survivants.tous.length >= REGLAGES_SURVIVANTS.troupeMax) return;
+    // La graine du monde, decalee comme celle des caches : un monde donne porte
+    // toujours le meme, ou n'en porte jamais.
+    const rng = new Rng(this.graineMonde + 1229);
+    if (!rng.chance(REGLAGES_SURVIVANTS.chanceParMonde)) return;
+    const place = placeDeRoute(
+      mondeCourant(),
+      rng,
+      this.departDeLaMarche,
+      this.caches.places,
+    );
+    if (!place) return;
+    const regles = creerSurvivantDeRoute(rng, place, this.nomsPris());
+    // La ligne est vide : personne ne l'annonce (voir plus haut).
+    this.survivants.faireParaitre(regles, "");
+    console.log(`[route] ${regles.arrivant.personne.nom} attend en ${Math.round(place.x)},${Math.round(place.y)}`);
+  }
+
+  /**
+   * Ceux qui nous suivaient reparaissent derriere nous, dans le monde suivant
+   * (§4.31, decision d'Angelos : « il traverse avec nous »).
+   *
+   * ⚠️ **On ne rejoue ni leur fiche ni leur meute** : ils sont deja des nous,
+   * on les a deja juges, et les redecouvrir a chaque bord de carte aurait fait
+   * de la traversee une corvee de trois panneaux.
+   */
+  private reposerLesCompagnons(): void {
+    if (this.compagnonsDeRoute.length === 0) return;
+    const depart = this.departDeLaMarche;
+    for (let i = 0; i < this.compagnonsDeRoute.length; i++) {
+      const regles = this.compagnonsDeRoute[i]!;
+      // En file derriere nous, pas les uns dans les autres.
+      const angle = (i / REGLAGES_SURVIVANTS.troupeMax) * Math.PI * 2;
+      regles.point = { x: depart.x + Math.cos(angle) * 34, y: depart.y + Math.sin(angle) * 34 };
+      this.survivants.faireParaitre(regles, "", "suit");
+    }
+    const noms = this.compagnonsDeRoute.map((c) => c.arrivant.personne.nom).join(", ");
+    this.events.emit("annonce", `${noms} ${this.compagnonsDeRoute.length > 1 ? "marchent" : "marche"} avec toi`, "toi");
+    this.compagnonsDeRoute = [];
+  }
+
+  /**
+   * Ceux qui nous suivaient entrent au village (§4.31).
+   *
+   * **Sans ceremonie, et c'est voulu** : on les a juges sur la route, un par un,
+   * au moment ou on est arrive sur eux. Rejouer trois fiches d'observation a
+   * l'instant ou le jour 1 se leve aurait enterre le seul moment fort du §4.29
+   * sous une pile de panneaux.
+   */
+  private installerLesCompagnons(): void {
+    const suiveurs = this.survivants.suiveurs;
+    for (const sprite of suiveurs) {
+      const { arrivant, etat } = sprite.regles;
+      const villageois = this.village.accueillir(arrivant.personne, arrivant.metierPretendu);
+      // Ce qu'il porte entre avec lui, comme au §4.18 : l'infection est
+      // contagieuse entre voisins de travail (§4.23).
+      if (etat !== null) contracterEtat(villageois.personne, etat);
+      const fou = suivreSiFou(arrivant, villageois.regles.id, 1, this.rng);
+      if (fou !== null) this.fous.push(fou);
+      this.events.emit(
+        "annonce",
+        `${arrivant.personne.nom} s'installe avec toi — ${NOMS_METIER[arrivant.metierPretendu].toLowerCase()}`,
+        "village",
+      );
+    }
+    this.survivants.vider();
+  }
+
   private passerAuLarge(): void {
     this.quitteLeMonde = true;
     // Refuser, c'est quitter un monde qui avait quelqu'un. Traverser des
@@ -2192,6 +2292,10 @@ export class ArenaScene extends Phaser.Scene {
         // pourquoi la bourse se vidait. C'est donc passe explicitement.
         argent: this.argent,
         butinDeLaRoute: this.butinDeLaRoute,
+        // Ceux qui nous suivent traversent avec nous (§4.31). On passe leurs
+        // **regles**, pas leurs sprites : un sprite appartient a la scene qu'on
+        // quitte, et il meurt avec elle.
+        compagnons: this.survivants.suiveurs.map((s) => s.regles),
       });
     });
   }
@@ -2216,6 +2320,10 @@ export class ArenaScene extends Phaser.Scene {
     // l'exploration a partir de ce moment.
     this.verserLeButinDeLaRoute();
     this.caches.vider();
+    // Ceux qu'on a ramasses sur la route deviennent des habitants de plus
+    // (§4.31) : un metier de plus, un toit de plus a relever, et — depuis le
+    // §4.29 — une chance de plus qu'un heros naisse avec un don (bloc 9).
+    this.installerLesCompagnons();
     // Le champ des humains ne sert plus a personne : on le jette plutot que de
     // le laisser se refaire pendant toute la partie (§4.17).
     this.cheminDesHumains = null;
@@ -6426,7 +6534,10 @@ export class ArenaScene extends Phaser.Scene {
       "arrivant",
       sprite.regles.arrivant,
       etat === null ? undefined : ETAT_ANNONCE[etat],
-      "sauvetage",
+      // ⚠️ **Sur la route, ce n'est pas un retour au village** : il n'y en a
+      // pas, et c'est la question qu'on se pose tous les deux. La fiche change
+      // donc de mots (§4.31) — « l'emmener avec toi », pas « le faire entrer ».
+      this.enMarche ? "route" : "sauvetage",
     );
   }
 
@@ -6532,6 +6643,24 @@ export class ArenaScene extends Phaser.Scene {
     const sprite = this.survivantALEglise;
     this.survivantALEglise = null;
 
+    // ⚠️ **Sur la route, dire oui ne le fait pas entrer : il se leve et suit**
+    // (§4.31). Il n'y a pas de village a lui ouvrir — c'est justement ce qu'on
+    // cherche tous les deux. Il entrera le jour ou l'on s'installera, et sans
+    // qu'on rejoue sa fiche : c'est ici qu'on l'a jugee.
+    if (this.enMarche) {
+      if (sprite !== null) {
+        if (accepte) {
+          sprite.etat = "suit";
+          this.events.emit("annonce", `${sprite.nom} se leve et te suit`, "toi");
+        } else {
+          this.events.emit("annonce", `Tu le laisses ou il est`, "toi");
+          this.survivants.retirer(sprite);
+        }
+      }
+      this.reprendreLeJeu();
+      return;
+    }
+
     if (sprite !== null) {
       const { arrivant, etat } = sprite.regles;
       if (accepte) {
@@ -6552,7 +6681,7 @@ export class ArenaScene extends Phaser.Scene {
       }
     }
 
-    this.survivants.retirer();
+    this.survivants.retirer(sprite ?? undefined);
     this.reprendreLeJeu();
   }
 
