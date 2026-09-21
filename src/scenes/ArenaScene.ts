@@ -45,6 +45,8 @@ import {
   REGLAGES_MARCHE,
   REPONSE_AU_REFUS,
   annonceDArrivee,
+  annonceDeRoute,
+  mondesMuetsApres,
   capVers,
   longueurDeLaMarche,
   ouLonParait,
@@ -405,6 +407,17 @@ const MAX_MORTS_VIVANTS = 12;
  */
 const ZOOM_DEFAUT = 1.7;
 const ZOOM_MIN = 0.8;
+
+/**
+ * Le voile entre deux mondes, en millisemes (§4.29, l'errance continue).
+ *
+ * ⚠️ **220, pas 700.** Le fondu d'avant devait couvrir la cuisson de la carte,
+ * deux a trois secondes ; il ne couvre plus qu'un remontage de scene de deux ou
+ * trois dixiemes. Un voile de sept dixiemes de seconde a chaque bord de carte,
+ * quand on en traverse sept d'affilee apres un troisieme refus, c'est dix
+ * secondes d'ecran noir pour rien.
+ */
+const DUREE_DU_VOILE = 220;
 const ZOOM_MAX = 3.4;
 
 /**
@@ -761,6 +774,20 @@ export class ArenaScene extends Phaser.Scene {
   private sortieArmee = false;
   /** Combien de villages on a deja laisses derriere soi (§4.29 : refuser coute) */
   private marches = 0;
+  /** Combien de villages on a refuses : c'est ce qui eloigne le suivant (§4.29) */
+  private refus = 0;
+  /** Combien de mondes sans personne il reste a traverser avant le prochain village */
+  private mondesMuets = 0;
+  /**
+   * Vrai quand ce monde-ci est un **monde muet** : son village est une ruine
+   * que personne n'habite, et personne n'en sortira pour nous parler.
+   *
+   * C'est la reponse du 20 septembre 2026 a une contrainte de geometrie : le
+   * §4.29 veut que « le village suivant soit deux fois plus loin » a chaque
+   * refus, et une carte finie ne peut pas s'allonger. Ce qu'on double, c'est le
+   * **nombre de mondes a traverser** — et ceux du milieu sont vides.
+   */
+  private villageMuet = false;
   /** Celui qui sort nous parler ; `null` tant que personne n'est venu */
   private gardien: Villageois | null = null;
   /**
@@ -831,6 +858,10 @@ export class ArenaScene extends Phaser.Scene {
     graineMonde?: number;
     /** Combien de villages on a deja passes (§4.29) : on n'arrive pas neuf au troisieme */
     marches?: number;
+    /** Combien de villages on a **refuses** (§4.29) : c'est ce qui eloigne le suivant */
+    refus?: number;
+    /** Combien de mondes muets il reste a traverser avant de retrouver quelqu'un */
+    mondesMuets?: number;
     /** Pour les captures et les tests : commencer installe, sans la marche */
     sansLaMarche?: boolean;
   }): void {
@@ -838,6 +869,13 @@ export class ArenaScene extends Phaser.Scene {
     this.emplacement = data.emplacement ?? 1;
     this.reprise = data.reprise ?? null;
     this.marches = data.marches ?? 0;
+    this.refus = data.refus ?? 0;
+    this.mondesMuets = data.mondesMuets ?? 0;
+    // ⚠️ **Un monde muet n'a personne a qui parler** (§4.29, l'errance
+    // continue). Son village est une ruine vide qu'on traverse : c'est ainsi
+    // qu'un refus « eloigne le village suivant » sur une carte qui, elle, est
+    // finie. Une partie reprise ou une capture n'en connait pas.
+    this.villageMuet = !this.reprise && !data.sansLaMarche && this.mondesMuets > 0;
     // On marche vers le village a chaque partie neuve (§4.29). Une partie
     // reprise commence installee : elle a deja repondu, il y a des jours de
     // cela. Et les captures peuvent s'en passer — elles veulent le village,
@@ -1058,7 +1096,7 @@ export class ArenaScene extends Phaser.Scene {
     preparerEffets(this);
     // Le village de cette partie, tire de sa graine avant tout le reste : le
     // decor doit savoir ou est la place pour n'y rien planter (§4.24).
-    this.peuplement = peuplerLeVillage(this.graineVillage);
+    this.peuplement = peuplerLeVillage(this.graineVillage, !this.villageMuet);
     this.planVillage = genererVillage(
       this.grille,
       this.graineVillage,
@@ -1581,11 +1619,17 @@ export class ArenaScene extends Phaser.Scene {
     const monde = mondeCourant();
     const cap = capVers(this.departDeLaMarche, monde.village);
     console.log(
-      `[marche] village n${this.marches + 1} · ${Math.round(longueurDeLaMarche(monde, this.departDeLaMarche))} px ${cap}`,
+      `[marche] monde n${this.marches + 1} · ${this.refus} refus · ${this.mondesMuets} monde(s) muet(s) restant(s) · ${Math.round(longueurDeLaMarche(monde, this.departDeLaMarche))} px ${cap}`,
     );
 
     this.prochaineArriveeJournee = null;
-    this.events.emit("annonce", annonceDArrivee(cap), "toi");
+    // Un monde muet n'a pas de fumee a l'horizon : on ne promet donc pas un
+    // village, on dit la route. Le cap reste, sinon on tournerait en rond.
+    this.events.emit(
+      "annonce",
+      this.villageMuet ? annonceDeRoute(cap) : annonceDArrivee(cap),
+      "toi",
+    );
     this.dezoomerALEntree();
   }
 
@@ -1600,8 +1644,15 @@ export class ArenaScene extends Phaser.Scene {
    */
   private dezoomerALEntree(): void {
     const cam = this.cameras.main;
-    cam.setZoom(ZOOM_MAX);
-    cam.fadeIn(700, 0, 0, 0);
+    // ⚠️ **L'entree ceremonieuse n'a lieu qu'une fois.** Le zoom d'ouverture
+    // raconte « tu tombes quelque part » : c'est bien la premiere fois, et
+    // c'est une corvee de trois secondes la dixieme. Des qu'on enchaine un
+    // monde, on entre au zoom de jeu, derriere le meme voile court qu'a la
+    // sortie — un pas, pas une scene.
+    const premier = this.marches === 0;
+    cam.setZoom(premier ? ZOOM_MAX : ZOOM_DEFAUT);
+    cam.fadeIn(premier ? 700 : DUREE_DU_VOILE, 0, 0, 0);
+    if (!premier) return;
     this.entreeCamera = this.tweens.add({
       targets: cam,
       zoom: ZOOM_DEFAUT,
@@ -1654,6 +1705,10 @@ export class ArenaScene extends Phaser.Scene {
    * cases avant, quelqu'un lache ce qu'il fait et vient vers nous.
    */
   private guetterLaPorte(hero: Hero): void {
+    // ⚠️ **Un monde muet ne pose aucune question** (§4.29). Sans ce garde, le
+    // village vide tomberait sur la branche « personne ne vient » et nous
+    // installerait dans des ruines — exactement ce qu'on veut traverser.
+    if (this.villageMuet) return;
     const porte = this.porteLaPlusProche(hero.x, hero.y);
     const cible = porte ?? { x: VILLAGE.x, y: VILLAGE.y };
     const marge = porte ? 0 : VILLAGE.rayon;
@@ -1971,27 +2026,44 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   /**
-   * Le village suivant : un autre monde, tire d'une autre graine.
+   * On quitte ce monde-ci, et le suivant commence (§4.29, l'errance continue).
    *
-   * ⚠️ **Ce n'est pas encore l'errance du §4.29**, et il faut le dire : le
-   * design veut un monde qui se genere **devant** le joueur, a l'infini, et des
-   * villages qui s'espacent a chaque refus. Ici, chaque village est un monde
-   * entier qu'on recommence — ce qui donne le meme geste (on passe, on marche
-   * plus loin, on ne revient pas) sans la continuite. La continuite attend que
-   * la carte se peigne par morceaux au lieu d'un bloc : c'est la meme limite
-   * qui a fait livrer la zone jouable a x2 plutot qu'a x3 (`monde.ts`).
+   * **Ce qu'on traverse depend de ce qu'on laisse derriere.** Quitter un monde
+   * **habite**, c'est refuser son village : le suivant est « deux fois plus
+   * loin », ce qui se traduit par des **mondes muets** a traverser — un apres
+   * le premier refus, trois apres le deuxieme, sept apres le troisieme
+   * (`mondesMuetsApres`). Quitter un monde muet, c'est simplement en rayer un
+   * de la liste.
+   *
+   * ⚠️ **Le voile est court, et c'est nouveau.** Il durait 700 ms, plus une
+   * carte qui se peignait d'un bloc — deux a trois secondes de gel —, plus
+   * 700 ms de fondu d'entree : entre deux mondes, on attendait. La carte se
+   * peignant desormais par morceaux, la scene se remonte en deux ou trois
+   * dixiemes ; le voile n'a plus besoin de couvrir un gel, seulement un pas.
    */
   private passerAuLarge(): void {
     this.quitteLeMonde = true;
-    this.events.emit("annonce", "Tu passes au large. La route continue.", "toi");
+    // Refuser, c'est quitter un monde qui avait quelqu'un. Traverser des
+    // ruines vides ne coute rien : c'est deja le prix qu'on paie.
+    const refus = this.villageMuet ? this.refus : this.refus + 1;
+    const mondesMuets = this.villageMuet
+      ? Math.max(0, this.mondesMuets - 1)
+      : mondesMuetsApres(refus);
+    this.events.emit(
+      "annonce",
+      this.villageMuet ? "Les ruines s'eloignent. La route continue." : "Tu passes au large. La route continue.",
+      "toi",
+    );
     const cam = this.cameras.main;
-    cam.fadeOut(700, 0, 0, 0);
+    cam.fadeOut(DUREE_DU_VOILE, 0, 0, 0);
     cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.stop("ui");
       this.scene.start("arena", {
         classe: this.registry.get("classe") as ClassId,
         emplacement: this.emplacement,
         marches: this.marches + 1,
+        refus,
+        mondesMuets,
       });
     });
   }

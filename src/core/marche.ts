@@ -54,12 +54,30 @@ export const REGLAGES_MARCHE = {
   /**
    * Combien de fois plus loin est le village suivant, a chaque refus (§4.29).
    *
-   * ⚠️ **Pas encore applique** : il faudrait que le monde se genere devant le
-   * joueur, et la carte se peint aujourd'hui d'un seul bloc (voir la mesure de
-   * `TAILLE_JOUABLE`). Le chiffre est pose ici pour que la regle vive au meme
-   * endroit que le reste de la marche le jour ou elle se code.
+   * ✅ **Applique depuis la nuit du 20 septembre 2026**, et voici comment. Une
+   * carte est finie : on ne peut pas y faire marcher deux fois plus longtemps.
+   * Ce qu'on double, c'est donc le **nombre de mondes a traverser** — et les
+   * mondes du milieu n'ont **personne a qui parler**. Leur village est une
+   * ruine vide : on la traverse, on la fouille, on repart.
+   *
+   * Apres `k` refus, il y a `2^k - 1` mondes muets avant le prochain village :
+   * un apres le premier refus, trois apres le deuxieme, sept apres le
+   * troisieme. Comme un monde se traverse en une demi-minute, ca donne une
+   * minute, deux minutes, quatre minutes de route — exactement la progression
+   * que le §4.29 demande.
    */
   eloignementParRefus: 2,
+
+  /**
+   * Combien de mondes muets d'affilee, au plus.
+   *
+   * ⚠️ **Sans ce plafond, la regle se retourne contre elle-meme.** Doubler a
+   * chaque refus, c'est 1 023 mondes au dixieme refus, soit sept heures de
+   * plaine vide : le §4.29 dit « de longues minutes », pas une soiree. A sept,
+   * le pire trajet fait une demi-heure de route et le joueur a compris bien
+   * avant que refuser coute cher. Chiffre a regler en jouant, comme les autres.
+   */
+  mondesMuetsMax: 7,
 
   /**
    * Ce que coute un refus **en face** (§4.29, 20 septembre 2026 au soir).
@@ -87,6 +105,19 @@ export const REGLAGES_MARCHE = {
     plafond: 0.85,
   },
 };
+
+/**
+ * Combien de mondes **sans personne** on traverse avant le prochain village,
+ * apres `refus` villages laisses derriere soi (§4.29, point 2).
+ *
+ * Zero au depart : le premier village est la ou l'on tombe, et il arrive en une
+ * demi-minute. Puis un, trois, sept — jusqu'au plafond.
+ */
+export function mondesMuetsApres(refus: number): number {
+  if (refus <= 0) return 0;
+  const sansPlafond = REGLAGES_MARCHE.eloignementParRefus ** refus - 1;
+  return Math.min(REGLAGES_MARCHE.mondesMuetsMax, sansPlafond);
+}
 
 /**
  * A quelle distance d'un bord la camera peut encore centrer quelqu'un.
@@ -196,6 +227,18 @@ export function capVers(de: Point, a: Point): string {
 /** Ce qu'on annonce en paraissant : on est seul, et il y a de la fumee quelque part. */
 export function annonceDArrivee(cap: string): string {
   return `Tu es seul. De la fumee monte ${cap}.`;
+}
+
+/**
+ * Ce qu'on annonce en paraissant dans un **monde muet** (§4.29).
+ *
+ * ⚠️ **Pas de fumee**, et c'est tout le sujet : il n'y a personne a trouver
+ * ici. On ne ment pas au joueur en lui promettant un village. On lui donne le
+ * cap pour qu'il ne tourne pas en rond — la minimap reste ecartee (§4.10) —,
+ * et le reste est a lui : ce qu'il y a a fouiller sur la route.
+ */
+export function annonceDeRoute(cap: string): string {
+  return `Aucune fumee. La route continue ${cap}.`;
 }
 
 /**

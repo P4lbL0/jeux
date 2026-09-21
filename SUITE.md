@@ -1337,6 +1337,79 @@ tous là après, et l'effectif de la première nuit vaut exactement ce que le bu
 
 **664 tests verts** (+17 : 14 pour le budget, 3 pour les foyers).
 
+### L'errance continue (20 septembre 2026, tard dans la nuit)
+
+**Le dernier morceau du jalon 5.5.** Le §4.29 veut qu'« à chaque refus, le village suivant
+soit deux fois plus loin ». Il restait bloqué depuis le 11 août ; le voici.
+
+#### La contradiction, et comment elle se résout
+
+Une carte est **finie**. On ne peut pas y faire marcher deux fois plus longtemps : la
+diagonale de la zone ×3 fait 4 330 px, soit quarante secondes de marche, et c'est un
+plafond dur. Le facteur `eloignementParRefus` était écrit dans `REGLAGES_MARCHE` depuis
+six semaines sans que personne ne sache quoi en faire.
+
+**Ce qu'on double, c'est le nombre de mondes à traverser** — et les mondes du milieu n'ont
+**personne à qui parler**. Leur village est une ruine vide : on la traverse, on la fouille,
+on repart. Après `k` refus, il y a `2^k - 1` mondes muets avant le prochain village : un
+après le premier refus, trois après le deuxième, sept après le troisième. Un monde se
+traverse en une demi-minute, donc la route fait une minute, deux minutes, quatre minutes.
+C'est exactement la progression que le design demande, obtenue sans mentir sur la carte.
+
+⚠️ **Avec un plafond, et il est nécessaire.** Doubler sans fin, c'est 1 023 mondes au
+dixième refus — sept heures de plaine vide. Le §4.29 dit « de longues minutes », pas une
+soirée. `mondesMuetsMax` vaut **7** : le pire trajet fait une demi-heure, et le joueur a
+compris bien avant que refuser coûte cher.
+
+#### Ce qui est codé
+
+- **`mondesMuetsApres(refus)`** (`core/marche.ts`, pur, 4 tests) : zéro au départ, puis un,
+  trois, sept, jusqu'au plafond.
+- **Un monde muet n'a personne** : `peuplerLeVillage(graine, habite)` rend une population de
+  zéro, donc aucun toit debout (`toitsPour(0)`), aucun habitant, et personne ne sort de la
+  porte. ⚠️ Un garde explicite dans `guetterLaPorte` : sans lui, le village vide tombait sur
+  la branche « personne ne vient » et nous **installait dans les ruines** — exactement ce
+  qu'on veut traverser.
+- **Il ne promet rien** : `annonceDeRoute` remplace `annonceDArrivee`. « Aucune fumée. La
+  route continue au SUD-OUEST » au lieu de « De la fumée monte au SUD-OUEST ». On ne fait
+  pas chercher un village qui n'existe pas.
+- **Quitter un monde habité compte comme un refus**, quitter un monde muet n'en coûte pas :
+  c'est déjà le prix qu'on paie.
+
+#### Le voile, au lieu de l'écran noir
+
+Entre deux mondes, on attendait : **700 ms de fondu, deux à trois secondes de carte cuite
+d'un bloc, 700 ms de fondu d'entrée**. La carte se peignant par morceaux, la scène se
+remonte en **200 à 330 ms** (mesuré dans le navigateur, en rendu logiciel). Le voile n'a
+donc plus de gel à couvrir :
+
+- **220 ms au lieu de 700** (`DUREE_DU_VOILE`). Sept bords de carte d'affilée après un
+  troisième refus, ça fait dix secondes d'écran noir économisées.
+- **L'entrée cérémonieuse n'a lieu qu'une fois.** Le zoom d'ouverture de 3,5 s raconte « tu
+  tombes quelque part » : c'est juste la première fois, et c'est une corvée la dixième. Dès
+  qu'on enchaîne un monde, on entre au zoom de jeu.
+
+#### Ce que la vérification a trouvé
+
+⚠️ **Le héros se noie si on le téléporte dans la mer** — le script de contrôle poussait le
+héros en `x = 4` pour simuler la sortie, ce qui le posait parfois dans l'eau (l'eau noie
+depuis le 19 septembre). Le test bloquait une fois sur trois, et **le jeu avait raison**. Le
+script passe désormais par le vrai chemin de sortie, et garde un contrôle à part pour la
+détection du bord.
+
+✅ **Et la mort pendant la marche se termine proprement** : un seul héros, donc sa mort
+appelle `finDePartie`. Vérifié à la lecture, pas de cul-de-sac.
+
+**Vérifié dans le navigateur** (`.tmp/verifier-errance.ts`, trois mondes tirés) : **42
+contrôles sur 42**. On refuse, on traverse un monde muet, on retrouve quelqu'un ; on refuse
+encore, on en traverse trois, et le village est là au bout.
+
+**À regarder** : `captures/jeu/2026-09-20-errance/` — le **même lieu**, habité puis muet :
+quatre maisons debout et des gens dehors d'un côté, toutes les maisons en ruine et personne
+de l'autre.
+
+**675 tests verts** (+5).
+
 ### La zone passe à ×3, et le tirage du monde redevient pur (20 septembre 2026, tard dans la nuit)
 
 Suite directe des morceaux : la carte ne se peignant plus d'un bloc, la zone ×3 devenait

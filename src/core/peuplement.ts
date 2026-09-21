@@ -225,9 +225,13 @@ export function stocksDeDepart(population: number, aisance: number): Stocks {
  * retrouver tel qu'on l'a quitte — et c'est ce qui rend les captures et les
  * verifications au navigateur comparables d'une passe a l'autre.
  */
-export function peuplerLeVillage(graine: number): Peuplement {
+export function peuplerLeVillage(graine: number, habite = true): Peuplement {
   const rng = new Rng(graine);
-  const population = tirerLaPopulation(rng);
+  // ⚠️ **Un village muet n'a personne** (§4.29, l'errance continue). Ce sont
+  // les ruines qu'on traverse entre deux vrais villages, et c'est ce qui donne
+  // sa longueur a la route apres un refus. On tire quand meme, pour que le
+  // meme village redevienne peuple si le monde cesse d'etre muet.
+  const population = habite ? tirerLaPopulation(rng) : 0;
   // Les reserves se tirent a part de la population : un grand village affame
   // et un couple de survivants assis sur trois jours de vivres sont deux
   // rencontres que le §4.29 veut pouvoir produire.

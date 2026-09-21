@@ -7,8 +7,10 @@ import {
   QUESTION_DU_GARDIEN,
   REGLAGES_MARCHE,
   annonceDArrivee,
+  annonceDeRoute,
   capVers,
   longueurDeLaMarche,
+  mondesMuetsApres,
   ouLonParait,
   paroleDuGardien,
   risqueDAttaque,
@@ -192,5 +194,36 @@ describe("Ce que coute un refus en face", () => {
         expect(r).toBeLessThanOrEqual(1);
       }
     }
+  });
+});
+
+describe("L'eloignement par refus", () => {
+  it("laisse le premier village la ou l'on tombe", () => {
+    // Le §6 le demande explicitement : le premier village arrive vite. C'est
+    // le refus qui coute, pas la premiere route.
+    expect(mondesMuetsApres(0)).toBe(0);
+  });
+
+  it("double le nombre de mondes a traverser a chaque refus", () => {
+    // ⚠️ **C'est la traduction de « le suivant est deux fois plus loin » sur
+    // une carte finie** (§4.29). On ne peut pas allonger une carte : on
+    // allonge la route, en mondes muets — un, puis trois, puis sept.
+    expect(mondesMuetsApres(1)).toBe(1);
+    expect(mondesMuetsApres(2)).toBe(3);
+    expect(mondesMuetsApres(3)).toBe(7);
+  });
+
+  it("plafonne, sinon la regle se retourne contre elle-meme", () => {
+    // Doubler sans fin, c'est 1 023 mondes au dixieme refus — sept heures de
+    // plaine vide. Le §4.29 dit « de longues minutes », pas une soiree.
+    expect(mondesMuetsApres(10)).toBe(REGLAGES_MARCHE.mondesMuetsMax);
+    expect(mondesMuetsApres(40)).toBe(REGLAGES_MARCHE.mondesMuetsMax);
+  });
+
+  it("ne promet aucune fumee quand il n'y a personne", () => {
+    // Un monde muet ne doit pas mentir au joueur : pas de village a trouver
+    // ici, seulement une route et ce qu'il y a a fouiller dessus.
+    expect(annonceDeRoute("au NORD")).not.toContain("fumee monte");
+    expect(annonceDeRoute("au NORD")).toContain("NORD");
   });
 });
