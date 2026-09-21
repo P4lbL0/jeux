@@ -91,6 +91,7 @@ export const CLES_DE_CACHE: Record<string, string> = {
   coffre: CLE_CACHE_COFFRE,
   trappe: CLE_CACHE_TRAPPE,
   charrette: CLE_CACHE_CHARRETTE,
+  stele: CLE_STELE,
 };
 
 /** Tous les arbres, morts et vivants, pour semer une foret. */

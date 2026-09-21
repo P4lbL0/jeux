@@ -31,6 +31,7 @@ import { type Monde, type Point } from "./carte";
 import { stocksVides, type Stocks } from "./habitants";
 import { estTerreFermeDans } from "./monde";
 import type { Rng } from "./rng";
+import { TRAITS_DE_STELE, traitParId } from "./traits";
 
 // ---------------------------------------------------------------- les reglages
 
@@ -134,6 +135,20 @@ export const REGLAGES_CACHES = {
    */
   margeDuDepart: 420,
 
+  /**
+   * La chance qu'un monde porte une stele (§4.31, troisieme trouvaille).
+   *
+   * ⚠️ **Rare, et le §4.31 insiste.** C'est la plus memorable des trois
+   * trouvailles et de loin la plus chere a equilibrer : un trait mal dose
+   * decide d'une partie entiere. A un monde sur cinq, une route de sept mondes
+   * muets en offre une ou deux — assez pour que ca arrive, assez peu pour que
+   * ca se raconte. Dans un monde habite, deux fois plus rare encore.
+   */
+  chanceDeSteleMuet: 0.2,
+  chanceDeSteleHabite: 0.08,
+  /** Combien de betes gardent une stele : comme une grosse cache (§4.31) */
+  gardeDeStele: { min: 4, max: 9 },
+
   /** A quelle distance on peut fouiller — et a laquelle le lisere parait (§4.31, point 3) */
   portee: 46,
   /**
@@ -157,7 +172,7 @@ export const REGLAGES_CACHES = {
  * depuis l'autre bout de l'ecran — on ne raterait rien, et c'est justement le
  * probleme.
  */
-export type GenreDeCache = "coffre" | "trappe" | "charrette";
+export type GenreDeCache = "coffre" | "trappe" | "charrette" | "stele";
 
 /** Petite : on fouille et on repart. Grosse : un camp de betes est dessus. */
 export type TailleDeCache = "petite" | "grosse";
@@ -174,9 +189,21 @@ export interface Cache {
   ressources: Stocks;
   /** Combien de betes la gardent. Zero sur une petite */
   garde: number;
+  /**
+   * Le trait qu'une **stele** donne, ou `null` pour une cache ordinaire
+   * (§4.31, troisieme trouvaille).
+   *
+   * C'est un identifiant de `traits.ts`, comme partout : on ne range jamais de
+   * chaine de caracteres (§4.23).
+   */
+  trait: number | null;
 }
 
-/** Les trois silhouettes, dans l'ordre ou elles ont ete dessinees. */
+/**
+ * Les trois silhouettes de cache. **La stele n'en fait pas partie** : elle ne
+ * se tire pas au sort avec les autres, elle se pose a part et au plus une par
+ * monde (§4.31).
+ */
 export const GENRES_DE_CACHE: readonly GenreDeCache[] = ["coffre", "trappe", "charrette"];
 
 /**
@@ -280,9 +307,73 @@ export function semerLesCaches(
       or: butin.or,
       ressources: butin.ressources,
       garde: taille === "grosse" ? rng.int(r.garde.min, r.garde.max) : 0,
+      trait: null,
     });
   }
+
+  // La stele se pose **a part, et au plus une** : elle n'entre pas dans le
+  // tirage des caches parce qu'elle ne rend pas la meme chose qu'elles (§4.31).
+  const stele = tirerLaStele(monde, rng, habite, depart, caches);
+  if (stele) caches.push({ ...stele, id: caches.length });
   return caches;
+}
+
+/**
+ * La stele de ce monde-ci, s'il en porte une (§4.31, troisieme trouvaille).
+ *
+ * Elle est **gardee**, comme une grosse cache : le §4.31 range les deux dans
+ * la meme ligne de sa table. Ce qu'elle donne n'est ni de l'or ni de la
+ * matiere — c'est un trait, et c'est le seul endroit du jeu ou l'on en gagne
+ * un de cette facon.
+ */
+function tirerLaStele(
+  monde: Monde,
+  rng: Rng,
+  habite: boolean,
+  depart: Point | undefined,
+  deja: readonly Cache[],
+): Omit<Cache, "id"> | null {
+  const r = REGLAGES_CACHES;
+  if (!rng.chance(habite ? r.chanceDeSteleHabite : r.chanceDeSteleMuet)) return null;
+  const point = placeDeRoute(monde, rng, depart, deja.map((c) => c.point));
+  if (!point) return null;
+  return {
+    point,
+    genre: "stele",
+    taille: "grosse",
+    or: 0,
+    ressources: stocksVides(),
+    garde: rng.int(r.gardeDeStele.min, r.gardeDeStele.max),
+    trait: rng.pick(TRAITS_DE_STELE),
+  };
+}
+
+/**
+ * Ce que la stele dit, et ce qu'elle demande (§4.31, decision d'Angelos :
+ * « on lit, puis on choisit »).
+ *
+ * ⚠️ **Elle annonce son prix avant qu'on paie**, et c'est ce qui autorise des
+ * traits aussi lourds (voir `traits.ts`, le commentaire des traits de stele).
+ * Un don a l'aveugle aurait ete plus memorable et plus injuste : un mauvais
+ * tirage aurait decide d'une partie entiere sans qu'on ait rien a dire.
+ */
+export function paroleDeLaStele(trait: number): {
+  lignes: string[];
+  augure: string;
+  question: string;
+} {
+  const def = traitParId(trait);
+  const nom = def?.nom ?? "quelque chose";
+  return {
+    lignes: [
+      "La pierre est gravee jusqu'au socle, et la gravure continue sous la terre.",
+      `Ce qu'elle promet porte un nom : ${nom}.`,
+      def?.resume ?? "",
+    ],
+    // La voix du jeu, pas celle de la pierre — comme l'augure du §4.29.
+    augure: "Ce qui se prend ici ne se rend pas.",
+    question: "Poser la main dessus ?",
+  };
 }
 
 /**

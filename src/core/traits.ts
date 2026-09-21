@@ -156,7 +156,7 @@ export type Effets = Partial<Modificateurs>;
  * tombe au hasard, la condition est **toujours quelque chose que le joueur a
  * fait**.
  */
-export type OrigineTrait = "naissance" | "exploit";
+export type OrigineTrait = "naissance" | "exploit" | "stele";
 
 export type CleTrait =
   // les quinze de naissance
@@ -189,7 +189,14 @@ export type CleTrait =
   | "marque"
   | "boucher"
   | "deracine"
-  | "legende-locale";
+  | "legende-locale"
+  // les six des steles (§4.31, jalon 5.6)
+  | "serment-de-fer"
+  | "oeil-du-veilleur"
+  | "pas-du-loup"
+  | "souffle-long"
+  | "main-du-batisseur"
+  | "coeur-scelle";
 
 export interface TraitDef {
   cle: CleTrait;
@@ -464,6 +471,73 @@ export const TRAITS: TraitDef[] = [
     humeur: "mixte",
     effets: { degatsContreHumain: 2.4, degats: 0.8 },
   },
+
+  // ------------------------------------------- les steles de la route (§4.31)
+  //
+  // ⚠️ **Ils cassent la regle des 2 a 5 % de l'entete, et il faut le dire.**
+  // Ce fichier pose que seule une sequelle a le droit de peser lourd. Un trait
+  // de stele pese **10 a 20 %** : entre les deux. Trois raisons, et si l'une
+  // tombe il faut les redescendre.
+  //
+  // 1. **Ils se choisissent en connaissance de cause** (decision d'Angelos,
+  //    21 septembre 2026) : la stele dit ce qu'elle donne et ce qu'elle coute,
+  //    et on peut passer son chemin. Un trait de naissance, lui, est subi.
+  // 2. **Ils sont rares** : un monde sur cinq en porte une, et elle est gardee
+  //    par un camp de betes qu'on voit de loin.
+  // 3. **Chacun se paie.** Aucun n'est gratuit : c'est la condition pour qu'un
+  //    trait de cette taille reste une decision et non un cadeau.
+  //
+  // Le §4.31 previent que la stele est « de loin la plus chere a equilibrer »
+  // et que ses traits doivent etre ecrits **pour** elle. Les voici : six,
+  // courts, et chacun un marche.
+  {
+    cle: "serment-de-fer",
+    nom: "Serment de fer",
+    resume: "Tes coups portent bien plus fort — et tu tiens moins longtemps",
+    origine: "stele",
+    humeur: "mixte",
+    effets: { degats: 1.15, pvMax: 0.9 },
+  },
+  {
+    cle: "oeil-du-veilleur",
+    nom: "Oeil du veilleur",
+    resume: "Tu esquives et tu frappes juste — mais tu ne dors plus vraiment",
+    origine: "stele",
+    humeur: "mixte",
+    effets: { esquive: 0.06, critique: 0.05, monteeStress: 1.3 },
+  },
+  {
+    cle: "pas-du-loup",
+    nom: "Pas du loup",
+    resume: "Tu vas plus vite que tout le monde — et tu manges pour deux",
+    origine: "stele",
+    humeur: "mixte",
+    effets: { vitesse: 1.14, appetit: 1.4 },
+  },
+  {
+    cle: "souffle-long",
+    nom: "Souffle long",
+    resume: "Tu encaisses bien plus, l'eglise te rend plus — tes coups portent moins",
+    origine: "stele",
+    humeur: "mixte",
+    effets: { pvMax: 1.2, soinEglise: 1.25, degats: 0.92 },
+  },
+  {
+    cle: "main-du-batisseur",
+    nom: "Main du batisseur",
+    resume: "Tu batis moins cher et tu ramasses plus — tu apprends plus lentement",
+    origine: "stele",
+    humeur: "mixte",
+    effets: { coutBati: 0.8, recolte: 1.3, monteeNiveau: 0.9 },
+  },
+  {
+    cle: "coeur-scelle",
+    nom: "Coeur scelle",
+    resume: "Rien ne t'atteint vraiment — et rien ne te soulage tout a fait",
+    origine: "stele",
+    humeur: "mixte",
+    effets: { monteeStress: 0.6, stressParMort: 0.55, plancherStress: 20 },
+  },
 ];
 
 /**
@@ -497,6 +571,17 @@ export function traitParId(id: number): TraitDef | undefined {
 /** Les traits qu'on peut tirer a la naissance. */
 export const TRAITS_DE_NAISSANCE: number[] = TRAITS.map((_, i) => i).filter(
   (i) => TRAITS[i]!.origine === "naissance",
+);
+
+/**
+ * Les traits que les steles de la route donnent (§4.31, jalon 5.6).
+ *
+ * ⚠️ **Ils ne tombent jamais a la naissance ni par exploit.** Une stele est
+ * leur seule porte d'entree, comme le soin est la seule porte des sequelles :
+ * c'est ce qui fait qu'en croiser une se raconte.
+ */
+export const TRAITS_DE_STELE: number[] = TRAITS.map((_, i) => i).filter(
+  (i) => TRAITS[i]!.origine === "stele",
 );
 
 // ---------------------------------------------------------------- sequelles

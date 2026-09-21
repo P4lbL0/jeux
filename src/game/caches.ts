@@ -45,6 +45,12 @@ export interface ContexteCaches {
   ramasser: (cache: Cache) => void;
   /** Le camp de betes d'une grosse cache, lache la premiere fois qu'on la voit */
   lacherLeCamp: (cache: Cache) => void;
+  /**
+   * On a pose la main sur une stele : la scene ouvre le panneau et demande
+   * (§4.31). Elle ne se vide pas ici — seul un oui la vide, et repasser plus
+   * tard doit pouvoir reposer la question.
+   */
+  toucherLaStele: (cache: Cache) => void;
   /** Le rayon de vue du §4.6, celui qui decide de ce qu'on « voit de loin » */
   rayonDeVue: number;
 }
@@ -97,6 +103,9 @@ export class Caches {
   poser(caches: readonly Cache[]): void {
     for (const regles of caches) {
       const cle = CLES_DE_CACHE[regles.genre] ?? CLES_DE_CACHE.coffre!;
+      // La stele est plus haute que les caches : son lisere se pose plus bas,
+      // mais tout le reste — origine au pied, profondeur par le pied — est
+      // identique. C'est du decor, comme le veut le §4.31.
       const image = this.scene.add
         .image(regles.point.x, regles.point.y, cle)
         .setOrigin(0.5, decorParCle(cle).origineY)
@@ -152,6 +161,14 @@ export class Caches {
 
     const proche = this.aPortee();
     if (proche) this.peindreLisere(proche, maintenant);
+  }
+
+  /** La stele a rendu ce qu'elle avait : elle s'eteint comme une cache videe. */
+  eteindre(id: number): void {
+    const posee = this.posees.find((c) => c.regles.id === id);
+    if (!posee) return;
+    posee.videe = true;
+    posee.image.setTint(0x6b6357);
   }
 
   /** Tout oublier : on change de monde, ou l'on s'installe (§4.31, point 4). */
@@ -212,6 +229,12 @@ export class Caches {
     if (part < 1) return;
 
     this.enCours = null;
+    // ⚠️ **Une stele ne se fouille pas, elle se demande.** Elle reste pleine
+    // tant qu'on n'a pas dit oui : on peut lire, passer son chemin, et revenir.
+    if (posee.regles.genre === "stele") {
+      this.contexte.toucherLaStele(posee.regles);
+      return;
+    }
     posee.videe = true;
     // La silhouette reste : le monde garde la trace de ce qu'on a fait. Elle
     // s'assombrit, pour qu'on ne refasse pas deux fois le meme detour.

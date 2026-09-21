@@ -75,7 +75,13 @@ import { ARCHETYPE_HUMAIN, choisirArchetype } from "../game/ennemis";
 import { POLICE } from "../game/ui/chrome";
 import { Survivants, type SpriteSurvivant } from "../game/survivants";
 import { Caches } from "../game/caches";
-import { REGLAGES_CACHES, placeDeRoute, semerLesCaches, type Cache } from "../core/caches";
+import {
+  REGLAGES_CACHES,
+  paroleDeLaStele,
+  placeDeRoute,
+  semerLesCaches,
+  type Cache,
+} from "../core/caches";
 import {
   creerSurvivant,
   creerSurvivantDeRoute,
@@ -196,8 +202,9 @@ import {
   verifierRupture,
   voirMourir,
   prenomLibre,
+  gagnerTrait,
 } from "../core/personne";
-import { PART_DE_COUPS_REFUSES } from "../core/traits";
+import { PART_DE_COUPS_REFUSES, traitParId } from "../core/traits";
 import type { Habitant, PostureCivile, Ressource, Stocks } from "../core/habitants";
 import {
   accueillir as suivreSiFou,
@@ -619,6 +626,8 @@ export class ArenaScene extends Phaser.Scene {
   private butinDeLaRoute: Stocks = stocksVides();
   /** Les camps de betes deja leves : on ne les lache qu'une fois */
   private campsLeves = new Set<number>();
+  /** La stele dont le panneau est ouvert, s'il y en a une (§4.31) */
+  private steleOuverte: Cache | null = null;
   /**
    * Ceux qui nous suivent, entre deux mondes (§4.31).
    *
@@ -915,6 +924,7 @@ export class ArenaScene extends Phaser.Scene {
     this.argent = data.argent ?? (data.reprise ? this.argent : 0);
     this.butinDeLaRoute = data.butinDeLaRoute ? { ...data.butinDeLaRoute } : stocksVides();
     this.campsLeves = new Set<number>();
+    this.steleOuverte = null;
     this.compagnonsDeRoute = data.compagnons ?? [];
     // ⚠️ **Un monde muet n'a personne a qui parler** (§4.29, l'errance
     // continue). Son village est une ruine vide qu'on traverse : c'est ainsi
@@ -1468,6 +1478,7 @@ export class ArenaScene extends Phaser.Scene {
       annoncer: (message, source) => this.events.emit("annonce", message, source),
       ramasser: (cache) => this.ramasserUneCache(cache),
       lacherLeCamp: (cache) => this.leverLeCamp(cache),
+      toucherLaStele: (cache) => this.ouvrirLaStele(cache),
       rayonDeVue: RAYON_DE_VUE,
     });
 
@@ -1991,6 +2002,12 @@ export class ArenaScene extends Phaser.Scene {
    * regardent qui est en face. C'est le morceau suivant, pas celui-ci.
    */
   private repondreALaRencontre(accepte: boolean): void {
+    // Le panneau sert aux deux (§4.31) : c'est ici qu'on sait duquel il s'agit,
+    // exactement comme `repondreALaPorte` demele la porte et le sauvetage.
+    if (this.steleOuverte !== null) {
+      this.repondreALaStele(accepte);
+      return;
+    }
     this.reprendreLeJeu();
 
     const gardien = this.gardien;
@@ -2259,6 +2276,78 @@ export class ArenaScene extends Phaser.Scene {
       );
     }
     this.survivants.vider();
+  }
+
+  /**
+   * On a pose la main sur une stele (§4.31, troisieme trouvaille).
+   *
+   * ⚠️ **Elle dit ce qu'elle donne et ce qu'elle coute avant qu'on paie**
+   * (decision d'Angelos, 21 septembre 2026). C'est ce qui autorise des traits
+   * aussi lourds que les siens : un don a l'aveugle aurait ete plus memorable
+   * et plus injuste — un mauvais tirage aurait decide d'une partie entiere sans
+   * qu'on ait rien eu a dire.
+   *
+   * Le panneau est **celui de la rencontre** (§4.29). Les deux scenes sont la
+   * meme : quelque chose nous pose une question, et nous avons deux reponses.
+   * Deux panneaux auraient ete une interface en double (§4.10).
+   */
+  private ouvrirLaStele(cache: Cache): void {
+    if (cache.trait === null || this.steleOuverte !== null) return;
+    this.steleOuverte = cache;
+    const parole = paroleDeLaStele(cache.trait);
+
+    this.enPause = true;
+    this.debutPause = this.time.now;
+    this.physics.pause();
+    this.anims.pauseAll();
+    this.effacerDestination();
+    this.events.emit("rencontre", {
+      nom: "La stele",
+      titre: "UNE STELE",
+      lignes: parole.lignes,
+      augure: parole.augure,
+      question: parole.question,
+      oui: "Poser la main",
+      non: "Passer ton chemin",
+    });
+  }
+
+  /**
+   * On accepte le trait, ou on repart sans.
+   *
+   * **Passer son chemin ne consomme rien** : la stele reste, et on peut revenir
+   * tant qu'on est dans ce monde-ci. Une pierre ne s'en va pas parce qu'on a
+   * hesite — et le §4.31 veut un pari eclaire, pas un piege.
+   */
+  private repondreALaStele(accepte: boolean): void {
+    const cache = this.steleOuverte;
+    this.steleOuverte = null;
+    this.reprendreLeJeu();
+    if (!cache || cache.trait === null) return;
+
+    if (!accepte) {
+      this.events.emit("annonce", "Tu retires ta main. La pierre reste.", "toi");
+      return;
+    }
+
+    const def = traitParId(cache.trait);
+    const hero = this.hero;
+    if (!def || !hero || hero.etat === "mort") return;
+    // ⚠️ **Le trait va au heros, pas au village** (§4.31) : c'est lui qui a
+    // fait le detour, et c'est lui qui le portera jusqu'au bout — la mort est
+    // definitive, donc ce qu'on grave ici se perd avec lui.
+    if (gagnerTrait(hero.personne, def.cle)) {
+      // ⚠️ **Rien a recalculer, mais il faut borner la vie.** Les getters du
+      // heros lisent `personne.mods`, que `gagnerTrait` vient de reagreger ; en
+      // revanche un trait qui **baisse** la vie maximale (le Serment de fer)
+      // laisserait ses points de vie courants au-dessus du nouveau plafond.
+      hero.pv = Math.min(hero.pv, hero.pvMax);
+      this.events.emit("annonce", `La pierre te marque — ${def.nom}`, "toi");
+      this.events.emit("annonce", def.resume, "toi");
+    } else {
+      this.events.emit("annonce", "La pierre ne te dit plus rien. Tu portes deja sa marque.", "toi");
+    }
+    this.caches.eteindre(cache.id);
   }
 
   private passerAuLarge(): void {

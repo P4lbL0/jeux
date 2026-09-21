@@ -29,6 +29,20 @@ export interface ParoleDeRencontre {
    */
   augure: string;
   question: string;
+  /**
+   * Ce qui s'ecrit dans la barre de titre. Par defaut « <nom> — A LA PORTE ».
+   *
+   * ⚠️ **Le panneau sert desormais a deux choses**, et c'est la meme scene :
+   * quelqu'un nous pose une question, et nous avons deux reponses. La rencontre
+   * a la porte (§4.29) et la stele de la route (§4.31) ne different que par les
+   * mots — leur donner deux panneaux aurait ete une interface en double, ce que
+   * le §4.10 refuse.
+   */
+  titre?: string;
+  /** Le libelle du oui. Par defaut « Je vous protegerai » */
+  oui?: string;
+  /** Le libelle du non. Par defaut « Je passe mon chemin » */
+  non?: string;
 }
 
 const LARGEUR = 470;
@@ -112,7 +126,7 @@ export class PanneauRencontre {
     cadre(g, plaque, true);
     barreDeTitre(g, plaque);
 
-    this.texte(espacer(`${parole.nom} — A LA PORTE`.toUpperCase()), 11, T.titre)
+    this.texte(espacer((parole.titre ?? `${parole.nom} — A LA PORTE`).toUpperCase()), 11, T.titre)
       .setPosition(plaque.x + MARGE, yTitre(plaque))
       .setOrigin(0, 0);
 
@@ -143,7 +157,7 @@ export class PanneauRencontre {
     const largeurBouton = Math.floor((utile - MARGE) / 2);
     const accepter = new Bouton(
       this.scene,
-      "Je vous protegerai",
+      parole.oui ?? "Je vous protegerai",
       () => {
         this.masquer();
         surAccepter();
@@ -152,7 +166,7 @@ export class PanneauRencontre {
     ).placer({ x: plaque.x + MARGE, y, largeur: largeurBouton, hauteur: 30 });
     const refuser = new Bouton(
       this.scene,
-      "Je passe mon chemin",
+      parole.non ?? "Je passe mon chemin",
       () => {
         this.masquer();
         surRefuser();

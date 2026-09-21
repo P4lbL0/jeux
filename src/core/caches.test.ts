@@ -3,6 +3,7 @@ import {
   REGLAGES_CACHES,
   butinDUneCache,
   combienDeCaches,
+  paroleDeLaStele,
   phraseDeFouille,
   semerLesCaches,
   totalDesRessources,
@@ -11,6 +12,7 @@ import {
 import { TAILLE_CLASSIQUE, estTerreFermeDans, genererMonde } from "./monde";
 import { Rng } from "./rng";
 import { stocksVides } from "./habitants";
+import { TRAITS_DE_NAISSANCE, TRAITS_DE_STELE, traitParId } from "./traits";
 
 /**
  * Les trouvailles de la route (§4.31, jalon 5.6). Ce qui se verifie ici, c'est
@@ -168,7 +170,10 @@ describe("Ce qu'elles rendent", () => {
   it("garde le camp de betes franchissable : il se juge avant de s'y engager", () => {
     const caches = semerLesCaches(monde(9), new Rng(9), false);
     for (const c of caches) {
-      if (c.taille === "grosse") {
+      if (c.genre === "stele") {
+        expect(c.garde).toBeGreaterThanOrEqual(REGLAGES_CACHES.gardeDeStele.min);
+        expect(c.garde).toBeLessThanOrEqual(REGLAGES_CACHES.gardeDeStele.max);
+      } else if (c.taille === "grosse") {
         expect(c.garde).toBeGreaterThanOrEqual(REGLAGES_CACHES.garde.min);
         expect(c.garde).toBeLessThanOrEqual(REGLAGES_CACHES.garde.max);
       } else {
@@ -198,6 +203,7 @@ describe("Ce qu'on en dit", () => {
       or: 14,
       ressources: { ...stocksVides(), bois: 18 },
       garde: 0,
+      trait: null,
     };
     const phrase = phraseDeFouille(cache);
     expect(phrase).toContain("14 pieces");
@@ -213,5 +219,57 @@ describe("Ce qu'on en dit", () => {
     expect(total.bois).toBe(20);
     expect(total.pierre).toBe(5);
     expect(total.minerai).toBe(0);
+  });
+});
+
+describe("La stele (§4.31, troisieme trouvaille)", () => {
+  it("reste rare : un monde sur cinq, et jamais deux", () => {
+    let mondes = 0;
+    for (let graine = 1; graine <= 60; graine++) {
+      const caches = semerLesCaches(monde(graine), new Rng(graine), false);
+      const steles = caches.filter((c) => c.genre === "stele");
+      expect(steles.length).toBeLessThanOrEqual(1);
+      if (steles.length === 1) mondes += 1;
+    }
+    // Assez pour que ca arrive sur une route de sept mondes, assez peu pour que
+    // ca se raconte. Le §4.31 la veut « rare », et c'est la plus chere a doser.
+    expect(mondes / 60).toBeGreaterThan(0.08);
+    expect(mondes / 60).toBeLessThan(0.35);
+  });
+
+  it("est toujours gardee, et ne rend ni or ni matiere", () => {
+    for (let graine = 1; graine <= 60; graine++) {
+      for (const c of semerLesCaches(monde(graine), new Rng(graine), false)) {
+        if (c.genre !== "stele") continue;
+        expect(c.garde).toBeGreaterThanOrEqual(REGLAGES_CACHES.gardeDeStele.min);
+        expect(c.or).toBe(0);
+        expect(Object.values(c.ressources).reduce((s, v) => s + v, 0)).toBe(0);
+        expect(c.trait).not.toBeNull();
+        expect(TRAITS_DE_STELE).toContain(c.trait);
+      }
+    }
+  });
+
+  it("donne un trait qui ne s'obtient nulle part ailleurs", () => {
+    // ⚠️ Une stele est leur seule porte d'entree, comme le soin est la seule
+    // porte des sequelles : c'est ce qui fait qu'en croiser une se raconte.
+    for (const id of TRAITS_DE_STELE) {
+      expect(TRAITS_DE_NAISSANCE).not.toContain(id);
+      expect(traitParId(id)!.origine).toBe("stele");
+    }
+    expect(TRAITS_DE_STELE.length).toBeGreaterThan(3);
+  });
+
+  it("annonce ce qu'elle donne **et** ce qu'elle coute avant qu'on paie", () => {
+    for (const id of TRAITS_DE_STELE) {
+      const def = traitParId(id)!;
+      // Chacun est un marche : aucun trait de stele n'est un cadeau, sinon il
+      // n'y aurait plus rien a decider.
+      expect(def.humeur).toBe("mixte");
+      const parole = paroleDeLaStele(id);
+      expect(parole.lignes.join(" ")).toContain(def.nom);
+      expect(parole.lignes.join(" ")).toContain(def.resume);
+      expect(parole.question).toContain("?");
+    }
   });
 });
