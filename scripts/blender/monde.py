@@ -429,3 +429,143 @@ def filets(a):
     for i, x in enumerate((-0.8, -0.27, 0.27, 0.8)):
         a.boule("sable", 0.1, (x, 0.0, z_haut), 3 + i, bosses=0.1)
     return (0, -0.1)
+
+
+# ------------------------------------------------- les trouvailles de la route
+# Les caches du §4.31 (jalon 5.6, 21 septembre 2026). Elles ne sont pas des
+# objets de jeu poses sur le monde : ce sont **des decors de plus dans la meme
+# famille** que la charrette et le tonneau, et c'est ce qui les fait lire comme
+# « quelqu'un a laisse ca la » plutot que comme un ramassage de points.
+#
+# ⚠️ Chacune doit se reconnaitre a sa **silhouette seule** (§4.31, point 3) :
+# rien ne brille, rien ne clignote. Ce qui les distingue du decor ordinaire,
+# c'est qu'elles sont **ouvertes** — un couvercle arrache, un battant releve,
+# une caisse eventree. C'est l'ouverture qui porte l'information.
+
+def cache_coffre(a):
+    """Un coffre defonce : la caisse, deux cercles de fer, le couvercle arrache a cote."""
+    L, P, H = 1.1, 0.72, 0.6
+    a.boite("bois", (L, P, H), (0, 0, H / 2))
+    # les ferrures : deux bandes qui ceignent la caisse, et la serrure brisee
+    for x in (-L / 4, L / 4):
+        a.boite("fer", (0.1, P + 0.04, H + 0.03), (x, 0, H / 2))
+    a.boite("laiton", (0.18, 0.1, 0.16), (0, -P / 2 - 0.03, H * 0.62))
+    # le dedans, creuse : c'est le trou qui dit que le coffre est ouvert
+    a.boite("trou", (L - 0.22, P - 0.2, 0.16), (0, 0, H - 0.05))
+    # le couvercle arrache, pose de biais contre le flanc droit, une ferrure
+    # encore dessus — un couvercle a plat se serait lu comme une planche
+    o = a.boite("bois", (L * 0.92, P * 0.9, 0.11), (L / 2 + 0.32, 0.05, 0.28))
+    o.rotation_euler = (0, -1.05, 0.22)
+    o = a.boite("fer", (0.09, P * 0.9, 0.13), (L / 2 + 0.24, 0.05, 0.33))
+    o.rotation_euler = (0, -1.05, 0.22)
+    return (0, -P / 2)
+
+
+def cache_trappe(a):
+    """Une trappe de cave : une margelle basse, un trou noir, un battant dresse."""
+    L, P = 1.25, 0.95
+    # ⚠️ **La margelle doit sortir de terre.** Premier jet a ras du sol : sous
+    # une camera penchee a 55 degres, tout ce qui est plat s'ecrase et la
+    # trappe se lisait comme une planche posee (juge sur planche).
+    a.boite("pierre", (L + 0.34, P + 0.3, 0.38), (0, 0, 0.19))
+    a.boite("pierre", (L + 0.12, P + 0.1, 0.1), (0, 0, 0.42))
+    # le trou : large, haut, et d'une seule valeur. C'est lui qui dit « ca
+    # descend ». Au deuxieme jet il etait encore trop bas pour se voir sous la
+    # camera penchee — il monte donc au ras de la margelle.
+    a.boite("trou", (L, P, 0.46), (0, 0, 0.26))
+    # le battant rabattu, a plat au fond de la moitie gauche
+    a.boite("bois", (L / 2 - 0.02, P - 0.08, 0.1), (-L / 4 - 0.04, 0, 0.44))
+    for y in (-P / 3, P / 3):
+        a.boite("fer", (L / 2 - 0.1, 0.08, 0.12), (-L / 4 - 0.04, y, 0.45))
+    # le battant **dresse**, presque droit : c'est lui, la silhouette de la
+    # trappe. Penche, il se couchait sur le trou et le masquait (juge sur
+    # planche, deux fois).
+    o = a.boite("bois", (0.12, P - 0.06, L * 0.86), (L / 2 - 0.04, 0, 0.42 + L * 0.43))
+    o.rotation_euler = (0, -0.12, 0)
+    o = a.boite("fer", (0.14, 0.11, L * 0.8), (L / 2 - 0.1, 0, 0.42 + L * 0.42))
+    o.rotation_euler = (0, -0.12, 0)
+    # la poignee, au sommet du battant dresse
+    a.boite("fer", (0.1, 0.32, 0.1), (L / 2 + 0.1, 0, 0.42 + L * 0.8))
+    return (0, -P / 2 - 0.17)
+
+
+def cache_charrette(a):
+    """La charrette du village, eventree : caisse vide, sa roue detachee debout contre elle."""
+    # ⚠️ **Trois jets pour trouver ce qui se lit**, et ca vaut d'etre ecrit.
+    # 1. Une bascule autour de X : la camera penchee a 55 degres ne la montre
+    #    pas, ca restait une caisse posee droite.
+    # 2. Une bascule autour de Y a -0,34 : ca la tordait et la faisait sortir
+    #    du cadre de douze pixels.
+    # 3. Une roue **couchee a plat** devant : de face, un disque a plat se lit
+    #    comme un socle, pas comme une roue.
+    # Ce qui marche : la roue **detachee et dressee contre le flanc**. Un disque
+    # vertical pose a cote d'une caisse se reconnait tout de suite, et il dit a
+    # lui seul que la charrette ne roulera plus.
+    L, P, H = 1.7, 0.95, 0.42
+    penche = -0.13
+    caisse = []
+    caisse.append(a.boite("bois", (L, P, 0.08), (0, 0, 0.5)))
+    caisse.append(a.boite("bois", (L, 0.06, H), (0, P / 2, 0.5 + H / 2)))
+    # le flanc de devant, casse en deux morceaux : un bord net se lirait comme
+    # une caisse ouverte de fabrique, pas comme du bois arrache
+    caisse.append(a.boite("bois", (L * 0.44, 0.06, H), (L * 0.28, -P / 2, 0.5 + H / 2)))
+    caisse.append(a.boite("bois", (L * 0.18, 0.06, H * 0.5), (-L * 0.36, -P / 2, 0.5 + H * 0.25)))
+    caisse.append(a.boite("bois", (0.06, P, H), (L / 2, 0, 0.5 + H / 2)))
+    # le dedans, vide et noir : c'est lui qui dit « on a deja tout sorti »
+    caisse.append(a.boite("trou", (L - 0.12, P - 0.12, 0.1), (0, 0, 0.55)))
+    for o in caisse:
+        o.rotation_euler = (0, penche, 0)
+        o.location = (o.location[0], o.location[1], o.location[2] - 0.1)
+    # la roue de devant, en place : c'est celle qu'on voit sur la charrette du
+    # village, et la garder maintient la parente entre les deux silhouettes
+    o = a.cone("ecorce", 0.42, 0.1, (0.24, -P / 2 - 0.09, 0.42), cotes=10, r_haut=0.42)
+    o.rotation_euler = (math.pi / 2, 0, 0)
+    o.location = (0.24, -P / 2 - 0.09, 0.42)
+    h = a.cone("fer", 0.1, 0.16, (0.24, -P / 2 - 0.09, 0.42), cotes=6, r_haut=0.1)
+    h.rotation_euler = (math.pi / 2, 0, 0)
+    h.location = (0.24, -P / 2 - 0.09, 0.42)
+    # la roue detachee, **dressee contre le flanc gauche**, un peu penchee
+    o = a.cone("ecorce", 0.4, 0.09, (-L / 2 - 0.3, -0.26, 0.4), cotes=10, r_haut=0.4)
+    o.rotation_euler = (math.pi / 2, 0, -0.34)
+    o.location = (-L / 2 - 0.3, -0.26, 0.4)
+    h = a.cone("fer", 0.09, 0.12, (-L / 2 - 0.3, -0.34, 0.4), cotes=6, r_haut=0.09)
+    h.rotation_euler = (math.pi / 2, 0, -0.34)
+    h.location = (-L / 2 - 0.3, -0.34, 0.4)
+    # du cote ou la roue manque, l'essieu nu touche presque terre : c'est lui
+    # qui explique que la caisse penche
+    h = a.cone("fer", 0.09, 0.3, (-0.3, -P / 2 - 0.02, 0.14), cotes=6, r_haut=0.09)
+    h.rotation_euler = (math.pi / 2, 0, 0)
+    h.location = (-0.3, -P / 2 - 0.02, 0.14)
+    # un seul brancard, casse net : deux encombraient le cote de la roue
+    a.branche("bois", (L / 2, 0.3, 0.42), (L / 2 + 0.55, 0.32, 0.06), 0.045)
+    # une planche arrachee, tombee devant
+    a.branche("ecorce", (-0.1, -P / 2 - 0.55, 0.05), (0.7, -P / 2 - 0.45, 0.05), 0.05)
+    return (0, -P / 2 - 0.55)
+
+
+def stele(a):
+    """Une pierre taillee et dressee, la tete cassee en biseau, gravee de creux."""
+    H = 2.6
+    Lg, Ep = 0.86, 0.4
+    # ⚠️ **Taillee, donc a aretes franches.** Premier jet en cone a six pans :
+    # ca rendait un galet debout, indistinguable d'un rocher (juge sur planche).
+    a.boite("pierre", (Lg + 0.34, Ep + 0.3, 0.26), (0, 0, 0.13))
+    a.boite("pierre", (Lg, Ep, H - 0.7), (0, 0, 0.26 + (H - 0.7) / 2))
+    # la tete, coupee de biais : c'est cette dissymetrie qui la fait lire de
+    # loin comme une stele brisee et non comme une borne
+    o = a.boite("pierre", (Lg, Ep, 0.62), (0.04, 0, H - 0.44))
+    o.rotation_euler = (0, 0.3, 0)
+    # ⚠️ **La gravure doit sortir de la face.** Premier jet : des creux poses a
+    # l'interieur de la pierre, donc invisibles. Ils depassent maintenant de
+    # trois centimetres devant, et ils sont larges de deux pixels du jeu.
+    devant = -Ep / 2 - 0.03
+    a.boite("trou", (0.16, 0.1, H - 1.5), (0, devant, 1.05))
+    for z in (0.62, 1.12, 1.62):
+        a.boite("trou", (0.54, 0.1, 0.14), (0, devant, z))
+    # le laiton encastre dans la tete : la seule chose qui accroche la lumiere,
+    # et elle est petite — le §4.31 refuse ce qui brille de loin
+    a.boite("laiton", (0.26, 0.1, 0.26), (0.04, devant, H - 0.46))
+    # les eclats tombes au pied : une stele qui a tenu deux siecles s'ebreche
+    a.boule("pierre", 0.17, (-0.66, -0.3, 0.1), 5, bosses=0.3)
+    a.boule("pierre", 0.12, (0.62, -0.4, 0.08), 9, bosses=0.3)
+    return (0, -Ep / 2 - 0.15)

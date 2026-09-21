@@ -792,6 +792,18 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
   attirePar: Invocation | null = null;
   /** Marque du Contrat : cet ennemi mourra a coup sur */
   souscontrat = false;
+  /**
+   * Le camp qu'il garde, s'il en garde un (DESIGN.md §4.31, jalon 5.6).
+   *
+   * ⚠️ **Une bete de camp ne poursuit pas au-dela de son terrain**, et c'est
+   * une decision d'Angelos : on voit le camp de loin, on peut aller voir, et on
+   * peut **renoncer**. Une meute qui ne lache plus ferait de l'approche un
+   * engagement total — trop dur pour un heros seul au premier monde, et le
+   * detour cesserait d'etre un pari pour devenir un piege.
+   */
+  campeSur: { x: number; y: number } | null = null;
+  /** Jusqu'ou il s'ecarte de son camp avant d'y retourner */
+  rayonDuCamp = 0;
   ralentiJusqua = 0;
   /** Eclair blanc au moment d'encaisser, gere sans minuterie */
   flashJusqua = 0;

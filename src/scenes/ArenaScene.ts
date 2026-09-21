@@ -74,6 +74,8 @@ import {
 import { ARCHETYPE_HUMAIN, choisirArchetype } from "../game/ennemis";
 import { POLICE } from "../game/ui/chrome";
 import { Survivants, type SpriteSurvivant } from "../game/survivants";
+import { Caches } from "../game/caches";
+import { REGLAGES_CACHES, semerLesCaches, type Cache } from "../core/caches";
 import {
   creerSurvivant,
   ETAT_ANNONCE,
@@ -176,7 +178,7 @@ import {
 import { Construction, Constructions, PORTEE_OCCUPATION } from "../game/constructions";
 import { Champs, REGLAGES_CHAMPS, type Champ } from "../game/champs";
 import { Maison, Maisons, REGLAGES_MAISONS } from "../game/maisons";
-import { NOMS_METIER, NOMS_POSTURE_CIVILE, NOMS_RESSOURCE, RESSOURCES, SOUS_PRODUIT } from "../core/habitants";
+import { NOMS_METIER, NOMS_POSTURE_CIVILE, NOMS_RESSOURCE, RESSOURCES, SOUS_PRODUIT, stocksVides } from "../core/habitants";
 import {
   EFFETS_RUPTURE,
   NOMS_RUPTURE,
@@ -595,6 +597,26 @@ export class ArenaScene extends Phaser.Scene {
    * Au plus un a la fois, et il ne parait que le jour.
    */
   private survivants!: Survivants;
+  /**
+   * Les caches de la route (§4.31, jalon 5.6).
+   *
+   * ⚠️ **Elles n'existent que pendant l'errance.** Une partie installee n'en a
+   * aucune : la restauration du village (jalon 8) est le systeme qui
+   * recompense l'exploration une fois qu'on a un village, et deux systemes
+   * pour la meme chose seraient un de trop.
+   */
+  private caches!: Caches;
+  /**
+   * Ce que la route a rendu en matiere, et qui deviendra les reserves du jour
+   * ou l'on s'installe (§4.31).
+   *
+   * ⚠️ **Ce ne sont pas encore des stocks.** On n'a pas de village : ce qu'on
+   * porte sur le dos ne se compte ni dans le grenier ni dans la faim de
+   * personne. Ca s'y verse a l'installation, et une seule fois.
+   */
+  private butinDeLaRoute: Stocks = stocksVides();
+  /** Les camps de betes deja leves : on ne les lache qu'une fois */
+  private campsLeves = new Set<number>();
   private prochainSurvivantJournee = 1;
   /** Celui qu'on presente a l'eglise, tant que la fiche est ouverte */
   private survivantALEglise: SpriteSurvivant | null = null;
@@ -864,6 +886,10 @@ export class ArenaScene extends Phaser.Scene {
     mondesMuets?: number;
     /** Pour les captures et les tests : commencer installe, sans la marche */
     sansLaMarche?: boolean;
+    /** La bourse qu'on emporte d'un monde a l'autre (§4.29, §4.31) */
+    argent?: number;
+    /** La matiere ramassee sur la route, qui deviendra les reserves (§4.31) */
+    butinDeLaRoute?: Stocks;
   }): void {
     this.registry.set("classe", data.classe ?? "guerrier");
     this.emplacement = data.emplacement ?? 1;
@@ -871,6 +897,12 @@ export class ArenaScene extends Phaser.Scene {
     this.marches = data.marches ?? 0;
     this.refus = data.refus ?? 0;
     this.mondesMuets = data.mondesMuets ?? 0;
+    // ⚠️ **Une partie neuve repart a zero, et il faut l'ecrire.** Phaser
+    // reutilise l'instance de scene : sans ces deux lignes, la bourse et le sac
+    // d'une partie perdue se retrouveraient dans la suivante.
+    this.argent = data.argent ?? (data.reprise ? this.argent : 0);
+    this.butinDeLaRoute = data.butinDeLaRoute ? { ...data.butinDeLaRoute } : stocksVides();
+    this.campsLeves = new Set<number>();
     // ⚠️ **Un monde muet n'a personne a qui parler** (§4.29, l'errance
     // continue). Son village est une ruine vide qu'on traverse : c'est ainsi
     // qu'un refus « eloigne le village suivant » sur une carte qui, elle, est
@@ -1410,6 +1442,17 @@ export class ArenaScene extends Phaser.Scene {
       noterUneMortEnChemin: () => this.village.noterUneMortEnChemin(),
     });
 
+    // Les caches de la route (§4.31). Comme les survivants : elles ne
+    // connaissent ni la scene ni le village, cinq fonctions suffisent.
+    this.caches = new Caches(this, {
+      positionDuHeros: () => (this.hero && this.hero.etat !== "mort" ? { x: this.hero.x, y: this.hero.y } : null),
+      pvDuHeros: () => this.hero?.pv ?? 0,
+      annoncer: (message, source) => this.events.emit("annonce", message, source),
+      ramasser: (cache) => this.ramasserUneCache(cache),
+      lacherLeCamp: (cache) => this.leverLeCamp(cache),
+      rayonDeVue: RAYON_DE_VUE,
+    });
+
     this.village = new Village(this, {
       menaceAutour: (x, y, rayon) => this.ennemiLePlusProche(x, y, rayon),
       annoncer: (message) => this.events.emit("annonce", message, "village"),
@@ -1604,6 +1647,11 @@ export class ArenaScene extends Phaser.Scene {
     return this.enMarche;
   }
 
+  /** Ce qu'on porte sur la route (§4.31) : la bourse et le sac. */
+  get etatDeLaRoute(): { or: number; butin: Stocks } {
+    return { or: this.argent, butin: this.butinDeLaRoute };
+  }
+
   /**
    * On parait loin, seul, et on marche (DESIGN.md §4.29).
    *
@@ -1630,6 +1678,9 @@ export class ArenaScene extends Phaser.Scene {
       this.villageMuet ? annonceDeRoute(cap) : annonceDArrivee(cap),
       "toi",
     );
+    // Ce que le monde a laisse derriere lui (§4.31) : les caches se sement ici,
+    // une fois qu'on sait ou l'on parait — c'est ce point-la qu'elles evitent.
+    this.semerLesTrouvailles();
     this.dezoomerALEntree();
   }
 
@@ -2041,6 +2092,75 @@ export class ArenaScene extends Phaser.Scene {
    * peignant desormais par morceaux, la scene se remonte en deux ou trois
    * dixiemes ; le voile n'a plus besoin de couvrir un gel, seulement un pas.
    */
+  /**
+   * On a fini de fouiller une cache (§4.31).
+   *
+   * **Les deux monnaies ne vont pas au meme endroit**, et c'est tout le sens du
+   * systeme : l'**or** entre dans la bourse, qui traverse les mondes — « refuser
+   * un village finance le suivant » (§4.29) prend enfin son sens, puisqu'il y a
+   * enfin de quoi gagner de l'or sur la route. La **matiere**, elle, attend :
+   * elle deviendra les reserves du jour ou l'on s'installera.
+   */
+  private ramasserUneCache(cache: Cache): void {
+    this.argent += cache.or;
+    for (const cle of RESSOURCES) this.butinDeLaRoute[cle] += cache.ressources[cle];
+  }
+
+  /**
+   * Le camp de betes qui garde une grosse cache se leve (§4.31).
+   *
+   * ⚠️ **Une seule fois par cache.** `mettreAJour` appelle ceci a chaque image
+   * ou l'on est a portee de vue ; sans la marque, on lacherait huit betes par
+   * image et le plafond du §4.17 serait creve en une seconde.
+   */
+  private leverLeCamp(cache: Cache): void {
+    if (this.campsLeves.has(cache.id)) return;
+    this.campsLeves.add(cache.id);
+    this.lacherLaMeute(cache.point.x, cache.point.y, cache.garde, true);
+    this.events.emit("annonce", `Des betes rodent autour — ${cache.garde}`, "guet");
+  }
+
+  /**
+   * Les caches de ce monde-ci, semees au debut de la marche (§4.31).
+   *
+   * ⚠️ **Jamais en partie installee** (§4.31, point 4), et jamais sur une
+   * reprise : la restauration du village (jalon 8) est le systeme qui
+   * recompense l'exploration une fois qu'on a un village.
+   */
+  private semerLesTrouvailles(): void {
+    if (!this.enMarche) return;
+    // La graine du monde, decalee : deux mondes n'ont pas les memes caches, et
+    // le meme monde a toujours les siennes — comme le decor et le village.
+    const caches = semerLesCaches(
+      mondeCourant(),
+      new Rng(this.graineMonde + 811),
+      !this.villageMuet,
+      this.departDeLaMarche,
+    );
+    this.caches.poser(caches);
+    console.log(`[caches] ${caches.length} posees, dont ${caches.filter((c) => c.taille === "grosse").length} gardees`);
+  }
+
+  /**
+   * Ce qu'on a porte sur le dos devient le grenier du village (§4.31).
+   *
+   * ⚠️ **Ca s'ajoute a ce que le village avait deja**, et ca ne le remplace
+   * pas : le peuplement lui a donne ses reserves (§4.29), et elles ont ete
+   * payees par le budget. Ce qu'on apporte est un cadeau qui n'a rien coute au
+   * monde — c'est le prix du detour, et il est a nous.
+   */
+  private verserLeButinDeLaRoute(): void {
+    let total = 0;
+    for (const cle of RESSOURCES) {
+      this.village.stocks[cle] += this.butinDeLaRoute[cle];
+      total += this.butinDeLaRoute[cle];
+    }
+    if (total > 0) {
+      this.events.emit("annonce", `Tu vides ton sac dans le grenier — ${total} de reserves`, "village");
+    }
+    this.butinDeLaRoute = stocksVides();
+  }
+
   private passerAuLarge(): void {
     this.quitteLeMonde = true;
     // Refuser, c'est quitter un monde qui avait quelqu'un. Traverser des
@@ -2064,6 +2184,14 @@ export class ArenaScene extends Phaser.Scene {
         marches: this.marches + 1,
         refus,
         mondesMuets,
+        // ⚠️ **Ce qu'on a trouve sur la route traverse avec nous** (§4.29,
+        // §4.31). L'or et la matiere passaient jusqu'ici par accident : Phaser
+        // reutilise l'instance de scene, donc les champs survivaient a
+        // `scene.start`. Ca marchait, et ca n'etait ecrit nulle part — une
+        // ligne de plus dans `init` l'aurait efface sans qu'on comprenne
+        // pourquoi la bourse se vidait. C'est donc passe explicitement.
+        argent: this.argent,
+        butinDeLaRoute: this.butinDeLaRoute,
       });
     });
   }
@@ -2082,6 +2210,12 @@ export class ArenaScene extends Phaser.Scene {
   private sInstaller(donneeALaParole: boolean): void {
     this.enMarche = false;
     this.gardien = null;
+    // ⚠️ **Ce qu'on portait devient le grenier, et la route s'arrete la**
+    // (§4.31, point 4). Les caches n'existent pas en partie installee : la
+    // restauration du village (jalon 8) est le systeme qui recompensera
+    // l'exploration a partir de ce moment.
+    this.verserLeButinDeLaRoute();
+    this.caches.vider();
     // Le champ des humains ne sert plus a personne : on le jette plutot que de
     // le laisser se refaire pendant toute la partie (§4.17).
     this.cheminDesHumains = null;
@@ -2574,8 +2708,16 @@ export class ArenaScene extends Phaser.Scene {
         this.batirIci(point.x, point.y);
         return;
       }
-      if (p.rightButtonDown()) this.ordonnerAncre(p);
-      else viser(p);
+      if (p.rightButtonDown()) {
+        this.ordonnerAncre(p);
+        return;
+      }
+      // Une cache a portee, cliquee : on fouille au lieu de marcher (§4.31).
+      // Elle passe avant `viser` et apres tout le reste — c'est le seul endroit
+      // ou un clic gauche fait autre chose que deplacer, hors amenagement.
+      const cible = this.cameras.main.getWorldPoint(p.x, p.y);
+      if (this.caches.cliquer(cible.x, cible.y)) return;
+      viser(p);
     });
     // Maintenir guide le heros ; le clic droit, lui, ne se maintient pas.
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
@@ -2873,6 +3015,7 @@ export class ArenaScene extends Phaser.Scene {
     this.gererCapacites();
     this.majCycle(delta);
     this.survivants.mettreAJour();
+    this.caches.mettreAJour(this.time.now);
     this.eglise.majorer(delta, this.time.now);
     // Le port est un acquis du village, pas de celui qui passe devant : aucun
     // navire n'accoste tant qu'on n'a pas donne sa parole (§4.29).
@@ -3710,7 +3853,16 @@ export class ArenaScene extends Phaser.Scene {
     // suit meme hors de vue — on ne sème pas un village qu'on a refuse en lui
     // tournant le dos.
     const capHumain = e.humain ? (this.hero.etat !== "mort" ? this.hero : null) : null;
-    const cible = proie ?? capHumain ?? e.cibleMaison?.centre ?? EGLISE;
+    // ⚠️ **Une bete de camp garde son terrain** (§4.31, decision d'Angelos).
+    // Des qu'elle s'en est trop ecartee, son cap redevient le camp, meme si
+    // elle voit encore quelqu'un : c'est ce qui permet d'aller voir une grosse
+    // cache, de juger, et de faire demi-tour.
+    const rentre =
+      e.campeSur &&
+      Phaser.Math.Distance.Between(e.x, e.y, e.campeSur.x, e.campeSur.y) > e.rayonDuCamp
+        ? e.campeSur
+        : null;
+    const cible = rentre ?? proie ?? capHumain ?? e.cibleMaison?.centre ?? EGLISE;
     let angle = Phaser.Math.Angle.Between(e.x, e.y, cible.x, cible.y);
     // Un lac, un massif, une douve en eau entre lui et son cap : il suit le
     // parcours (§4.29) au lieu de buter dedans. Une proie en vue se poursuit
@@ -6229,7 +6381,7 @@ export class ArenaScene extends Phaser.Scene {
    * doit pouvoir paraitre pendant qu'elle est debout. Si l'ecran est deja
    * charge, la meute est plus petite — jamais l'inverse.
    */
-  private lacherLaMeute(x: number, y: number, combien: number): void {
+  private lacherLaMeute(x: number, y: number, combien: number, camp = false): void {
     const puissance = this.puissanceIci(this.cycle.jour);
     const place = MAX_ENNEMIS - this.ennemis.getLength();
     for (let i = 0; i < Math.min(combien, place); i++) {
@@ -6245,6 +6397,11 @@ export class ArenaScene extends Phaser.Scene {
         puissance,
         archetype,
       );
+      // Une bete de camp ne s'eloigne pas de ce qu'elle garde (§4.31).
+      if (camp) {
+        e.campeSur = { x, y };
+        e.rayonDuCamp = REGLAGES_CACHES.rayonDuCamp;
+      }
       this.ennemis.add(e);
     }
   }

@@ -12,6 +12,7 @@ import type { Hero } from "../game/entities";
 import { BoiteJournal } from "../game/journal";
 import { PanneauRencontre, type ParoleDeRencontre } from "../game/rencontre";
 import { PanneauEtat } from "../game/ui/panneauEtat";
+import { PanneauRoute } from "../game/ui/panneauRoute";
 import { POLICE } from "../game/ui/chrome";
 import type { ArenaScene } from "./ArenaScene";
 
@@ -39,6 +40,8 @@ export class UiScene extends Phaser.Scene {
   private village!: PanneauVillage;
   private port!: PanneauPort;
   private etat!: PanneauEtat;
+  /** Ce qu'on porte tant qu'on marche (§4.31) : il prend la place du compteur */
+  private route!: PanneauRoute;
   private boiteJournal!: BoiteJournal;
   private rencontre!: PanneauRencontre;
 
@@ -86,6 +89,9 @@ export class UiScene extends Phaser.Scene {
     // Le compteur du haut-droite : jour, population, survie et elimines. Il
     // remplace deux textes sans fond qui se marchaient dessus au meme coin.
     this.etat = new PanneauEtat(this);
+    // Le meme coin, l'autre moitie du jeu : la route (§4.31). Les deux ne
+    // coexistent jamais — on marche, ou bien on a un village.
+    this.route = new PanneauRoute(this);
 
     this.boiteJournal = new BoiteJournal(this);
 
@@ -232,7 +238,11 @@ export class UiScene extends Phaser.Scene {
     this.port.rafraichir(this.arene.etatPort);
     // Le compteur du village n'existe pas tant qu'on n'a pas de village (§4.29).
     this.etat.montrer(!this.arene.enChemin);
-    if (!this.arene.enChemin) {
+    this.route.montrer(this.arene.enChemin);
+    if (this.arene.enChemin) {
+      const sac = this.arene.etatDeLaRoute;
+      this.route.rafraichir(sac.or, sac.butin);
+    } else {
       this.etat.rafraichir(this.arene.etatVillage, this.arene.resume, this.time.now);
     }
 

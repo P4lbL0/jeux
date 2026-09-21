@@ -6,6 +6,7 @@ import { ECORCE, FEUILLE, PIERRE, ROCHE, melanger, type Matiere,
   BOIS,
   EAU,
   FER,
+  LAITON,
   SABLE,
   TISSU,
   TOILE,
@@ -59,6 +60,13 @@ const CHARRETTE = { largeur: 36, hauteur: 22, pied: 19 };
 // des filets qui sechent au poste de peche et contre le port.
 const CORDE_A_LINGE = { largeur: 40, hauteur: 20, pied: 16 };
 const FILETS = { largeur: 36, hauteur: 24, pied: 20 };
+// Les trouvailles de la route (§4.31, 21 septembre 2026). Plus grandes que les
+// details de vie, et c'est voulu : leur silhouette doit se lire de loin **sans
+// que rien ne clignote**, puisque c'est la forme qui porte toute l'information.
+const CACHE_COFFRE = { largeur: 30, hauteur: 24, pied: 21 };
+const CACHE_TRAPPE = { largeur: 32, hauteur: 24, pied: 20 };
+const CACHE_CHARRETTE = { largeur: 40, hauteur: 28, pied: 24 };
+const STELE = { largeur: 26, hauteur: 44, pied: 39 };
 
 /** Les arbres morts, les vivants, les coniferes, les rochers : leurs cles. */
 export const ARBRES_MORTS = [0, 1, 2, 3].map((i) => `decor-arbre-mort-${i}`);
@@ -72,6 +80,18 @@ export const CLE_TAS_DE_BOIS = "decor-tas-de-bois";
 export const CLE_CHARRETTE = "decor-charrette";
 export const CLE_CORDE_A_LINGE = "decor-corde-a-linge";
 export const CLE_FILETS = "decor-filets";
+/** Les trois silhouettes de cache (§4.31) : une par genre, dans l'ordre du core. */
+export const CLE_CACHE_COFFRE = "decor-cache-coffre";
+export const CLE_CACHE_TRAPPE = "decor-cache-trappe";
+export const CLE_CACHE_CHARRETTE = "decor-cache-charrette";
+export const CLE_STELE = "decor-stele";
+
+/** La cle de decor d'un genre de cache, dans l'ordre de `GENRES_DE_CACHE`. */
+export const CLES_DE_CACHE: Record<string, string> = {
+  coffre: CLE_CACHE_COFFRE,
+  trappe: CLE_CACHE_TRAPPE,
+  charrette: CLE_CACHE_CHARRETTE,
+};
 
 /** Tous les arbres, morts et vivants, pour semer une foret. */
 export const ARBRES = [...ARBRES_MORTS, ...ARBRES_VIVANTS, ...CONIFERES];
@@ -285,6 +305,10 @@ export const DECORS: readonly Decor[] = [
   decor(CLE_CHARRETTE, CHARRETTE),
   decor(CLE_CORDE_A_LINGE, CORDE_A_LINGE),
   decor(CLE_FILETS, FILETS),
+  decor(CLE_CACHE_COFFRE, CACHE_COFFRE),
+  decor(CLE_CACHE_TRAPPE, CACHE_TRAPPE),
+  decor(CLE_CACHE_CHARRETTE, CACHE_CHARRETTE),
+  decor(CLE_STELE, STELE),
 ];
 
 export function decorParCle(cle: string): Decor {
@@ -306,6 +330,10 @@ export function peindreDecor(cle: string): Toile {
   else if (cle === CLE_CHARRETTE) peindreCharrette(toile);
   else if (cle === CLE_CORDE_A_LINGE) peindreCordeALinge(toile);
   else if (cle === CLE_FILETS) peindreFilets(toile);
+  else if (cle === CLE_CACHE_COFFRE) peindreCoffre(toile);
+  else if (cle === CLE_CACHE_TRAPPE) peindreTrappe(toile);
+  else if (cle === CLE_CACHE_CHARRETTE) peindreCharretteEventree(toile);
+  else if (cle === CLE_STELE) peindreStele(toile);
   else peindreSouche(toile);
   toile.contour();
   return toile;
@@ -371,6 +399,100 @@ function peindreFilets(t: Toile): void {
     }
   }
   for (const x of [9, 15, 21, 27]) t.point(x, pied - 17, SABLE.clair);
+}
+
+// ------------------------------------- les trouvailles de la route, en secours
+
+/**
+ * Le noir d'un dedans : la meme valeur unique que la matiere `trou` de Blender.
+ *
+ * Un trou ne prend pas la lumiere — il n'a donc ni clair ni sombre, et c'est ce
+ * qui le fait lire comme un vide et non comme une face peinte en gris.
+ */
+const TROU = melanger(PIERRE.sombre, FER.sombre, 0.6);
+
+/** Le secours du coffre : la caisse, ses ferrures, le dedans vide, le couvercle arrache. */
+function peindreCoffre(t: Toile): void {
+  const { largeur, pied } = CACHE_COFFRE;
+  t.ombreAuSol(largeur / 2 - 3, pied + 1, 9, 2.4);
+  // la caisse
+  t.rect(4, pied - 11, 16, 11, BOIS.corps);
+  t.rect(4, pied - 11, 1, 11, BOIS.clair);
+  t.rect(19, pied - 11, 1, 11, BOIS.sombre);
+  for (const x of [8, 15]) t.rect(x, pied - 12, 2, 12, FER.corps);
+  t.rect(11, pied - 6, 3, 3, LAITON.corps);
+  // le dedans, ouvert : c'est le trou qui dit que le coffre est fouille
+  t.rect(5, pied - 13, 14, 3, TROU);
+  // le couvercle arrache, de biais contre le flanc droit. Il s'arrete a deux
+  // pixels du bord : le contour en prend un de plus, et le test du bord le dit.
+  t.segment(21, pied - 2, 25, pied - 10, 3, BOIS.corps);
+  t.segment(21, pied - 2, 25, pied - 10, 1, FER.corps);
+}
+
+/** Le secours de la trappe : l'encadrement, le trou, un battant a plat, l'autre debout. */
+function peindreTrappe(t: Toile): void {
+  const { largeur, pied } = CACHE_TRAPPE;
+  t.ombreAuSol(largeur / 2, pied + 1, 11, 2.6);
+  t.rect(3, pied - 6, 26, 6, PIERRE.corps);
+  t.rect(5, pied - 5, 22, 4, TROU);
+  // le battant rabattu, a plat
+  t.rect(5, pied - 5, 10, 4, BOIS.corps);
+  t.rect(5, pied - 5, 10, 1, BOIS.clair);
+  t.rect(8, pied - 5, 1, 4, FER.corps);
+  // le battant releve : la silhouette de la trappe, c'est lui
+  t.rect(18, pied - 18, 9, 13, BOIS.corps);
+  t.rect(18, pied - 18, 1, 13, BOIS.clair);
+  t.rect(21, pied - 18, 2, 13, FER.corps);
+  t.rect(25, pied - 17, 3, 2, FER.corps);
+}
+
+/** Le secours de la charrette eventree : penchee sur sa roue cassee, caisse ouverte. */
+function peindreCharretteEventree(t: Toile): void {
+  const { largeur, pied } = CACHE_CHARRETTE;
+  t.ombreAuSol(largeur / 2, pied + 1, 14, 3);
+  // la caisse, plus basse a gauche : l'essieu a lache de ce cote
+  t.rect(10, pied - 14, 22, 8, BOIS.corps);
+  t.rect(10, pied - 12, 22, 1, BOIS.sombre);
+  t.rect(11, pied - 15, 20, 3, TROU);
+  t.rect(31, pied - 14, 1, 8, BOIS.sombre);
+  // la roue qui tient, a droite ; celle qui est tombee, couchee a gauche
+  t.disque(28, pied - 4, 4, ECORCE.sombre);
+  t.disque(28, pied - 4, 1.5, FER.corps);
+  t.rect(5, pied - 2, 9, 3, ECORCE.sombre);
+  // les brancards, dont un casse net
+  t.segment(10, pied - 8, 2, pied - 2, 1.5, BOIS.sombre);
+  t.segment(10, pied - 6, 5, pied - 3, 1.5, BOIS.sombre);
+  // ce qui s'est repandu au sol
+  t.rect(15, pied - 2, 7, 2, ECORCE.corps);
+  t.rect(23, pied - 3, 4, 3, BOIS.corps);
+}
+
+/** Le secours de la stele : le fut, la tete cassee de biais, la gravure, le laiton. */
+function peindreStele(t: Toile): void {
+  const { largeur, pied } = STELE;
+  const x = largeur / 2;
+  t.ombreAuSol(x, pied + 1, 8, 2.6);
+  // le socle, puis le fut qui s'affine en montant
+  t.rect(x - 7, pied - 3, 14, 3, PIERRE.sombre);
+  for (let i = 0; i < 29; i += 1) {
+    const demi = 5.5 - (i / 29) * 1.4;
+    t.rect(x - demi, pied - 4 - i, demi * 2, 1, PIERRE.corps);
+    t.point(x - demi, pied - 4 - i, PIERRE.clair);
+    t.point(x + demi - 1, pied - 4 - i, PIERRE.sombre);
+  }
+  // la tete, cassee de biais : c'est cette dissymetrie qui la fait lire de loin
+  t.rect(x - 5, pied - 36, 10, 4, PIERRE.corps);
+  t.rect(x - 5, pied - 36, 10, 1, PIERRE.clair);
+  t.rect(x + 1, pied - 37, 4, 2, PIERRE.sombre);
+  // la gravure : un sillon et trois traverses, creuses dans l'ombre
+  t.rect(x - 1, pied - 28, 2, 20, TROU);
+  for (const dy of [11, 18, 25]) t.rect(x - 3, pied - dy, 6, 1, TROU);
+  // le laiton encastre : la seule chose qui accroche la lumiere, et elle est
+  // petite — le §4.31 refuse ce qui brille de loin
+  t.rect(x - 2, pied - 35, 3, 3, LAITON.corps);
+  // les eclats au pied
+  t.disque(x - 8, pied - 1, 2, PIERRE.sombre);
+  t.disque(x + 8, pied - 1, 1.5, PIERRE.sombre);
 }
 
 /**

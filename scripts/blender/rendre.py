@@ -76,6 +76,12 @@ def sprites():
     s["decor-charrette"] = (lambda a: monde.charrette(a), 36, 22, 20, 20)
     s["decor-corde-a-linge"] = (lambda a: monde.corde_a_linge(a), 40, 20, 17)
     s["decor-filets"] = (lambda a: monde.filets(a), 36, 24, 21)
+    # Les trouvailles de la route (§4.31) : tailles dans `decor.ts`
+    # (CACHE_COFFRE, CACHE_TRAPPE, CACHE_CHARRETTE, STELE).
+    s["decor-cache-coffre"] = (lambda a: monde.cache_coffre(a), 30, 24, 22)
+    s["decor-cache-trappe"] = (lambda a: monde.cache_trappe(a), 32, 24, 21)
+    s["decor-cache-charrette"] = (lambda a: monde.cache_charrette(a), 40, 28, 25, 20)
+    s["decor-stele"] = (lambda a: monde.stele(a), 26, 44, 40)
     return s
 
 
