@@ -71,15 +71,35 @@ import {
 export const PORTEE_OCCUPATION = 60;
 
 /**
- * Combien de temps l'echafaudage reste dresse sur ce qu'on vient de poser.
+ * Combien de **travail de batisseur** un chantier demande, en millisecondes
+ * (DESIGN.md §4.20, §4.24, bloc 8).
  *
- * ⚠️ **Ce n'est pas un temps de construction** — la construction tient, bloque
- * et encaisse des la pose, comme avant. Le §4.20 (tranche le 9 septembre)
- * demande qu'un chantier occupe un batisseur et prenne du temps ; cette regle
- * vit dans le core, et elle n'est pas ecrite. En attendant, le chantier se
- * **voit** : c'est la moitie de la promesse, et celle qui ne coute rien.
+ * ⚠️ **Ce n'est plus une minuterie.** Jusqu'au 21 septembre 2026, l'echafaudage
+ * se levait tout seul au bout de quatre secondes, et la promesse « un chantier
+ * occupe un batisseur » n'etait pas tenue. Ces quatre secondes sont maintenant
+ * du **temps de charpentier** : sans personne a l'atelier, l'echafaudage reste
+ * dresse indefiniment, et autant de chantiers avancent que de batisseurs
+ * affectes.
+ *
+ * Quatre secondes par segment : assez pour qu'une enceinte entiere demande
+ * qu'on y mette des bras, assez peu pour qu'un mur de secours se leve dans la
+ * minute. *Chiffre tranche par le code, a corriger en jouant.*
  */
 export const DUREE_CHANTIER = 4000;
+
+/**
+ * Ce qu'un ouvrage inacheve tient debout, en part de ses points de vie.
+ *
+ * ⚠️ **La construction bloque des la pose, comme avant** : on ne change pas la
+ * physique d'un mur en cours de route, et un mur qu'on poserait en pleine nuit
+ * sans qu'il arrete rien serait un piege. Ce qui change, c'est qu'il est
+ * **fragile** tant que personne ne l'a fini — c'est la que « ca prend du
+ * temps » se paie. *Chiffre tranche par le code.*
+ */
+export const PART_EN_CHANTIER = 0.3;
+
+/** A quelle distance un batisseur travaille sur un chantier, en pixels. */
+export const PORTEE_BATISSEUR = 46;
 
 /** Ce qu'il reste de la vitesse de qui traverse une douve seche (§4.20 : « lentement, a decouvert »). */
 export const RALENTI_DOUVE = 0.35;
@@ -157,8 +177,11 @@ export class Construction extends Phaser.Physics.Arcade.Image {
    * tablier est leve et que rien ne passe.
    */
   enjambee = false;
-  /** Jusqu'a quand l'echafaudage se voit ; 0 quand le chantier est fini. */
-  chantierJusqua = 0;
+  /**
+   * Le travail de batisseur qu'il reste a faire dessus, en millisecondes ; 0
+   * quand le chantier est fini (§4.20, bloc 8).
+   */
+  travailRestant = 0;
   /** Jusqu'a quand elle tremble d'un coup ; un coup par secousse, pas plus. */
   secoueeJusqua = 0;
 
@@ -190,7 +213,7 @@ export class Construction extends Phaser.Physics.Arcade.Image {
   }
 
   get enChantier(): boolean {
-    return this.chantierJusqua > 0;
+    return this.travailRestant > 0;
   }
 
   /**
@@ -437,8 +460,10 @@ export class Constructions {
       construction.battant.phase = "fermee";
       construction.position = "fermee";
     }
-    // Un trou n'a pas d'echafaudage.
-    if (maintenant !== undefined && type !== "douve") construction.chantierJusqua = maintenant + DUREE_CHANTIER;
+    // Un trou n'a pas d'echafaudage. Et un mur pose par le generateur du monde
+    // n'en a pas non plus : un village trouve est deja bati (§4.29), et c'est
+    // `maintenant` qui distingue les deux.
+    if (maintenant !== undefined && type !== "douve") this.ouvrirLeChantier(construction);
     this.inscrire(construction);
     this.rehabillerAutour(centre.x, centre.y);
     return construction;
@@ -460,7 +485,7 @@ export class Constructions {
     regler(suite.palier.cout, stocks);
     construction.matiere = suite.matiere;
     construction.pv = suite.palier.pvMax;
-    if (maintenant !== undefined) construction.chantierJusqua = maintenant + DUREE_CHANTIER;
+    if (maintenant !== undefined) this.ouvrirLeChantier(construction);
     construction.habiller();
     return suite.matiere;
   }
@@ -677,26 +702,85 @@ export class Constructions {
   }
 
   /**
-   * Les chantiers finissent, une fois par image (§4.17 : un horodatage, pas
-   * une minuterie).
-   *
-   * @param actif faux quand la scene est en pause : un chantier n'avance pas
-   *        pendant qu'on amenage.
+   * On dresse l'echafaudage : le travail a faire, et les points de vie d'un
+   * ouvrage inacheve (§4.20, bloc 8).
    */
-  finirLesChantiers(maintenant: number, actif = true): void {
-    if (!actif) return;
+  private ouvrirLeChantier(construction: Construction): void {
+    construction.travailRestant = DUREE_CHANTIER;
+    construction.pv = Math.max(1, Math.round(construction.pvMax * PART_EN_CHANTIER));
+  }
+
+  /** Combien de chantiers attendent des bras. */
+  get chantiersOuverts(): number {
+    return this.liste.reduce((n, c) => n + (c.enChantier ? 1 : 0), 0);
+  }
+
+  /**
+   * Le chantier le plus proche d'un point, ou `null` s'il n'y en a aucun.
+   *
+   * C'est ce que le charpentier cherche : il n'a pas de poste sur la carte, son
+   * poste **c'est le chantier en cours** (§4.18).
+   */
+  chantierLePlusProche(x: number, y: number): Construction | null {
+    let meilleur: Construction | null = null;
+    let distance = Infinity;
     for (const c of this.liste) {
-      if (!c.enChantier || maintenant < c.chantierJusqua) continue;
-      c.chantierJusqua = 0;
-      c.habiller();
-      this.surgir(c);
+      if (!c.enChantier) continue;
+      const d = Phaser.Math.Distance.Between(x, y, c.x, c.y);
+      if (d < distance) {
+        distance = d;
+        meilleur = c;
+      }
+    }
+    return meilleur;
+  }
+
+  /**
+   * Les chantiers avancent — **du travail des batisseurs, et de rien d'autre**
+   * (DESIGN.md §4.20, §4.24 : « un chantier occupe un batisseur, et il y a
+   * autant de chantiers simultanes que d'habitants affectes »).
+   *
+   * ⚠️ **Un batisseur ne tient qu'un chantier a la fois.** Deux charpentiers
+   * cote a cote sur le meme mur ne le montent pas deux fois plus vite : ils
+   * montent deux murs. C'est ce qui rend l'affectation lisible — une enceinte
+   * de vingt segments demande des bras, pas de la patience.
+   *
+   * @param batisseurs ceux qui sont a pied d'oeuvre, positions comprises
+   * @param actif faux quand la scene est en pause : rien n'avance pendant
+   *        qu'on amenage
+   */
+  avancerLesChantiers(
+    batisseurs: readonly { x: number; y: number }[],
+    delta: number,
+    actif = true,
+  ): void {
+    if (!actif || batisseurs.length === 0) return;
+
+    const pris = new Set<Construction>();
+    for (const batisseur of batisseurs) {
+      const chantier = this.chantierLePlusProche(batisseur.x, batisseur.y);
+      if (!chantier || pris.has(chantier)) continue;
+      const loin =
+        Phaser.Math.Distance.Between(batisseur.x, batisseur.y, chantier.x, chantier.y) >
+        PORTEE_BATISSEUR;
+      if (loin) continue;
+
+      pris.add(chantier);
+      chantier.travailRestant -= delta;
+      if (chantier.travailRestant > 0) continue;
+
+      chantier.travailRestant = 0;
+      chantier.pv = chantier.pvMax;
+      chantier.habiller();
+      this.surgir(chantier);
     }
   }
 
-  /** Repousse les chantiers et les battants du temps passe en pause, comme tout le reste. */
+  /** Repousse les battants du temps passe en pause, comme tout le reste. */
   decaler(millisecondes: number): void {
     for (const c of this.liste) {
-      if (c.enChantier) c.chantierJusqua += millisecondes;
+      // ⚠️ Un chantier ne se decale plus : il ne compte plus le temps qui
+      // passe, mais le travail fait. Une pause ne lui enleve rien.
       c.battant?.decaler(millisecondes);
       if (c.derniereDemande > -Infinity) c.derniereDemande += millisecondes;
     }

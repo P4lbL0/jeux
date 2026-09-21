@@ -15,6 +15,7 @@ import {
   activesPossedees,
 } from "../core/competences";
 import type { Ordre, Point } from "../core/ordres";
+import type { Metier } from "../core/habitants";
 import { creerPersonne, prenomLibre, type Personne } from "../core/personne";
 import { Rng } from "../core/rng";
 import { nouvellePose } from "./poses";
@@ -214,6 +215,15 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   poste: Point | null = null;
   /** Allie qu'il protege : son ancre le suit partout */
   protege: Hero | null = null;
+  /**
+   * Le poste auquel le joueur l'a affecte (DESIGN.md §4.4, bloc 8).
+   *
+   * Un heros au travail produit **beaucoup** plus vite qu'un habitant — la meme
+   * cadence qu'a la main, ses degats divises par huit, par seconde. Mais
+   * seulement le jour, et ca le fatigue : il arrive a la nuit avec du stress,
+   * donc moins bon au combat. C'est ce qui empeche « tout le monde a la peche ».
+   */
+  travail: Metier | null = null;
 
   /** Points de vie maximum gagnes par la Provocation, cumules pour la partie */
   pvGagnesProvocation = 0;

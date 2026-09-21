@@ -204,6 +204,7 @@ function capturerHeros(hero: Hero, maintenant: number): EtatHeros {
     evolutions,
     posture: hero.ordre.posture,
     ancre: hero.ordre.ancre ? { x: hero.ordre.ancre.x, y: hero.ordre.ancre.y } : null,
+    travail: hero.travail,
     pvGagnesProvocation: hero.pvGagnesProvocation,
     personne: capturerPersonne(hero.personne, maintenant),
   };
@@ -348,6 +349,7 @@ function reprendreLesHeros(
     hero.choixEnAttente = etat.choixEnAttente;
     hero.pvGagnesProvocation = etat.pvGagnesProvocation;
     hero.ordre = { posture: etat.posture, ancre: etat.ancre };
+    hero.travail = etat.travail ?? null;
     Object.assign(hero.personne, restaurerPersonne(etat.personne, maintenant));
     hero.pv = Math.max(0, Math.min(etat.pv, hero.pvMax));
 

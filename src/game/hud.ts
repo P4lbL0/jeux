@@ -331,8 +331,11 @@ export class Hud {
         });
       }
 
-      carte.etat.setText(LIBELLES_ETAT[hero.etat] ?? "");
-      teindre(carte.etat, COULEURS_ETAT[hero.etat] ?? T.osMat);
+      // Un heros au travail le dit : sans ca, on le voit partir vers la foret
+      // et on croit que l'IA a lache le combat (§4.4, bloc 8).
+      const auTravail = hero.travail !== null && hero.etat === "combat";
+      carte.etat.setText(auTravail ? "au travail" : LIBELLES_ETAT[hero.etat] ?? "");
+      teindre(carte.etat, auTravail ? T.laiton : COULEURS_ETAT[hero.etat] ?? T.osMat);
 
       // --- Choix en attente ---
       // L'IA ne choisit jamais : elle accumule, et ce badge dit au joueur

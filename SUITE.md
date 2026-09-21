@@ -1657,6 +1657,70 @@ Le panneau ORDRES affichait « toute l'équipe (0) » depuis le 5.5, où l'on jo
 Il dit « personne » quand l'équipe IA est vide, et son compteur additionne les deux
 populations.
 
+### Le bloc 8 est fini — le héros au travail et le chantier (21 septembre 2026)
+
+Les deux morceaux de gameplay qui restaient au bloc 8, après le mode commandement.
+
+#### Un héros au travail (§4.4)
+
+`Hero.travail` porte le métier qu'on lui a donné, et `ArenaScene.travaillerLesHeros()`
+fait le reste. L'affectation **pose une ancre** sur le poste plutôt que de piloter le
+héros à part : il garde toute son IA, il se défend, il revient à sa place — et il n'y a
+pas une deuxième logique de déplacement à déboguer.
+
+- Cadence : **celle du joueur à la main**, `degats / 8` par seconde. Rien de neuf à
+  équilibrer, et le chiffre du §4.18 (~98/min contre 6/min) tombe juste.
+- **Le jour seulement.** La nuit il lâche son poste, garde son affectation, la reprend à
+  l'aube.
+- Fatigue : `STRESS_DU_TRAVAIL = 2,2` point par minute, contre 0,1 pour un habitant.
+- **Le repli des 20 % passe avant** — `piloter()` traite le repli en premier et ignore
+  l'ancre, donc rien à écrire pour le garantir.
+- Sa carte d'équipe dit « au travail », et l'affectation est **sauvegardée**
+  (`EtatHeroSauve.travail`, optionnel : une vieille sauvegarde se recharge sans rien).
+
+#### Le chantier qui occupe un bâtisseur (§4.20, §4.24 — le reste du 7b)
+
+`Construction.chantierJusqua` (un horodatage) devient `travailRestant` (des
+millisecondes de travail). `Constructions.avancerLesChantiers(batisseurs, delta)` remplace
+`finirLesChantiers(maintenant)`.
+
+- Sans charpentier, **l'échafaudage reste dressé indéfiniment**.
+- **Un bâtisseur, un chantier** : un `Set` des chantiers déjà pris dans la passe empêche
+  deux charpentiers de monter le même mur deux fois plus vite.
+- Un ouvrage inachevé **bloque comme avant** mais ne tient que `PART_EN_CHANTIER = 0,3` de
+  ses PV ; fini, il retrouve tout.
+- Le charpentier va au chantier le plus proche : `ContexteVillage.chantierLePlusProche`,
+  une fonction de plus dans le contexte — `village.ts` ne connaît toujours pas les
+  constructions.
+- **Une pause ne rend plus rien** : `decaler()` ne touche plus les chantiers, puisqu'ils ne
+  comptent plus le temps qui passe.
+
+#### Deux choses apprises en pilotant une partie
+
+1. **Un villageois visé sur un point exact à côté d'un mur pousse contre la pierre
+   indéfiniment.** Il avance en ligne droite, sans calcul de chemin (§4.17) : dès qu'un
+   angle d'enceinte tombe entre lui et sa place, il n'« arrive » jamais. Il travaille
+   donc **dès qu'il est à portée du chantier**. À retenir pour tout poste qui n'est pas
+   en terrain libre.
+2. **Une attente de test se mesure sur le pire cas, pas sur le cas moyen.** Deux « échecs »
+   du script venaient de sa propre marge : le bâtisseur avait marché plus longtemps que
+   prévu, et les 4 s de travail ne tenaient pas dans les 6 s d'attente. C'est le défaut du
+   banc, pas du produit — la distinction a déjà coûté quatre fois au jalon 5.6.
+
+#### Vérifié
+
+`node .tmp/verifier-travail.mjs <graine>` : **11/11**, trois mondes. Il produit, la cadence
+est celle d'un héros, le stress monte, la nuit il lâche son poste sans perdre son
+affectation, *Rompez* le rend au combat.
+
+`node .tmp/verifier-chantier.mjs <graine>` : **14/14**, sept mondes. Aucun échafaudage au
+démarrage, un ouvrage inachevé à 36 PV sur 120, rien n'avance sans charpentier, deux
+bâtisseurs sur le même mur ne vont pas deux fois plus vite, un par mur et les deux
+avancent.
+
+**709 tests verts**. **À regarder** : `captures/jeu/2026-09-21-bloc8-ordres/`
+(`hero-au-travail`, `chantier-et-batisseur`).
+
 ### Le jalon 5.6 — les trouvailles de la route (21 septembre 2026)
 
 **Le jalon 5.6 est fini**, dans l'ordre que le §4.31 imposait : les caches, le survivant, la

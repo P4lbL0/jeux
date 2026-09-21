@@ -131,6 +131,11 @@ export interface EtatHeros {
   evolutions: Record<string, string>;
   posture: Posture;
   ancre: { x: number; y: number } | null;
+  /**
+   * Le poste auquel on l'a affecte (§4.4, bloc 8). Absent d'une sauvegarde
+   * d'avant le 21 septembre 2026 : il se bat, comme avant.
+   */
+  travail?: Metier | null;
   pvGagnesProvocation: number;
   personne: EtatPersonne;
 }

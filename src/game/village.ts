@@ -43,6 +43,7 @@ import { ORDRE_RANGS } from "../core/classes";
 import { mortsRecents, satisfactionDuVillage } from "../core/satisfaction";
 import { calerCorps, ECHELLE_PERSONNAGE, type Hero } from "./entities";
 import { TOLERANCE_ANCRE } from "../core/ordres";
+import { PORTEE_BATISSEUR } from "./constructions";
 import { assurerVillageois, plancheDe } from "./dessin/monde";
 import { animer, nouvellePose } from "./poses";
 
@@ -106,6 +107,16 @@ export interface ContexteVillage {
    * d'un village est la premiere chose qu'on voit de loin** (§4.29).
    */
   placesDeVie: () => Point[];
+  /**
+   * Le chantier ouvert le plus proche, ou `null` s'il n'y en a aucun
+   * (§4.20, §4.24, bloc 8).
+   *
+   * **C'est le poste du charpentier.** Il n'en a pas sur la carte, et il n'en
+   * aura jamais : son poste, c'est ce qu'on vient de poser. Ce fichier ne
+   * connait pas les constructions, et il ne doit pas — la scene lui dit
+   * seulement ou aller.
+   */
+  chantierLePlusProche: (x: number, y: number) => Point | null;
 }
 
 /**
@@ -1068,6 +1079,16 @@ export class Village {
       return;
     }
 
+    // Le charpentier va au chantier : c'est son poste, et il change a chaque
+    // fois qu'on pose quelque chose (§4.20, bloc 8).
+    if (villageois.regles.metier === "charpentier") {
+      const chantier = this.contexte.chantierLePlusProche(villageois.x, villageois.y);
+      if (chantier) {
+        this.batir(villageois, chantier, delta);
+        return;
+      }
+    }
+
     // ⚠️ **Sans poste, il ne se terre plus dans l'eglise** (§4.29). C'etait la
     // regle d'avant — « pas de poste, donc confine » —, et elle etait juste
     // tant qu'on commencait a trois, tous les trois postes tenus. Depuis qu'un
@@ -1132,6 +1153,50 @@ export class Village {
       return;
     }
     villageois.setVelocity(0, 0);
+  }
+
+  /**
+   * Il monte ce qu'on vient de poser (DESIGN.md §4.20, §4.24, bloc 8).
+   *
+   * Il s'arrete a un pas du chantier — pas dessus : une construction est un
+   * corps statique, et le viser au pixel le ferait pousser contre le mur sans
+   * jamais « arriver ». C'est la scene qui compte le travail fait, parce que
+   * c'est elle qui tient les constructions.
+   */
+  private batir(villageois: Villageois, chantier: Point, delta: number): void {
+    this.sortirDeLEglise(villageois);
+    const place = ecarter(chantier, villageois.regles.id, 26, 4);
+
+    // ⚠️ **Il travaille des qu'il est a portee du chantier, pas a un pixel
+    // pres.** Un poste de peche est en terrain libre ; un chantier, non — c'est
+    // un mur, souvent colle a d'autres murs, et le villageois avance en ligne
+    // droite sans calcul de chemin (§4.17). Viser un point exact derriere un
+    // angle de mur le laissait pousser contre la pierre indefiniment : vu en
+    // jouant, sur un monde tire ou l'enceinte tombait entre les deux.
+    const distance = Phaser.Math.Distance.Between(villageois.x, villageois.y, chantier.x, chantier.y);
+    if (distance > PORTEE_BATISSEUR - 8) {
+      villageois.etat = "en-route";
+      this.avancerVers(villageois, place.x, place.y, REGLAGES_VILLAGE.vitesseTravail * 1.6);
+      return;
+    }
+
+    villageois.etat = "au-poste";
+    villageois.setVelocity(0, 0);
+    // Il monte de niveau en batissant, comme les autres en produisant (§4.18).
+    // Le charpentier ne recolte rien : `travailler` le sait et ne rend rien.
+    travailler(villageois.regles, delta / 60_000);
+  }
+
+  /**
+   * Ceux qui sont a pied d'oeuvre sur un chantier (§4.20, bloc 8).
+   *
+   * La scene s'en sert pour faire avancer les chantiers : autant de chantiers
+   * simultanes que de batisseurs affectes, et pas un de plus.
+   */
+  get batisseursALOeuvre(): Villageois[] {
+    return this.habitants.filter(
+      (v) => v.regles.vivant && v.regles.metier === "charpentier" && v.etat === "au-poste",
+    );
   }
 
   /** Un monstre est litteralement sur lui : meme un tetu s'en va. */

@@ -298,6 +298,21 @@ const MAX_ENNEMIS = REGLAGES_CYCLE.plafondEcran;
  */
 const RAYON_RECOLTE = 46;
 
+/**
+ * Ce qu'une minute de travail coute a un heros, en points de stress
+ * (DESIGN.md §4.4) — *chiffre tranche par le code, a corriger en jouant*.
+ *
+ * 2,2 par minute : une journee entiere de 10 minutes passee a un poste lui en
+ * met 22, sur les 100 qui le font craquer et les 60 a partir desquels ca se
+ * voit sur sa fiche. Trois journees de suite et il arrive a la nuit visiblement
+ * use ; une seule ne se paie presque pas. C'est le prix que le §4.4 demande :
+ * « le travail se paie en puissance », sans que ce soit une punition.
+ *
+ * A comparer : `REGLAGES_STRESS.travailSansRepos` vaut 0,1 pour un habitant.
+ * Un heros abat quinze fois plus de travail ; il le paie quinze fois plus cher.
+ */
+const STRESS_DU_TRAVAIL = 2.2;
+
 /** Ce que l'interface lit du village, sans pouvoir y toucher. */
 export interface EtatVillage {
   phase: Phase;
@@ -695,6 +710,10 @@ export class ArenaScene extends Phaser.Scene {
   /** Recolte manuelle accumulee, pour n'afficher un nombre que de loin en loin */
   private cumulRecolte = 0;
   private prochainGesteRecolte = 0;
+  /** Le geste d'un heros au travail, espace comme celui de la recolte a la main */
+  private prochainGesteTravail = 0;
+  /** La journee ou l on a deja dit qu il manquait un charpentier */
+  private batisseurAnnonce = -1;
 
   /** La carte en grille modifiable : c'est elle qu'on batit (DESIGN.md §4.21) */
   grille = new Grille();
@@ -1519,6 +1538,8 @@ export class ArenaScene extends Phaser.Scene {
       // `prenomLibre` est le seul endroit du jeu qui en distribue (§4.18).
       nomsPris: () => this.heros.map((h) => h.personne.nom),
       placesDeVie: () => this.placesDeVie,
+      // Le poste du charpentier : ce qu on vient de poser (bloc 8).
+      chantierLePlusProche: (x, y) => this.constructions.chantierLePlusProche(x, y),
     });
 
     // Un monstre qui rattrape un habitant le tue : c'est la seule fenetre ou on
@@ -2980,6 +3001,10 @@ export class ArenaScene extends Phaser.Scene {
     const incarne = this.hero ?? null;
 
     const ancre = protege ? { x: protege.x, y: protege.y } : { x: point.x, y: point.y };
+    // Poser une ancre a la main, c'est le rappeler du travail : sinon
+    // `travaillerLesHeros` la remettrait sur le poste a l'image suivante, et le
+    // clic droit paraitrait ne rien faire.
+    for (const h of this.commandement.destinataires(incarne)) h.travail = null;
     // Rien de selectionne : l'ordre vaut pour toute l'equipe IA (§4.4). Ca
     // n'a jamais valu pour les civils — trente habitants envoyes d'un clic
     // distrait tenir un carrefour, c'est la production entiere qui s'arrete.
@@ -3124,8 +3149,11 @@ export class ArenaScene extends Phaser.Scene {
     const def = tacheDef(id);
     if (!def) return false;
     if (def.metier) {
-      const concernes = [...civils.map((c) => c.regles.metier)];
-      return concernes.length > 0 && concernes.every((m) => m === def.metier) && heros.length === 0;
+      const metiers = [
+        ...civils.map((c) => c.regles.metier),
+        ...heros.map((h) => h.travail),
+      ];
+      return metiers.length > 0 && metiers.every((m) => m === def.metier);
     }
     if (def.postureCivile) {
       return civils.length > 0 && civils.every((c) => c.regles.posture === def.postureCivile);
@@ -3152,15 +3180,31 @@ export class ArenaScene extends Phaser.Scene {
 
     if (def.metier) {
       for (const civil of civils) this.village.changerMetier(civil, def.metier);
-      const touches = civils.length;
-      // Les heros au travail arrivent au morceau suivant du bloc 8 : la ligne
-      // est dans le menu, elle le dit au lieu de ne rien faire.
-      if (heros.length > 0 && touches === 0) {
-        this.annoncer("Un heros au travail : bientot");
-      } else {
-        this.annoncer(`${touches} · ${def.libelle.toLowerCase()}`);
+      let touches = civils.length;
+
+      // Un heros au travail (§4.4). Seuls les quatre postes de la carte lui
+      // valent quelque chose : la forge, l'atelier et la tour sont des postes
+      // d'habitant, et un heros n'y produirait rien.
+      const poste = POSTES.find((p) => p.metier === def.metier);
+      const refuses: Hero[] = [];
+      for (const h of heros) {
+        if (!poste) {
+          refuses.push(h);
+          continue;
+        }
+        h.travail = def.metier;
+        h.protege = null;
+        h.ordre = { ...h.ordre, ancre: { ...poste.position } };
+        h.poste = null;
+        touches++;
       }
+
       this.events.emit("fermer-menu-ordres");
+      if (refuses.length > 0 && touches === 0) {
+        this.annoncer("Ce poste-la est un poste d'habitant");
+        return;
+      }
+      this.annoncer(`${touches} · ${def.libelle.toLowerCase()}`);
       return;
     }
 
@@ -3172,6 +3216,9 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     if (def.posture) {
+      // Lui donner une posture, c'est le rappeler au combat : sinon l'ancre du
+      // poste le ramenerait travailler a l'image suivante.
+      for (const h of heros) h.travail = null;
       if (heros.length > 0) this.ordonnerPosture(def.posture);
       this.events.emit("fermer-menu-ordres");
       return;
@@ -3181,6 +3228,7 @@ export class ArenaScene extends Phaser.Scene {
       const moi = this.hero ?? null;
       if (!moi || !moi.estVivant) return;
       let touches = 0;
+      for (const h of heros) h.travail = null;
       if (heros.length > 0) {
         touches += this.commandement.ancrer({ x: moi.x, y: moi.y }, moi, moi, this.sbires);
       }
@@ -3245,6 +3293,9 @@ export class ArenaScene extends Phaser.Scene {
     // — et un villageois oublie sur un carrefour ne produit plus rien de la
     // partie. C'est exactement ce que *Rompez* existe pour eviter (§4.4).
     this.commandement.rompre(this.sbires, this.village?.habitants ?? []);
+    // Et le travail avec : une affectation est un ordre comme un autre, et
+    // *Rompez* est le bouton qui remet tout le monde au combat.
+    for (const hero of this.heros) hero.travail = null;
     this.events.emit("fermer-menu-ordres");
     this.annoncer("Rompez");
   }
@@ -3492,9 +3543,12 @@ export class ArenaScene extends Phaser.Scene {
     if (!this.enMarche) this.majPort(delta);
     this.village.majorer(delta);
     this.recolterALaMain(delta);
+    this.travaillerLesHeros(delta);
     this.majFantome();
     this.constructions.majorer(this.time.now);
-    this.constructions.finirLesChantiers(this.time.now);
+    // Les chantiers n'avancent que du travail des batisseurs (§4.20, bloc 8) :
+    // sans charpentier affecte, l'echafaudage reste dresse.
+    this.constructions.avancerLesChantiers(this.village.batisseursALOeuvre, delta);
     this.majPortes();
     // Les champs poussent une fois par seconde, jamais par image (§4.17).
     this.champs.majorer(this.time.now, this.village.auTravail("fermier"), this.village.stocks);
@@ -4684,6 +4738,90 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   /**
+   * Les heros qu'on a mis au travail (DESIGN.md §4.4, bloc 8).
+   *
+   * Trois regles, et elles viennent toutes du design :
+   *
+   * - **il produit beaucoup plus vite qu'un habitant** : exactement la cadence
+   *   du joueur a la main, ses degats divises par huit, par seconde. ~98 par
+   *   minute contre 6 pour un habitant de rang F — un heros aux champs abat le
+   *   travail de quinze villageois ;
+   * - **seulement le jour**, comme la recolte a la main. La nuit, il lache son
+   *   poste et redevient un combattant ;
+   * - **ca le fatigue** : du stress par minute travaillee, donc un heros moins
+   *   bon quand la nuit tombe (§4.23). C'est ce qui empeche « tout le monde a
+   *   la peche ».
+   *
+   * ⚠️ **Le repli des 20 % passe avant tout**, sans exception : `piloter()`
+   * traite le repli en premier et ignore l'ancre. Un heros au travail qui prend
+   * un mauvais coup rentre, et son poste l'attend.
+   *
+   * L'affectation se pose comme une **ancre** plutot que comme un deplacement a
+   * part : c'est ce qui lui laisse l'IA complete — il se defend contre ce qui
+   * l'approche, il revient a son poste quand la pression retombe, et il n'y a
+   * pas une deuxieme logique de deplacement a deboguer (§4.4).
+   */
+  private travaillerLesHeros(delta: number): void {
+    const jour = this.cycle.phase === "jour";
+
+    for (const hero of this.heros) {
+      if (!hero.travail) continue;
+      if (hero.estIncarne || hero.etat === "mort") continue;
+
+      const poste = POSTES.find((p) => p.metier === hero.travail);
+      if (!poste) continue;
+
+      if (!jour) {
+        // La nuit, il lache son poste — mais il garde son affectation : elle
+        // le reprend a l'aube, sans que le joueur ait a la redonner.
+        if (hero.ordre.ancre) hero.ordre = { ...hero.ordre, ancre: null };
+        continue;
+      }
+
+      // L'ancre est reposee a chaque image : `Rompez` et un ordre du joueur la
+      // retirent, et c'est `travail` qui reste la source de verite.
+      const ancre = hero.ordre.ancre;
+      if (!ancre) hero.ordre = { ...hero.ordre, ancre: { ...poste.position } };
+      else if (!hero.protege) {
+        ancre.x = poste.position.x;
+        ancre.y = poste.position.y;
+      }
+
+      if (hero.etat !== "combat") continue;
+      const distance = Phaser.Math.Distance.Between(
+        hero.x,
+        hero.y,
+        poste.position.x,
+        poste.position.y,
+      );
+      if (distance > RAYON_RECOLTE) continue;
+
+      // Le fermier ne recolte rien : il fait **pousser** (§4.18). Un heros aux
+      // champs travaille donc la terre, comme le joueur a la main.
+      if (poste.metier === "fermier") {
+        this.champs.travaillerALaMain(hero.x, hero.y, (hero.degats * delta) / 1000 / 400, this.village.stocks);
+      } else {
+        const ressource = RECOLTE_DU_POSTE[poste.metier as keyof typeof RECOLTE_DU_POSTE];
+        if (!ressource) continue;
+        const quantite = (hero.degats * delta) / 1000 / 8;
+        this.village.recolter(ressource, quantite);
+        const sous = SOUS_PRODUIT[poste.metier];
+        if (sous) this.village.recolter(sous.ressource, quantite * sous.part);
+      }
+
+      // La fatigue. Le §4.4 parle d'une humeur « epuise » ; c'est du **stress**
+      // et pas un etat de plus — la lethargie appartient a la faim et se
+      // soignerait en mangeant, ce qu'un heros ne fait pas.
+      monterStress(hero.personne, (STRESS_DU_TRAVAIL * delta) / 60000);
+
+      if (this.time.now >= this.prochainGesteTravail) {
+        declencher(hero.pose, hero, "attaque", this.time.now, poste.position);
+        this.prochainGesteTravail = this.time.now + 420;
+      }
+    }
+  }
+
+  /**
    * Faire tourner la posture d'un habitant (DESIGN.md §4.18).
    *
    * Trois postures, le meme vocabulaire que les heros du §4.4. La decision est
@@ -5140,7 +5278,31 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     eclatImpact(this, pose.x, pose.y, 0xd8c48a);
+    // Un chantier attend des bras, et il faut le dire une fois : sans
+    // charpentier affecte, l'echafaudage reste dresse pour toujours et le
+    // joueur croirait a un bug (§4.20, bloc 8).
+    this.prevenirQuIlFautUnBatisseur();
     return true;
+  }
+
+  /**
+   * « Il faudra quelqu'un pour le monter. »
+   *
+   * Dit **une seule fois par journee**, et seulement quand personne n'est
+   * charpentier : une annonce a chaque segment pose serait un bruit de fond.
+   */
+  private prevenirQuIlFautUnBatisseur(): void {
+    if (this.batisseurAnnonce === this.cycle.jour) return;
+    const batisseurs = this.village.habitants.filter(
+      (v) => v.regles.vivant && v.regles.metier === "charpentier",
+    );
+    if (batisseurs.length > 0) return;
+    this.batisseurAnnonce = this.cycle.jour;
+    this.events.emit(
+      "annonce",
+      "Rien ne se monte sans charpentier — Tab, puis « A l'atelier »",
+      "toi",
+    );
   }
 
   /**
