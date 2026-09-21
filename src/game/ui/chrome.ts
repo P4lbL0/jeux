@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { RATIO } from "./ecran";
 
 /**
  * Le seul endroit du jeu qui connait la palette de l'interface
@@ -82,6 +83,52 @@ function ferrure(g: Phaser.GameObjects.Graphics, x: number, y: number, dx: numbe
  * (`main.ts`) : un canvas ne se repeint pas quand une police arrive en retard.
  */
 export const POLICE = "Oswald";
+
+/**
+ * Rend un texte net sur l'ecran qu'on a devant les yeux.
+ *
+ * ⚠️ **A passer sur TOUT texte du jeu**, y compris ceux qu'une scene fabrique
+ * elle-meme avec `add.text`. Sans ca, sur un ecran a 150 ou 200 % la lettre est
+ * rasterisee a la moitie de sa taille reelle puis etiree : c'est le flou dont
+ * Angelos s'est plaint le 21 septembre 2026 (voir `ecran.ts`).
+ *
+ * Deux choses, et les deux comptent :
+ *
+ * 1. `setResolution` : Phaser dessine le texte dans un canvas a part avant d'en
+ *    faire une texture. A `RATIO`, ce canvas fait `RATIO` fois la taille
+ *    demandee, et la texture retombe pile sur les vrais pixels de l'ecran.
+ * 2. le filtre **lineaire** : `pixelArt: true` met tout au plus proche voisin,
+ *    ce qui est juste pour un sprite mais crenele une lettre des que sa
+ *    position tombe sur un demi-pixel — le cas d'un ecran a 125 ou 150 %.
+ */
+/**
+ * **Rien ne descend sous 12 px dans l'interface** (§4.10).
+ *
+ * Les tailles avaient ete choisies une par une, ecran par ecran : neuf pour une
+ * note de bas de carte, dix pour une etiquette, onze pour un titre de panneau.
+ * A l'usage ca fait un degrade de gris illisibles — le 21 septembre 2026,
+ * Angelos a dit avoir **mal au crane** a lire le jeu.
+ *
+ * ⚠️ **Un plancher, pas un facteur.** Multiplier toutes les tailles ferait
+ * deborder les panneaux, dont la largeur est ecrite en dur ; relever le bas de
+ * la gamme ne touche que ce qui etait trop petit, et Oswald est condense — la
+ * meme phrase a 12 px tient dans la place qu'on lui avait donnee a 10.
+ *
+ * Ce qui etait deja a 12 ou plus ne bouge pas : la hierarchie des tailles est
+ * conservee au-dessus du plancher.
+ */
+export const PLANCHER = 12;
+
+/** La taille demandee, jamais sous le plancher de lisibilite. */
+export function lisible(taille: number): number {
+  return Math.max(PLANCHER, taille);
+}
+
+export function affuter<T extends Phaser.GameObjects.Text>(t: T): T {
+  t.setResolution(RATIO);
+  t.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  return t;
+}
 
 // ------------------------------------------------------------- les elements
 
@@ -247,11 +294,13 @@ export function etiquette(
   contenu: string,
   taille = 10,
 ): Phaser.GameObjects.Text {
-  return scene.add.text(x, y, espacer(contenu.toUpperCase()), {
-    fontFamily: POLICE,
-    fontSize: `${taille}px`,
-    color: T.osMat,
-  });
+  return affuter(
+    scene.add.text(x, y, espacer(contenu.toUpperCase()), {
+      fontFamily: POLICE,
+      fontSize: `${lisible(taille)}px`,
+      color: T.osMat,
+    }),
+  );
 }
 
 /** Du texte courant : os plein, minuscules, la taille qu'on lui donne. */
@@ -262,12 +311,14 @@ export function texte(
   taille = 12,
   couleur: string = T.os,
 ): Phaser.GameObjects.Text {
-  return scene.add.text(x, y, "", {
-    fontFamily: POLICE,
-    fontSize: `${taille}px`,
-    color: couleur,
-    lineSpacing: 2,
-  });
+  return affuter(
+    scene.add.text(x, y, "", {
+      fontFamily: POLICE,
+      fontSize: `${lisible(taille)}px`,
+      color: couleur,
+      lineSpacing: 2,
+    }),
+  );
 }
 
 /**
@@ -308,8 +359,13 @@ export class Bouton {
     taille = 12,
   ) {
     this.fond = scene.add.graphics().setDepth(profondeur);
-    this.libelle = scene.add
-      .text(0, 0, contenu, { fontFamily: POLICE, fontSize: `${taille}px`, color: T.laiton })
+    this.libelle = affuter(
+      scene.add.text(0, 0, contenu, {
+        fontFamily: POLICE,
+        fontSize: `${lisible(taille)}px`,
+        color: T.laiton,
+      }),
+    )
       .setOrigin(0.5)
       .setDepth(profondeur + 1);
     this.zone = scene.add
@@ -400,12 +456,13 @@ export function titreDuJeu(
   y: number,
   taille = 44,
 ): Phaser.GameObjects.Text {
-  return scene.add
-    .text(x, y, "LE PROTECTEUR", {
+  return affuter(
+    scene.add.text(x, y, "LE PROTECTEUR", {
       fontFamily: POLICE,
       fontSize: `${taille}px`,
       color: T.titre,
-    })
+    }),
+  )
     .setOrigin(0.5)
     .setShadow(3, 3, T.sangSeche, 0, true, true);
 }

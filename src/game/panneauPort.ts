@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { NOMS_RESSOURCE, RESSOURCES, type Ressource, type Stocks } from "../core/habitants";
 import { lireCours, unitesPourUnePiece, valeurDe, type Cours } from "../core/port";
+import { largeurEcran, hauteurEcran } from "./ui/ecran";
 import {
   T,
   HAUTEUR_TITRE,
@@ -157,8 +158,8 @@ export class PanneauPort {
     const largeur = Math.max(420, ...contenus.map((t) => t.width)) + 28;
     const hauteur = HAUTEUR_TITRE + 12 + 24 + RESSOURCES.length * 18 + 14 + this.aide.height + 12;
 
-    const x = Math.round(this.scene.scale.width / 2 - largeur / 2);
-    const y = Math.max(16, this.scene.scale.height - hauteur - 96);
+    const x = Math.round(largeurEcran(this.scene) / 2 - largeur / 2);
+    const y = Math.max(16, hauteurEcran(this.scene) - hauteur - 96);
     const plaque: Plaque = { x, y, largeur, hauteur };
 
     this.fond.clear();

@@ -14,8 +14,10 @@ import { BoiteJournal } from "../game/journal";
 import { PanneauRencontre, type ParoleDeRencontre } from "../game/rencontre";
 import { PanneauEtat } from "../game/ui/panneauEtat";
 import { PanneauRoute } from "../game/ui/panneauRoute";
-import { POLICE } from "../game/ui/chrome";
+import {
+  affuter, POLICE } from "../game/ui/chrome";
 import type { ArenaScene } from "./ArenaScene";
+import { calerLaCamera, largeurEcran, hauteurEcran } from "../game/ui/ecran";
 
 /**
  * Toute l'interface vit dans cette scene, separee de l'arene.
@@ -57,6 +59,9 @@ export class UiScene extends Phaser.Scene {
   }
 
   create(): void {
+    // L'interface se pose en pixels d'ecran, pas en pixels de canvas : sur un
+    // ecran a 150 ou 200 %, le canvas est deux fois plus grand (`ui/ecran.ts`).
+    calerLaCamera(this);
     const equipe = this.arene.etatEquipe;
 
     // Clic gauche sur un portrait : la fiche du heros, meme s'il est joue par
@@ -230,10 +235,9 @@ export class UiScene extends Phaser.Scene {
   }
 
   private afficherFin(secondes: number, kills: number): void {
-    this.add
-      .text(
-        this.scale.width / 2,
-        this.scale.height / 2,
+    affuter(this.add.text(
+        largeurEcran(this) / 2,
+        hauteurEcran(this) / 2,
         `Toute l'equipe est tombee.\n\nLa cite n'a plus de Protecteur.\n\n${secondes} secondes  ·  ${kills} elimines\n\nR pour recommencer`,
         {
           fontFamily: POLICE,
@@ -243,7 +247,7 @@ export class UiScene extends Phaser.Scene {
           backgroundColor: "#1b1720dd",
           padding: { x: 24, y: 20 },
         },
-      )
+      ))
       .setOrigin(0.5)
       .setDepth(2500);
   }

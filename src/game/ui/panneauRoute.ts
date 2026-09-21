@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import type { Stocks } from "../../core/habitants";
 import { NOMS_RESSOURCE, RESSOURCES } from "../../core/habitants";
 import { T, cadre, espacer, teindre, texte, type Plaque } from "./chrome";
+import { largeurEcran } from "./ecran";
 
 /**
  * Ce qu'on porte sur la route, en haut a droite (DESIGN.md §4.31, §4.10).
@@ -41,7 +42,7 @@ export class PanneauRoute {
   }
 
   private placer(): void {
-    const x = this.scene.scale.width - MARGE - LARGEUR;
+    const x = largeurEcran(this.scene) - MARGE - LARGEUR;
     const y = MARGE;
     const p: Plaque = { x, y, largeur: LARGEUR, hauteur: HAUTEUR };
 
@@ -49,7 +50,7 @@ export class PanneauRoute {
     cadre(this.fond, p);
     this.bourse.setPosition(x + 12, y + 10);
     this.sac.setPosition(x + 12, y + 32);
-    this.largeurEcran = this.scene.scale.width;
+    this.largeurEcran = largeurEcran(this.scene);
   }
 
   montrer(visible: boolean): void {
@@ -66,7 +67,7 @@ export class PanneauRoute {
    */
   rafraichir(or: number, butin: Stocks): void {
     if (!this.visible) return;
-    if (this.scene.scale.width !== this.largeurEcran) this.placer();
+    if (largeurEcran(this.scene) !== this.largeurEcran) this.placer();
 
     this.bourse.setText(`${espacer("BOURSE")}  ${or}`);
     // ⚠️ **Le sac se dit en clair, pas en total.** « 38 de reserves » ne se

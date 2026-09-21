@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import type { EtatVillage } from "../../scenes/ArenaScene";
 import { T, cadre, espacer, teindre, texte, type Plaque } from "./chrome";
+import { largeurEcran } from "./ecran";
 
 /**
  * Le compteur permanent, en haut a droite (DESIGN.md §4.10).
@@ -41,7 +42,7 @@ export class PanneauEtat {
   }
 
   private placer(): void {
-    const x = this.scene.scale.width - MARGE - LARGEUR;
+    const x = largeurEcran(this.scene) - MARGE - LARGEUR;
     const y = MARGE;
     const p: Plaque = { x, y, largeur: LARGEUR, hauteur: HAUTEUR };
 
@@ -52,7 +53,7 @@ export class PanneauEtat {
     this.habitants.setPosition(x + 12, y + 30);
     this.survie.setPosition(x + 12, y + 52);
 
-    this.largeurEcran = this.scene.scale.width;
+    this.largeurEcran = largeurEcran(this.scene);
   }
 
   /**
@@ -63,7 +64,7 @@ export class PanneauEtat {
     resume: { secondes: number; kills: number },
     maintenant: number,
   ): void {
-    if (this.scene.scale.width !== this.largeurEcran) this.placer();
+    if (largeurEcran(this.scene) !== this.largeurEcran) this.placer();
 
     const minutes = Math.ceil(etat.restant / 60_000);
     const moment = etat.phase === "jour" ? "JOUR" : "NUIT";

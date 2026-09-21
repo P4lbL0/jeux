@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { LIGNES_FERMEE, lireLigne, type Journal, type Voix } from "../core/journal";
 import { C, T, cadre, espacer, texte, type Plaque } from "./ui/chrome";
+import { largeurEcran, hauteurEcran } from "./ui/ecran";
 
 /** Marges au bord bas-droit. Le bas-gauche est pris par les capacites. */
 const MARGE_X = 16;
@@ -116,8 +117,8 @@ export class BoiteJournal {
    * couter le reste du temps (§4.17).
    */
   rafraichir(journal: Journal): void {
-    const largeur = this.scene.scale.width;
-    const hauteur = this.scene.scale.height;
+    const largeur = largeurEcran(this.scene);
+    const hauteur = hauteurEcran(this.scene);
     const etat = `${this.ouverte}|${this.decalage}`;
     const memeEcran = largeur === this.largeurEcran && hauteur === this.hauteurEcran;
     if (journal.version === this.versionAffichee && memeEcran && etat === this.etatAffiche) return;
@@ -139,8 +140,8 @@ export class BoiteJournal {
     this.titre.setVisible(false);
 
     const contenu = journal.dernieres;
-    const x = this.scene.scale.width - MARGE_X;
-    const bas = this.scene.scale.height - MARGE_Y;
+    const x = largeurEcran(this.scene) - MARGE_X;
+    const bas = hauteurEcran(this.scene) - MARGE_Y;
 
     // On dessine du bas vers le haut : la ligne la plus recente est la plus
     // basse, donc celle que l'oeil trouve sans chercher.
@@ -197,8 +198,8 @@ export class BoiteJournal {
     for (const t of this.fermees) t.setVisible(false);
 
     const contenu = journal.contenu;
-    const droite = this.scene.scale.width - MARGE_X;
-    const bas = this.scene.scale.height - MARGE_Y;
+    const droite = largeurEcran(this.scene) - MARGE_X;
+    const bas = hauteurEcran(this.scene) - MARGE_Y;
     const x = droite - LARGEUR;
 
     const hautLimite = Math.max(MARGE_Y + 90, bas - HAUTEUR_OUVERTE_MAX);

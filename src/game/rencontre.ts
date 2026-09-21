@@ -1,5 +1,7 @@
 import Phaser from "phaser";
+import { largeurEcran, hauteurEcran } from "./ui/ecran";
 import {
+  affuter,
   Bouton,
   C,
   HAUTEUR_TITRE,
@@ -79,8 +81,8 @@ export class PanneauRencontre {
     if (this.ouvert) return;
     this.ouvert = true;
 
-    const l = this.scene.scale.width;
-    const h = this.scene.scale.height;
+    const l = largeurEcran(this.scene);
+    const h = hauteurEcran(this.scene);
 
     // Le voile est plus leger que celui du choix de competence : on doit
     // continuer de voir le village dont on parle, et les gens qui y vivent.
@@ -177,13 +179,12 @@ export class PanneauRencontre {
   }
 
   private texte(contenu: string, taille: number, couleur: string): Phaser.GameObjects.Text {
-    const t = this.scene.add
-      .text(0, 0, contenu, {
+    const t = affuter(this.scene.add.text(0, 0, contenu, {
         fontFamily: POLICE,
         fontSize: `${taille}px`,
         color: couleur,
         lineSpacing: 3,
-      })
+      }))
       .setDepth(PROFONDEUR + 2);
     this.objets.push(t);
     return t;

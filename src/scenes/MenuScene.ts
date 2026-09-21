@@ -15,7 +15,9 @@ import { ADRESSE_DU_SITE, seConnecter, seDeconnecter, sessionCourante } from "..
 import { enLigneConfigure } from "../en-ligne/client";
 import { charger, effacer as effacerCloud } from "../en-ligne/sauvegardeCloud";
 import { bruitDInterface } from "../game/son";
+import { calerLaCamera, largeurEcran, hauteurEcran } from "../game/ui/ecran";
 import {
+  affuter,
   C,
   T,
   HAUTEUR_TITRE,
@@ -96,6 +98,9 @@ export class MenuScene extends Phaser.Scene {
 
   create(): void {
     this.input.mouse?.disableContextMenu();
+    // L'interface se pose en pixels d'ecran, pas en pixels de canvas : sur un
+    // ecran a 150 ou 200 %, le canvas est deux fois plus grand (`ui/ecran.ts`).
+    calerLaCamera(this);
     // ⚠️ Avant de dessiner quoi que ce soit : `carte` est fabriquee au code, pas
     // chargee par le boot. Sans cet appel, le fond de cet ecran est le damier de
     // texture manquante de Phaser — vu en jouant, et invisible a la
@@ -153,7 +158,7 @@ export class MenuScene extends Phaser.Scene {
       // bien a un fond qu'on ne regarde pas.
       this.add.image(0, 0, CLE_VIGNETTE)
         .setOrigin(0)
-        .setDisplaySize(this.scale.width, this.scale.height)
+        .setDisplaySize(largeurEcran(this), hauteurEcran(this))
         .setAlpha(0.5);
       // Un voile de fer par-dessus : sans lui, l'herbe saturee de midi tire tout
       // l'ecran vers le vert et le titre perd son ombre de sang. Trop epais, en
@@ -162,10 +167,10 @@ export class MenuScene extends Phaser.Scene {
       // laissait plus qu'un fond noir.
       const voile = this.add.graphics();
       voile.fillStyle(C.fer, 0.42);
-      voile.fillRect(0, 0, this.scale.width, this.scale.height);
+      voile.fillRect(0, 0, largeurEcran(this), hauteurEcran(this));
     }
 
-    titreDuJeu(this, this.scale.width / 2, this.scale.height * 0.12);
+    titreDuJeu(this, largeurEcran(this) / 2, hauteurEcran(this) * 0.12);
 
     if (this.mode === "connexion") this.ecranConnexion();
     else if (this.mode === "conflit") this.ecranConflit();
@@ -173,15 +178,14 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private ecranEmplacements(): void {
-    const l = this.scale.width;
-    const h = this.scale.height;
+    const l = largeurEcran(this);
+    const h = hauteurEcran(this);
 
-    this.add
-      .text(l / 2, h * 0.12 + 40, "Choisis un emplacement.", {
+    affuter(this.add.text(l / 2, h * 0.12 + 40, "Choisis un emplacement.", {
         fontFamily: POLICE,
         fontSize: "13px",
         color: COULEURS.discret,
-      })
+      }))
       .setOrigin(0.5);
 
     const largeur = 268;
@@ -216,23 +220,21 @@ export class MenuScene extends Phaser.Scene {
     this.barreDeCompte(h * 0.28 + hauteur + 40);
 
     if (this.message) {
-      this.add
-        .text(l / 2, h - 54, this.message, {
+      affuter(this.add.text(l / 2, h - 54, this.message, {
           fontFamily: POLICE,
           fontSize: "12px",
           color: COULEURS.doux,
           align: "center",
           wordWrap: { width: l - 80 },
-        })
+        }))
         .setOrigin(0.5);
     }
 
-    this.add
-      .text(l / 2, h - 24, "Touches 1 a 3", {
+    affuter(this.add.text(l / 2, h - 24, "Touches 1 a 3", {
         fontFamily: POLICE,
         fontSize: "12px",
         color: COULEURS.discret,
-      })
+      }))
       .setOrigin(0.5);
 
     const clavier = this.input.keyboard;
@@ -286,28 +288,26 @@ export class MenuScene extends Phaser.Scene {
     cadre(fond, plaque, leplusAvance);
     barreDeTitre(fond, plaque);
 
-    this.add.text(x + 12, yTitre(plaque), espacer(`EMPLACEMENT ${emplacement}`), {
+    affuter(this.add.text(x + 12, yTitre(plaque), espacer(`EMPLACEMENT ${emplacement}`), {
       fontFamily: POLICE,
-      fontSize: "11px",
+      fontSize: "12px",
       color: T.titre,
-    });
+    }));
 
     const corps = y + HAUTEUR_TITRE + 14;
 
     if (!meilleure) {
-      this.add
-        .text(x + largeur / 2, corps + 34, "NOUVELLE PARTIE", {
+      affuter(this.add.text(x + largeur / 2, corps + 34, "NOUVELLE PARTIE", {
           fontFamily: POLICE,
           fontSize: "14px",
           color: T.laiton,
-        })
+        }))
         .setOrigin(0.5);
-      this.add
-        .text(x + largeur / 2, corps + 58, "du fer nu, et personne dessus", {
+      affuter(this.add.text(x + largeur / 2, corps + 58, "du fer nu, et personne dessus", {
           fontFamily: POLICE,
-          fontSize: "10px",
+          fontSize: "12px",
           color: COULEURS.discret,
-        })
+        }))
         .setOrigin(0.5);
     } else {
       const resume = resumer(meilleure);
@@ -323,59 +323,56 @@ export class MenuScene extends Phaser.Scene {
       ];
       lignes.forEach(([etiquette, valeur], i) => {
         const cy = corps + i * 18;
-        this.add.text(x + 14, cy, etiquette, {
+        affuter(this.add.text(x + 14, cy, etiquette, {
           fontFamily: POLICE,
-          fontSize: "10px",
+          fontSize: "12px",
           color: COULEURS.discret,
-        });
-        this.add.text(x + 104, cy, valeur, {
+        }));
+        affuter(this.add.text(x + 104, cy, valeur, {
           fontFamily: POLICE,
-          fontSize: "11px",
+          fontSize: "12px",
           color: COULEURS.texte,
-        });
+        }));
       });
 
       // Le mot qui compte. En laiton, parce que c'est lui qu'on clique.
-      this.add
-        .text(x + largeur / 2, y + hauteur - 42, "REPRENDRE", {
+      affuter(this.add.text(x + largeur / 2, y + hauteur - 42, "REPRENDRE", {
           fontFamily: POLICE,
           fontSize: "13px",
           color: T.laiton,
-        })
+        }))
         .setOrigin(0.5);
-      this.add
-        .text(x + largeur / 2, y + hauteur - 24, "on ne recommence pas une partie reprise", {
+      affuter(this.add.text(x + largeur / 2, y + hauteur - 24, "on ne recommence pas une partie reprise", {
           fontFamily: POLICE,
-          fontSize: "9px",
+          fontSize: "12px",
           color: COULEURS.discret,
-        })
+        }))
         .setOrigin(0.5);
 
       if (enLigne && partie) {
         const divergence = comparer(partie, enLigne).genre;
         if (divergence === "conflit") {
-          this.add.text(x + 14, corps + 76, "deux versions differentes", {
+          affuter(this.add.text(x + 14, corps + 76, "deux versions differentes", {
             fontFamily: POLICE,
-            fontSize: "10px",
+            fontSize: "12px",
             color: COULEURS.alerte,
-          });
+          }));
         }
       } else if (enLigne && !partie) {
-        this.add.text(x + 14, corps + 76, "depuis ton compte", {
+        affuter(this.add.text(x + 14, corps + 76, "depuis ton compte", {
           fontFamily: POLICE,
-          fontSize: "10px",
+          fontSize: "12px",
           color: COULEURS.bon,
-        });
+        }));
       }
 
       // Effacer est **explicite et separe** : le clic principal joue, il ne
       // detruit jamais quarante heures par erreur.
-      this.add
-        .text(x + largeur - 12, yTitre(plaque), "effacer", {
+      affuter(this.add.text(x + largeur - 12, yTitre(plaque), "effacer", {
           fontFamily: POLICE,
-          fontSize: "10px",
+          fontSize: "12px",
           color: T.titre,
-        })
+        }))
         .setOrigin(1, 0)
         .setInteractive({ useHandCursor: true })
         .on(
@@ -402,37 +399,34 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private barreDeCompte(y: number): void {
-    const l = this.scale.width;
+    const l = largeurEcran(this);
 
     if (!enLigneConfigure()) {
-      this.add
-        .text(l / 2, y, "Hors ligne — tes parties restent sur cet appareil.", {
+      affuter(this.add.text(l / 2, y, "Hors ligne — tes parties restent sur cet appareil.", {
           fontFamily: POLICE,
           fontSize: "12px",
           color: COULEURS.discret,
-        })
+        }))
         .setOrigin(0.5);
       return;
     }
 
     if (this.courriel) {
-      this.add
-        .text(l / 2, y, `Connecte — ${this.courriel}`, {
+      affuter(this.add.text(l / 2, y, `Connecte — ${this.courriel}`, {
           fontFamily: POLICE,
           fontSize: "12px",
           color: COULEURS.bon,
-        })
+        }))
         .setOrigin(0.5);
       this.lien(l / 2, y + 24, "Se deconnecter", () => void this.deconnecter());
       return;
     }
 
-    this.add
-      .text(l / 2, y, "Tu joues sans compte. Ta partie est enregistree sur cet appareil.", {
+    affuter(this.add.text(l / 2, y, "Tu joues sans compte. Ta partie est enregistree sur cet appareil.", {
         fontFamily: POLICE,
         fontSize: "12px",
         color: COULEURS.doux,
-      })
+      }))
       .setOrigin(0.5);
     this.lien(l / 2, y + 26, "Se connecter avec un compte The Circle", () => {
       relanceFaite = true;
@@ -444,12 +438,11 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private lien(x: number, y: number, texte: string, action: () => void): Phaser.GameObjects.Text {
-    return this.add
-      .text(x, y, texte, {
+    return affuter(this.add.text(x, y, texte, {
         fontFamily: POLICE,
         fontSize: "12px",
         color: T.laiton,
-      })
+      }))
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on("pointerover", () => bruitDInterface(this, "survol"))
@@ -462,8 +455,8 @@ export class MenuScene extends Phaser.Scene {
   // -------------------------------------------------------------- connexion
 
   private ecranConnexion(): void {
-    const l = this.scale.width;
-    const h = this.scale.height;
+    const l = largeurEcran(this);
+    const h = hauteurEcran(this);
     const largeur = 380;
     const x = l / 2 - largeur / 2;
     const y = h * 0.28;
@@ -473,20 +466,20 @@ export class MenuScene extends Phaser.Scene {
     cadre(fond, plaque);
     barreDeTitre(fond, plaque);
 
-    this.add.text(x + 14, yTitre(plaque), espacer("COMPTE THE CIRCLE"), {
+    affuter(this.add.text(x + 14, yTitre(plaque), espacer("COMPTE THE CIRCLE"), {
       fontFamily: POLICE,
-      fontSize: "11px",
+      fontSize: "12px",
       color: T.titre,
-    });
+    }));
     // « Le jeu ne cree pas de compte : il s'y connecte » reste tel quel, c'est
     // la bonne phrase — elle dit en une ligne pourquoi il n'y a pas de bouton
     // d'inscription, et le §4.28 y tient.
-    this.add.text(x + 20, y + 44, "Le jeu ne cree pas de compte : il s'y connecte.", {
+    affuter(this.add.text(x + 20, y + 44, "Le jeu ne cree pas de compte : il s'y connecte.", {
       fontFamily: POLICE,
-      fontSize: "11px",
+      fontSize: "12px",
       color: COULEURS.discret,
       wordWrap: { width: largeur - 40 },
-    });
+    }));
 
     this.champ(x + 20, y + 82, largeur - 40, "Adresse", this.champs.email, "email");
     this.champ(
@@ -499,20 +492,19 @@ export class MenuScene extends Phaser.Scene {
     );
 
     if (this.message) {
-      this.add.text(x + 20, y + 184, this.message, {
+      affuter(this.add.text(x + 20, y + 184, this.message, {
         fontFamily: POLICE,
-        fontSize: "11px",
+        fontSize: "12px",
         color: this.connexionEnCours ? COULEURS.doux : COULEURS.alerte,
         wordWrap: { width: largeur - 40 },
-      });
+      }));
     }
 
-    this.add
-      .text(l / 2, y + 258, "Entree pour se connecter — Tab change de champ", {
+    affuter(this.add.text(l / 2, y + 258, "Entree pour se connecter — Tab change de champ", {
         fontFamily: POLICE,
-        fontSize: "11px",
+        fontSize: "12px",
         color: COULEURS.discret,
-      })
+      }))
       .setOrigin(0.5);
 
     this.lien(l / 2, y + 276, "Jouer sans compte", () => {
@@ -537,11 +529,11 @@ export class MenuScene extends Phaser.Scene {
   ): void {
     const actif = this.champActif === lequel;
 
-    this.add.text(x, y, espacer(etiquette.toUpperCase()), {
+    affuter(this.add.text(x, y, espacer(etiquette.toUpperCase()), {
       fontFamily: POLICE,
-      fontSize: "10px",
+      fontSize: "12px",
       color: COULEURS.discret,
-    });
+    }));
 
     // Le meme cadre en creux que partout ailleurs, et le curseur en laiton.
     const champ = this.add.graphics();
@@ -551,18 +543,18 @@ export class MenuScene extends Phaser.Scene {
       champ.strokeRect(x - 0.5, y + 15.5, largeur + 1, 27);
     }
 
-    this.add.text(x + 8, y + 23, valeur, {
+    affuter(this.add.text(x + 8, y + 23, valeur, {
       fontFamily: POLICE,
       fontSize: "12px",
       color: COULEURS.texte,
-    });
+    }));
     if (actif) {
       // Le curseur clignote : sans lui, on ne sait pas dans quel champ on tape.
-      const curseur = this.add.text(x + 8 + valeur.length * 7.2, y + 23, "_", {
+      const curseur = affuter(this.add.text(x + 8 + valeur.length * 7.2, y + 23, "_", {
         fontFamily: POLICE,
         fontSize: "12px",
         color: T.laiton,
-      });
+      }));
       this.tweens.add({
         targets: curseur,
         alpha: 0,
@@ -706,15 +698,14 @@ export class MenuScene extends Phaser.Scene {
       return;
     }
 
-    const l = this.scale.width;
-    const h = this.scale.height;
+    const l = largeurEcran(this);
+    const h = hauteurEcran(this);
 
-    this.add
-      .text(l / 2, h * 0.24, "Deux parties differentes sur cet emplacement", {
+    affuter(this.add.text(l / 2, h * 0.24, "Deux parties differentes sur cet emplacement", {
         fontFamily: POLICE,
         fontSize: "16px",
         color: COULEURS.texte,
-      })
+      }))
       .setOrigin(0.5);
 
     // ⚠️ **Le seul ecran du jeu ou le joueur arbitre une perte de donnees.** La
@@ -722,12 +713,11 @@ export class MenuScene extends Phaser.Scene {
     // identiques : aucune n'est presentee comme la bonne, aucune n'est un bouton
     // « valider » qu'on clique sans lire. Il ne doit pas etre possible de
     // cliquer vite.
-    this.add
-      .text(l / 2, h * 0.24 + 28, "Laquelle garder ? L'autre sera remplacee, sans retour.", {
+    affuter(this.add.text(l / 2, h * 0.24 + 28, "Laquelle garder ? L'autre sera remplacee, sans retour.", {
         fontFamily: POLICE,
         fontSize: "12px",
         color: COULEURS.alerte,
-      })
+      }))
       .setOrigin(0.5);
 
     const largeur = 330;
@@ -776,11 +766,11 @@ export class MenuScene extends Phaser.Scene {
     cadre(fond, plaque);
     barreDeTitre(fond, plaque);
 
-    this.add.text(x + 14, yTitre(plaque), espacer(titre), {
+    affuter(this.add.text(x + 14, yTitre(plaque), espacer(titre), {
       fontFamily: POLICE,
-      fontSize: "11px",
+      fontSize: "12px",
       color: T.titre,
-    });
+    }));
 
     const resume = resumer(sauvegarde);
     const lignes: [string, string][] = [
@@ -790,24 +780,23 @@ export class MenuScene extends Phaser.Scene {
     ];
     lignes.forEach(([etiquette, valeur], i) => {
       const cy = y + HAUTEUR_TITRE + 16 + i * 20;
-      this.add.text(x + 14, cy, etiquette, {
+      affuter(this.add.text(x + 14, cy, etiquette, {
         fontFamily: POLICE,
-        fontSize: "10px",
+        fontSize: "12px",
         color: COULEURS.discret,
-      });
-      this.add.text(x + 116, cy, valeur, {
+      }));
+      affuter(this.add.text(x + 116, cy, valeur, {
         fontFamily: POLICE,
         fontSize: "12px",
         color: COULEURS.texte,
-      });
+      }));
     });
 
-    this.add
-      .text(x + largeur / 2, y + hauteur - 30, "GARDER CELLE-CI", {
+    affuter(this.add.text(x + largeur / 2, y + hauteur - 30, "GARDER CELLE-CI", {
         fontFamily: POLICE,
         fontSize: "12px",
         color: T.laiton,
-      })
+      }))
       .setOrigin(0.5);
 
     this.add

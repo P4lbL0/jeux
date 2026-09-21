@@ -1,6 +1,8 @@
 import Phaser from "phaser";
 import type { Proposition } from "../core/competences";
-import { C, POLICE, T, cadre, espacer, type Plaque } from "./ui/chrome";
+import {
+  affuter, C, POLICE, T, cadre, espacer, type Plaque } from "./ui/chrome";
+import { largeurEcran, hauteurEcran } from "./ui/ecran";
 
 /**
  * Ecran de choix, utilise pour les competences comme pour les evolutions
@@ -28,8 +30,8 @@ export class ChoixCompetence {
     surChoix: (id: string) => void,
   ): void {
     this.ouvert = true;
-    const l = this.scene.scale.width;
-    const h = this.scene.scale.height;
+    const l = largeurEcran(this.scene);
+    const h = hauteurEcran(this.scene);
 
     const voile = this.scene.add.graphics().setDepth(3000);
     voile.fillStyle(C.fer, 0.88);
@@ -123,13 +125,12 @@ export class ChoixCompetence {
     taille: number,
     couleur: string,
   ): Phaser.GameObjects.Text {
-    const t = this.scene.add
-      .text(x, y, contenu, {
+    const t = affuter(this.scene.add.text(x, y, contenu, {
         fontFamily: POLICE,
         fontSize: `${taille}px`,
         color: couleur,
         lineSpacing: 3,
-      })
+      }))
       .setDepth(3002);
     this.objets.push(t);
     return t;

@@ -14,6 +14,7 @@ import { poser, reponseA, traitsVisibles, type Arrivant } from "../core/arrivant
 import { sequelleParId, traitParId } from "../core/traits";
 import { portraitDe, TAILLE_PORTRAIT } from "./portraits";
 import {
+  affuter,
   C,
   T,
   HAUTEUR_TITRE,
@@ -28,6 +29,7 @@ import {
 } from "./ui/chrome";
 import type { Hero } from "./entities";
 import type { Villageois } from "./village";
+import { largeurEcran, hauteurEcran } from "./ui/ecran";
 
 /**
  * **Une seule fiche pour tout le monde** (DESIGN.md §4.10).
@@ -182,14 +184,14 @@ export class FichePersonne {
     const personne = personneDe(sujet);
     const largeur = sujet.genre === "arrivant" ? LARGEUR_PORTE : LARGEUR;
     const hauteur = this.hauteurVoulue(sujet, personne);
-    const x = Math.round(this.scene.scale.width / 2 - largeur / 2);
-    const y = Math.max(10, Math.round(this.scene.scale.height / 2 - hauteur / 2));
+    const x = Math.round(largeurEcran(this.scene) / 2 - largeur / 2);
+    const y = Math.max(10, Math.round(hauteurEcran(this.scene) / 2 - hauteur / 2));
 
     const voile = this.scene.add.graphics().setDepth(2600);
     voile.fillStyle(C.fer, 0.72);
-    voile.fillRect(0, 0, this.scene.scale.width, this.scene.scale.height);
+    voile.fillRect(0, 0, largeurEcran(this.scene), hauteurEcran(this.scene));
     this.objets.push(voile);
-    this.zone(0, 0, this.scene.scale.width, this.scene.scale.height, 2601, () => this.fermer());
+    this.zone(0, 0, largeurEcran(this.scene), hauteurEcran(this.scene), 2601, () => this.fermer());
 
     // ⚠️ La couleur de classe a quitte l'interface (§4.10) : la fiche d'un
     // Necromancien et celle d'un Rodeur sont faites du meme metal. C'est le
@@ -1035,8 +1037,7 @@ export class FichePersonne {
     taille: number,
     couleur: string,
   ): Phaser.GameObjects.Text {
-    const t = this.scene.add
-      .text(x, y, contenu, { fontFamily: POLICE, fontSize: `${taille}px`, color: couleur })
+    const t = affuter(this.scene.add.text(x, y, contenu, { fontFamily: POLICE, fontSize: `${taille}px`, color: couleur }))
       .setDepth(2605);
     this.objets.push(t);
     return t;

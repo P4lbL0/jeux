@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import {
+  affuter,
   C,
   T,
   POLICE,
@@ -65,16 +66,14 @@ export class PanneauSon {
     barreDeTitre(fond, p);
     this.objets.push(fond);
     this.objets.push(
-      s.add
-        .text(p.x + p.largeur / 2, yTitre(p), espacer("PARAMETRES"), { fontFamily: POLICE, fontSize: "12px", color: T.titre })
+      affuter(s.add.text(p.x + p.largeur / 2, yTitre(p), espacer("PARAMETRES"), { fontFamily: POLICE, fontSize: "12px", color: T.titre }))
         .setOrigin(0.5, 0)
         .setDepth(PROFONDEUR + 1),
     );
 
     PISTES.forEach((piste, i) => this.ligne(p, piste, yCorps(p) + 12 + i * 40));
 
-    const retour = s.add
-      .text(p.x + p.largeur / 2, p.y + p.hauteur - 24, "Retour", { fontFamily: POLICE, fontSize: "13px", color: T.laiton })
+    const retour = affuter(s.add.text(p.x + p.largeur / 2, p.y + p.hauteur - 24, "Retour", { fontFamily: POLICE, fontSize: "13px", color: T.laiton }))
       .setOrigin(0.5)
       .setDepth(PROFONDEUR + 1)
       .setInteractive({ useHandCursor: true })
@@ -123,14 +122,12 @@ export class PanneauSon {
   private ligne(p: Plaque, piste: Piste, y: number): void {
     const s = this.scene;
     this.objets.push(
-      s.add
-        .text(p.x + 24, y, NOMS[piste], { fontFamily: POLICE, fontSize: "14px", color: T.os })
+      affuter(s.add.text(p.x + 24, y, NOMS[piste], { fontFamily: POLICE, fontSize: "14px", color: T.os }))
         .setOrigin(0, 0.5)
         .setDepth(PROFONDEUR + 1),
     );
     const g = s.add.graphics().setDepth(PROFONDEUR + 1);
-    const texte = s.add
-      .text(p.x + p.largeur - 24, y, "", { fontFamily: POLICE, fontSize: "13px", color: T.os })
+    const texte = affuter(s.add.text(p.x + p.largeur - 24, y, "", { fontFamily: POLICE, fontSize: "13px", color: T.os }))
       .setOrigin(1, 0.5)
       .setDepth(PROFONDEUR + 1);
     this.objets.push(g, texte);

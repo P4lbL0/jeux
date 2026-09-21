@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { TACHES, tachesPour, type GroupeTache, type Population, type TacheId } from "../core/ordres";
+import { largeurEcran, hauteurEcran } from "./ui/ecran";
 import {
   C,
   T,
@@ -158,8 +159,8 @@ export class MenuOrdres {
     }
     hauteur += MARGE;
 
-    const x = Phaser.Math.Clamp(contenu.x + 14, 4, this.scene.scale.width - LARGEUR - 4);
-    const y = Phaser.Math.Clamp(contenu.y - 18, 4, this.scene.scale.height - hauteur - 4);
+    const x = Phaser.Math.Clamp(contenu.x + 14, 4, largeurEcran(this.scene) - LARGEUR - 4);
+    const y = Phaser.Math.Clamp(contenu.y - 18, 4, hauteurEcran(this.scene) - hauteur - 4);
     const plaque: Plaque = { x, y, largeur: LARGEUR, hauteur };
 
     this.fond.clear();

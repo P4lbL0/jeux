@@ -10,6 +10,7 @@ import { lireEtat, pireEtat } from "../core/etats";
 import { NOMS_RUPTURE, REGLAGES_STRESS } from "../core/personne";
 import { lireSatisfaction } from "../core/satisfaction";
 import type { EtatVillage } from "../scenes/ArenaScene";
+import { hauteurEcran } from "./ui/ecran";
 import {
   C,
   T,
@@ -247,7 +248,7 @@ export class PanneauVillage {
     const hauteur = HAUTEUR_TITRE + 12 + 20 + 22 + montres.length * 16 + 12 + this.aide.height + 12;
 
     const x = 16;
-    const y = Math.max(16, this.scene.scale.height - hauteur - 16);
+    const y = Math.max(16, hauteurEcran(this.scene) - hauteur - 16);
     const plaque: Plaque = { x, y, largeur, hauteur };
 
     this.fond.clear();

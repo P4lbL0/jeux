@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import type { Hero } from "./entities";
 import { C, T, cadre, creux, espacer, teindre, texte, type Plaque } from "./ui/chrome";
+import { hauteurEcran } from "./ui/ecran";
 
 /**
  * Panneau des capacites, en bas a gauche.
@@ -19,8 +20,19 @@ import { C, T, cadre, creux, espacer, teindre, texte, type Plaque } from "./ui/c
  * celle-ci a quitte l'interface et ne vit plus que sur le sprite dans le monde.
  */
 
-const LARGEUR = 302;
-const HAUTEUR = 58;
+/**
+ * ⚠️ **Elargi de 302 a 348 le 21 septembre 2026, et c'est une mesure.** La
+ * description passait de 10 a 12 px (le plancher de lisibilite, `chrome.ts`) :
+ * « Fauche tout ce qui l'entoure et le repousse au loin » mesurait 180 px, donc
+ * 216 a la nouvelle taille — elle repassait a la ligne et la seconde ligne
+ * tombait **sous** la plaque. Vu en capture.
+ *
+ * La hauteur suit : les descriptions les plus longues tiennent sur deux lignes
+ * depuis toujours, et deux lignes de 12 px avec leur interligne font 30 px sous
+ * un titre pose a 26.
+ */
+const LARGEUR = 348;
+const HAUTEUR = 64;
 const ESPACE = 5;
 const MARGE_BASSE = 62;
 const TAILLE_ICONE = 40;
@@ -73,7 +85,7 @@ export class PanneauCapacites {
         nom: this.texte(12, T.os).setText(espacer(capacite.nom.toUpperCase())),
         description: this.texte(10, T.osMat)
           .setText(capacite.description)
-          .setWordWrapWidth(196),
+          .setWordWrapWidth(242),
         touche: this.texte(11, T.laiton)
           .setText(TOUCHES_CAPACITES[i] ?? "?")
           .setOrigin(1, 0),
@@ -105,7 +117,7 @@ export class PanneauCapacites {
     this.cadres.clear();
     this.voiles.clear();
 
-    const bas = this.scene.scale.height - MARGE_BASSE;
+    const bas = hauteurEcran(this.scene) - MARGE_BASSE;
 
     capacites.forEach((capacite, i) => {
       const entree = this.entrees[i];

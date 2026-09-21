@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import "./police.css";
 import { POLICE } from "./game/ui/chrome";
+import { RATIO } from "./game/ui/ecran";
 import { BootScene } from "./scenes/BootScene";
 import { TitreScene } from "./scenes/TitreScene";
 import { MenuScene } from "./scenes/MenuScene";
@@ -8,16 +9,51 @@ import { ChoixClasseScene } from "./scenes/ChoixClasseScene";
 import { ArenaScene } from "./scenes/ArenaScene";
 import { UiScene } from "./scenes/UiScene";
 
+/** Le div qui porte le canvas : c'est lui qui donne la place disponible. */
+const cadreDuJeu = document.getElementById("game")!;
+
+/** La taille du canvas, en vrais pixels de l'ecran (voir `ui/ecran.ts`). */
+function tailleDuCanvas(): { largeur: number; hauteur: number } {
+  return {
+    largeur: Math.max(1, Math.round(cadreDuJeu.clientWidth * RATIO)),
+    hauteur: Math.max(1, Math.round(cadreDuJeu.clientHeight * RATIO)),
+  };
+}
+
+const depart = tailleDuCanvas();
+
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: "game",
-  backgroundColor: "#1d3b1c",
+  /**
+   * Le vide autour de la carte (§4.10).
+   *
+   * ⚠️ **Ce n'est pas du decor, c'est ce qu'on voit la ou le monde n'est pas
+   * dessine** : au-dela du bord de carte, et dans les bandes qui restent quand
+   * le canvas ne remplit pas la fenetre. C'etait un vert de pre (`#1d3b1c`)
+   * jusqu'au 21 septembre 2026 — Angelos l'a trouve moche, et il avait raison :
+   * un aplat vert clair se lit comme **un terrain**, donc comme une erreur
+   * d'affichage, alors qu'il n'y a rien la. Du noir se lit comme du vide.
+   *
+   * C'est le noir de la page (`index.html`), pour que la bordure du canvas ne
+   * se voie jamais.
+   */
+  backgroundColor: "#0d0b12",
   // Indispensable pour du pixel-art : pas de lissage quand on zoome.
   pixelArt: true,
   roundPixels: true,
+  /**
+   * ⚠️ **`NONE`, et le jeu se redimensionne lui-meme.** Le mode `RESIZE` mesure
+   * le parent en pixels CSS et en fait la taille du canvas : c'est exactement
+   * ce qui rendait le jeu flou sur un ecran a 150 ou 200 % (`ui/ecran.ts`). On
+   * reprend la mesure a la main pour la faire en **vrais pixels**, et `zoom`
+   * rend au canvas sa taille a l'ecran — il ne touche que le style CSS.
+   */
   scale: {
-    mode: Phaser.Scale.RESIZE,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    mode: Phaser.Scale.NONE,
+    width: depart.largeur,
+    height: depart.hauteur,
+    zoom: 1 / RATIO,
   },
   physics: {
     default: "arcade",
@@ -61,4 +97,9 @@ async function attendreLaPolice(): Promise<void> {
 void attendreLaPolice().then(() => {
   const jeu = new Phaser.Game(config);
   (window as unknown as { __jeu: Phaser.Game }).__jeu = jeu;
+  // Le mode `NONE` n'ecoute rien : c'est a nous de suivre la fenetre.
+  window.addEventListener("resize", () => {
+    const { largeur, hauteur } = tailleDuCanvas();
+    jeu.scale.resize(largeur, hauteur);
+  });
 });

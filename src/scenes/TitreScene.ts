@@ -3,9 +3,11 @@ import { INTRO, SON_INTRO } from "../game/intro";
 import { MORCEAUX } from "../game/musique";
 import { enLigneConfigure } from "../en-ligne/client";
 import { sessionCourante } from "../en-ligne/compte";
-import { C, T, POLICE, espacer, titreDuJeu } from "../game/ui/chrome";
+import {
+  affuter, C, T, POLICE, espacer, titreDuJeu } from "../game/ui/chrome";
 import { basculerLeMuet, bruitDInterface, estMuet, etouffer, jouer, type Voix } from "../game/son";
 import { PanneauSon } from "../game/panneauSon";
+import { calerLaCamera, largeurEcran, hauteurEcran } from "../game/ui/ecran";
 
 /**
  * L'ecran-titre : le village qui brule, puis trois mots (DESIGN.md §4.10).
@@ -119,6 +121,9 @@ export class TitreScene extends Phaser.Scene {
 
   create(): void {
     this.input.mouse?.disableContextMenu();
+    // L'interface se pose en pixels d'ecran, pas en pixels de canvas : sur un
+    // ecran a 150 ou 200 %, le canvas est deux fois plus grand (`ui/ecran.ts`).
+    calerLaCamera(this);
     this.menu = [];
     this.entrees = [];
     this.flous = [];
@@ -130,7 +135,8 @@ export class TitreScene extends Phaser.Scene {
     this.porte = null;
     this.cameras.main.setBackgroundColor(C.fer);
 
-    const { width: l, height: h } = this.scale;
+    const l = largeurEcran(this);
+    const h = hauteurEcran(this);
     this.voile = this.add.rectangle(0, 0, l, h, C.fer, 1).setOrigin(0).setAlpha(0).setDepth(10);
     this.noir = this.add.rectangle(0, 0, l, h, 0x000000, 1).setOrigin(0).setDepth(500);
     this.poserLeHautParleur();
@@ -170,15 +176,15 @@ export class TitreScene extends Phaser.Scene {
    * de film a sauter.
    */
   private attendreLEntree(): void {
-    const { width: l, height: h } = this.scale;
+    const l = largeurEcran(this);
+    const h = hauteurEcran(this);
     // De l'os, pas de l'os mat : c'est la seule chose a lire sur l'ecran, et
     // l'os mat sur du noir ne ressortait pas (vu sur capture).
-    this.porte = this.add
-      .text(l / 2, h / 2, espacer("clic ou touche pour entrer"), {
+    this.porte = affuter(this.add.text(l / 2, h / 2, espacer("clic ou touche pour entrer"), {
         fontFamily: POLICE,
         fontSize: "15px",
         color: T.os,
-      })
+      }))
       .setOrigin(0.5)
       .setAlpha(0)
       .setDepth(501);
@@ -228,7 +234,8 @@ export class TitreScene extends Phaser.Scene {
       return;
     }
 
-    const { width: l, height: h } = this.scale;
+    const l = largeurEcran(this);
+    const h = hauteurEcran(this);
     const approche = this.add.video(l / 2, h / 2, INTRO.approche.cle).setDepth(0);
     this.approche = approche;
     this.brancher(approche);
@@ -285,7 +292,8 @@ export class TitreScene extends Phaser.Scene {
   /** La video couvre la fenetre sans se deformer : on coupe les bords, pas l'image. */
   private couvrir(video: Phaser.GameObjects.Video): void {
     if (video.width === 0) return;
-    const { width: l, height: h } = this.scale;
+    const l = largeurEcran(this);
+    const h = hauteurEcran(this);
     const echelle = Math.max(l / INTRO.largeur, h / INTRO.hauteur);
     video.setPosition(l / 2, h / 2).setDisplaySize(INTRO.largeur * echelle, INTRO.hauteur * echelle);
   }
@@ -410,13 +418,13 @@ export class TitreScene extends Phaser.Scene {
   private rappelerQuOnPeutPasser(): void {
     this.time.delayedCall(1400, () => {
       if (this.etat !== "approche") return;
-      const { width: l, height: h } = this.scale;
-      this.passer = this.add
-        .text(l - 20, h - 18, "clic ou touche pour passer", {
+      const l = largeurEcran(this);
+    const h = hauteurEcran(this);
+      this.passer = affuter(this.add.text(l - 20, h - 18, "clic ou touche pour passer", {
           fontFamily: POLICE,
-          fontSize: "11px",
+          fontSize: "12px",
           color: T.osMat,
-        })
+        }))
         .setOrigin(1, 1)
         .setAlpha(0)
         .setDepth(60);
@@ -526,7 +534,7 @@ export class TitreScene extends Phaser.Scene {
   }
 
   private placerLeHautParleur(): void {
-    const { height: h } = this.scale;
+    const h = hauteurEcran(this);
     this.zoneSon.setPosition(30, h - 25);
     this.dessinerLeHautParleur(false);
   }
@@ -594,8 +602,7 @@ export class TitreScene extends Phaser.Scene {
    */
   private fabriquerLeMenu(): void {
     this.titre = titreDuJeu(this, 0, 0, 64).setDepth(100);
-    this.sousTitre = this.add
-      .text(0, 0, SOUS_TITRE, { fontFamily: POLICE, fontSize: "15px", color: T.os })
+    this.sousTitre = affuter(this.add.text(0, 0, SOUS_TITRE, { fontFamily: POLICE, fontSize: "15px", color: T.os }))
       .setOrigin(0.5)
       .setDepth(100);
     this.menu.push(this.titre, this.sousTitre);
@@ -606,12 +613,11 @@ export class TitreScene extends Phaser.Scene {
       ["CREDITS", false, () => undefined],
     ];
     for (const [libelle, actif, action] of entrees) {
-      const texte = this.add
-        .text(0, 0, espacer(libelle), {
+      const texte = affuter(this.add.text(0, 0, espacer(libelle), {
           fontFamily: POLICE,
           fontSize: libelle === "JOUER" ? "24px" : "18px",
           color: actif ? T.laiton : T.osMat,
-        })
+        }))
         .setOrigin(0.5)
         .setDepth(100);
       if (actif) {
@@ -631,8 +637,7 @@ export class TitreScene extends Phaser.Scene {
       this.menu.push(texte);
     }
 
-    this.compte = this.add
-      .text(0, 0, this.ligneDeCompte(), { fontFamily: POLICE, fontSize: "12px", color: T.osMat })
+    this.compte = affuter(this.add.text(0, 0, this.ligneDeCompte(), { fontFamily: POLICE, fontSize: "12px", color: T.osMat }))
       .setOrigin(0.5, 1)
       .setDepth(100);
     this.menu.push(this.compte);
@@ -665,7 +670,8 @@ export class TitreScene extends Phaser.Scene {
 
   /** Tout ce qui depend de la taille de la fenetre, remis a sa place. */
   private replacer(): void {
-    const { width: l, height: h } = this.scale;
+    const l = largeurEcran(this);
+    const h = hauteurEcran(this);
     this.voile.setSize(l, h);
     this.noir.setSize(l, h);
     for (const video of [this.approche, this.boucle]) if (video) this.couvrir(video);

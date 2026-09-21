@@ -261,6 +261,7 @@ import type { EtatEquipe } from "../game/hud";
 import type { EtatOrdres } from "../game/panneauOrdres";
 import type { GroupeAffiche } from "../game/fichePersonne";
 import { MORCEAUX, Musique } from "../game/musique";
+import { RATIO } from "../game/ui/ecran";
 
 /**
  * L'arene : combat, equipe, IA, progression.
@@ -454,8 +455,20 @@ const MAX_MORTS_VIVANTS = 12;
  * cinquante pixels a l'ecran. **L'empreinte visible est la meme qu'avant**, et
  * aucune donnee de jeu n'a bouge — ni vitesse, ni portee, ni hitbox.
  */
-const ZOOM_DEFAUT = 1.7;
-const ZOOM_MIN = 0.8;
+/**
+ * ⚠️ **Ces trois valeurs portent le ratio de l'ecran** (`ui/ecran.ts`).
+ *
+ * Depuis le 21 septembre 2026, le repere du jeu compte en **vrais pixels** :
+ * sur un ecran a 200 %, il en faut deux pour couvrir un pixel d'interface. Sans
+ * ce facteur, le monde s'afficherait a la moitie de sa taille et le heros
+ * ferait vingt-cinq pixels a l'ecran au lieu de cinquante.
+ *
+ * Les scenes d'interface reglent ca avec une camera zoomee (`calerLaCamera`) ;
+ * l'arene ne le peut pas, sa camera suit deja le heros et porte le zoom libre
+ * du joueur. Elle le porte donc ici, une fois pour toutes.
+ */
+const ZOOM_DEFAUT = 1.7 * RATIO;
+const ZOOM_MIN = 0.8 * RATIO;
 
 /**
  * Le voile entre deux mondes, en millisemes (§4.29, l'errance continue).
@@ -467,7 +480,7 @@ const ZOOM_MIN = 0.8;
  * secondes d'ecran noir pour rien.
  */
 const DUREE_DU_VOILE = 220;
-const ZOOM_MAX = 3.4;
+const ZOOM_MAX = 3.4 * RATIO;
 
 /**
  * De combien il faut s'eloigner de la ou l'on a paru avant que quitter la
@@ -1651,17 +1664,25 @@ export class ArenaScene extends Phaser.Scene {
     // On ne nomme plus rien par du texte flottant (§4.24) : passer la souris
     // sur une maison, un mur, l'eglise ou le port dit son nom et son etat. Un
     // seul objet, cree une fois, deplace a la demande (§4.17).
+    // ⚠️ **Ce texte-la vit dans le monde, pas dans l'interface** : la camera de
+    // l'arene l'agrandit de son zoom. On le rasterise donc a la taille ou on le
+    // voit le plus souvent (`ZOOM_DEFAUT`), sans quoi dix pixels de lettre
+    // etires trois fois et demie rendent une bouillie — c'est le seul texte du
+    // jeu que `affuter` ne peut pas traiter, puisque son facteur n'est pas
+    // celui de l'ecran mais celui de la camera.
     this.survol = this.add
       .text(0, 0, "", {
         fontFamily: POLICE,
-        fontSize: "10px",
+        fontSize: "12px",
         color: "#e8dcc4",
         backgroundColor: "#141018",
         padding: { x: 4, y: 2 },
+        resolution: ZOOM_DEFAUT,
       })
       .setOrigin(0.5, 1)
       .setDepth(950)
       .setVisible(false);
+    this.survol.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
 
     this.voile = this.add
       .rectangle(0, 0, MONDE.largeur, MONDE.hauteur, 0x0a0a1e)
@@ -2941,6 +2962,24 @@ export class ArenaScene extends Phaser.Scene {
 
   // -------------------------------------------------------------- controles
 
+  /**
+   * Le zoom arriere le plus loin **qu'on ait le droit de prendre ici**.
+   *
+   * ⚠️ **C'est le bord de la carte qui le fixe, pas une constante.** Une camera
+   * bornee (`setBounds`) ne sait pas retenir une vue plus large que ses bornes :
+   * Phaser centre alors le monde et laisse voir le vide de chaque cote. C'est
+   * exactement l'aplat que Angelos a signale le 21 septembre 2026 — un grand
+   * rectangle uni a la fin du monde, qu'on prend pour du terrain.
+   *
+   * On ne le peint donc plus d'une autre couleur : **on empeche d'y arriver**.
+   * Le monde classique (2000 x 1500) se dezoome moins loin qu'un monde x3, et
+   * c'est juste — il y a moins a voir.
+   */
+  private zoomLePlusLarge(): number {
+    const cam = this.cameras.main;
+    return Math.max(ZOOM_MIN, cam.width / MONDE.largeur, cam.height / MONDE.hauteur);
+  }
+
   private configurerZoom(): void {
     this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => {
       // Un coup de molette reprend la camera au dezoom d'entree : le §4.11
@@ -2949,8 +2988,21 @@ export class ArenaScene extends Phaser.Scene {
       this.entreeCamera?.stop();
       this.entreeCamera = null;
       const cam = this.cameras.main;
-      cam.setZoom(Phaser.Math.Clamp(cam.zoom - dy * 0.0016, ZOOM_MIN, ZOOM_MAX));
+      // Le pas suit le ratio, sinon un cran de molette vaut deux fois moins de
+      // zoom sur un ecran a 200 % que sur un ecran normal.
+      cam.setZoom(
+        Phaser.Math.Clamp(cam.zoom - dy * 0.0016 * RATIO, this.zoomLePlusLarge(), ZOOM_MAX),
+      );
     });
+    // Agrandir la fenetre elargit la vue : un zoom qui tenait dans la carte
+    // peut ne plus y tenir, et le vide reapparaitrait par le bord.
+    const retenir = (): void => {
+      const cam = this.cameras.main;
+      const plancher = this.zoomLePlusLarge();
+      if (cam.zoom < plancher) cam.setZoom(plancher);
+    };
+    this.scale.on("resize", retenir);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off("resize", retenir));
   }
 
   /**
@@ -8197,12 +8249,21 @@ export class ArenaScene extends Phaser.Scene {
   private flotter(x: number, y: number, texte: string, couleur: string): void {
     if (this.textesActifs >= MAX_TEXTES_FLOTTANTS) return;
 
+    // Comme le survol : ce texte vit **dans le monde**, donc la camera de
+    // l'arene l'agrandit de son zoom. Il se rasterise a `ZOOM_DEFAUT` pour
+    // retomber net a la taille ou on le voit (§4.10, 21 septembre 2026).
     const t =
       this.textesLibres.pop() ??
       this.add
-        .text(0, 0, "", { fontFamily: POLICE, fontSize: "11px", color: "#ffffff" })
+        .text(0, 0, "", {
+          fontFamily: POLICE,
+          fontSize: "12px",
+          color: "#ffffff",
+          resolution: ZOOM_DEFAUT,
+        })
         .setOrigin(0.5)
         .setDepth(5000);
+    t.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
 
     this.textesActifs += 1;
     t.setText(texte).setColor(couleur).setPosition(x, y).setAlpha(1).setVisible(true);

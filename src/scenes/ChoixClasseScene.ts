@@ -4,7 +4,9 @@ import { creerTexturesPlaceholder, echellePortrait } from "../game/art";
 import { CLE_VIGNETTE } from "../game/dessin/morceaux";
 import { portraitDeHero } from "../game/dessin/monde";
 import type { Emplacement } from "../core/sauvegarde";
+import { calerLaCamera, largeurEcran, hauteurEcran } from "../game/ui/ecran";
 import {
+  affuter,
   C,
   T,
   HAUTEUR_TITRE,
@@ -65,6 +67,9 @@ export class ChoixClasseScene extends Phaser.Scene {
   create(): void {
     // Le menu contextuel du navigateur n'a rien a faire dans un jeu.
     this.input.mouse?.disableContextMenu();
+    // L'interface se pose en pixels d'ecran, pas en pixels de canvas : sur un
+    // ecran a 150 ou 200 %, le canvas est deux fois plus grand (`ui/ecran.ts`).
+    calerLaCamera(this);
 
     creerTexturesPlaceholder(this);
     this.construire();
@@ -79,8 +84,8 @@ export class ChoixClasseScene extends Phaser.Scene {
   private construire(): void {
     this.children.removeAll();
 
-    const l = this.scale.width;
-    const h = this.scale.height;
+    const l = largeurEcran(this);
+    const h = hauteurEcran(this);
 
     // Le monde lui-meme en fond, assombri : c'est le village qu'on s'apprete a
     // defendre. La cle utilisee ici etait « herbe », qui n'a jamais existe —
@@ -98,8 +103,7 @@ export class ChoixClasseScene extends Phaser.Scene {
 
     titreDuJeu(this, l / 2, h * 0.12, 40);
 
-    this.add
-      .text(
+    affuter(this.add.text(
         l / 2,
         h * 0.12 + 34,
         "Ce village n'a plus personne pour le defendre.\nChoisis ta classe.",
@@ -109,7 +113,7 @@ export class ChoixClasseScene extends Phaser.Scene {
           color: T.osMat,
           align: "center",
         },
-      )
+      ))
       .setOrigin(0.5);
 
     // Sept classes : on les repartit sur deux rangees pour qu'elles tiennent a
@@ -138,12 +142,11 @@ export class ChoixClasseScene extends Phaser.Scene {
       );
     });
 
-    this.add
-      .text(l / 2, h - 26, "Touches 1 a 7, ou clique sur une carte", {
+    affuter(this.add.text(l / 2, h - 26, "Touches 1 a 7, ou clique sur une carte", {
         fontFamily: POLICE,
         fontSize: "12px",
         color: T.osMat,
-      })
+      }))
       .setOrigin(0.5);
 
     const clavier = this.input.keyboard;
@@ -182,20 +185,19 @@ export class ChoixClasseScene extends Phaser.Scene {
     cadre(fond, plaque);
     barreDeTitre(fond, plaque);
 
-    this.add.text(x + 10, yTitre(plaque), `${numero}`, {
+    affuter(this.add.text(x + 10, yTitre(plaque), `${numero}`, {
       fontFamily: POLICE,
       fontSize: "12px",
       color: T.titre,
-    });
+    }));
     // Le nom de classe n'est pas espace : « CHEVALIER SACRE » espace fait 29
     // caracteres et vient buter sur le numero. C'est un titre, pas une
     // etiquette — la regle 4 du §4.10 vise les secondes.
-    this.add
-      .text(x + largeur - 10, yTitre(plaque), classe.nom.toUpperCase(), {
+    affuter(this.add.text(x + largeur - 10, yTitre(plaque), classe.nom.toUpperCase(), {
         fontFamily: POLICE,
-        fontSize: "11px",
+        fontSize: "12px",
         color: T.titre,
-      })
+      }))
       .setOrigin(1, 0);
 
     // Le portrait vise toujours la meme hauteur, que la texture soit le
@@ -213,14 +215,13 @@ export class ChoixClasseScene extends Phaser.Scene {
     const portrait = this.add.image(x + largeur / 2, hautPortrait + CARTE.portrait / 2, texture, frame);
     portrait.setScale(echellePortrait(portrait.height, HAUTEUR_PORTRAIT));
 
-    this.add
-      .text(x + largeur / 2, hautPortrait + CARTE.portrait + 8, classe.distanceIdeale, {
+    affuter(this.add.text(x + largeur / 2, hautPortrait + CARTE.portrait + 8, classe.distanceIdeale, {
         fontFamily: POLICE,
-        fontSize: "10px",
+        fontSize: "12px",
         color: T.osMat,
         align: "center",
         wordWrap: { width: largeur - 24 },
-      })
+      }))
       .setOrigin(0.5, 0);
 
     // Les chiffres sont en laiton et alignes a droite : c'est ce qui permet de
@@ -238,17 +239,16 @@ export class ChoixClasseScene extends Phaser.Scene {
     const hautStats = hautPortrait + CARTE.portrait + 8 + CARTE.distance;
     stats.forEach(([nom, valeur], i) => {
       const cy = hautStats + i * CARTE.hauteurLigne;
-      this.add.text(x + 14, cy, nom, {
+      affuter(this.add.text(x + 14, cy, nom, {
         fontFamily: POLICE,
-        fontSize: "10px",
+        fontSize: "12px",
         color: T.osMat,
-      });
-      this.add
-        .text(x + largeur - 14, cy, valeur, {
+      }));
+      affuter(this.add.text(x + largeur - 14, cy, valeur, {
           fontFamily: POLICE,
-          fontSize: "11px",
+          fontSize: "12px",
           color: T.laiton,
-        })
+        }))
         .setOrigin(1, 0);
     });
 
@@ -258,18 +258,18 @@ export class ChoixClasseScene extends Phaser.Scene {
     fond.fillStyle(C.sangSeche, 1);
     fond.fillRect(x + 8, hautTrait, largeur - 16, 2);
 
-    this.add.text(x + 16, hautTrait + 8, espacer(classe.traitNom.toUpperCase()), {
+    affuter(this.add.text(x + 16, hautTrait + 8, espacer(classe.traitNom.toUpperCase()), {
       fontFamily: POLICE,
-      fontSize: "10px",
+      fontSize: "12px",
       color: T.laiton,
-    });
-    this.add.text(x + 16, hautTrait + 26, classe.traitTexte, {
+    }));
+    affuter(this.add.text(x + 16, hautTrait + 26, classe.traitTexte, {
       fontFamily: POLICE,
-      fontSize: "10px",
+      fontSize: "12px",
       color: T.os,
       wordWrap: { width: largeur - 32 },
       lineSpacing: 2,
-    });
+    }));
 
     this.add
       .zone(x, y, largeur, hauteur)

@@ -3,6 +3,7 @@ import { SEUIL_CRITIQUE } from "../core/classes";
 import type { Hero } from "./entities";
 import { plancheDe } from "./dessin/monde";
 import { C, T, cadre, jauge, teindre, texte, type Plaque } from "./ui/chrome";
+import { largeurEcran, hauteurEcran } from "./ui/ecran";
 
 /**
  * Barre d'equipe, en haut a gauche, a l'horizontale (DESIGN.md §4.10).
@@ -200,8 +201,8 @@ export class Hud {
   }
 
   private placerBas(): void {
-    const l = this.scene.scale.width;
-    const h = this.scene.scale.height;
+    const l = largeurEcran(this.scene);
+    const h = hauteurEcran(this.scene);
 
     this.alerte.setPosition(l / 2, MARGE + HAUTEUR + 12);
 
