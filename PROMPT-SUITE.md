@@ -1,16 +1,17 @@
-# Prompt de reprise — ce qui reste à coder (21 septembre 2026)
+# Prompt de reprise — ce qui reste à coder (21 septembre 2026, au soir)
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Écrit après **le jalon 5.6 fini** : les **trouvailles de la route** (§4.31) sont codées en
-> entier — les caches et leur camp de bêtes, le survivant qui traverse les mondes avec nous,
-> la stèle qui grave un trait. Avant lui, le **jalon 5.5** avait posé un seul héros, un monde
-> tiré par graine, la marche, le refus qui se paie, le village déjà peuplé, le budget
-> cadeaux/menaces, la carte qui se peint par morceaux, la zone ×3 et l'errance continue.
+> Écrit après **les blocs 8 et 9 finis**. Le **bloc 8** a donné le mode commandement (`Tab`),
+> la sélection mélangée au rectangle, le **menu d'ordres**, un héros qu'on met au travail et
+> le **chantier qui occupe un bâtisseur**. Le **bloc 9** a donné la **cour d'entraînement**,
+> le métier de **milicien**, les **dons** et le passage **villageois → héros** — la seule
+> source de héros du jeu.
 >
-> **Le dernier morceau d'architecture du projet est derrière nous, et l'errance est finie.**
-> Ce qui reste, ce sont les **derniers blocs du jalon 5** : la session qui prend la suite a
-> surtout à construire, et le design est écrit et tranché.
+> **Les ordres, les postures, les formations, l'IA de repli et l'expérience de groupe sont
+> réveillés** : ils tournaient à vide depuis le 5.5, faute d'un deuxième héros.
+>
+> Il reste **trois blocs au jalon 5**, et les deux derniers ne cassent rien s'ils manquent.
 
 ---
 
@@ -45,19 +46,30 @@ coûte cher ou casse quelque chose.
   son terrain et qu'on peut fuir ; un **survivant** un monde sur trois, qui traverse avec
   nous (trois au plus) et devient habitant à l'installation ; une **stèle** un monde sur
   cinq, qui annonce son trait avant qu'on le prenne — six traits écrits pour elle.
+- **Les ordres pour tous** (§4.4, bloc 8, fini) : `Tab` prend le **mode commandement** —
+  dedans, le clic gauche sélectionne au lieu de déplacer, un cadre tiré prend héros et
+  villageois **mélangés**, et un **menu d'ordres** s'ouvre collé à la personne. Un héros
+  qu'on met à un poste produit quinze fois un habitant, le jour seulement, et ça le fatigue.
+  Un **chantier occupe un bâtisseur** : sans charpentier, l'échafaudage reste dressé.
+- **Le village armé** (§4.18, bloc 9, fini) : la **cour d'entraînement** (un seul bâtiment,
+  touche `U`), le métier de **milicien** et ses trois paliers, et surtout **les dons** — un
+  habitant sur dix en porte un sans le savoir, et c'est **la seule source de héros du jeu**.
+  Trois voies l'éveillent : le danger de mort, l'entraînement, le rituel de l'église. Un
+  héros qui s'éveille **garde son nom d'habitant et ses traits**.
 - **Le visuel** : tout est dessiné, les personnages viennent de **Blender** (121 planches),
   l'écran-titre est une cinématique Blender avec sa bande-son. **La carte se peint par
   morceaux**, image par image, au plus près du héros : une partie s'ouvre en une demi-seconde
   sur une zone de 3 464 × 2 598.
 
-**Les chiffres** : 703 tests verts, `npm run build` propre, ~47 000 lignes de TypeScript.
+**Les chiffres** : 720 tests verts, `npm run build` propre, ~47 000 lignes de TypeScript.
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
 
 1. `DESIGN.md` (le sommaire) puis, dans `design/` : **§5** (l'ordre de construction), **§6**
    (les questions tranchées), **§4.17** (tenir la fluidité : ses cinq règles ne se négocient
    pas), et **§4.32** (les portails et le donjon, la seule section neuve encore non codée).
-   Le **§4.31** est codé : sa fin dit ce que le code fait vraiment, chiffres compris.
+   Les **§4.31**, **§4.4**, **§4.18**, **§4.1** et **§4.20** sont codés : leur fin dit ce que
+   le code fait vraiment, chiffres compris.
 2. `SUITE.md` — le journal de bord technique, chantier par chantier, avec les pièges déjà
    rencontrés. **Lis au moins les cinq dernières sections.**
 3. `README.md` — comment lancer, la structure du code, ce que fait chaque fichier du noyau.
@@ -66,24 +78,22 @@ coûte cher ou casse quelque chose.
 
 ## 3. Ce qui reste à coder
 
-### A. Le jalon 5, ses derniers blocs (`design/05-ordre-de-construction.md`)
+### A. Le jalon 5, ses trois derniers blocs (`design/05-ordre-de-construction.md`)
 
-**C'est par là qu'il faut reprendre.** Le jalon 5.6 est fini ; les blocs ci-dessous sont ce
-qui reste du jalon 5 lui-même, et le bloc 9 est le plus important des quatre.
+**C'est par là qu'il faut reprendre.** Les blocs 8 et 9 sont finis ; il reste ceci.
 
-5. **Bloc 8 — les ordres pour tous** (§4.4) : n'importe qui fait n'importe quoi, sélection
-   puis menu d'ordres ; un héros au travail produit beaucoup plus vite, seulement le jour, et
-   ça le fatigue. Le chantier qui occupe un bâtisseur (reste du 7b) va là.
-6. **Bloc 9 — le village armé** (§4.18) : l'entraînement, le métier de **milicien**, et
-   surtout **la seule source de héros du jeu** depuis le §4.29 : on ne devient pas héros par
-   l'usure, on **naît avec un don** (1 habitant sur 10, 1 don sur 20 majeur). Le **centre
-   d'apprentissage** est un bâtiment neuf. ⚠️ C'est ce bloc qui **réveille** les ordres, les
-   formations, les postures, l'IA de repli et l'expérience de groupe, endormis depuis qu'on
-   commence à un seul héros.
-7. **Bloc 10 — le confort** (§4.10, §4.11) : pause Échap, touches remappables, panneau des
-   volumes (`PanneauSon` existe), et **le rendu à la définition de l'écran**.
-8. **Blocs 11 et 12** — la mémoire du village (§4.26) et la vie autonome (§4.27). Ce sont les
-   deux seuls blocs dont l'absence ne casse rien.
+5. **Bloc 10 — le confort** (§4.10, §4.11) : pause Échap, touches remappables, panneau des
+   volumes (`PanneauSon` existe), et **le rendu à la définition de l'écran** : le canvas
+   dessiné en pixels d'écran et non en points CSS, ce qui demande de reprendre les calculs
+   de placement de chaque panneau.
+6. **Bloc 11 — la mémoire du village** (§4.26) : les relations, les souvenirs, ce qu'une
+   mort produit, l'héritage immatériel, les légendes assemblées.
+7. **Bloc 12 — la vie autonome** (§4.27) : la journée qu'on enchaîne sans ordre, les
+   initiatives rares. ⚠️ **Le jalon 13 en dépend** : ce qui rend un portail intéressant,
+   c'est le village qu'on laisse vivre seul pendant qu'on y est.
+
+Les blocs 11 et 12 sont les **deux seuls du jalon dont l'absence ne casse rien** : sans eux
+le jeu tourne, il est juste plus froid.
 
 ### B. Les jalons suivants, écrits et pas codés
 
@@ -96,15 +106,20 @@ qui reste du jalon 5 lui-même, et le bloc 9 est le plus important des quatre.
     héros en antagoniste (§4.12), le leaderboard (§4.9).
 13. **Jalon 13 — les portails et le donjon** (§4.32) : un portail très rare qui s'ouvre sans
     prévenir, un labyrinthe tiré au sort, des ennemis, des caches, des stèles de compétence.
-    ⚠️ **Il passe après les blocs 9 et 12** : ce qui rend un portail intéressant, c'est le
-    village qu'on laisse vivre seul pendant qu'on y est.
+    ⚠️ **Il ne dépend plus que du bloc 12** (le bloc 9 est fini) : ce qui rend un portail
+    intéressant, c'est le village qu'on laisse vivre seul pendant qu'on y est.
 
 ### C. Les dettes connues, petites
 
 - Les deux dernières frames de la mort du golem et de la brute sortent de cinq pixels sous
   leur cadre (les pattes, pas le corps).
-- Le panneau ORDRES affiche « toute l'équipe (0) » alors qu'on joue un seul héros : il
-  redeviendra juste au bloc 9.
+- **Aucun chiffre des blocs 8 et 9 n'a été joué** : le coût de la cour (120 bois, 40
+  minerai), les 4 s de travail d'un chantier, les 2,2 points de stress par minute d'un héros
+  au travail, les 900 pièces du rituel, le seuil de vétéran à dix niveaux. Tous dans des
+  tables de réglages, faits pour être corrigés une manette en main.
+- **Un milicien répond à la cloche ? Non**, et c'est volontaire — à juger en jouant.
+- **La garnison n'existe pas** (§4.15) : au-delà de dix héros dehors, un onzième don ne
+  s'éveille pas et le jeu le dit.
 - Un village pose **six maisons en moyenne** (jamais plus de quatorze) là où le code en vise
   seize à vingt : c'est pour ça qu'une maison loge une famille de quatre.
 - La forêt ne ferme pas un flanc (les monstres marchent dans les arbres) : à décider.
@@ -116,12 +131,17 @@ qui reste du jalon 5 lui-même, et le bloc 9 est le plus important des quatre.
 
 ## 4. Par quoi je te demande de commencer
 
-**Le bloc 8 puis le bloc 9** (§4.4, §4.18). Le bloc 9 est le plus lourd et le plus
-important : c'est **la seule source de héros du jeu** depuis le §4.29, et c'est lui qui
-réveille les ordres, les formations, les postures, l'IA de repli et l'expérience de groupe —
-tous endormis depuis qu'on commence à un seul héros.
+**Le bloc 10, le confort** (§4.10, §4.11) — sauf si je dis autre chose. C'est le dernier
+bloc du jalon 5 dont l'absence se paie : le jeu n'est net sur aucun écran à 150 %, et il n'y
+a toujours pas de pause.
 
-Découpe-le en morceaux courts que je valide un par un, et **montre-moi des captures**.
+⚠️ **Avant tout ça, il y a peut-être mieux à faire : jouer.** Les blocs 8 et 9 viennent
+d'atterrir et **aucun de leurs chiffres n'a été joué** — le coût de la cour, la durée d'un
+chantier, la fatigue d'un héros au travail, le prix du rituel. Ils sont tous dans des tables
+de réglages, faits pour être corrigés une manette en main. Demande-moi si je veux jouer
+d'abord.
+
+Découpe en morceaux courts que je valide un par un, et **montre-moi des captures**.
 
 Avant de coder : dis-moi ce que tu as compris, ce que tu comptes faire en premier, et pose
 d'un coup les décisions qui te manquent.

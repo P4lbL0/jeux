@@ -3,7 +3,13 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-09-21 — **le jalon 5.6 est fini** : les trouvailles de la
+> Dernière mise à jour : 2026-09-21, au soir — **les blocs 8 et 9 du jalon 5 sont finis** :
+> les **ordres pour tous** (§4.4 — le mode commandement, le menu d'ordres, le héros au
+> travail, le chantier qui occupe un bâtisseur) et le **village armé** (§4.18, §4.1 — la cour
+> d'entraînement, le milicien, les **dons** et le passage villageois → héros, la seule source
+> de héros du jeu). Il ne reste que les blocs 10, 11 et 12.
+>
+> Avant ça, le matin : **le jalon 5.6 est fini** : les trouvailles de la
 > route (§4.31) sont codées, dans l'ordre que la section demandait. Les **caches** (sept par
 > monde muet, deux monnaies, la fouille qui prend un moment, le camp de bêtes qui garde son
 > terrain), le **survivant** qui remonte à l'errance et traverse les mondes avec nous, et la
