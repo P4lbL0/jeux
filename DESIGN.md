@@ -3,11 +3,19 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-09-21, au soir — **les blocs 8 et 9 du jalon 5 sont finis** :
-> les **ordres pour tous** (§4.4 — le mode commandement, le menu d'ordres, le héros au
-> travail, le chantier qui occupe un bâtisseur) et le **village armé** (§4.18, §4.1 — la cour
-> d'entraînement, le milicien, les **dons** et le passage villageois → héros, la seule source
-> de héros du jeu). Il ne reste que les blocs 10, 11 et 12.
+> Dernière mise à jour : 2026-09-21, tard — **LE JALON 5 EST FINI.** Ses trois derniers
+> blocs sont tombés le même soir : le **bloc 10**, le confort (§4.10, §4.11 — la pause Échap
+> et son menu, les 36 touches remappables qui s'échangent au lieu de se disputer, une ligne
+> d'aide qui lit le mappage) ; le **bloc 11**, la mémoire du village (§4.26 — les relations
+> par paire, les souvenirs bornés à huit, ce qu'une mort produit, l'héritage proposé, les
+> archives et leur récit assemblé qui ne dit que ce qu'on sait) ; et le **bloc 12**, la vie
+> autonome (§4.27 — la journée sans ordre, trois habitants réveillés par image, les bulles
+> dessinées, les six initiatives testées sur événement). **Le village vivant est complet.**
+> La suite n'est plus un bloc mais un jalon : **le ciel** (§4.21).
+>
+> Avant ça, le même soir : **les blocs 8 et 9** — les **ordres pour tous** (§4.4) et le
+> **village armé** (§4.18, §4.1 — la cour d'entraînement, le milicien, les **dons** et le
+> passage villageois → héros, la seule source de héros du jeu).
 >
 > Avant ça, le matin : **le jalon 5.6 est fini** : les trouvailles de la
 > route (§4.31) sont codées, dans l'ordre que la section demandait. Les **caches** (sept par
@@ -119,7 +127,7 @@ Détail complet : [§1 Pitch](design/01-pitch.md).
 
 | § | Section | Ce qu'on y trouve |
 |---|---|---|
-| **5** | [Ordre de construction](design/05-ordre-de-construction.md) | Les jalons, et le jalon 5 en huit blocs |
+| **5** | [Ordre de construction](design/05-ordre-de-construction.md) | Les jalons, et le jalon 5 en douze blocs — **tous finis** |
 | **6** | [Questions ouvertes](design/06-questions-ouvertes.md) | Ce qui reste à trancher, et ce qui vient de l'être |
 | **7** | [Hors périmètre pour l'instant](design/07-hors-perimetre-pour-l-instant.md) | Ce qu'on s'interdit volontairement |
 

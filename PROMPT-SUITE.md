@@ -1,17 +1,14 @@
-# Prompt de reprise — ce qui reste à coder (21 septembre 2026, au soir)
+# Prompt de reprise — ce qui reste à coder (21 septembre 2026, tard)
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Écrit après **les blocs 8 et 9 finis**. Le **bloc 8** a donné le mode commandement (`Tab`),
-> la sélection mélangée au rectangle, le **menu d'ordres**, un héros qu'on met au travail et
-> le **chantier qui occupe un bâtisseur**. Le **bloc 9** a donné la **cour d'entraînement**,
-> le métier de **milicien**, les **dons** et le passage **villageois → héros** — la seule
-> source de héros du jeu.
+> Écrit après **le jalon 5 fini**. Les trois derniers blocs sont tombés le même soir : le
+> **bloc 10** (la pause Échap, le menu d'options, les 36 touches remappables), le **bloc 11**
+> (la mémoire du village — relations, souvenirs, héritage, archives) et le **bloc 12** (la
+> vie autonome — la journée sans ordre, les bulles, les six initiatives).
 >
-> **Les ordres, les postures, les formations, l'IA de repli et l'expérience de groupe sont
-> réveillés** : ils tournaient à vide depuis le 5.5, faute d'un deuxième héros.
->
-> Il reste **trois blocs au jalon 5**, et les deux derniers ne cassent rien s'ils manquent.
+> **Le village vivant est complet.** La prochaine chose à coder n'est plus un bloc, c'est un
+> jalon — et le premier est **le ciel** (§4.21).
 
 ---
 
@@ -25,51 +22,44 @@ coûte cher ou casse quelque chose.
 
 - **Le combat** : sept classes, auto-attaque, ultimes, compétences et évolutions, IA des
   héros, règle des 20 %, mort définitive, monstres par archétypes et par vagues.
-- **Le village vivant** : cycle jour/nuit (10 min de jour, 5 de nuit), hordes, habitants et
-  métiers, faim, église à quatre niveaux, traits / stress / états / séquelles, la porte et ses
+- **Le village vivant** (jalon 5, **fini**) : cycle jour/nuit, hordes, habitants et métiers,
+  faim, église à quatre niveaux, traits / stress / états / séquelles, la porte et ses
   arrivants, le port et le commerce, les survivants à ramener, le journal, le mode
-  d'aménagement, les murs, les tours, les portes, les douves et les ponts-levis.
+  d'aménagement, les murs, les tours, les portes, les douves et les ponts-levis, les ordres
+  pour tous, la milice et les dons, **la pause et les touches**, **la mémoire du village**,
+  **la vie autonome**.
 - **Le monde** : une graine, un monde (mer sur un bord ou absente, chaîne / massif / piton,
   lacs, bois, village posé au sort, postes cherchés sur le terrain, fronts de 1 à 4). La
   **graine zéro** rend la carte d'avant, au chiffre près.
-- **L'errance** (§4.29, fini) : on paraît seul par le bord le plus loin, un cap en une
-  phrase, la caméra dézoome seule **la première fois seulement**, rien du Protecteur ne
-  tourne tant qu'on marche ; à dix cases d'une porte un habitant vient poser sa question ;
-  accepter fait commencer le jour 1, refuser en face peut faire que le village entier se
-  jette sur nous. **Refuser éloigne vraiment le suivant** : on traverse un, puis trois, puis
-  sept **mondes muets** — le même village, mais toutes les maisons en ruine et personne
-  dehors. Entre deux mondes, un voile de 220 ms.
-- **Les trouvailles de la route** (§4.31, fini) : sept **caches** par monde muet (coffre
-  défoncé, trappe de cave, charrette éventrée), l'**or** qui traverse les mondes et la
-  **matière** qui devient les réserves du jour où l'on s'installe ; la fouille qui prend
-  1,2 s et s'interrompt si l'on encaisse ; un **camp de bêtes** sur les grosses, qui garde
-  son terrain et qu'on peut fuir ; un **survivant** un monde sur trois, qui traverse avec
-  nous (trois au plus) et devient habitant à l'installation ; une **stèle** un monde sur
-  cinq, qui annonce son trait avant qu'on le prenne — six traits écrits pour elle.
-- **Les ordres pour tous** (§4.4, bloc 8, fini) : `Tab` prend le **mode commandement** —
-  dedans, le clic gauche sélectionne au lieu de déplacer, un cadre tiré prend héros et
-  villageois **mélangés**, et un **menu d'ordres** s'ouvre collé à la personne. Un héros
-  qu'on met à un poste produit quinze fois un habitant, le jour seulement, et ça le fatigue.
-  Un **chantier occupe un bâtisseur** : sans charpentier, l'échafaudage reste dressé.
-- **Le village armé** (§4.18, bloc 9, fini) : la **cour d'entraînement** (un seul bâtiment,
-  touche `U`), le métier de **milicien** et ses trois paliers, et surtout **les dons** — un
-  habitant sur dix en porte un sans le savoir, et c'est **la seule source de héros du jeu**.
-  Trois voies l'éveillent : le danger de mort, l'entraînement, le rituel de l'église. Un
-  héros qui s'éveille **garde son nom d'habitant et ses traits**.
+- **L'errance** (§4.29) : on paraît seul par le bord le plus loin, un cap en une phrase, à
+  dix cases d'une porte un habitant vient poser sa question ; refuser fait traverser un,
+  trois, puis sept **mondes muets**.
+- **Les trouvailles de la route** (§4.31) : sept caches par monde muet, l'or qui traverse,
+  un camp de bêtes sur les grosses, un survivant un monde sur trois, une stèle un monde sur
+  cinq.
+- **Le confort** (§4.10, §4.11, bloc 10) : le rendu à la **densité réelle de l'écran**, un
+  plancher de 12 px, une interface qui grandit avec la fenêtre. **Échap** referme ce qui est
+  ouvert puis met le jeu en **pause** : reprendre, volumes, touches, sauver et quitter,
+  abandonner. **36 actions remappables**, qui s'échangent au lieu de se disputer, et une
+  ligne d'aide qui lit le mappage.
+- **La mémoire du village** (§4.26, bloc 11) : les **relations** par paire (onze types, un
+  seul par couple, qui s'usent), les **souvenirs** bornés à huit, ce qu'une mort produit
+  (trait, tombe, archives, legs), l'**héritage proposé** à la montée de niveau, et les
+  **archives** avec leur récit assemblé — qui ne dit que ce qu'on sait.
+- **La vie autonome** (§4.27, bloc 12) : la journée sans ordre, trois habitants réveillés
+  par image, les **bulles** dessinées, et **six initiatives** testées sur événement.
 - **Le visuel** : tout est dessiné, les personnages viennent de **Blender** (121 planches),
-  l'écran-titre est une cinématique Blender avec sa bande-son. **La carte se peint par
-  morceaux**, image par image, au plus près du héros : une partie s'ouvre en une demi-seconde
-  sur une zone de 3 464 × 2 598.
+  l'écran-titre est une cinématique Blender avec sa bande-son. La carte se peint par
+  morceaux : une partie s'ouvre en une demi-seconde sur une zone de 3 464 × 2 598.
 
-**Les chiffres** : 720 tests verts, `npm run build` propre, ~47 000 lignes de TypeScript.
+**Les chiffres** : 859 tests verts, `npm run build` propre, ~50 000 lignes de TypeScript.
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
 
 1. `DESIGN.md` (le sommaire) puis, dans `design/` : **§5** (l'ordre de construction), **§6**
    (les questions tranchées), **§4.17** (tenir la fluidité : ses cinq règles ne se négocient
-   pas), et **§4.32** (les portails et le donjon, la seule section neuve encore non codée).
-   Les **§4.31**, **§4.4**, **§4.18**, **§4.1** et **§4.20** sont codés : leur fin dit ce que
-   le code fait vraiment, chiffres compris.
+   pas), et **§4.21** (le ciel, le prochain jalon). Les **§4.26** et **§4.27** viennent
+   d'être codées : leur fin dit ce que le code fait vraiment.
 2. `SUITE.md` — le journal de bord technique, chantier par chantier, avec les pièges déjà
    rencontrés. **Lis au moins les cinq dernières sections.**
 3. `README.md` — comment lancer, la structure du code, ce que fait chaque fichier du noyau.
@@ -78,68 +68,40 @@ coûte cher ou casse quelque chose.
 
 ## 3. Ce qui reste à coder
 
-### A. Le jalon 5, ses trois derniers blocs (`design/05-ordre-de-construction.md`)
+### A. Le jalon 6 — le ciel (§4.21)
 
-**C'est par là qu'il faut reprendre.** Les blocs 8 et 9 sont finis ; il reste ceci.
+**C'est par là qu'il faut reprendre.** Pluie, orages, **incendies**, météores, carte
+modifiée à jamais.
 
-5. **Bloc 10 — le confort** (§4.10, §4.11) : pause Échap, touches remappables, panneau des
-   volumes (`PanneauSon` existe), et **le rendu à la définition de l'écran** : le canvas
-   dessiné en pixels d'écran et non en points CSS, ce qui demande de reprendre les calculs
-   de placement de chaque panneau.
-6. **Bloc 11 — la mémoire du village** (§4.26) : les relations, les souvenirs, ce qu'une
-   mort produit, l'héritage immatériel, les légendes assemblées.
-7. **Bloc 12 — la vie autonome** (§4.27) : la journée qu'on enchaîne sans ordre, les
-   initiatives rares. ⚠️ **Le jalon 13 en dépend** : ce qui rend un portail intéressant,
-   c'est le village qu'on laisse vivre seul pendant qu'on y est.
+⚠️ **Deux choses l'attendent déjà**, et elles sont écrites dans le code :
 
-Les blocs 11 et 12 sont les **deux seuls du jalon dont l'absence ne casse rien** : sans eux
-le jeu tourne, il est juste plus froid.
+- `Maisons.abimerLaPlusProche` est ce qu'un **Pyromane** fait quand il craque (§4.27). Elle
+  abîme faute de pouvoir brûler ; le jour où l'incendie existera, c'est elle qui l'allumera
+  et rien d'autre ne changera.
+- Le trait **Pyromane** porte déjà un drapeau `feuEnCraquant` que rien ne lit.
 
 ### B. Les jalons suivants, écrits et pas codés
 
-9. **Jalon 6** — le ciel : pluie, orages, **incendies**, météores, carte modifiable (§4.21).
-10. **Jalon 6.5** — les builds (§4.25) : tags, 36 compétences neuves, 26 fusions, synergies.
-    **C'est le plus gros volume de contenu du projet.**
-11. **Jalon 6.7** — le moral devient une arme (§4.23, §4.13, §4.10).
-12. **Jalons 7 à 12** — les défenses qui tirent (§4.7), la restauration et les pillards
-    (§4.18), les rangs et les classes rares (§4.1), la narration, la défaite et le retour du
-    héros en antagoniste (§4.12), le leaderboard (§4.9).
-13. **Jalon 13 — les portails et le donjon** (§4.32) : un portail très rare qui s'ouvre sans
-    prévenir, un labyrinthe tiré au sort, des ennemis, des caches, des stèles de compétence.
-    ⚠️ **Il ne dépend plus que du bloc 12** (le bloc 9 est fini) : ce qui rend un portail
-    intéressant, c'est le village qu'on laisse vivre seul pendant qu'on y est.
-
-### C. Les dettes connues, petites
-
-- Les deux dernières frames de la mort du golem et de la brute sortent de cinq pixels sous
-  leur cadre (les pattes, pas le corps).
-- **Aucun chiffre des blocs 8 et 9 n'a été joué** : le coût de la cour (120 bois, 40
-  minerai), les 4 s de travail d'un chantier, les 2,2 points de stress par minute d'un héros
-  au travail, les 900 pièces du rituel, le seuil de vétéran à dix niveaux. Tous dans des
-  tables de réglages, faits pour être corrigés une manette en main.
-- **Un milicien répond à la cloche ? Non**, et c'est volontaire — à juger en jouant.
-- **La garnison n'existe pas** (§4.15) : au-delà de dix héros dehors, un onzième don ne
-  s'éveille pas et le jeu le dit.
-- Un village pose **six maisons en moyenne** (jamais plus de quatorze) là où le code en vise
-  seize à vingt : c'est pour ça qu'une maison loge une famille de quatre.
-- La forêt ne ferme pas un flanc (les monstres marchent dans les arbres) : à décider.
-- Le port peut se poser sur un lac, faute de mieux.
-- À ×3, **le milieu de la carte est une grande plaine verte**. Le décor suit bien la surface
-  (il se compte par mégapixel), mais la géographie n'a rien à y mettre. À juger en jouant :
-  c'est peut-être exactement ce que « de longues minutes de plaine vide » veut dire. Le jalon
-  5.6 y a mis quelque chose à trouver — reste à savoir si ça suffit.
+- **Jalon 6.5** — les builds (§4.25) : tags, 36 compétences neuves, 26 fusions, synergies.
+  **C'est le plus gros volume de contenu du projet.**
+- **Jalon 6.7** — le moral devient une arme (§4.23, §4.13, §4.10).
+- **Jalons 7 à 12** — les défenses qui tirent (§4.7), la restauration et les pillards
+  (§4.18), les rangs et les classes rares (§4.1), la narration, la défaite et le retour du
+  héros en antagoniste (§4.12), le leaderboard (§4.9).
+- **Jalon 13 — les portails et le donjon** (§4.32) : ⚠️ **il ne dépend plus de rien.** Le
+  bloc 12 vient de tomber, et c'était sa dernière dépendance — ce qui rend un portail
+  intéressant, c'est le village qu'on laisse vivre seul pendant qu'on y est.
 
 ## 4. Par quoi je te demande de commencer
 
-**Le bloc 10, le confort** (§4.10, §4.11) — sauf si je dis autre chose. C'est le dernier
-bloc du jalon 5 dont l'absence se paie : le jeu n'est net sur aucun écran à 150 %, et il n'y
-a toujours pas de pause.
+**Jouer**, probablement. Trois blocs viennent d'atterrir le même soir et **presque aucun de
+leurs chiffres n'a été joué** — le coût de la cour, la durée d'un chantier, la fatigue d'un
+héros au travail, le prix du rituel, mais aussi les nouveaux : ce qu'une nuit ensemble
+rapporte en relation, le seuil de rivalité, la fréquence des initiatives, le rayon de
+flânerie. Ils sont tous dans des tables de réglages, faits pour être corrigés une manette en
+main. **Demande-moi si je veux jouer d'abord.**
 
-⚠️ **Avant tout ça, il y a peut-être mieux à faire : jouer.** Les blocs 8 et 9 viennent
-d'atterrir et **aucun de leurs chiffres n'a été joué** — le coût de la cour, la durée d'un
-chantier, la fatigue d'un héros au travail, le prix du rituel. Ils sont tous dans des tables
-de réglages, faits pour être corrigés une manette en main. Demande-moi si je veux jouer
-d'abord.
+Sinon : **le jalon 6, le ciel**.
 
 Découpe en morceaux courts que je valide un par un, et **montre-moi des captures**.
 
@@ -162,12 +124,6 @@ d'un coup les décisions qui te manquent.
   passe. (`graineMonde: N` rejoue un monde précis, `sansLaMarche: true` commence installé,
   `refus: N` et `mondesMuets: N` placent l'errance où tu veux, `argent`, `butinDeLaRoute` et
   `compagnons` remplissent la bourse, le sac et la troupe.)
-- **Quatre pièges du navigateur, payés au jalon 5.6** et qui resserviront : `camera.worldView`
-  n'est recalculé qu'au rendu **suivant** (lire `scrollX`/`scrollY` après un `centerOn`) ; la
-  caméra est **bornée** par la carte, donc `removeBounds()` le temps d'un contrôle ; pousser
-  le héros « loin » le fait **changer de monde** (`guetterLeDepart` voit le bord) ; et en
-  rendu logiciel tout ce qui est minuté s'étire d'un facteur quatre — on mesure les **écarts**
-  et les **vitesses**, jamais les distances parcourues.
 - **Mesure avec un témoin.** Un « c'est plus rapide » sans chiffre d'avant ne vaut rien : le
   20 septembre, la vraie référence a été obtenue en **remettant l'ancien code en place** pour
   le mesurer. Et en rendu logiciel (headless), tout ce qui est minuté s'étire d'un facteur
@@ -181,12 +137,48 @@ d'un coup les décisions qui te manquent.
 - À la fin de chaque morceau : typecheck, tests, commit poussé (un seul par chantier, sans
   trailer d'outil), `SUITE.md` et la section du design à jour, et le journal de portfolio.
 
-## 6. Pour lancer
+## 6. Six pièges du navigateur, déjà payés
+
+Ils reserviront, et ils ont tous coûté une session :
+
+1. `camera.worldView` n'est recalculé qu'au rendu **suivant** (lire `scrollX`/`scrollY`
+   après un `centerOn`).
+2. La caméra est **bornée** par la carte : `removeBounds()` le temps d'un contrôle.
+3. Pousser le héros « loin » le fait **changer de monde** (`guetterLeDepart` voit le bord).
+4. En rendu logiciel, tout ce qui est minuté **s'étire d'un facteur quatre** : on mesure les
+   écarts et les vitesses, jamais les distances parcourues.
+5. **Phaser écoute le clavier sur `window` en phase de bouillonnement.** Pour passer devant
+   lui — remapper une touche déjà prise, par exemple — il faut écouter sur `document` **en
+   capture** et arrêter la propagation.
+6. **`page.evaluate` renvoie la dernière expression.** Un `cameras.main.centerOn(...)` en fin
+   de bloc renvoie la caméra entière, Playwright essaie de la sérialiser, et Node tombe sur
+   `Cannot create a string longer than 0x1fffffe8 characters`. Finis tes blocs par `void 0;`.
+
+## 7. Les dettes connues, petites
+
+- Les deux dernières frames de la mort du golem et de la brute sortent de cinq pixels sous
+  leur cadre (les pattes, pas le corps).
+- **Presque aucun chiffre des blocs 8 à 12 n'a été joué.** Tous dans des tables de réglages.
+- **Un milicien répond à la cloche ? Non**, et c'est volontaire — à juger en jouant.
+- **La garnison n'existe pas** (§4.15) : au-delà de dix héros dehors, un onzième don ne
+  s'éveille pas et le jeu le dit.
+- Un village pose **six maisons en moyenne** (jamais plus de quatorze) là où le code en vise
+  seize à vingt : c'est pour ça qu'une maison loge une famille de quatre.
+- La forêt ne ferme pas un flanc (les monstres marchent dans les arbres) : à décider.
+- Le port peut se poser sur un lac, faute de mieux.
+- À ×3, **le milieu de la carte est une grande plaine verte**. Le jalon 5.6 y a mis quelque
+  chose à trouver — reste à savoir si ça suffit.
+- **Jalousie et trahison** existent comme types de relation mais **rien ne les crée** : aucun
+  système ne produit de traître ni de promotion enviable. Les poser au hasard serait
+  exactement ce que le §4.26 interdit.
+- **Les naissances** (et la famille qui en vient) attendent un toit libre (§4.18).
+
+## 8. Pour lancer
 
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (675)
+npx vitest run   # les tests (859)
 npm run build    # vérifie les types et construit
 
 npx tsx scripts/capturer.ts apres          # les captures du jeu, par Playwright
