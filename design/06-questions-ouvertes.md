@@ -729,6 +729,20 @@ Une planche de propositions a servi de test, et elle a fait remonter trois défa
 
 ## Tranché récemment
 
+- ✅ **Les trouvailles de la route sont codées** (21 septembre 2026, jalon 5.6, §4.31). Quatre
+  décisions d'Angelos, posées d'un coup avant de coder :
+  - **la fouille prend un moment** (1,2 s, jauge, interrompue si l'on s'écarte ou si l'on
+    encaisse) — c'est ce qui rend une cache gardée vraiment risquée ;
+  - **le survivant traverse les mondes avec nous**, trois au plus, et devient un habitant le
+    jour où l'on s'installe ;
+  - **le camp de bêtes garde son terrain** : on le voit de loin, on peut approcher, juger, et
+    faire demi-tour — il cesse de poursuivre dès qu'on sort de son rayon ;
+  - **la stèle se lit avant qu'on choisisse** : elle annonce le trait, son gain et son prix,
+    et passer son chemin ne consomme rien.
+
+  Deux choses tranchées par le code, comme le §6 l'autorise : **sept caches par monde muet**
+  (0,8 par mégapixel, plafond 12) et **six traits de stèle** qui pèsent 10 à 20 % — ils
+  cassent la règle des 2 à 5 % du §4.23, et le §4.31 dit à quelles conditions.
 - ✅ **Refuser en face se paie** (20 septembre 2026, tard) : le risque qu'ils se jettent sur
   nous se tire sur la graine du monde et monte avec leur désespoir — 20 % de fond, +6 % par
   habitant manquant sous huit, +30 % au prorata des brèches, **plafonné à 85 %** ; le village

@@ -3,7 +3,13 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : la nuit du 2026-09-20 — **le jalon 5.5 est fini** (la carte se
+> Dernière mise à jour : 2026-09-21 — **le jalon 5.6 est fini** : les trouvailles de la
+> route (§4.31) sont codées, dans l'ordre que la section demandait. Les **caches** (sept par
+> monde muet, deux monnaies, la fouille qui prend un moment, le camp de bêtes qui garde son
+> terrain), le **survivant** qui remonte à l'errance et traverse les mondes avec nous, et la
+> **stèle** qui grave un trait sur le héros — six traits écrits pour elle.
+>
+> Avant ça : la nuit du 2026-09-20 — **le jalon 5.5 est fini** (la carte se
 > peint par morceaux, la zone passe à ×3, l'errance continue), et **deux sections neuves**
 > naissent dans la foulée : le **§4.31** (les trouvailles de la route — ce qu'on gagne à ne
 > pas aller tout droit) et le **§4.32** (les portails et le donjon labyrinthe, à coder
@@ -129,8 +135,8 @@ Détail complet : [§1 Pitch](design/01-pitch.md).
   [§4.26 la mémoire du village](design/4.26-les-relations-les-souvenirs-et-la-memoire-du-village.md),
   [§4.27 la vie autonome](design/4.27-la-vie-autonome.md),
   [§4.29 le nouveau départ](design/4.29-le-nouveau-depart.md),
-  [§4.31 les trouvailles de la route](design/4.31-les-trouvailles-de-la-route.md),
   [§4.32 les portails et le donjon](design/4.32-les-portails-et-le-donjon.md).
+  (Le **§4.31**, les trouvailles de la route, est **codé** depuis le 21 septembre 2026.)
   (Le §4.22, l'église, est **codé** depuis le 10 août.)
 
 ## Comment on tient ce document

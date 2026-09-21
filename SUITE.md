@@ -1598,6 +1598,104 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 5.6 — les trouvailles de la route (21 septembre 2026)
+
+**Le jalon 5.6 est fini**, dans l'ordre que le §4.31 imposait : les caches, le survivant, la
+stèle. Il répond à un défaut que le 5.5 venait de **créer** : depuis que refuser un village
+fait traverser jusqu'à sept mondes muets, le chemin optimal était la ligne droite et
+l'errance un couloir qu'on subit.
+
+#### Les caches
+
+- **`src/core/caches.ts`** (pur, 21 tests) : `semerLesCaches`, `butinDUneCache`,
+  `placeDeRoute`, `paroleDeLaStele` et `REGLAGES_CACHES`. **Sept par monde muet, trois par
+  monde habité**, comptées par mégapixel et plafonnées à douze (§4.17, règle 1). Tirées de la
+  graine du monde : même graine, mêmes caches, au pixel près.
+- **Deux monnaies, deux destinations** — et c'est tout le sens du bloc. L'or entre dans la
+  bourse et **traverse les mondes** ; la matière attend, et devient les réserves du jour où
+  l'on s'installe. Mesuré sur 100 mondes (`.tmp/mesurer-caches.ts`) : **188 pièces** par monde
+  entièrement fouillé, soit moins de quatre cargaisons de bois. La règle du §4.8 est devenue
+  un test, comme pour le butin des morts.
+- **La fouille prend 1,2 s** (décision d'Angelos), jauge au-dessus du héros, interrompue si
+  l'on s'écarte de plus de quatorze pixels ou si l'on encaisse. C'est **ce qui donne sa dent
+  au camp de bêtes** : une fouille instantanée se ferait sous leur nez sans rien risquer.
+- **Le camp garde son terrain** : `Ennemi` gagne `campeSur` et `rayonDuCamp`, et dans
+  `avancerEnnemi` le retour au camp passe **avant** la proie. On voit le camp de loin, on
+  approche, on juge, on peut faire demi-tour.
+- **`PanneauRoute`** : la bourse et le sac, au coin où le compteur du village ne sert pas
+  encore. ⚠️ **Sans lui, tout le bloc était invisible** — l'or ne s'affiche nulle part
+  ailleurs que sur le panneau du port, et le port n'existe pas quand on erre.
+
+⚠️ **Les silhouettes ont demandé trois passes de Blender**, et c'est la leçon la plus
+réutilisable du chantier :
+
+1. **Tout ce qui est plat s'écrase** sous la caméra penchée à 55°. La trappe de cave, à ras du
+   sol, se lisait comme un livre ouvert. Il lui faut une margelle qui **sort de terre** et un
+   battant **dressé** (presque vertical : penché, il se couche sur le trou et le masque).
+2. **Une bascule autour de X ne se voit pas** — c'est l'axe que la caméra regarde. Le premier
+   jet de la charrette éventrée restait une caisse posée droite ; le deuxième, basculé autour
+   de Y à 0,34 rad, la tordait et la faisait sortir du cadre de douze pixels. Ce qui marche
+   est bien plus simple : **la roue détachée et dressée contre le flanc**. Un disque vertical
+   à côté d'une caisse se reconnaît tout de suite.
+3. **Un creux posé dans la matière est invisible.** La gravure de la stèle était à l'intérieur
+   de la pierre ; elle doit **dépasser de trois centimètres devant la face**. Et une stèle
+   faite de cônes à six pans rend un galet debout : il lui faut des **arêtes franches**.
+
+#### Le survivant
+
+- Son code ne change pas d'un iota (§4.18, bloc 6c2) : ce qui change, c'est **quand**.
+  `creerSurvivantDeRoute` le pose à une place de route au lieu d'une lisière de bord.
+- **Un monde sur trois** en porte un, et **rien ne l'annonce**. Celui du village appelle, et
+  la discussion dit la direction ; celui-là, on le voit ou l'on passe à côté sans le savoir.
+- **Sa fiche se joue là où on le trouve.** « Il te suit » suppose qu'on ait accepté de le
+  prendre — et rejouer trois fiches à l'instant où le jour 1 se lève aurait enterré le seul
+  moment fort du §4.29.
+- **Il traverse les mondes**, trois au plus, et devient habitant à l'installation. La classe
+  `Survivants` passe d'un survivant à une troupe, avec un plafond **décidé par l'appelant** :
+  un en partie installée (§4.18), trois sur la route (§4.31).
+- ⚠️ **Les mots de sa fiche ne collaient pas, et ça s'est vu en capture.** Trois des six axes
+  d'observation parlent du village : « il est entré à l'église », « il ne connaît personne
+  ici », « il s'est présenté en pleine nuit ». Or sur la route il n'y a ni église, ni
+  habitants, ni nuit — le cycle est à l'arrêt tant qu'on marche. Ces trois axes et trois
+  questions ont une **version de route**, et un test vérifie que la folie, les axes troubles
+  et les questions tirées sont **identiques** : seuls les mots changent.
+
+#### La stèle
+
+- **Six traits écrits pour elle** (`traits.ts`, origine `stele`), chacun un marché.
+  ⚠️ **Ils cassent la règle des 2 à 5 %** de ce fichier — ils pèsent 10 à 20 %, entre le
+  trait et la séquelle. Le commentaire de la table dit les trois conditions qui l'autorisent,
+  et qu'il faut les redescendre si l'une tombe.
+- **On lit, puis on choisit** (décision d'Angelos). Passer son chemin ne consomme rien : la
+  pierre reste et l'on peut revenir.
+- **Le panneau est celui de la rencontre** (§4.29), avec titre et libellés paramétrables. Les
+  deux scènes sont la même — quelque chose nous pose une question, et nous avons deux
+  réponses. Deux panneaux auraient été une interface en double (§4.10).
+
+#### Ce que les vérifications au navigateur ont trouvé
+
+Trois scripts jetables, trois passes chacun : `.tmp/verifier-caches.ts` (15 contrôles),
+`.tmp/verifier-survivant-route.ts` (8), `.tmp/verifier-stele.ts` (7). **Tous verts, aucune
+erreur console.** Quatre pièges qui resserviront :
+
+- ⚠️ **`camera.worldView` n'est recalculé qu'au rendu suivant.** Lu juste après `centerOn`,
+  il rend le cadrage de l'image **précédente**, et le clic partait à cinq cents pixels de la
+  cible. On lit `scrollX`/`scrollY`, que `centerOn` met à jour tout de suite.
+- ⚠️ **La caméra est bornée par la carte.** Près d'un bord, `centerOn` est bridé et l'objet
+  visé sort de l'écran : `removeBounds()` le temps du contrôle.
+- ⚠️ **Pousser le héros « loin » le fait changer de monde.** `guetterLeDepart` voit le bord et
+  quitte le monde — il ne restait évidemment plus une seule bête à mesurer. On s'écarte
+  **vers l'intérieur**, en visant le point de départ de la marche.
+- ⚠️ **En rendu logiciel, tout ce qui est minuté s'étire d'un facteur quatre.** Le survivant
+  avance bien à 78 px/s (0,72 × la vitesse du héros) mais n'en couvre qu'un quart à l'horloge
+  du script. On mesure donc **l'écart et la vélocité**, jamais la distance parcourue.
+
+**À regarder** : `captures/planches/2026-09-21/caches-x6.png` (les quatre silhouettes et deux
+témoins du décor déjà validé), `captures/jeu/2026-09-21-caches/`,
+`captures/jeu/2026-09-21-survivant-route/`, `captures/jeu/2026-09-21-stele/`.
+
+**703 tests verts** (+28).
+
 ### La zone qui se ferme, et la presqu'île (20 septembre 2026, dans la nuit)
 
 Les deux derniers morceaux du jalon 5.5 **en dehors de l'errance continue**.

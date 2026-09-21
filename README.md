@@ -396,6 +396,8 @@ src/
                      tient la porte, et ce que coute un refus (testee)
     butin.ts         ce que laisse un mort, et pourquoi ca ne tue pas le port
                      (testee)
+    caches.ts        les trouvailles de la route : ou elles sont, ce qu'elles
+                     rendent, ce qui les garde, et ce que dit une stele (testee)
     parcours.ts      le champ de directions : contourner l'eau et la roche,
                      et sortir par la porte (testee)
     cycle.ts         le jour, la nuit, les effectifs et les hordes (testee)

@@ -1,13 +1,16 @@
-# Prompt de reprise — ce qui reste à coder (20 septembre 2026, tard dans la nuit)
+# Prompt de reprise — ce qui reste à coder (21 septembre 2026)
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
-> Écrit après **le jalon 5.5 fini**, errance comprise : un seul héros, un monde tiré par
-> graine, **la marche**, **le refus qui se paie**, **le village déjà peuplé**, **le budget
-> cadeaux/menaces**, **la presqu'île à un front**, **la carte qui se peint par morceaux**,
-> **la zone jouable ×3** et **l'errance continue**. Le dernier morceau d'architecture du
-> projet est derrière nous. **Le design est écrit et tranché** : la session qui prend la
-> suite a surtout à construire.
+> Écrit après **le jalon 5.6 fini** : les **trouvailles de la route** (§4.31) sont codées en
+> entier — les caches et leur camp de bêtes, le survivant qui traverse les mondes avec nous,
+> la stèle qui grave un trait. Avant lui, le **jalon 5.5** avait posé un seul héros, un monde
+> tiré par graine, la marche, le refus qui se paie, le village déjà peuplé, le budget
+> cadeaux/menaces, la carte qui se peint par morceaux, la zone ×3 et l'errance continue.
+>
+> **Le dernier morceau d'architecture du projet est derrière nous, et l'errance est finie.**
+> Ce qui reste, ce sont les **derniers blocs du jalon 5** : la session qui prend la suite a
+> surtout à construire, et le design est écrit et tranché.
 
 ---
 
@@ -35,19 +38,26 @@ coûte cher ou casse quelque chose.
   jette sur nous. **Refuser éloigne vraiment le suivant** : on traverse un, puis trois, puis
   sept **mondes muets** — le même village, mais toutes les maisons en ruine et personne
   dehors. Entre deux mondes, un voile de 220 ms.
+- **Les trouvailles de la route** (§4.31, fini) : sept **caches** par monde muet (coffre
+  défoncé, trappe de cave, charrette éventrée), l'**or** qui traverse les mondes et la
+  **matière** qui devient les réserves du jour où l'on s'installe ; la fouille qui prend
+  1,2 s et s'interrompt si l'on encaisse ; un **camp de bêtes** sur les grosses, qui garde
+  son terrain et qu'on peut fuir ; un **survivant** un monde sur trois, qui traverse avec
+  nous (trois au plus) et devient habitant à l'installation ; une **stèle** un monde sur
+  cinq, qui annonce son trait avant qu'on le prenne — six traits écrits pour elle.
 - **Le visuel** : tout est dessiné, les personnages viennent de **Blender** (121 planches),
   l'écran-titre est une cinématique Blender avec sa bande-son. **La carte se peint par
   morceaux**, image par image, au plus près du héros : une partie s'ouvre en une demi-seconde
   sur une zone de 3 464 × 2 598.
 
-**Les chiffres** : 675 tests verts, `npm run build` propre, ~46 000 lignes de TypeScript.
+**Les chiffres** : 703 tests verts, `npm run build` propre, ~47 000 lignes de TypeScript.
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
 
 1. `DESIGN.md` (le sommaire) puis, dans `design/` : **§5** (l'ordre de construction), **§6**
    (les questions tranchées), **§4.17** (tenir la fluidité : ses cinq règles ne se négocient
-   pas), et les deux sections neuves **§4.31** (les trouvailles de la route) et **§4.32**
-   (les portails et le donjon).
+   pas), et **§4.32** (les portails et le donjon, la seule section neuve encore non codée).
+   Le **§4.31** est codé : sa fin dit ce que le code fait vraiment, chiffres compris.
 2. `SUITE.md` — le journal de bord technique, chantier par chantier, avec les pièges déjà
    rencontrés. **Lis au moins les cinq dernières sections.**
 3. `README.md` — comment lancer, la structure du code, ce que fait chaque fichier du noyau.
@@ -56,23 +66,10 @@ coûte cher ou casse quelque chose.
 
 ## 3. Ce qui reste à coder
 
-### A. Jalon 5.6 — les trouvailles de la route (§4.31)
+### A. Le jalon 5, ses derniers blocs (`design/05-ordre-de-construction.md`)
 
-**Il répond à un défaut que le jalon 5.5 vient de créer** : depuis que refuser fait traverser
-jusqu'à sept mondes vides, le chemin optimal est la ligne droite et l'errance devient un
-couloir. Tout est tranché au §4.31 :
-
-1. **Les caches dans les ruines** — de l'or (qui reste d'un monde à l'autre) et des
-   ressources (qui deviennent les réserves de départ). Silhouette à elles, plus un liséré
-   quand on est à portée. Rien ne brille de loin.
-2. **Le survivant à ramener** — il devient un habitant de plus quand on s'installe. Le code
-   des survivants existe (§4.18, bloc 6c2) : il change juste de moment.
-3. **La stèle qui donne un trait** (§4.23) — la plus mémorable, et de loin la plus chère à
-   équilibrer. **À faire en dernier**, avec une liste de traits écrits pour elle.
-4. **Les grosses trouvailles sont gardées** par un camp de bêtes qu'on voit de loin. Les
-   petites se ramassent.
-
-### B. Le jalon 5, ses derniers blocs (`design/05-ordre-de-construction.md`)
+**C'est par là qu'il faut reprendre.** Le jalon 5.6 est fini ; les blocs ci-dessous sont ce
+qui reste du jalon 5 lui-même, et le bloc 9 est le plus important des quatre.
 
 5. **Bloc 8 — les ordres pour tous** (§4.4) : n'importe qui fait n'importe quoi, sélection
    puis menu d'ordres ; un héros au travail produit beaucoup plus vite, seulement le jour, et
@@ -88,7 +85,7 @@ couloir. Tout est tranché au §4.31 :
 8. **Blocs 11 et 12** — la mémoire du village (§4.26) et la vie autonome (§4.27). Ce sont les
    deux seuls blocs dont l'absence ne casse rien.
 
-### C. Les jalons suivants, écrits et pas codés
+### B. Les jalons suivants, écrits et pas codés
 
 9. **Jalon 6** — le ciel : pluie, orages, **incendies**, météores, carte modifiable (§4.21).
 10. **Jalon 6.5** — les builds (§4.25) : tags, 36 compétences neuves, 26 fusions, synergies.
@@ -102,7 +99,7 @@ couloir. Tout est tranché au §4.31 :
     ⚠️ **Il passe après les blocs 9 et 12** : ce qui rend un portail intéressant, c'est le
     village qu'on laisse vivre seul pendant qu'on y est.
 
-### D. Les dettes connues, petites
+### C. Les dettes connues, petites
 
 - Les deux dernières frames de la mort du golem et de la brute sortent de cinq pixels sous
   leur cadre (les pattes, pas le corps).
@@ -114,11 +111,16 @@ couloir. Tout est tranché au §4.31 :
 - Le port peut se poser sur un lac, faute de mieux.
 - À ×3, **le milieu de la carte est une grande plaine verte**. Le décor suit bien la surface
   (il se compte par mégapixel), mais la géographie n'a rien à y mettre. À juger en jouant :
-  c'est peut-être exactement ce que « de longues minutes de plaine vide » veut dire.
+  c'est peut-être exactement ce que « de longues minutes de plaine vide » veut dire. Le jalon
+  5.6 y a mis quelque chose à trouver — reste à savoir si ça suffit.
 
 ## 4. Par quoi je te demande de commencer
 
-**Le jalon 5.6** (§4.31), et dans son ordre : les caches, puis le survivant, puis la stèle.
+**Le bloc 8 puis le bloc 9** (§4.4, §4.18). Le bloc 9 est le plus lourd et le plus
+important : c'est **la seule source de héros du jeu** depuis le §4.29, et c'est lui qui
+réveille les ordres, les formations, les postures, l'IA de repli et l'expérience de groupe —
+tous endormis depuis qu'on commence à un seul héros.
+
 Découpe-le en morceaux courts que je valide un par un, et **montre-moi des captures**.
 
 Avant de coder : dis-moi ce que tu as compris, ce que tu comptes faire en premier, et pose
@@ -138,7 +140,14 @@ d'un coup les décisions qui te manquent.
   Playwright jetable dans `.tmp/` qui pilote une vraie partie et compte ses contrôles. ⚠️ Le
   monde est **tiré au sort** à chaque lancement : lance-le **trois fois** avant de dire qu'il
   passe. (`graineMonde: N` rejoue un monde précis, `sansLaMarche: true` commence installé,
-  `refus: N` et `mondesMuets: N` placent l'errance où tu veux.)
+  `refus: N` et `mondesMuets: N` placent l'errance où tu veux, `argent`, `butinDeLaRoute` et
+  `compagnons` remplissent la bourse, le sac et la troupe.)
+- **Quatre pièges du navigateur, payés au jalon 5.6** et qui resserviront : `camera.worldView`
+  n'est recalculé qu'au rendu **suivant** (lire `scrollX`/`scrollY` après un `centerOn`) ; la
+  caméra est **bornée** par la carte, donc `removeBounds()` le temps d'un contrôle ; pousser
+  le héros « loin » le fait **changer de monde** (`guetterLeDepart` voit le bord) ; et en
+  rendu logiciel tout ce qui est minuté s'étire d'un facteur quatre — on mesure les **écarts**
+  et les **vitesses**, jamais les distances parcourues.
 - **Mesure avec un témoin.** Un « c'est plus rapide » sans chiffre d'avant ne vaut rien : le
   20 septembre, la vraie référence a été obtenue en **remettant l'ancien code en place** pour
   le mesurer. Et en rendu logiciel (headless), tout ce qui est minuté s'étire d'un facteur
