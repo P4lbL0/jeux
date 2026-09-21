@@ -1598,6 +1598,105 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le bloc 12 — la vie autonome, et le jalon 5 est fini (21 septembre 2026, tard)
+
+**Le dernier bloc du jalon 5**, et celui que le §4.27 annonce comme « le système le plus
+dangereux du document pour les performances ». Deux fichiers : `core/vieAutonome.ts`
+(l'arbre de priorités, les initiatives, le tour de rôle — pur et testé) et
+`game/vieAutonome.ts` (le pool de bulles). Le reste vit dans `village.ts`, là où les
+habitants bougeaient déjà.
+
+#### Le périmètre est le bon endroit, pas une restriction
+
+*Décision d'Angelos* : la vie autonome **ne coûte rien à la production**. Ça tombe bien —
+la branche qui faisait se tenir un habitant devant sa maison sans rien faire est exactement
+celle qui s'active quand il n'a **ni poste, ni ancre**, qu'il fait **jour** et que **rien
+ne rôde**. On l'a remplie au lieu d'en ouvrir une nouvelle. Celui qui travaille travaille,
+et l'économie déjà réglée ne bouge pas d'un point.
+
+Il reste `en-route` et jamais `au-poste` : l'état n'est pas qu'une étiquette, `au-poste`
+veut dire qu'on produit et qu'on s'use.
+
+#### Trois par image, et le tour est bouclé en un sixième de seconde
+
+`prochainTour(curseur, total)` rend trois index et le curseur suivant. Une fonction pure,
+un compteur, quatre tests — dont un qui vérifie qu'en dix images on a réveillé les sept
+habitants d'un village sans en oublier un. C'est tout ce qu'un « à tour de rôle » demande,
+et ça se teste sans jeu autour.
+
+Le réveil **décide** ; il ne déplace pas. Le déplacement reste la boucle d'avant.
+
+> **C'est aussi là que la peur du §4.26 prend effet**, et nulle part ailleurs. Elle était
+> écrite et testée au bloc 11 mais pas branchée : « la peur fait fuir un poste quand
+> l'autre s'en approche » demande une distance par paire, donc un tour de rôle. Elle l'a.
+
+#### Le défaut que seule une partie révèle
+
+Première version en jeu : `flaner,flaner` attendu, **`discuter,discuter,discuter`** obtenu,
+et plus personne ne bougeait. Cause : dans un village de huit, tout le monde se tient près
+de l'église, donc tout le monde a un voisin à portée, donc tout le monde discute — et en
+boucle, puisque rien ne terminait la conversation. En prime, ils se donnaient la position
+de l'autre comme but et se marchaient dessus.
+
+Deux horodatages et une ligne : une conversation **dure** 2,6 s, celui qui vient de parler
+ne reparle pas avant quatre fois ce temps, et ils s'arrêtent **là où ils sont** au lieu de
+se rentrer dedans. Le contrôle Playwright « ils se déplacent au lieu de rester plantés »
+est né de ce défaut et le garde fermé.
+
+#### Les bulles, dessinées et jamais écrites
+
+Ni emoji ni caractère : trois textures de 12 px tracées au code (`dessin/bulles.ts`),
+cuites une fois. Un pool de **douze images recyclées** ; au-delà, la plus vieille se rend.
+Neuf secondes de repos entre deux bulles d'une même personne.
+
+Et elles ne disent rien que le jeu ne sache déjà : le cœur vient d'un lien positif ≥ 60
+(§4.26), la goutte d'un stress ≥ 60, la chope du reste. Une bulle tirée au sort serait de
+la décoration ; celle-ci est une lecture.
+
+#### Les initiatives : six, et trois moments
+
+Testées **sur événement** — à l'aube, à la tombée de la nuit, et quand un mur tombe. Trois
+moments, pas soixante par seconde. Chacune demande un **trait fort** *et* une **situation
+extrême**, et les deux sont obligatoires : deux tests vérifient qu'aucune ne part sans le
+trait, et qu'aucune ne part sans la situation.
+
+Quatre d'entre elles ont demandé une méthode neuve, et chacune est petite :
+`Village.envoyerDefendre` (qui passe en posture de travail, donc la cloche le rappelle),
+`Village.rassembler`, `Village.seServir` (sur la ressource la plus abondante — c'est celle
+qu'on remarque le moins, et c'est ce qu'un voleur choisit) et
+`Maisons.abimerLaPlusProche`.
+
+> ⚠️ **Le Pyromane n'allume rien, et c'est écrit noir sur blanc.** Le feu est au jalon 6
+> (§4.21). En attendant il abîme : un quart des points de vie de la maison la plus proche,
+> donc quatre nuits pour la mettre à terre, donc le temps de s'apercevoir de quelque chose.
+> Le jour où l'incendie existera, c'est cette fonction qui l'allumera et rien d'autre ne
+> changera.
+
+> ⚠️ **Une initiative ne fait jamais perdre un habitant sans que le joueur ait pu réagir.**
+> Celui qui sort défendre l'église garde une posture de travail : la cloche le rappelle et
+> le rayon de fuite le fait rentrer comme tout le monde. C'est la règle centrale du §4.18.
+
+#### Un piège de Playwright, payé ici
+
+`page.evaluate` **renvoie la dernière expression**. Un `cameras.main.centerOn(...)` à la
+fin d'un bloc renvoie la caméra entière, que Playwright essaie de sérialiser — et Node
+tombe sur `Cannot create a string longer than 0x1fffffe8 characters`. Le script se
+terminait par une pile d'erreurs après avoir tout validé. Un `void 0;` en fin de bloc, et
+c'est réglé. À retenir pour les scripts suivants.
+
+**Vérifié dans le navigateur** (`.tmp/verifier-vie.ts`, trois lancements, mondes tirés au
+sort) : **12 contrôles sur 12**, aucune erreur de console. Les habitants sans poste font
+quelque chose, aucun n'est au poste pour autant, ils se déplacent vraiment, une rencontre
+pose une bulle, le pool ne dépasse jamais douze, rien ne se déclenche quand rien d'extrême
+n'arrive, un front qui cède fait bouger quelqu'un, trois annonces par nuit au maximum, un
+discours fait redescendre le stress de tout le village, un vol se prend sur la ressource la
+plus abondante, et un pyromane abîme sans mettre à terre.
+
+**À regarder** : `captures/jeu/2026-09-21-vie/` — le village où chacun vaque, et les trois
+bulles au zoom.
+
+**859 tests verts** (+27). **Le jalon 5 est fini.**
+
 ### Le bloc 11 — la mémoire du village (21 septembre 2026, au soir)
 
 **L'avant-dernier bloc du jalon 5**, et celui qui décide si le joueur dira « j'ai passé la

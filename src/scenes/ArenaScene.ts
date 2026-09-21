@@ -220,6 +220,15 @@ import {
   type Personne,
 } from "../core/personne";
 import { MemoireDuVillage, type GensDuJour } from "../game/memoire";
+import { Bulles } from "../game/vieAutonome";
+import {
+  bulleDeLaRencontre,
+  direLInitiative,
+  fautAnnoncer,
+  initiativeDe,
+  type CleInitiative,
+  type SituationExtreme,
+} from "../core/vieAutonome";
 import { estPositive, NOMS_RELATION, RESUMES_RELATION } from "../core/relations";
 import { raconter, titreDe, type Evenement } from "../core/memoire";
 import type { VieSociale } from "../game/fichePersonne";
@@ -458,6 +467,19 @@ const TOMBES_MAX = 24;
 const ARCHIVES_MONTREES = 6;
 
 /**
+ * Ce que les initiatives coutent et rapportent (§4.27, bloc 12).
+ *
+ * *Chiffres tranches par le code, a corriger en jouant.* Un discours rend
+ * l'equivalent de vingt minutes de repos a tout le monde ; un kleptomane
+ * emporte de quoi nourrir quelqu'un pendant une journee.
+ */
+const DISCOURS_RENDU = 8;
+const VOL_DU_KLEPTOMANE = 8;
+const VOL_RENDU = 12;
+/** Au-dela de tant de journees de vivres d'avance, les reserves sont pleines */
+const JOURS_POUR_UN_STOCK_PLEIN = 8;
+
+/**
  * Ce qu'il faut pour qu'une nuit entre dans les archives (§4.26).
  *
  * *Chiffres tranches par le code, a corriger en jouant.* Trois morts d'un coup
@@ -670,6 +692,15 @@ export class ArenaScene extends Phaser.Scene {
    * elle a des types, et elle concerne tout le monde.
    */
   memoire = new MemoireDuVillage();
+  /**
+   * Les bulles de la vie autonome (§4.27, bloc 12).
+   *
+   * Un pool de douze images, cree une fois : le §4.27 l'exige en toutes
+   * lettres, et le §4.17 le repete.
+   */
+  private bulles!: Bulles;
+  /** Combien d'initiatives ont ete annoncees cette nuit — trois au plus */
+  private initiativesAnnoncees = 0;
   /** Les tombes posees sur la carte, bornees (§4.17) */
   private tombes: Phaser.GameObjects.Image[] = [];
   /**
@@ -1187,6 +1218,8 @@ export class ArenaScene extends Phaser.Scene {
     this.affinites = new Affinites();
     this.prochainTickAffinites = 0;
     this.memoire = new MemoireDuVillage();
+    this.bulles?.vider();
+    this.initiativesAnnoncees = 0;
     for (const tombe of this.tombes) tombe.destroy();
     this.tombes = [];
     // Le premier front du monde : le plus loin du village (§4.29).
@@ -1652,6 +1685,9 @@ export class ArenaScene extends Phaser.Scene {
     this.grille.poserEmprise(EGLISE.x, EGLISE.y, EGLISE.emprise, EGLISE.emprise, "batiment");
     this.grille.poserEmprise(PORT.x, PORT.y, PORT.emprise, PORT.emprise, "batiment");
 
+    // Les bulles de la vie autonome : douze images, cuites une fois (§4.27).
+    this.bulles = new Bulles(this);
+
     // Les survivants (§4.18). Ils ne connaissent ni la scene ni le village :
     // quatre fonctions suffisent, comme pour la sauvegarde (§4.28).
     this.survivants = new Survivants(this, {
@@ -1697,6 +1733,11 @@ export class ArenaScene extends Phaser.Scene {
       // Le poste du charpentier : ce qu on vient de poser (bloc 8).
       chantierLePlusProche: (x, y) => this.constructions.chantierLePlusProche(x, y),
       // La cour, et si quelqu'un y attend un instructeur (bloc 9).
+      // Deux habitants se croisent : une bulle dit ce qu'ils sont l'un pour
+      // l'autre, et le joueur invente le reste (§4.27).
+      uneRencontre: (un, autre, maintenant) => this.uneRencontre(un, autre, maintenant),
+      // La peur fait s'ecarter (§4.26) — c'est ici qu'elle prend effet.
+      craint: (qui, autre) => this.memoire.relations.craint(qui.identite, autre.identite),
       // La dette fait accepter un ordre qu'on aurait refuse (§4.26).
       obeitMalgreTout: (qui) =>
         this.memoire.relations.obeitMalgreTout(
@@ -3912,6 +3953,8 @@ export class ArenaScene extends Phaser.Scene {
     // navire n'accoste tant qu'on n'a pas donne sa parole (§4.29).
     if (!this.enMarche) this.majPort(delta);
     this.village.majorer(delta);
+    // Deux reglages de proprietes par bulle, douze au maximum (§4.17).
+    this.bulles.majorer(this.time.now);
     this.recolterALaMain(delta);
     this.travaillerLesHeros(delta);
     this.majFantome();
@@ -6034,6 +6077,11 @@ export class ArenaScene extends Phaser.Scene {
     abimerLeSol(this.carte, construction.x, construction.y, "terre", 20);
     if (construction.occupant) this.ejecterDeLaTour(construction);
     else this.constructions.detruire(construction);
+    // ⚠️ **Un front qui cede est le troisieme moment ou l'on regarde si
+    // quelqu'un prend une initiative** (§4.27). C'est un mur qui tombe, pas
+    // une vague qui s'annonce : le Peureux lache son poste maintenant, pas
+    // quand on lui a dit que des monstres arrivaient.
+    this.chercherDesInitiatives(true);
   }
 
   /**
@@ -7538,6 +7586,9 @@ export class ArenaScene extends Phaser.Scene {
 
     if (bascule === "crepuscule") this.tomberLaNuit();
     else if (bascule === "aube") this.leverLeJour();
+    // La nuit tombe : deuxieme des trois moments ou l'on regarde si
+    // quelqu'un prend une initiative (§4.27). Le Pyromane n'agit que la.
+    if (bascule === "crepuscule") this.chercherDesInitiatives();
 
     if (!this.enMarche) {
       this.regarderLaPorte();
@@ -8196,6 +8247,10 @@ export class ArenaScene extends Phaser.Scene {
       );
     }
     this.inscrireLaNuit(jour, gens.length);
+    // ⚠️ **Sur evenement, jamais en continu** (§4.27) : l'aube est un des
+    // trois moments ou l'on regarde si quelqu'un prend une initiative.
+    this.chercherDesInitiatives();
+    this.initiativesAnnoncees = 0;
     this.cadavresDeLaNuit = 0;
     this.killsDeLaNuit = 0;
   }
@@ -8761,6 +8816,118 @@ export class ArenaScene extends Phaser.Scene {
         positif: estPositive(lien.type),
       }));
     return { liens };
+  }
+
+  /**
+   * Deux habitants se croisent (DESIGN.md §4.27, bloc 12).
+   *
+   * ⚠️ **La bulle ne dit rien que le jeu ne sache deja** : le coeur vient
+   * d'un lien fort (§4.26), la sueur d'un stress eleve, la chope du reste.
+   * Une bulle tiree au sort serait de la decoration ; celle-ci est une
+   * lecture, et c'est ce qui fait que le joueur y lit une histoire.
+   */
+  private uneRencontre(un: Villageois, autre: Villageois, maintenant: number): void {
+    const lien = this.memoire.relations.lien(
+      un.regles.personne.identite,
+      autre.regles.personne.identite,
+    );
+    const genre = bulleDeLaRencontre(
+      un.regles.personne,
+      lien?.intensite ?? 0,
+      lien !== null && estPositive(lien.type),
+    );
+    this.bulles.emettre(un.regles.id, genre, un.x, un.y - 26, maintenant);
+  }
+
+  /**
+   * **Les initiatives** (DESIGN.md §4.27, bloc 12).
+   *
+   * ⚠️ **Testees sur evenement, jamais en continu.** Une initiative se
+   * declenche quand un **trait fort rencontre une situation extreme** —
+   * jamais sur un simple tirage. On appelle donc ceci a l'aube, a la tombee
+   * de la nuit et quand un front cede : trois moments, pas soixante par
+   * seconde.
+   *
+   * **Trois annonces par nuit au maximum, les plus graves d'abord** (tranche
+   * le 9 septembre 2026). Le reste se produit sans notification : le village
+   * vit, il ne hurle pas.
+   */
+  private chercherDesInitiatives(frontCede = false): void {
+    if (this.enMarche || !this.village) return;
+    const situation: SituationExtreme = {
+      egliseSansDefense:
+        this.eglise.regles.ratioPv < 1 && this.village.defenseurs === 0,
+      frontCede,
+      mortsDeLaNuit: this.cadavresDeLaNuit,
+      nuit: this.cycle.phase === "nuit",
+      stressCollectif: this.stressCollectif,
+      stockPlein: this.village.joursDeVivres >= JOURS_POUR_UN_STOCK_PLEIN,
+    };
+
+    for (const villageois of this.village.vivants) {
+      const cle = initiativeDe(villageois.regles.personne, situation);
+      if (cle === null) continue;
+      this.appliquerLInitiative(villageois, cle);
+    }
+  }
+
+  /** Le stress moyen du village, de 0 a 200. Calcule sur evenement. */
+  private get stressCollectif(): number {
+    const vivants = this.village?.vivants ?? [];
+    if (vivants.length === 0) return 0;
+    let total = 0;
+    for (const v of vivants) total += v.regles.personne.stress;
+    return total / vivants.length;
+  }
+
+  /**
+   * Ce qu'une initiative fait vraiment.
+   *
+   * ⚠️ **Une initiative ne fait jamais perdre un habitant sans que le joueur
+   * ait pu reagir** (§4.27) : celui qui sort defendre l'eglise est annonce,
+   * et la cloche le rappelle. C'est la regle centrale du §4.18 — une perte
+   * definitive vient d'un arbitrage du joueur, jamais d'une decision prise
+   * dans son dos.
+   */
+  private appliquerLInitiative(villageois: Villageois, cle: CleInitiative): void {
+    const { personne } = villageois.regles;
+    switch (cle) {
+      case "tenir-l-eglise":
+        // Il sort, et la cloche le fait rentrer comme n'importe qui.
+        this.village.envoyerDefendre(villageois);
+        this.memoire.aTenuSeul(personne, this.cycle.jour);
+        break;
+      case "abandonner-le-poste":
+        this.village.changerPosture(villageois, "abri");
+        break;
+      case "rassembler-la-milice":
+        // Il fait sortir ceux qui peuvent encore tenir. Pas plus de trois :
+        // une milice improvisee n'est pas une armee.
+        this.village.rassembler(3);
+        break;
+      case "mettre-le-feu":
+        // ⚠️ **Le feu est au jalon 6** (§4.21). En attendant il abime, il ne
+        // brule pas : la maison la plus proche encaisse, et c'est annonce.
+        this.maisons.abimerLaPlusProche(villageois.x, villageois.y);
+        break;
+      case "tenir-un-discours":
+        // Il parle, et le stress redescend. C'est la seule initiative qui
+        // rend quelque chose au village.
+        for (const autre of this.village.vivants) {
+          descendreStress(autre.regles.personne, DISCOURS_RENDU);
+        }
+        break;
+      case "se-servir":
+        // Il se sert, et ca le calme. Le village ne saura pas qui c'etait.
+        this.village.seServir(VOL_DU_KLEPTOMANE);
+        descendreStress(personne, VOL_RENDU);
+        break;
+    }
+
+    if (fautAnnoncer(cle, this.initiativesAnnoncees)) {
+      this.initiativesAnnoncees += 1;
+      this.events.emit("annonce", direLInitiative(cle, personne.nom), "village");
+    }
   }
 
   /** Tout le monde, heros et habitants : c'est la population des relations. */

@@ -106,6 +106,15 @@ export class Maison extends Phaser.Physics.Arcade.Image {
   }
 }
 
+/**
+ * Ce qu'un Pyromane coute a une maison, en part de ses points de vie.
+ *
+ * *Chiffre tranche par le code.* Un quart : quatre nuits de suite pour la
+ * mettre a terre, donc le temps de s'en apercevoir et de faire quelque
+ * chose de celui qui a craque.
+ */
+const PART_ABIMEE = 0.25;
+
 export class Maisons {
   readonly groupe: Phaser.Physics.Arcade.StaticGroup;
   private readonly liste: Maison[] = [];
@@ -332,6 +341,23 @@ export class Maisons {
     if (maison.pv > 0) return false;
     this.tomber(maison);
     return true;
+  }
+
+  /**
+   * Un Pyromane s'en prend a ce qui tient encore (DESIGN.md §4.27).
+   *
+   * ⚠️ **Le feu est au jalon 6** (§4.21). En attendant il abime, il ne
+   * brule pas : la maison la plus proche encaisse un quart de ses points
+   * de vie. Le jour ou l'incendie existera, c'est cette fonction qui
+   * l'allumera, et rien d'autre ne changera.
+   *
+   * @returns la maison touchee, ou `null` s'il n'y en avait aucune debout
+   */
+  abimerLaPlusProche(x: number, y: number): Maison | null {
+    const maison = this.laPlusProcheDebout(x, y);
+    if (!maison) return null;
+    this.blesser(maison, PART_ABIMEE * REGLAGES_MAISONS.pvMax, this.scene.time.now);
+    return maison;
   }
 
   /** Elle tombe : une ruine, qu'on releve ou qu'on demolit. */

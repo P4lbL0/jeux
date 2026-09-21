@@ -425,6 +425,8 @@ src/
                      qui s'usent et se disputent la place (testee)
     memoire.ts       les souvenirs bornes, les archives du village et le recit
                      assemble — qui ne dit que ce qu'on sait (testee)
+    vieAutonome.ts   ce qu'on fait sans ordre, le tour de role, et les six
+                     initiatives (testee)
     sauvegarde.ts    la forme d'une partie enregistree, et l'arbitrage
                      local/cloud — fonction pure, testee (§4.28)
   en-ligne/  le seul dossier qui connait le reseau. Retirable en entier
@@ -450,6 +452,7 @@ src/
     menuPause.ts       ECHAP : reprendre, parametres, touches, quitter
     memoire.ts         quand les liens bougent : l'aube, une mort, un sauvetage,
                        une rage, un eveil (testee, sans Phaser)
+    vieAutonome.ts     les bulles : douze images recyclees, jamais une creee
     panneauTouches.ts  le remappage, par familles, une ligne par action
     panneauSon.ts      les trois volumes (titre et menu de pause)
     portraits.ts       portraits assembles par morceaux, en onze couches

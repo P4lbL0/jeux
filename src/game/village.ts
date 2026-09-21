@@ -20,6 +20,12 @@ import { auPiedDeLEglise, EGLISE, POSTES, type Point, type PosteTravail } from "
 import type { Peuplement } from "../core/peuplement";
 import { combatDe, sortDefendre } from "../core/habitants";
 import {
+  choisirOccupation,
+  prochainTour,
+  REGLAGES_VIE,
+  type Occupation,
+} from "../core/vieAutonome";
+import {
   EFFETS_RUPTURE,
   NOMS_RUPTURE,
   REGLAGES_STRESS,
@@ -146,6 +152,13 @@ export interface ContexteVillage {
   memoireDuVillage: () => number;
   /** Quelqu'un craque et s'en prend aux siens : le village s'en souvient (§4.26) */
   surLaRage: (qui: Personne, temoins: Personne[]) => void;
+  /**
+   * Deux habitants se croisent et s'arretent (§4.27, bloc 12). La scene pose
+   * la bulle : ce fichier ne sait pas dessiner.
+   */
+  uneRencontre: (un: Villageois, autre: Villageois, maintenant: number) => void;
+  /** En craint-il un autre au point de s'ecarter ? (§4.26, la peur) */
+  craint: (qui: Personne, autre: Personne) => boolean;
   /**
    * Doit-il quelque chose a quelqu'un d'assez vivant pour que ca compte ?
    * (§4.26) La dette fait accepter un ordre qu'on aurait refuse.
@@ -274,6 +287,15 @@ function placeChezSoi(chezSoi: Point, id: number): Point {
   return ecarter(chezSoi, id, 5, 6);
 }
 
+/**
+ * De combien on s'eloigne de chez soi quand on flane (§4.27).
+ *
+ * *Chiffre tranche par le code.* Quatre-vingts pixels, soit deux cases et
+ * demie : assez pour qu'on voie quelqu'un bouger, pas assez pour qu'il
+ * traverse le village et disparaisse derriere une maison.
+ */
+const RAYON_DE_FLANERIE = 80;
+
 /** Un point ecarte du centre, toujours le meme pour un identifiant donne. */
 function ecarter(centre: Point, id: number, base: number, pas: number): Point {
   // L'angle d'or : deux identifiants voisins ne tombent jamais au meme
@@ -303,6 +325,31 @@ export class Villageois extends Phaser.Physics.Arcade.Sprite {
 
   /** Prochain instant ou il peut frapper, quand il defend l'eglise (§4.18) */
   prochainCoup = 0;
+
+  /**
+   * Ce qu'il fait de sa journee quand personne ne lui a rien demande
+   * (§4.27, bloc 12). `null` tant qu'on ne l'a pas encore reveille.
+   */
+  occupation: Occupation | null = null;
+  /**
+   * Ou il se rend en flanant.
+   *
+   * ⚠️ **Pose par le tour de role, jamais par l'image qui l'affiche.** Un
+   * point tire a chaque image donnerait un habitant qui tremble sur place,
+   * et trente tirages par image (§4.17).
+   */
+  butDeFlanerie: Point | null = null;
+  /**
+   * Jusqu'a quand il est en pleine conversation, et a partir de quand il
+   * acceptera la suivante (§4.27).
+   *
+   * ⚠️ **Sans ces deux-la, personne ne flane jamais.** Vu en jouant : dans un
+   * village de huit, tout le monde se tient pres de l'eglise, donc tout le
+   * monde a un voisin a portee, donc tout le monde discute — en boucle, et
+   * plus rien ne bouge. Une conversation dure, puis elle laisse la place.
+   */
+  discuteJusqua = 0;
+  prochaineDiscussion = 0;
 
   /**
    * Sa place sur le village — la ou il se tient quand il n'a pas de poste
@@ -411,6 +458,8 @@ export class Village {
   private readonly journeesDesMortsEnChemin: number[] = [];
   /** La maison qu'on donnera au prochain habitant */
   private placeSuivante = 0;
+  /** Ou en est le tour de role de la vie autonome (§4.27, bloc 12) */
+  private curseurVieAutonome = 0;
   /** La journee en cours, tenue par la scene a chaque aube */
   private journee = 1;
   /** Le dernier chiffre calcule, pour ne pas le refaire a chaque image */
@@ -696,6 +745,58 @@ export class Village {
     this.stocks[ressource] += quantite;
   }
 
+  /**
+   * Il sort defendre, de lui-meme (DESIGN.md §4.27, bloc 12).
+   *
+   * ⚠️ **Ca ne le condamne pas.** Il passe en posture de travail, donc la
+   * cloche le rappelle et le rayon de fuite le fait rentrer comme tout le
+   * monde. Le §4.27 l'exige : une initiative ne fait jamais perdre un
+   * habitant sans que le joueur ait pu reagir.
+   */
+  envoyerDefendre(villageois: Villageois): void {
+    if (!villageois.regles.vivant) return;
+    villageois.regles.posture = "travail";
+    villageois.ancre = { x: EGLISE.x, y: EGLISE.y };
+    villageois.butDeFlanerie = null;
+  }
+
+  /**
+   * Un ancien milicien rassemble ceux qui tiennent encore debout (§4.27).
+   *
+   * **Trois au plus** : une milice improvisee n'est pas une armee, et le
+   * §4.18 rappelle que se battre, c'est ne pas produire.
+   */
+  rassembler(combien: number): number {
+    let pris = 0;
+    for (const villageois of this.habitants) {
+      if (pris >= combien) break;
+      if (!villageois.regles.vivant || villageois.ancre !== null) continue;
+      if (villageois.regles.personne.rupture !== null) continue;
+      this.envoyerDefendre(villageois);
+      pris += 1;
+    }
+    return pris;
+  }
+
+  /**
+   * Quelqu'un s'est servi dans les reserves (§4.27, le Kleptomane).
+   *
+   * On prend sur **la ressource la plus abondante** : c'est celle qu'on
+   * remarque le moins, et c'est exactement ce qu'un voleur choisit.
+   */
+  seServir(combien: number): Ressource | null {
+    let cible: Ressource | null = null;
+    let meilleur = combien;
+    for (const r of RESSOURCES) {
+      if (this.stocks[r] <= meilleur) continue;
+      meilleur = this.stocks[r];
+      cible = r;
+    }
+    if (cible === null) return null;
+    this.stocks[cible] -= combien;
+    return cible;
+  }
+
   changerPosture(villageois: Villageois, posture: PostureCivile): void {
     villageois.regles.posture = posture;
   }
@@ -872,6 +973,9 @@ export class Village {
       this.animerUn(villageois);
     }
 
+    // ⚠️ **Apres les corps, et au tour de role** (§4.27) : la vie autonome
+    // decide, elle ne deplace pas. Trois habitants par image, jamais trente.
+    this.reveillerLaVieAutonome(this.scene.time.now);
     this.majorerLeMoral();
   }
 
@@ -1187,31 +1291,178 @@ export class Village {
   }
 
   /**
-   * Il se tient devant sa maison (§4.29).
+   * **La vie autonome** (DESIGN.md §4.27, bloc 12).
    *
-   * Il ne produit rien et il ne se repose pas moins qu'a l'abri : ce n'est pas
-   * un poste, c'est **une presence**. La vie autonome — ce qu'ils font
-   * vraiment de leurs journees — est le bloc 12 (§4.27) ; ici on repond a une
-   * seule question, celle que le §4.29 pose a quelqu'un qui arrive : combien
-   * sont-ils, et est-ce qu'on les voit.
+   * C'etait « il se tient devant sa maison » jusqu'au bloc 12 : une presence,
+   * qui repondait a la seule question du §4.29 — combien sont-ils, et est-ce
+   * qu'on les voit. Il fait maintenant quelque chose de ses journees.
+   *
+   * ⚠️ **Ca ne coute rien a la production** (*decision d'Angelos, 21 septembre
+   * 2026*). On n'arrive ici **que** si l'habitant n'a pas de poste, qu'il fait
+   * jour et que rien ne rode : celui qui travaille travaille, et l'economie
+   * deja reglee ne bouge pas d'un point.
+   *
+   * ⚠️ Il reste `en-route` et jamais `au-poste`. L'etat n'est pas qu'une
+   * etiquette — `au-poste` veut dire qu'on produit et qu'on s'use (§4.18,
+   * §4.23). Flaner ne fatigue personne.
    */
   private vivreChezSoi(villageois: Villageois): void {
     this.sortirDeLEglise(villageois);
-    const chezSoi = placeChezSoi(villageois.placeDeVie ?? { x: EGLISE.x, y: EGLISE.y }, villageois.regles.id);
-    const distance = Phaser.Math.Distance.Between(villageois.x, villageois.y, chezSoi.x, chezSoi.y);
+    villageois.etat = "en-route";
+
+    const but = villageois.butDeFlanerie ?? this.chezLui(villageois);
+    const distance = Phaser.Math.Distance.Between(villageois.x, villageois.y, but.x, but.y);
 
     if (distance > 6) {
-      villageois.etat = "en-route";
-      this.avancerVers(villageois, chezSoi.x, chezSoi.y, REGLAGES_VILLAGE.vitesseTravail);
+      // On flane, on ne court pas : deux tiers de la vitesse de travail.
+      this.avancerVers(villageois, but.x, but.y, REGLAGES_VILLAGE.vitesseTravail * 0.66);
       return;
     }
 
-    // Arrive : il reste "en-route" et non "au-poste". L'etat n'est pas qu'une
-    // etiquette — "au-poste" veut dire qu'on travaille, donc qu'on produit et
-    // qu'on s'use (§4.18, §4.23). Rester chez soi ne fatigue personne.
-    villageois.etat = "en-route";
     villageois.setVelocity(0, 0);
-    villageois.setPosition(chezSoi.x, chezSoi.y);
+    villageois.setPosition(but.x, but.y);
+    // Arrive : il reste la un moment, puis il repartira. C'est le tour de role
+    // qui lui donnera un autre but, jamais cette image-ci — sans quoi on
+    // tirerait un point par habitant et par image.
+    villageois.butDeFlanerie = null;
+  }
+
+  /** Le pas de sa porte : la ou il revient quand il n'a rien d'autre a faire. */
+  private chezLui(villageois: Villageois): Point {
+    return placeChezSoi(
+      villageois.placeDeVie ?? { x: EGLISE.x, y: EGLISE.y },
+      villageois.regles.id,
+    );
+  }
+
+  /**
+   * Le tour de role de la vie autonome (§4.27).
+   *
+   * ⚠️ **On ne reveille que quelques habitants par image.** C'est la contrainte
+   * de fluidite centrale de la section : une decision prise avec 300 ms de
+   * retard est invisible, trente decisions par image a soixante images par
+   * seconde ne le sont pas. Le curseur avance de trois par image ; un village
+   * de trente fait donc un tour complet en dix images, soit un sixieme de
+   * seconde.
+   *
+   * C'est aussi ici — et nulle part ailleurs — que la **peur** du §4.26 agit :
+   * elle demandait un reveil au tour de role, elle l'a.
+   */
+  private reveillerLaVieAutonome(maintenant: number): void {
+    const libres = this.habitants.filter(
+      (v) => v.regles.vivant && v.poste === null && v.ancre === null && v.etat !== "abri",
+    );
+    const tour = prochainTour(this.curseurVieAutonome, libres.length);
+    this.curseurVieAutonome = tour.suivant;
+
+    for (const index of tour.index) {
+      const villageois = libres[index];
+      if (!villageois) continue;
+      this.deciderDeSaJournee(villageois, libres, maintenant);
+    }
+  }
+
+  /**
+   * Ce qu'il decide de faire, une fois reveille.
+   *
+   * Un **petit arbre de priorites** (`core/vieAutonome.ts`), pas une recherche
+   * de chemin ni une evaluation de tous les postes possibles.
+   */
+  private deciderDeSaJournee(
+    villageois: Villageois,
+    voisins: Villageois[],
+    maintenant: number,
+  ): void {
+    // Il est en pleine conversation : on ne le derange pas. C'est le seul
+    // etat de la vie autonome qui dure — tout le reste se redecide a chaque
+    // tour de role.
+    if (maintenant < villageois.discuteJusqua) return;
+
+    const voisin = this.voisinLePlusProche(villageois, voisins);
+    const occupation = choisirOccupation({
+      personne: villageois.regles.personne,
+      rassasie: villageois.regles.rassasie,
+      nuit: this.nuit,
+      chantier: this.contexte.chantierLePlusProche(villageois.x, villageois.y) !== null,
+      // ⚠️ **Un voisin ne suffit pas : il faut aussi avoir envie de parler.**
+      // Sans ce repos, huit habitants serres autour de l'eglise discutent en
+      // boucle et le village se fige — vu en jouant.
+      voisin: voisin !== null && maintenant >= villageois.prochaineDiscussion,
+      menace:
+        this.contexte.menaceAutour(villageois.x, villageois.y, REGLAGES_VILLAGE.distanceDeFuite) !==
+        null,
+    });
+    villageois.occupation = occupation;
+
+    if (occupation === "discuter" && voisin) {
+      // Ils s'arretent **la ou ils sont** — se marcher dessus ne ferait que les
+      // pousser l'un l'autre — et une bulle dit ce qu'ils sont l'un pour
+      // l'autre (§4.27). Le joueur invente le reste.
+      villageois.butDeFlanerie = { x: villageois.x, y: villageois.y };
+      villageois.discuteJusqua = maintenant + REGLAGES_VIE.dureeDeDiscussion;
+      villageois.prochaineDiscussion = maintenant + REGLAGES_VIE.dureeDeDiscussion * 4;
+      villageois.setFlipX(voisin.x < villageois.x);
+      this.contexte.uneRencontre(villageois, voisin, maintenant);
+      return;
+    }
+
+    villageois.butDeFlanerie = this.ouAller(villageois, occupation);
+  }
+
+  /**
+   * Ou son occupation l'emmene.
+   *
+   * Trois lieux seulement, et ils existent tous deja : le pas de sa porte, le
+   * pied de l'eglise (les reserves y sont), et un point tire dans un petit
+   * rayon autour de chez lui. Inventer des batiments pour manger et boire
+   * serait un autre bloc entier.
+   */
+  private ouAller(villageois: Villageois, occupation: Occupation): Point {
+    const chezLui = this.chezLui(villageois);
+    if (occupation === "manger" || occupation === "boire") {
+      return ecarter({ x: EGLISE.x, y: EGLISE.y }, villageois.regles.id, 34, 7);
+    }
+    if (occupation === "reparer") {
+      return this.contexte.chantierLePlusProche(villageois.x, villageois.y) ?? chezLui;
+    }
+    if (occupation === "flaner") {
+      // Un petit rayon autour de chez lui, qui change a chaque reveil : c'est
+      // ce qui fait qu'un village a l'air habite plutot que fige.
+      const angle = this.rng.next() * Math.PI * 2;
+      const rayon = 18 + this.rng.next() * RAYON_DE_FLANERIE;
+      return {
+        x: chezLui.x + Math.cos(angle) * rayon,
+        y: chezLui.y + Math.sin(angle) * rayon * 0.7,
+      };
+    }
+    return chezLui;
+  }
+
+  /**
+   * Le plus proche des autres, dans le rayon de rencontre.
+   *
+   * ⚠️ **Il ne parle pas a qui il craint** (§4.26) : « la peur fait fuir un
+   * poste quand l'autre s'en approche ». C'est ici que la regle ecrite au
+   * bloc 11 prend effet, et c'est le seul endroit possible — elle demande une
+   * distance par paire, donc un tour de role.
+   */
+  private voisinLePlusProche(villageois: Villageois, tous: Villageois[]): Villageois | null {
+    let meilleur: Villageois | null = null;
+    let meilleure = REGLAGES_VIE.distanceDeRencontre;
+    for (const autre of tous) {
+      if (autre === villageois) continue;
+      const distance = Phaser.Math.Distance.Between(villageois.x, villageois.y, autre.x, autre.y);
+      if (distance >= meilleure) continue;
+      if (this.contexte.craint(villageois.regles.personne, autre.regles.personne)) {
+        // Il s'ecarte au lieu de s'approcher : c'est tout ce que la peur fait,
+        // et c'est deja beaucoup a regarder.
+        villageois.butDeFlanerie = this.chezLui(villageois);
+        continue;
+      }
+      meilleure = distance;
+      meilleur = autre;
+    }
+    return meilleur;
   }
 
   /**
