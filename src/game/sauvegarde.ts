@@ -13,6 +13,7 @@
 import Phaser from "phaser";
 import { CLASSES, type ClassId } from "../core/classes";
 import { POSTES } from "../core/carte";
+import type { Cour } from "./cour";
 import { EMPLACEMENTS_ACTIFS, competenceParId } from "../core/competences";
 import { Cycle } from "../core/cycle";
 import type { Fou } from "../core/arrivants";
@@ -87,6 +88,8 @@ export interface PartieEnCours {
   maisons: Maisons;
   /** Les chemins qui s'usent : la scene les repeint a la reprise (§4.24) */
   chemins: Chemins;
+  /** La cour d'entrainement et ses eleves (§4.18, bloc 9) */
+  cour: Cour;
 }
 
 /** La memoire des morts qu'on garde : au-dela, la satisfaction ne la lit plus. */
@@ -162,6 +165,7 @@ export function capturer(partie: PartieEnCours, maintenant: number): Sauvegarde 
       maturite: champ.maturite,
     })),
     chemins: partie.chemins.sauver(),
+    cour: partie.cour.etatSauve(),
   };
 }
 

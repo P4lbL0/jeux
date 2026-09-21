@@ -84,6 +84,7 @@ const AIDE_LONGUE: [string, string][][] = [
     ["Y", "l'eglise"],
     ["P", "le port"],
     ["G / H / J / K / L / N", "palissade, tour, champ, porte, maison, douve"],
+    ["U", "la cour d entrainement"],
     ["T", "monter dans une tour"],
     ["molette", "zoomer"],
   ],
@@ -128,6 +129,9 @@ export class Hud {
   /** Le cadre ne se redessine que quand quelque chose bouge (§4.17 regle 5). */
   private signatureAide = "";
 
+  private readonly surFiche: (index: number) => void;
+  private readonly surSelection: (index: number, touteLaClasse: boolean) => void;
+
   constructor(
     private scene: Phaser.Scene,
     heros: Hero[],
@@ -136,30 +140,9 @@ export class Hud {
   ) {
     this.graphiques = scene.add.graphics().setDepth(1000);
 
-    heros.forEach((hero, i) => {
-      const x = MARGE + i * (LARGEUR + ESPACE);
-      this.cartes.push({
-        // Le portrait est la premiere frame de sa planche, au repos : la meme
-        // image que sur le terrain, donc la meme classe qu'on reconnait.
-        portrait: scene.add
-          .image(x + 7 + CASE_PORTRAIT / 2, MARGE + HAUTEUR / 2, plancheDe(hero.familleSprite), 0)
-          .setDepth(1001),
-        titre: this.texte(x + COLONNE, MARGE + 7, 11, T.os),
-        etat: this.texte(x + COLONNE, MARGE + 46, 9, T.osMat),
-        badge: this.texte(x + LARGEUR - 9, MARGE + 6, 11, T.laiton).setOrigin(1, 0),
-      });
-
-      scene.add
-        .zone(x, MARGE, LARGEUR, HAUTEUR)
-        .setOrigin(0)
-        .setInteractive({ useHandCursor: true })
-        // Gauche pour consulter, droite pour commander : la meme regle que sur
-        // le terrain (DESIGN.md §4.4).
-        .on("pointerdown", (pointeur: Phaser.Input.Pointer) => {
-          if (pointeur.rightButtonDown()) surSelection(i, pointeur.event.shiftKey);
-          else surFiche(i);
-        });
-    });
+    this.surFiche = surFiche;
+    this.surSelection = surSelection;
+    for (const hero of heros) this.ajouter(hero);
 
     this.alerte = this.texte(0, 0, 12, T.sangFrais).setOrigin(0.5, 0);
 
@@ -268,7 +251,55 @@ export class Hud {
     cadre(this.plaqueAide, p);
   }
 
+  /**
+   * Une carte de plus dans la barre d'equipe (DESIGN.md §4.18, bloc 9).
+   *
+   * ⚠️ **La barre grandit en cours de partie depuis le bloc 9**, et c'est neuf :
+   * elle etait fabriquee une fois pour l'equipe de depart, du temps ou l'equipe
+   * etait donnee d'emblee. Depuis le §4.29 on commence **seul**, et chaque
+   * heros arrive d'un villageois qui s'eveille — il lui faut sa carte au
+   * moment ou il arrive.
+   *
+   * Les objets sont fabriques ici, une fois par heros et pour de bon : un
+   * village n'en produit qu'une poignee par partie, et le §4.17 n'interdit que
+   * ce qui se cree **par image**.
+   */
+  ajouter(hero: Hero): void {
+    const index = this.cartes.length;
+    const x = MARGE + index * (LARGEUR + ESPACE);
+
+    this.cartes.push({
+      // Le portrait est la premiere frame de sa planche, au repos : la meme
+      // image que sur le terrain, donc la meme classe qu'on reconnait.
+      portrait: this.scene.add
+        .image(x + 7 + CASE_PORTRAIT / 2, MARGE + HAUTEUR / 2, plancheDe(hero.familleSprite), 0)
+        .setDepth(1001),
+      titre: this.texte(x + COLONNE, MARGE + 7, 11, T.os),
+      etat: this.texte(x + COLONNE, MARGE + 46, 9, T.osMat),
+      badge: this.texte(x + LARGEUR - 9, MARGE + 6, 11, T.laiton).setOrigin(1, 0),
+    });
+
+    this.scene.add
+      .zone(x, MARGE, LARGEUR, HAUTEUR)
+      .setOrigin(0)
+      .setInteractive({ useHandCursor: true })
+      // Gauche pour consulter, droite pour commander : la meme regle que sur
+      // le terrain (DESIGN.md §4.4).
+      .on("pointerdown", (pointeur: Phaser.Input.Pointer) => {
+        if (pointeur.rightButtonDown()) this.surSelection(index, pointeur.event.shiftKey);
+        else this.surFiche(index);
+      });
+  }
+
   rafraichir(etat: EtatEquipe): void {
+    // L'equipe a grandi depuis la derniere image : un villageois s'est eveille
+    // (§4.18, bloc 9). Il lui faut sa carte avant qu'on la remplisse.
+    while (this.cartes.length < etat.heros.length) {
+      const hero = etat.heros[this.cartes.length];
+      if (!hero) break;
+      this.ajouter(hero);
+    }
+
     const g = this.graphiques;
     g.clear();
 

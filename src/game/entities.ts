@@ -289,6 +289,15 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     classe: ClasseDef,
     rng?: Rng,
     nomsPris: readonly string[] = [],
+    /**
+     * La personne qu'il **etait deja** (DESIGN.md §4.18, bloc 9).
+     *
+     * ⚠️ C'est tout le sujet du bloc 9 : un heros sort d'un habitant, et il
+     * garde son nom, ses traits gagnes en travaillant, son stress, ses
+     * sequelles et son visage. Lui en fabriquer une neuve ferait exactement ce
+     * que le §4.29 refuse — un heros qui tombe du ciel.
+     */
+    personne?: Personne,
   ) {
     // La planche est cuite a la demande, avant que le sprite ne la reclame : un
     // `Sprite` sur une texture inconnue affiche le damier de Phaser.
@@ -299,7 +308,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.classe = classe;
     this.pv = classe.pvMax;
     const graine = rng ?? new Rng(Date.now() + prochainIdentifiant);
-    this.personne = creerPersonne(prenomLibre(graine, nomsPris), graine);
+    this.personne = personne ?? creerPersonne(prenomLibre(graine, nomsPris), graine);
     if (classe.id === "assassin") this.bonus.discretion = true;
 
     scene.add.existing(this);

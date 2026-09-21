@@ -115,6 +115,16 @@ import {
   type TacheId,
 } from "../core/ordres";
 import { lignesDuMenu, type ContenuMenu } from "../game/menuOrdres";
+import {
+  NIVEAU_EGLISE_RITUEL,
+  NOMS_VOIE,
+  PRIX_DU_RITUEL,
+  entrainer,
+  reveilParLeDanger,
+  type VoieDuReveil,
+} from "../core/dons";
+import { Cour, EMPRISE_COUR, REGLAGES_COUR } from "../game/cour";
+import { CLE_COUR } from "../game/dessin/batiments";
 import { Affinites } from "../core/affinites";
 import {
   chargerLaGraine,
@@ -189,7 +199,7 @@ import {
 import { Construction, Constructions, PORTEE_OCCUPATION } from "../game/constructions";
 import { Champs, REGLAGES_CHAMPS, type Champ } from "../game/champs";
 import { Maison, Maisons, REGLAGES_MAISONS } from "../game/maisons";
-import { NOMS_METIER, NOMS_POSTURE_CIVILE, NOMS_RESSOURCE, RESSOURCES, SOUS_PRODUIT, stocksVides } from "../core/habitants";
+import { NOMS_METIER, NOMS_POSTURE_CIVILE, NOMS_RESSOURCE, RESSOURCES, SOUS_PRODUIT, combatDe, stocksVides } from "../core/habitants";
 import {
   EFFETS_RUPTURE,
   NOMS_RUPTURE,
@@ -313,6 +323,16 @@ const RAYON_RECOLTE = 46;
  */
 const STRESS_DU_TRAVAIL = 2.2;
 
+/**
+ * Combien de heros peuvent etre dehors en meme temps (DESIGN.md §4.15).
+ *
+ * ⚠️ **La garnison n'existe pas encore.** Le §4.15 dit « dix dehors, le reste
+ * en garnison » ; tant que la garnison n'est pas codee, un onzieme don ne
+ * s'eveille pas, et le jeu le dit. Mieux vaut un don qui attend qu'un heros
+ * qu'on ne peut ni voir ni commander.
+ */
+const EFFECTIF_MAXIMUM = 10;
+
 /** Ce que l'interface lit du village, sans pouvoir y toucher. */
 export interface EtatVillage {
   phase: Phase;
@@ -381,7 +401,7 @@ const CHOISIR_QUOI_POSER: number[] = [
  * de vie, et on le traverse. Mais il se pose exactement de la meme facon, alors
  * il partage le meme mode et le meme apercu.
  */
-type ModeBati = TypeConstruction | "champ" | "maison";
+type ModeBati = TypeConstruction | "champ" | "maison" | "cour";
 
 /**
  * La part des monstres qui viennent piller (§4.24, 19 septembre 2026) : ils
@@ -683,6 +703,8 @@ export class ArenaScene extends Phaser.Scene {
   private clocheSonnee = false;
   /** Les habitants, leurs postes et les stocks (DESIGN.md §4.18) */
   village!: Village;
+  /** La cour d'entrainement : le batiment neuf du bloc 9 (§4.18) */
+  cour!: Cour;
   /**
    * L'eglise : refuge, seul lieu de soin, et cap des monstres (DESIGN.md §4.22).
    *
@@ -1354,6 +1376,7 @@ export class ArenaScene extends Phaser.Scene {
       zone: this.zone,
       cycle: this.cycle,
       village: this.village,
+      cour: this.cour,
       eglise: this.eglise,
       constructions: this.constructions,
       champs: this.champs,
@@ -1540,6 +1563,12 @@ export class ArenaScene extends Phaser.Scene {
       placesDeVie: () => this.placesDeVie,
       // Le poste du charpentier : ce qu on vient de poser (bloc 8).
       chantierLePlusProche: (x, y) => this.constructions.chantierLePlusProche(x, y),
+      // La cour, et si quelqu'un y attend un instructeur (bloc 9).
+      courDEntrainement: () => {
+        const point = this.cour?.centre;
+        if (!point) return null;
+        return { point, attend: this.cour.eleves.length > 0 };
+      },
     });
 
     // Un monstre qui rattrape un habitant le tue : c'est la seule fenetre ou on
@@ -2786,6 +2815,12 @@ export class ArenaScene extends Phaser.Scene {
     this.maisons = new Maisons(this, this.grille);
     if (this.reprise?.maisons) this.maisons.reprendre(this.reprise.maisons);
     else this.maisons.poserLePlan(this.planVillage.maisons);
+
+    // La cour d'entrainement (§4.18, bloc 9). Un village trouve n'en a jamais :
+    // c'est le Protecteur qui la batit, et c'est le seul batiment du jeu qui
+    // fabrique des heros.
+    this.cour = new Cour(this, this.grille);
+    if (this.reprise?.cour) this.cour.reprendre(this.reprise.cour);
     this.poserLesDetailsDeVie();
 
     // ⚠️ **Plus de texte « LE VILLAGE » qui flotte, et plus de disque de terre
@@ -3161,6 +3196,12 @@ export class ArenaScene extends Phaser.Scene {
     if (def.posture) {
       return heros.length > 0 && heros.every((h) => h.ordre.posture === def.posture);
     }
+    // Deja a la cour : la ligne s'eteint plutot que de le reinscrire.
+    if (id === "entrainer") {
+      // ⚠️ `?.` rend `undefined`, pas `null` : sans la double negation, la
+      // ligne s'eteignait des qu'il n'y avait pas de cour — donc toujours.
+      return civils.length > 0 && civils.every((c) => Boolean(this.cour?.eleve(c.regles.id)));
+    }
     return false;
   }
 
@@ -3238,7 +3279,55 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
 
+    if (id === "entrainer") {
+      this.events.emit("fermer-menu-ordres");
+      for (const civil of civils) this.inscrireALaCour(civil);
+      return;
+    }
+
+    if (id === "rituel") {
+      this.events.emit("fermer-menu-ordres");
+      for (const civil of civils) this.celebrerLeRituel(civil);
+      return;
+    }
+
     if (id === "rompez") this.rompre();
+  }
+
+  /**
+   * Le rituel de l'eglise : **sur, et cher** (DESIGN.md §4.1, §6).
+   *
+   * C'est la troisieme voie, et la seule qui ne tire rien : elle dit ce que la
+   * personne porte, et l'eveille si elle porte quelque chose. On l'achete quand
+   * on ne veut plus attendre — et l'argent vient du port (§4.18), donc elle se
+   * paie en marchandises qu'on n'a pas gardees.
+   */
+  private celebrerLeRituel(villageois: Villageois): void {
+    if (this.eglise.regles.niveau < NIVEAU_EGLISE_RITUEL) {
+      this.events.emit(
+        "annonce",
+        `L'eglise doit etre de niveau ${NIVEAU_EGLISE_RITUEL} pour ce rituel`,
+        "toi",
+      );
+      return;
+    }
+    if (!this.eglise.fonctionne) {
+      this.events.emit("annonce", "L'eglise est a terre", "toi");
+      return;
+    }
+    if (this.argent < PRIX_DU_RITUEL) {
+      this.events.emit("annonce", `Le rituel coute ${PRIX_DU_RITUEL} pieces`, "toi");
+      return;
+    }
+
+    this.argent -= PRIX_DU_RITUEL;
+    const nom = villageois.nom;
+    // ⚠️ **L'argent est pris dans tous les cas.** Le rituel est sur au sens ou
+    // il ne tire rien : il **revele**. Neuf fois sur dix il revele qu'il n'y
+    // avait rien, et c'est ce qui le rend cher a jouer plutot que cher a payer.
+    if (!this.eveillerUnDon(villageois, "rituel")) {
+      this.events.emit("annonce", `Le rituel ne trouve rien en ${nom}`, "village");
+    }
   }
 
   /** Y a-t-il un morceau d'interface sous le pointeur ? */
@@ -3382,6 +3471,8 @@ export class ArenaScene extends Phaser.Scene {
       [K.J, () => this.basculerConstruction("champ")],
       [K.K, () => this.basculerConstruction("porte")],
       [K.L, () => this.basculerConstruction("maison")],
+      // La cour d'entrainement : le batiment du bloc 9, un seul par village.
+      [K.U, () => this.basculerConstruction("cour")],
       [K.N, () => this.basculerConstruction("douve")],
       [K.T, () => this.basculerTour()],
       // L'eglise : une seule touche pour les deux gestes qu'on peut lui faire —
@@ -4821,6 +4912,163 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
+  // ------------------------------------------- le village arme (§4.18, bloc 9)
+
+  /**
+   * Une journee passe a la cour d'entrainement (DESIGN.md §4.18, bloc 9).
+   *
+   * ⚠️ **Rien n'avance sans instructeur** : un milicien doit se tenir dans la
+   * cour. C'est ce qui fait qu'armer son village le ralentit **deux fois** —
+   * l'eleve ne produit rien, et l'instructeur non plus.
+   *
+   * Au bout de deux journees, on sait : soit il portait un don et il
+   * transcende, soit il n'avait rien — et il a quand meme gagne du niveau de
+   * combat. **L'essai n'est jamais perdu**, c'est ce qui rend la cour jouable
+   * malgre un porteur sur dix.
+   */
+  private passerLaJourneeDeLaCour(): void {
+    const centre = this.cour?.centre;
+    if (!centre) return;
+
+    const instructeur = this.village.aUnInstructeur;
+    if (!instructeur) {
+      if (this.cour.eleves.length > 0) {
+        this.events.emit("annonce", "Personne n'instruit a la cour — il faut un milicien", "village");
+      }
+      return;
+    }
+
+    for (const id of this.cour.passerLaJournee(true)) {
+      const villageois = this.village.parId(id);
+      if (!villageois) continue;
+
+      const resultat = entrainer(villageois.regles.personne.don);
+      villageois.regles.niveau += resultat.niveauxGagnes;
+
+      if (resultat.don) {
+        this.eveillerUnDon(villageois, "entrainement");
+        continue;
+      }
+      this.events.emit(
+        "annonce",
+        `${villageois.nom} sort de la cour — aucun don, mais +${resultat.niveauxGagnes} en combat`,
+        "village",
+      );
+    }
+  }
+
+  /**
+   * Inscrire quelqu'un a la cour (DESIGN.md §4.18, bloc 9).
+   *
+   * Il y va, il ne produit plus, et deux journees plus tard **on sait**. Le
+   * refus dit ce qui cloche, comme partout ailleurs.
+   */
+  inscrireALaCour(villageois: Villageois): boolean {
+    if (!this.cour?.existe) {
+      this.events.emit("annonce", "Il faut d'abord batir une cour d'entrainement", "toi");
+      return false;
+    }
+    if (this.cour.eleve(villageois.regles.id)) {
+      this.events.emit("annonce", `${villageois.nom} s'exerce deja`, "toi");
+      return false;
+    }
+    if (!this.cour.inscrire(villageois.regles.id)) return false;
+
+    // Il quitte son poste : on ne produit pas en s'entrainant (§4.18).
+    villageois.ancre = null;
+    villageois.suit = null;
+    this.events.emit(
+      "annonce",
+      `${villageois.nom} s'exerce — ${REGLAGES_COUR.journeesDeFormation} journees, et on saura`,
+      "village",
+    );
+    return true;
+  }
+
+
+  /**
+   * **Un villageois s'eveille, et devient un heros** (DESIGN.md §4.18, §4.1,
+   * §4.29 — bloc 9).
+   *
+   * C'est la seule source de heros du jeu. On ne devient pas heros a l'usure :
+   * on **nait avec un don**, un habitant sur dix en porte un, et personne ne le
+   * sait avant qu'il s'eveille. Trois voies l'eveillent — le danger de mort
+   * (gratuit, au hasard), l'entrainement (du temps de production), et le rituel
+   * de l'eglise (sur et cher).
+   *
+   * ⚠️ **Il garde sa `Personne`, litteralement le meme objet** : son nom, ses
+   * traits gagnes en travaillant, son stress, ses sequelles, son visage. C'est
+   * ce que le §4.29 promet — « chaque heros aura eu un nom d'habitant, un
+   * metier ». Lui en fabriquer une neuve ferait un heros tombe du ciel, et tout
+   * le bloc 9 ne servirait plus a rien.
+   *
+   * Et c'est **lui** qui reveille les ordres, les formations, les postures,
+   * l'IA de repli et l'experience de groupe : tous ces systemes tournent a vide
+   * depuis le 5.5, faute d'un deuxieme heros sur qui tourner.
+   *
+   * @returns le heros ne, ou `null` si rien ne s'est eveille
+   */
+  eveillerUnDon(villageois: Villageois, voie: VoieDuReveil): Hero | null {
+    const personne = villageois.regles.personne;
+    const don = personne.don;
+    if (!don || don.eveille) return null;
+
+    // L'effectif : dix dehors, le reste en garnison (§4.15). La garnison n'est
+    // pas codee, donc on refuse au-dela — et on le dit, plutot que d'eveiller
+    // un don qui ne donnerait aucun heros.
+    if (this.heros.filter((h) => h.etat !== "mort").length >= EFFECTIF_MAXIMUM) {
+      this.events.emit(
+        "annonce",
+        `${personne.nom} a un don, mais l'equipe est au complet (${EFFECTIF_MAXIMUM})`,
+        "village",
+      );
+      return null;
+    }
+
+    const x = villageois.x;
+    const y = villageois.y;
+    const nom = personne.nom;
+    personne.don = { ...don, eveille: true };
+
+    // L'habitant quitte le village **avant** que le heros ne paraisse : deux
+    // corps au meme endroit se pousseraient l'un l'autre.
+    this.village.retirer(villageois);
+
+    const hero = new Hero(this, x, y, CLASSES[don.classe], undefined, [], personne);
+    this.heros.push(hero);
+    this.equipe.add(hero);
+    // Il arrive au combat, pas au travail : c'est un heros, pas un poste.
+    hero.ordre = { posture: "temporiser", ancre: null };
+
+    this.effetCercle(x, y, 52, don.majeur ? 0xe0c060 : 0x7ee0a0);
+    this.flotter(x, y - 30, don.majeur ? "DON MAJEUR" : "Un don s'eveille", "#e0c060");
+    this.events.emit(
+      "annonce",
+      don.majeur
+        ? `${nom} transcende ${NOMS_VOIE[voie]} — un don MAJEUR de ${CLASSES[don.classe].nom}`
+        : `${nom} transcende ${NOMS_VOIE[voie]} — ${CLASSES[don.classe].nom}`,
+      "village",
+    );
+    return hero;
+  }
+
+  /**
+   * Le danger de mort reveille les dons — **la voie noble** (DESIGN.md §4.1).
+   *
+   * Gratuite, au hasard, et elle ne se declenche que sous le seuil des 20 % :
+   * les heros naissent des pires moments de la partie. On ne peut pas la
+   * provoquer, parce qu'un habitant mort ne revient pas.
+   *
+   * Appele a chaque coup encaisse par un habitant, jamais par image.
+   */
+  private guetterLeReveil(villageois: Villageois): void {
+    const personne = villageois.regles.personne;
+    if (!personne.don || personne.don.eveille) return;
+    const part = villageois.regles.pv / Math.max(1, combatDe(villageois.regles).pvMax);
+    if (!reveilParLeDanger(personne.don, part, this.rng)) return;
+    this.eveillerUnDon(villageois, "danger");
+  }
+
   /**
    * Faire tourner la posture d'un habitant (DESIGN.md §4.18).
    *
@@ -4888,6 +5136,18 @@ export class ArenaScene extends Phaser.Scene {
       this.events.emit(
         "annonce",
         `Maison — ${REGLAGES_MAISONS.coutBois} bois · clic pour batir, ou sur une ruine pour la relever`,
+        "toi",
+      );
+      return;
+    }
+
+    if (type === "cour") {
+      // Le fantome se cale par son coin bas-gauche, comme le batiment pose :
+      // sinon l'apercu et la pose ne tombent pas au meme endroit.
+      this.fantome.setTexture(CLE_COUR).setOrigin(0, 1).setVisible(true);
+      this.events.emit(
+        "annonce",
+        `Cour d'entrainement — ${REGLAGES_COUR.coutBois} bois et ${REGLAGES_COUR.coutMinerai} minerai · une seule par village`,
         "toi",
       );
       return;
@@ -5153,6 +5413,19 @@ export class ArenaScene extends Phaser.Scene {
     const monde = this.cameras.main.getWorldPoint(pointeur.x, pointeur.y);
     const centre = this.grille.centreDe(monde.x, monde.y);
 
+    // La cour : son emprise se cale comme celle d'une maison, coin haut-gauche.
+    if (this.enConstruction === "cour") {
+      const possible = this.cour.refus(monde.x, monde.y, this.village.stocks) === null;
+      // Son origine est son coin **bas**-gauche : le pied tombe donc une case
+      // plus bas que la case visee, exactement comme a la pose.
+      this.fantome.setPosition(
+        this.grille.colonneDe(monde.x) * CASE,
+        (this.grille.ligneDe(monde.y) + EMPRISE_COUR.lignes) * CASE,
+      );
+      this.fantome.setTint(possible ? 0x7ee0a0 : 0xff6b5a);
+      return;
+    }
+
     // Une maison : l'emprise de 2 x 2 se cale sur la case visee, coin haut-gauche.
     if (this.deplacee instanceof Maison || this.enConstruction === "maison") {
       const possible =
@@ -5260,7 +5533,9 @@ export class ArenaScene extends Phaser.Scene {
         ? this.champs.semer(x, y, this.village.stocks)
         : this.enConstruction === "maison"
           ? this.maisons.batir(x, y, this.village.stocks)
-          : this.constructions.batir(x, y, this.enConstruction, this.village.stocks, this.time.now);
+          : this.enConstruction === "cour"
+            ? this.cour.batir(x, y, this.village.stocks)
+            : this.constructions.batir(x, y, this.enConstruction, this.village.stocks, this.time.now);
 
     if (!pose) {
       // Le refus dit ce qui cloche, comme celui de l'eglise (§4.22, §4.24). Un
@@ -5271,13 +5546,23 @@ export class ArenaScene extends Phaser.Scene {
           ? "Impossible de semer ici"
           : this.enConstruction === "maison"
             ? (this.maisons.refus(x, y, this.village.stocks) ?? "Impossible de batir ici")
-            : (this.constructions.refus(x, y, this.enConstruction, this.village.stocks) ??
-              "Impossible de poser ici");
+            : this.enConstruction === "cour"
+              ? (this.cour.refus(x, y, this.village.stocks) ?? "Impossible de batir ici")
+              : (this.constructions.refus(x, y, this.enConstruction, this.village.stocks) ??
+                "Impossible de poser ici");
       this.events.emit("annonce", raison, "toi");
       return true;
     }
 
     eclatImpact(this, pose.x, pose.y, 0xd8c48a);
+    if (this.enConstruction === "cour") {
+      this.events.emit(
+        "annonce",
+        "La cour est ouverte — il lui faut un milicien pour instruire",
+        "toi",
+      );
+      return true;
+    }
     // Un chantier attend des bras, et il faut le dire une fois : sans
     // charpentier affecte, l'echafaudage reste dresse pour toujours et le
     // joueur croirait a un bug (§4.20, bloc 8).
@@ -5542,6 +5827,9 @@ export class ArenaScene extends Phaser.Scene {
 
     if (!this.village.encaisserOuTuer(villageois, e.degats)) {
       eclatImpact(this, villageois.x, villageois.y - 4, 0xd8c48a, 2);
+      // Il a survecu au coup : c'est exactement la ou un don se reveille
+      // (§4.1, bloc 9). La voie noble ne se declenche qu'au bord de la mort.
+      this.guetterLeReveil(villageois);
       return;
     }
 
@@ -6942,6 +7230,7 @@ export class ArenaScene extends Phaser.Scene {
     this.chemins.seLever(this.cycle.jour);
     this.coucheChemins.toutRedessiner(this.chemins.visibles, this.cycle.jour);
     this.passerLaJourneeDesHeros();
+    this.passerLaJourneeDeLaCour();
     this.programmerHorde();
     this.events.emit("annonce", `Jour ${this.cycle.jour} — le soleil se leve`, "village");
     // ⚠️ **Au matin**, pas dans la nuit. Le §4.18 veut qu'on **decouvre** le mort

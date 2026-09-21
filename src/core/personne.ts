@@ -12,6 +12,7 @@
  */
 
 import type { Rng } from "./rng";
+import { tirerLeDon, type Don } from "./dons";
 import {
   agreger,
   idTrait,
@@ -195,6 +196,17 @@ export interface Personne {
   exploits: Exploits;
   /** La graine de son portrait : deux personnes n'ont jamais la meme */
   grainePortrait: number;
+  /**
+   * Ce qu'elle porte sans le savoir (DESIGN.md §4.1, §4.29, `dons.ts`).
+   *
+   * ⚠️ **Un habitant sur dix**, et **personne ne le sait au depart** : rien ne
+   * se lit sur sa fiche tant qu'il ne s'est pas eveille. C'est la seule source
+   * de heros du jeu depuis le §4.29 — on ne devient pas heros a l'usure, on
+   * nait avec un don.
+   *
+   * Un heros, lui, a le sien deja eveille : c'est ce qui le rend heros.
+   */
+  don: Don | null;
   /** L'agregat de tout ce qui precede. **Ne jamais l'ecrire a la main.** */
   mods: Modificateurs;
 }
@@ -352,11 +364,23 @@ export function creerPersonne(nom: string, rng: Rng): Personne {
     ruptures: 0,
     exploits: exploitsVierges(),
     grainePortrait: Math.floor(rng.next() * 0x7fffffff),
+    don: null,
     mods: agreger([], []),
   };
 
   const combien = rng.int(TRAITS_A_LA_NAISSANCE.min, TRAITS_A_LA_NAISSANCE.max);
   for (let i = 0; i < combien; i++) tirerTraitDeNaissance(personne, rng);
+
+  // ⚠️ **Le don se tire ici et nulle part ailleurs**, et **en dernier**. Tout le
+  // monde passe par `creerPersonne` — l'habitant du depart, l'arrivant a la
+  // porte, le survivant de la route : le tirer ailleurs voudrait dire l'oublier
+  // quelque part, et une des trois portes d'entree ne donnerait jamais de heros.
+  //
+  // En dernier, parce qu'un tirage de plus **decale toute la suite** : place
+  // avant les traits, il changeait les traits de naissance de tout le monde a
+  // graine egale. Vu en test, et c'est exactement ce que les tests seedes
+  // servent a attraper.
+  personne.don = tirerLeDon(rng);
 
   reagreger(personne);
   return personne;

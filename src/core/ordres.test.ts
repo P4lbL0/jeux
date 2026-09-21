@@ -174,10 +174,11 @@ describe("le menu d'ordres (bloc 8)", () => {
     expect(melange.filter((id) => id === "suivre")).toHaveLength(1);
   });
 
-  it("les sept metiers sont proposes, y compris les trois sans poste sur la carte", () => {
+  it("propose tous les metiers, y compris ceux qui n'ont pas de poste sur la carte", () => {
     const metiers = TACHES.filter((t) => t.groupe === "travail").map((t) => t.metier);
     // Le forgeron, le charpentier et le guetteur existaient dans les donnees
-    // depuis le bloc 2 sans qu'on puisse les donner a personne.
+    // depuis le bloc 2 sans qu'on puisse les donner a personne ; le milicien
+    // est ne au bloc 9.
     expect(metiers).toEqual([
       "pecheur",
       "bucheron",
@@ -186,6 +187,7 @@ describe("le menu d'ordres (bloc 8)", () => {
       "forgeron",
       "charpentier",
       "guetteur",
+      "milicien",
     ]);
   });
 
@@ -205,7 +207,7 @@ describe("le menu d'ordres (bloc 8)", () => {
   it("les groupes se suivent sans jamais revenir en arriere", () => {
     // Le menu insere un filet a chaque changement de groupe : si un groupe
     // reapparaissait plus bas, il afficherait deux fois la meme entete.
-    const ordre = ["travail", "civil", "combat", "moi"];
+    const ordre = ["travail", "civil", "combat", "moi", "don"];
     const vus: string[] = [];
     for (const t of TACHES) if (vus.at(-1) !== t.groupe) vus.push(t.groupe);
     expect(vus).toEqual(ordre);

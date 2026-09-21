@@ -59,6 +59,7 @@ const ENTETES: Record<GroupeTache, string> = {
   civil: "CONDUITE",
   combat: "AU COMBAT",
   moi: "AVEC MOI",
+  don: "CE QU'IL PORTE",
 };
 
 export class MenuOrdres {

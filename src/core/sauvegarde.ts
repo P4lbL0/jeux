@@ -25,6 +25,8 @@ import type { Matiere, TypeConstruction } from "./constructions";
 import type { Fou } from "./arrivants";
 import type { Cours, EtatPort } from "./port";
 import type { EtatSubi } from "./etats";
+import type { EtatCourSauve as EtatCour } from "../game/cour";
+import type { Don } from "./dons";
 import type { Metier, PostureCivile, Stocks } from "./habitants";
 import type { Exploits, Personne, Rupture, Stats } from "./personne";
 import { reagreger } from "./personne";
@@ -97,6 +99,12 @@ export interface EtatPersonne {
   ruptures: number;
   exploits: Exploits;
   grainePortrait: number;
+  /**
+   * Son don (§4.1). Absent d'une sauvegarde d'avant le 21 septembre 2026 :
+   * elle n'en portait pas, et le retirer au sort au rechargement ferait
+   * apparaitre des heros la ou il n'y en avait pas.
+   */
+  don?: Don | null;
 }
 
 export interface EtatHabitant {
@@ -288,6 +296,11 @@ export interface Sauvegarde {
    */
   maisons?: EtatMaison[];
   /**
+   * La cour d'entrainement et ses eleves (§4.18, bloc 9). **Optionnel** : une
+   * partie d'avant le 21 septembre 2026 n'en a pas, et n'en avait pas.
+   */
+  cour?: EtatCour | null;
+  /**
    * Les chemins qui s'usent (§4.24) : les cases visibles, leurs passages et
    * leur derniere journee. **Optionnel** : une partie d'avant le 20 septembre
    * 2026 n'en a pas, et repart de l'herbe.
@@ -431,6 +444,7 @@ export function capturerPersonne(personne: Personne, maintenant: number): EtatPe
     ruptures: personne.ruptures,
     exploits: { ...personne.exploits },
     grainePortrait: personne.grainePortrait,
+    don: personne.don ? { ...personne.don } : null,
   };
 }
 
@@ -446,6 +460,9 @@ export function restaurerPersonne(etat: EtatPersonne, maintenant: number): Perso
     stress: etat.stress,
     rupture: etat.rupture,
     ruptureJusqua: etat.rupture === null ? 0 : maintenant + etat.ruptureRestante,
+    // Une sauvegarde d avant le 21 septembre 2026 n en portait pas : sans don,
+    // et surtout pas un don tire au rechargement.
+    don: etat.don ? { ...etat.don } : null,
     ruptures: etat.ruptures,
     exploits: { ...etat.exploits },
     grainePortrait: etat.grainePortrait,

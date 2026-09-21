@@ -117,6 +117,11 @@ export interface ContexteVillage {
    * seulement ou aller.
    */
   chantierLePlusProche: (x: number, y: number) => Point | null;
+  /**
+   * La cour d'entrainement, et si quelqu'un y attend un instructeur
+   * (§4.18, bloc 9). `null` tant qu'elle n'est pas batie.
+   */
+  courDEntrainement: () => { point: Point; attend: boolean } | null;
 }
 
 /**
@@ -175,6 +180,26 @@ const DELAI_SOIN = 20_000;
  * decision que le §4.23 veut creer n'existerait pas.
  */
 const RAYON_CONTAGION = 70;
+
+/**
+ * Le rayon de la ronde d'un milicien, autour de l'eglise, en pixels.
+ *
+ * *Chiffre tranche par le code.* Assez large pour couvrir les maisons et le
+ * parvis, assez serre pour qu'un milicien ne parte pas defendre la mine :
+ * il tient **les rues**, pas le territoire (§4.18).
+ */
+const RAYON_PATROUILLE = 150;
+
+/** A quelle vitesse le point de ronde tourne, en radians par seconde. */
+const VITESSE_DE_RONDE = 0.12;
+
+/**
+ * Dans quel rayon on se tient « dans la cour », en pixels.
+ *
+ * Plus large que l'emprise du batiment : on s'exerce **autour**, et un
+ * instructeur colle au pixel du centre n'aurait aucun sens a l'ecran.
+ */
+const RAYON_DE_LA_COUR = 40;
 
 /** Le pire palier d'un habitant, pour faire passer les mourants en premier. */
 function palierDe(villageois: Villageois): number {
@@ -1065,6 +1090,15 @@ export class Village {
       (posture === "prudent" && (menace || this.nuit)) ||
       (posture === "travail" && menace && this.auContact(villageois));
 
+    // ⚠️ **Un milicien ne se met pas a l'abri** (§4.18, bloc 9) : ni la nuit,
+    // ni quand la cloche sonne. C'est exactement ce pour quoi on l'a arme, et
+    // une milice qui se terre au moment ou la horde arrive ne servirait a rien.
+    // Le seul ordre qui le fait rentrer, c'est « a l'abri », qui est explicite.
+    if (villageois.regles.metier === "milicien" && posture !== "abri") {
+      this.patrouiller(villageois, monstre);
+      return;
+    }
+
     if (confine) {
       this.rentrer(villageois, monstre);
       return;
@@ -1197,6 +1231,126 @@ export class Village {
     return this.habitants.filter(
       (v) => v.regles.vivant && v.regles.metier === "charpentier" && v.etat === "au-poste",
     );
+  }
+
+  /**
+   * Le milicien tient les rues (DESIGN.md §4.18, bloc 9).
+   *
+   * Trois choses, dans cet ordre :
+   *
+   * 1. **Il va au-devant de ce qui entre.** Il ne produit rien, il n'a rien a
+   *    lacher : c'est le filet de securite de ce que le joueur n'a pas couvert.
+   * 2. **Il instruit**, s'il y a quelqu'un a la cour d'entrainement. Un
+   *    instructeur est un milicien qui se tient dans la cour — et c'est le vrai
+   *    prix de l'entrainement : pendant ce temps-la, il ne patrouille pas.
+   * 3. **Sinon il patrouille**, le long d'un anneau autour de l'eglise. Chacun
+   *    son point de depart, tire de son identifiant, pour qu'ils ne marchent
+   *    pas en file indienne.
+   *
+   * > **Pourquoi patrouiller le lieu et pas suivre le joueur.** Une escorte
+   * > serait une deuxieme equipe a commander, et le §4.15 plafonne deja
+   * > l'effectif a dix. Une patrouille attachee au lieu ne demande aucun ordre :
+   * > elle defend la ou le Protecteur n'est pas.
+   */
+  private patrouiller(villageois: Villageois, monstre: { x: number; y: number } | null): void {
+    this.sortirDeLEglise(villageois);
+
+    // 1. Ce qui entre passe avant tout le reste.
+    const cible =
+      monstre ??
+      this.contexte.menaceAutour(villageois.x, villageois.y, RAYON_PATROUILLE * 1.6);
+    if (cible) {
+      this.combattre(villageois, cible);
+      return;
+    }
+
+    // 2. La cour, s'il y a quelqu'un a former.
+    const cour = this.contexte.courDEntrainement();
+    if (cour?.attend) {
+      const place = ecarter(cour.point, villageois.regles.id, 20, 5);
+      // ⚠️ **On instruit des qu'on est dans la cour, pas a un pixel pres.** La
+      // meme lecon qu'au chantier du bloc 8 : un batiment ou une maison peut
+      // tomber entre lui et sa place exacte, et il pousserait contre le mur
+      // sans jamais « arriver » — il avance en ligne droite (§4.17).
+      const distance = Phaser.Math.Distance.Between(villageois.x, villageois.y, cour.point.x, cour.point.y);
+      if (distance > RAYON_DE_LA_COUR) {
+        villageois.etat = "en-route";
+        this.avancerVers(villageois, place.x, place.y, REGLAGES_VILLAGE.vitesseTravail * 1.4);
+        return;
+      }
+      villageois.etat = "au-poste";
+      villageois.setVelocity(0, 0);
+      return;
+    }
+
+    // 3. La ronde. Le point vise avance tout seul le long de l'anneau : pas de
+    // liste de points a tenir, pas de calcul de chemin (§4.17).
+    const angle =
+      villageois.regles.id * 2.399963 +
+      (this.scene.time.now / 1000) * VITESSE_DE_RONDE;
+    const point = {
+      x: EGLISE.x + Math.cos(angle) * RAYON_PATROUILLE,
+      y: EGLISE.y + Math.sin(angle) * RAYON_PATROUILLE * 0.7,
+    };
+    villageois.etat = "en-route";
+    this.avancerVers(villageois, point.x, point.y, REGLAGES_VILLAGE.vitesseTravail);
+  }
+
+  /**
+   * Il frappe ce qu'il a devant lui, la ou il est.
+   *
+   * Ce n'est pas `defendre()` : celui-la se **plante sur le parvis de
+   * l'eglise**, parce qu'il defend une porte. Un milicien defend une rue, donc
+   * il se bat ou il se trouve.
+   */
+  private combattre(villageois: Villageois, monstre: { x: number; y: number }): void {
+    const combat = combatDe(villageois.regles);
+    const distance = Phaser.Math.Distance.Between(villageois.x, villageois.y, monstre.x, monstre.y);
+
+    if (distance > combat.portee * 0.7) {
+      villageois.etat = "en-route";
+      this.avancerVers(villageois, monstre.x, monstre.y, REGLAGES_VILLAGE.vitesseFuite * 0.75);
+      return;
+    }
+
+    villageois.etat = "defend";
+    villageois.setVelocity(0, 0);
+    villageois.setFlipX(monstre.x < villageois.x);
+
+    const maintenant = this.scene.time.now;
+    if (maintenant < villageois.prochainCoup) return;
+    villageois.prochainCoup = maintenant + combat.recharge;
+    this.contexte.frapperMonstre(villageois.x, villageois.y, combat.portee, combat.degats);
+  }
+
+  /** Ceux qui tiennent les rues en ce moment (§4.18, bloc 9). */
+  get miliciens(): Villageois[] {
+    return this.habitants.filter((v) => v.regles.vivant && v.regles.metier === "milicien");
+  }
+
+  /**
+   * Un instructeur se tient-il dans la cour ? (§4.18, bloc 9)
+   *
+   * Sans lui, rien ne s'apprend : c'est ce qui fait qu'armer son village le
+   * ralentit **deux fois** — l'eleve ne produit rien, et l'instructeur non plus.
+   */
+  instructeurALaCour(cour: Point): boolean {
+    return this.miliciens.some(
+      (v) => v.etat === "au-poste" && Phaser.Math.Distance.Between(v.x, v.y, cour.x, cour.y) < 60,
+    );
+  }
+
+  /**
+   * Le village a-t-il de quoi instruire ? (§4.18, bloc 9)
+   *
+   * ⚠️ **On demande « y a-t-il un milicien », pas « est-il dans la cour a cet
+   * instant ».** La formation se solde a l'aube, et a l'aube un milicien revient
+   * de sa nuit : le trouver pile dans la cour serait un coup de chance. Il est
+   * l'instructeur **par son metier** — c'est ce qu'on a paye en le retirant de
+   * la production —, et ce qu'on voit dans la cour le jour, c'est lui.
+   */
+  get aUnInstructeur(): boolean {
+    return this.miliciens.length > 0;
   }
 
   /** Un monstre est litteralement sur lui : meme un tetu s'en va. */

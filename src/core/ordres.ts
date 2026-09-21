@@ -201,10 +201,12 @@ export type TacheId =
   | "posture-agressif"
   | "posture-repli"
   | "suivre"
-  | "rompez";
+  | "rompez"
+  | "entrainer"
+  | "rituel";
 
 /** Les quatre paquets du menu, dans l'ordre ou ils s'affichent. */
-export type GroupeTache = "travail" | "civil" | "combat" | "moi";
+export type GroupeTache = "travail" | "civil" | "combat" | "moi" | "don";
 
 export interface TacheDef {
   id: TacheId;
@@ -233,6 +235,7 @@ const LIBELLE_TRAVAIL: Record<Metier, string> = {
   forgeron: "A la forge",
   charpentier: "A l'atelier",
   guetteur: "Tenir une tour",
+  milicien: "Prendre les armes",
 };
 
 const METIERS_DU_MENU: Metier[] = [
@@ -243,6 +246,7 @@ const METIERS_DU_MENU: Metier[] = [
   "forgeron",
   "charpentier",
   "guetteur",
+  "milicien",
 ];
 
 /**
@@ -271,6 +275,10 @@ export const TACHES: TacheDef[] = [
   { id: "posture-repli", libelle: "Repli", groupe: "combat", pour: "combattant", posture: "repli" },
   { id: "suivre", libelle: "Me suivre", groupe: "moi", pour: "tous" },
   { id: "rompez", libelle: "Rompez", groupe: "moi", pour: "tous" },
+  // Les deux voies que le joueur **choisit** (§4.1). La troisieme — le danger
+  // de mort — ne se commande pas : c'est ce qui en fait la voie noble.
+  { id: "entrainer", libelle: "L'entrainer", groupe: "don", pour: "civil" },
+  { id: "rituel", libelle: "Le rituel", groupe: "don", pour: "civil" },
 ];
 
 const PAR_ID = new Map(TACHES.map((t) => [t.id, t]));

@@ -72,6 +72,10 @@ export const TABLIERS: Record<MetierDessine, Matiere | null> = {
   forgeron: matiere(melanger(C.os, C.sangSeche, 0.45)),
   charpentier: matiere(melanger(C.os, BOIS.corps, 0.5)),
   guetteur: matiere(melanger(C.os, C.cielSale, 0.45)),
+  // ⚠️ **Le seul habitant en fer.** Le milicien ne touche aucune matiere de
+  // travail : il porte ce qui le protege (§4.18, bloc 9). Sa teinte s'ecarte des
+  // sept autres parce qu'elle vient d'ailleurs — c'est du metal, pas un tablier.
+  milicien: matiere(melanger(C.os, C.fer ?? C.plaque, 0.62)),
   // ⚠️ **Pas de tablier du tout** : un inconnu ne porte pas les couleurs d'un
   // metier, et sa silhouette entierement sombre le dit mieux qu'une huitieme
   // teinte — a huit, elles ne pouvaient plus s'ecarter.
@@ -79,7 +83,7 @@ export const TABLIERS: Record<MetierDessine, Matiere | null> = {
 };
 
 /** L'outil de chaque metier. Il n'apparait qu'au travail. */
-type Outil = "pioche" | "hache" | "houe" | "canne" | "marteau" | "maillet" | "baton";
+type Outil = "pioche" | "hache" | "houe" | "canne" | "marteau" | "maillet" | "baton" | "lance";
 
 const OUTILS: Record<MetierDessine, Outil> = {
   pecheur: "canne",
@@ -89,6 +93,8 @@ const OUTILS: Record<MetierDessine, Outil> = {
   forgeron: "marteau",
   charpentier: "maillet",
   guetteur: "baton",
+  // Une lance, et pas une epee : c'est l'arme de ceux qu'on arme en nombre.
+  milicien: "lance",
   survivant: "baton",
 };
 
@@ -101,6 +107,7 @@ const BRUITS: Record<Outil, string> = {
   marteau: "enclume",
   maillet: "maillet",
   baton: "pas",
+  lance: "pas",
 };
 
 /**
@@ -334,5 +341,13 @@ function peindreOutil(toile: Toile, outil: Outil, main: { x: number; y: number }
     case "baton":
       manche(3.5);
       break;
+    case "lance": {
+      // Une hampe longue, une pointe de fer. Elle depasse de la silhouette : a
+      // vingt pixels, c'est elle qui dit qu'il est arme.
+      const b = manche(4.5);
+      toile.point(Math.round(b.x), Math.round(b.y), FER.clair);
+      toile.point(Math.round(b.x), Math.round(b.y) - 1, FER.corps);
+      break;
+    }
   }
 }

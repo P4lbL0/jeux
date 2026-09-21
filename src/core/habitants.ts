@@ -31,7 +31,8 @@ export type Metier =
   | "mineur"
   | "forgeron"
   | "charpentier"
-  | "guetteur";
+  | "guetteur"
+  | "milicien";
 
 /**
  * Les ressources recoltees (DESIGN.md §4.18) — quatre, puis **la pierre**
@@ -67,6 +68,11 @@ export const PRODUCTION: Record<Metier, Ressource | null> = {
   forgeron: null,
   charpentier: null,
   guetteur: null,
+  /**
+   * Le milicien ne produit rien, et c'est le garde-fou n°3 du §4.18 : **se
+   * battre, c'est ne pas produire**. Armer son village, c'est le ralentir.
+   */
+  milicien: null,
 };
 
 /**
@@ -89,6 +95,7 @@ export const NOMS_METIER: Record<Metier, string> = {
   forgeron: "Forgeron",
   charpentier: "Charpentier",
   guetteur: "Guetteur",
+  milicien: "Milicien",
 };
 
 export const NOMS_RESSOURCE: Record<Ressource, string> = {
@@ -212,8 +219,51 @@ export interface CombatHabitant {
  * `REGLAGES_VILLAGE` : ce sont deux equilibrages differents, on ne veut pas
  * qu'un reglage de production touche par accident a la defense.
  */
+/**
+ * Les trois paliers de combattant (DESIGN.md §4.18, tranche le 9 septembre
+ * 2026) : **tres separes**, et c'est le sujet.
+ *
+ * Un civil arme est de la chair a canon — il meurt du premier gros coup une
+ * fois sur deux. Un milicien tient, une fois sur cinq. Un veteran, presque
+ * jamais. C'est cet ecart qui fait qu'armer son village est une decision et pas
+ * un reglage.
+ */
+export type PalierCombattant = "civil" | "milicien" | "veteran";
+
+export const PV_PAR_PALIER: Record<PalierCombattant, number> = {
+  civil: 30,
+  milicien: 60,
+  veteran: 100,
+};
+
+export const NOMS_PALIER: Record<PalierCombattant, string> = {
+  civil: "Civil",
+  milicien: "Milicien",
+  veteran: "Veteran",
+};
+
+/**
+ * A partir de quel niveau de combat un milicien devient un **veteran**.
+ *
+ * *Chiffre tranche par le code, a corriger en jouant.* Dix niveaux, soit cinq
+ * passages a la cour d'entrainement (§4.18, bloc 9) — ou beaucoup de nuits
+ * passees a tenir les rues. Le veteran se merite, il ne s'achete pas.
+ */
+export const NIVEAU_VETERAN = 10;
+
+/**
+ * Ce que vaut cet habitant, des trois paliers.
+ *
+ * Le metier fait le premier saut, le niveau fait le second : on decide qu'un
+ * habitant se batte, et le temps decide qu'il soit bon.
+ */
+export function palierDe(habitant: Habitant): PalierCombattant {
+  if (habitant.metier !== "milicien") return "civil";
+  return habitant.niveau >= NIVEAU_VETERAN ? "veteran" : "milicien";
+}
+
 export const REGLAGES_COMBAT_CIVIL = {
-  /** Un habitant de rang F, niveau 1 */
+  /** Un habitant de rang F, niveau 1. Voir `PV_PAR_PALIER` pour les paliers. */
   pvDeBase: 30,
   degatsDeBase: 3,
   portee: 34,
@@ -243,9 +293,17 @@ export function combatDe(habitant: Habitant): CombatHabitant {
   const { mods, stats } = habitant.personne;
   const force = 0.7 + stats.force / 100;
 
+  // Le palier passe **avant** le rang et le niveau : un milicien de rang F vaut
+  // deux civils de rang F, et c'est ce saut-la qui se joue (§4.18).
+  const palier = palierDe(habitant);
+  const pvDuPalier = PV_PAR_PALIER[palier];
+  // Un combattant frappe aussi plus fort : il a une arme et il sait s'en
+  // servir. Le meme rapport que ses points de vie, pour n'avoir qu'une courbe.
+  const armement = pvDuPalier / PV_PAR_PALIER.civil;
+
   return {
-    pvMax: Math.max(1, Math.round(r.pvDeBase * facteur * mods.pvMax)),
-    degats: r.degatsDeBase * facteur * force * mods.degats,
+    pvMax: Math.max(1, Math.round(pvDuPalier * facteur * mods.pvMax)),
+    degats: r.degatsDeBase * armement * facteur * force * mods.degats,
     portee: r.portee,
     // Le rang le rend plus fort, jamais plus rapide : une cadence qui monte
     // aussi ferait exploser la courbe en la multipliant deux fois.

@@ -1598,6 +1598,87 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le bloc 9 — le village armé, et la seule source de héros (21 septembre 2026)
+
+**Le bloc le plus important du jalon 5.** Depuis le 5.5 on commence seul, et quatre jalons
+de code — les ordres, les postures, les formations, l'IA de repli, l'expérience de groupe —
+tournaient à vide faute d'un deuxième héros. Il n'y avait **aucun moyen** d'en obtenir un.
+
+#### Le noyau : `src/core/dons.ts` (neuf, 11 tests)
+
+`tirerLeDon`, `entrainer`, `reveilParLeDanger`, `rituel`. Un habitant sur dix porte un don,
+un don sur vingt est majeur — **mesuré sur 40 000 tirages**, pas supposé. Le don porte une
+classe tirée à la naissance et **cachée**, et il naît endormi.
+
+Il vit sur la `Personne` (`personne.don`), donc il traverse tout ce qui porte une personne :
+l'arrivant à la porte, le survivant de la route, l'habitant — et le héros qu'il deviendra.
+
+> ⚠️ **Il se tire en dernier dans `creerPersonne`.** Placé avant les traits de naissance,
+> un tirage de plus **décale toute la suite aléatoire** : à graine égale, tout le monde
+> changeait de traits, et un test de la faim qui n'avait rien à voir est tombé. C'est
+> exactement ce à quoi servent les tests seedés.
+
+#### Le passage habitant → héros
+
+`ArenaScene.eveillerUnDon(villageois, voie)`. Le héros naît **avec la `Personne` de
+l'habitant, le même objet** : `new Hero(..., personne)` prend désormais une personne
+existante au lieu d'en fabriquer une. Nom, traits, stress, séquelles, visage : rien n'est
+recréé. C'est toute la promesse du §4.29 — « chaque héros aura eu un nom d'habitant ».
+
+L'habitant quitte le village **avant** que le héros ne paraisse : deux corps au même endroit
+se pousseraient l'un l'autre.
+
+**La barre d'équipe grandit en cours de partie** (`Hud.ajouter`), ce qui est neuf : elle
+était fabriquée une fois pour l'équipe de départ, du temps où l'on commençait à sept.
+
+#### La cour d'entraînement : `src/game/cour.ts` (neuf)
+
+Un seul bâtiment par village, 120 bois et 40 minerai, touche `U`. Même forme que `Maisons`
+et `Champs` : le parc tient la grille à jour, la scène ne parle jamais aux cases.
+
+Son dessin est au code (`peindreCour`), comme tous les bâtiments — un PNG Blender pourra le
+remplacer sous la même clé `bati-cour`.
+
+> ⚠️ **Premier jet : une caisse brune illisible à vingt pixels.** Palissade fermée sur
+> quatre côtés, sol uni. Trois choses la sauvent, et ce sont celles qui sauvent tous les
+> bâtiments du §4.30 : **quelque chose qui dépasse par le haut** (trois hampes au-dessus de
+> la palissade), **un devant ouvert** (deux poteaux d'angle, pas un mur), et **du sol qui
+> n'est pas uni** (terre piétinée, tachée). Jugé sur la planche agrandie ×8, corrigé, puis
+> revu en jeu.
+
+#### Le milicien
+
+Un métier de plus dans `core/habitants.ts`, donc donnable depuis le menu du bloc 8 sans
+rien ajouter à l'interface. Les **trois paliers** du 9 septembre sont codés :
+`PV_PAR_PALIER` — civil 30, milicien 60, vétéran 100 à dix niveaux de combat. Le palier
+multiplie aussi les dégâts, dans le même rapport : une seule courbe à comprendre.
+
+`Village.patrouiller()` : il va au-devant de ce qui entre, sinon il instruit, sinon il fait
+sa ronde. **Il ne se met jamais à l'abri**, ni la nuit ni à la cloche — c'est exactement ce
+pour quoi on l'a armé. Son dessin : le seul habitant en fer, et une lance qui dépasse.
+
+#### Deux choses apprises en pilotant
+
+1. **La leçon du chantier, encore — deux fois dans la même journée.** Un villageois visé
+   sur un **point exact** à côté d'un bâtiment n'arrive jamais : il avance en ligne droite
+   (§4.17). L'instructeur était à 19 px de la cour et restait « en-route » pour toujours.
+   **Règle générale désormais : un poste qui n'est pas en terrain libre se juge à un
+   rayon, jamais à un point.**
+2. **« L'instructeur est-il dans la cour à cet instant » était la mauvaise question.** La
+   formation se solde à l'aube, et à l'aube un milicien revient de sa nuit : la trouver
+   remplie aurait été un coup de chance. On demande **« y a-t-il un milicien »** — il est
+   l'instructeur par son métier, c'est ce qu'on a payé en le retirant de la production.
+
+#### Vérifié
+
+`node .tmp/verifier-bloc9.mjs <graine>` : **20/20**, cinq mondes. La cour se bâtit et il n'y
+en a qu'une, le menu inscrit à la cour, **rien n'avance sans instructeur**, le milicien tient
+la cour, le porteur transcende et rejoint l'équipe **en gardant son nom**, il prend la classe
+de son don — et les postures, les formations et le panneau ORDRES reprennent vie. Le rituel
+de l'église réveille à coup sûr.
+
+**720 tests verts** (+11). **À regarder** : `captures/jeu/2026-09-21-bloc9-village-arme/`.
+
 ### Le bloc 8, premier morceau — les ordres pour tous (21 septembre 2026)
 
 **Ce qui marchait avant.** Un héros se commandait à la souris (clic droit, `W`/`X`/`C`,

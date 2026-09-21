@@ -226,6 +226,98 @@ export function peindreFerme(toile: Toile): void {
   toit(toile, 1, hautMur - 14, logis - 2, 14, ARDOISE);
 }
 
+// ------------------------------------------------- la cour d'entrainement
+
+/** **Deux cases au sol**, comme l'eglise : on s'y exerce a plusieurs (§4.18). */
+export const COUR = { largeur: CASE * 2, hauteur: 52 };
+
+/**
+ * La cour d'entrainement (DESIGN.md §4.18, §4.1 — bloc 9).
+ *
+ * **C'est le seul batiment du jeu qui fabrique des heros**, et il faut que ca
+ * se voie de loin. Pas de toit — une cour n'en a pas, et c'est ce qui la
+ * distingue d'une remise au premier coup d'oeil.
+ *
+ * ⚠️ **Sa silhouette ne doit pas etre un rectangle.** Premier jet : une
+ * palissade fermee sur les quatre cotes et un sol uni, ce qui donnait une
+ * caisse brune illisible a vingt pixels. Trois choses la sauvent, et ce sont
+ * les memes qui sauvent les autres batiments (§4.30) : **quelque chose qui
+ * depasse par le haut** (les hampes du ratelier), **un devant ouvert** (deux
+ * poteaux d'angle, pas un mur), et **du sol qui n'est pas uni** (la terre
+ * pietinee, tachee).
+ *
+ * Aucune couleur neuve : bois, ecorce, toile, fer et laiton (§4.11).
+ */
+export function peindreCour(toile: Toile): void {
+  const { largeur, hauteur } = COUR;
+  const sol = hauteur - MARGE_BASSE;
+
+  poser(toile, 1, largeur - 2, sol);
+
+  // --- Le sol battu : de la terre, et elle est **pietinee** ---
+  const hautTerre = sol - 22;
+  const terre = melanger(ECORCE.corps, C.os, 0.22);
+  const creuse = melanger(terre, C.fer, 0.35);
+  toile.rect(2, hautTerre, largeur - 4, sol - hautTerre, terre);
+  // Les passages : deux arcs uses devant chaque mannequin, et des eclats.
+  for (let i = 0; i < 26; i += 1) {
+    const x = 3 + ((i * 17) % (largeur - 7));
+    const y = hautTerre + 2 + ((i * 7) % (sol - hautTerre - 3));
+    toile.point(x, y, i % 3 === 0 ? melanger(terre, C.os, 0.2) : creuse);
+  }
+
+  // --- La palissade du fond : basse, et ses poteaux depassent du rail ---
+  const hautFond = sol - 30;
+  pan(toile, 2, hautFond, largeur - 4, 9, BOIS);
+  toile.rect(2, hautFond, largeur - 4, 1, BOIS.clair);
+  toile.rect(2, hautFond + 8, largeur - 4, 1, BOIS.sombre);
+  for (let x = 3; x < largeur - 3; x += 7) {
+    toile.rect(x, hautFond - 2, 2, 11, BOIS.sombre);
+    toile.point(x, hautFond - 2, BOIS.clair);
+  }
+
+  // --- Le ratelier d'armes : **trois hampes qui depassent** ---
+  // C'est lui qui casse le rectangle par le haut, et qui dit « on s'arme ici ».
+  for (let i = 0; i < 3; i += 1) {
+    const x = 7 + i * 5;
+    toile.rect(x, hautFond - 11, 1, 14, ECORCE.corps);
+    toile.point(x, hautFond - 12, FER.clair);
+    toile.point(x, hautFond - 11, FER.corps);
+  }
+  toile.rect(6, hautFond + 2, 12, 1, BOIS.sombre);
+  toile.point(7, hautFond - 12, LAITON.corps);
+
+  // --- Les deux poteaux d'angle, devant : la cour est **ouverte** ---
+  for (const x of [1, largeur - 4]) {
+    toile.rect(x, sol - 17, 3, 17, BOIS.corps);
+    toile.rect(x, sol - 17, 3, 1, BOIS.clair);
+    toile.rect(x + 2, sol - 17, 1, 17, BOIS.sombre);
+  }
+
+  // --- Les deux mannequins de paille ---
+  const mannequins: { x: number; y: number }[] = [
+    { x: 22, y: sol - 3 },
+    { x: 44, y: sol - 1 },
+  ];
+  for (const { x: mx, y: my } of mannequins) {
+    // Le pieu, sombre sur la terre claire : c'est lui qui porte la silhouette,
+    // et il lui faut une ombre au sol pour ne pas paraitre flotter.
+    toile.ombreAuSol(mx + 1, my + 1, 4, 1.5);
+    toile.rect(mx, my - 17, 2, 17, ECORCE.sombre);
+    toile.rect(mx, my - 17, 1, 17, ECORCE.corps);
+    // Les bras, en paille claire, cernes en dessous pour qu'ils se detachent.
+    toile.rect(mx - 5, my - 13, 12, 2, TOILE.clair);
+    toile.rect(mx - 5, my - 11, 12, 1, melanger(TOILE.sombre, ECORCE.sombre, 0.4));
+    // La tete, et la cible peinte dessus : un rond de sang seche.
+    toile.rect(mx - 2, my - 20, 6, 5, TOILE.corps);
+    toile.rect(mx - 2, my - 20, 6, 1, TOILE.clair);
+    toile.rect(mx, my - 18, 2, 2, melanger(C.sangSeche, TOILE.sombre, 0.35));
+    // Les coups recus : des entailles sombres, toujours au meme endroit.
+    toile.point(mx, my - 9, melanger(TOILE.sombre, FER.sombre, 0.6));
+    toile.point(mx + 1, my - 7, melanger(TOILE.sombre, FER.sombre, 0.6));
+  }
+}
+
 // ----------------------------------------------------------------- l'eglise
 
 /** **Deux cases au sol**, tranche le 12 aout 2026 (§4.30, §4.22). */
@@ -500,6 +592,8 @@ export function cleEglise(niveau: number): string {
   return `bati-eglise-${niveau}`;
 }
 export const CLE_FERME = "bati-ferme";
+/** La cour d'entrainement, le batiment neuf du bloc 9 (§4.18). */
+export const CLE_COUR = "bati-cour";
 /**
  * Une maison tombee (§4.24). Rendue par Blender seulement (`monde.maison_ruine`),
  * pas de dessin au code derriere : le PNG est dans le depot.
@@ -539,6 +633,7 @@ export function cuireLesBatiments(scene: Phaser.Scene): number {
     graver(cleMaison(v), MAISON.largeur, MAISON.hauteur, (t) => peindreMaison(t, v));
   }
   graver(CLE_FERME, FERME.largeur, FERME.hauteur, peindreFerme);
+  graver(CLE_COUR, COUR.largeur, COUR.hauteur, peindreCour);
   for (let n = 1; n <= 4; n += 1) {
     graver(cleEglise(n), EGLISE.largeur, EGLISE.hauteur, (t) => peindreEglise(t, n));
   }
