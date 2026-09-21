@@ -194,6 +194,7 @@ export function nomDe(habitant: Habitant): string {
   return habitant.personne.nom;
 }
 
+
 /**
  * Ce qu'un habitant vaut au combat (DESIGN.md §4.18).
  *

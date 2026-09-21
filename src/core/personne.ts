@@ -12,6 +12,7 @@
  */
 
 import type { Rng } from "./rng";
+import type { Souvenir } from "./memoire";
 import { tirerLeDon, type Don } from "./dons";
 import {
   agreger,
@@ -176,6 +177,20 @@ function exploitsVierges(): Exploits {
  * exception.
  */
 export interface Personne {
+  /**
+   * Son identite sociale, stable pour toute la partie (DESIGN.md §4.26).
+   *
+   * ⚠️ **Elle vit ici et pas sur le heros ni sur l'habitant**, et c'est tout
+   * l'interet : un villageois qui s'eveille au bloc 9 garde sa `Personne`, donc
+   * il **garde ses liens**. Un identifiant pose sur le corps aurait fait
+   * disparaitre l'histoire de quelqu'un au moment precis ou elle devient
+   * interessante.
+   *
+   * Elle ne remplace pas `hero.identifiant` : celui-la sert a l'**affinite**
+   * (§4.16), qui est militaire, ne concerne que les heros et ne doit surtout
+   * pas se confondre avec la relation, qui est sociale (§4.26).
+   */
+  identite: string;
   nom: string;
   /** Vrai si le joueur l'a renomme : on ne lui repropose pas un nom tire au sort */
   nomChoisi: boolean;
@@ -194,6 +209,15 @@ export interface Personne {
   /** Combien de fois il a craque. Le §4.12 s'en servira pour la bascule */
   ruptures: number;
   exploits: Exploits;
+  /**
+   * Ce qu'il garde de sa vie (DESIGN.md §4.26, bloc 11).
+   *
+   * ⚠️ **Huit au plus**, et les plus anciens sortent — sauf les fondateurs.
+   * Sans ce plafond, trente habitants sur cinquante nuits produisent des
+   * milliers d'entrees que personne ne lira jamais et qu'il faudra pourtant
+   * parcourir. C'est `memoire.ts` qui tient la regle, jamais l'appelant.
+   */
+  souvenirs: Souvenir[];
   /** La graine de son portrait : deux personnes n'ont jamais la meme */
   grainePortrait: number;
   /**
@@ -320,6 +344,27 @@ function coller(tete: string, queue: string, rng: Rng): string {
 }
 
 /**
+ * Le compteur des identites sociales (§4.26).
+ *
+ * ⚠️ **Il ne se remet pas a zero entre deux parties d'une meme session** — et
+ * c'est voulu : deux identites egales dans deux parties differentes ne se
+ * croisent jamais, mais une remise a zero au milieu d'une partie ferait se
+ * confondre deux personnes vivantes. Les tests l'appellent explicitement.
+ */
+let prochaineIdentite = 1;
+
+/** Pour les tests, et pour repositionner le compteur au-dessus d'une reprise. */
+export function reserverIdentites(dernier: number): void {
+  prochaineIdentite = Math.max(prochaineIdentite, dernier + 1);
+}
+
+/** Le numero d'une identite : `p12` rend 12. Zero si elle n'en a pas. */
+export function numeroDIdentite(identite: string): number {
+  const n = Number.parseInt(identite.slice(1), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
  * Combien de traits on nait avec.
  *
  * Deux en moyenne : assez pour que deux habitants ne se ressemblent pas, pas
@@ -345,6 +390,7 @@ const POIDS_HUMEUR = { bon: 1, mixte: 1.5, mauvais: 2 } as const;
  */
 export function creerPersonne(nom: string, rng: Rng): Personne {
   const personne: Personne = {
+    identite: `p${prochaineIdentite++}`,
     nom,
     nomChoisi: false,
     stats: {
@@ -363,6 +409,7 @@ export function creerPersonne(nom: string, rng: Rng): Personne {
     ruptureJusqua: 0,
     ruptures: 0,
     exploits: exploitsVierges(),
+    souvenirs: [],
     grainePortrait: Math.floor(rng.next() * 0x7fffffff),
     don: null,
     mods: agreger([], []),
@@ -492,10 +539,14 @@ export function stressDesEtatsDe(personne: Personne): number {
  *
  * C'est le gros pic du §4.23 — celui qui fait qu'une mauvaise nuit se paie
  * pendant des jours. Un Sang-Froid la paie moitie moins.
+ *
+ * @param facteur ce que la **relation** au mort multiplie (§4.26, bloc 11) : un
+ *   ami se pleure deux fois plus, un frere davantage, et celui qu'on haissait
+ *   moitie moins. Omis, la mort est celle d'un inconnu.
  */
-export function voirMourir(personne: Personne): void {
+export function voirMourir(personne: Personne, facteur = 1): void {
   personne.exploits.mortsVues += 1;
-  monterStress(personne, REGLAGES_STRESS.parMortVue * personne.mods.stressParMort);
+  monterStress(personne, REGLAGES_STRESS.parMortVue * personne.mods.stressParMort * facteur);
 }
 
 /**

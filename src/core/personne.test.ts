@@ -52,9 +52,19 @@ describe("Une personne neuve", () => {
   });
 
   /** Une meme graine redonne le meme village : on l'apprend, comme la carte. */
-  it("est identique a graine egale", () => {
-    expect(quelquUn(7)).toEqual(quelquUn(7));
+  it("est identique a graine egale, sauf son identite", () => {
+    const { identite: _a, ...un } = quelquUn(7);
+    const { identite: _b, ...deux } = quelquUn(7);
+    expect(un).toEqual(deux);
     expect(quelquUn(7).grainePortrait).not.toBe(quelquUn(8).grainePortrait);
+  });
+
+  it("recoit une identite sociale qui n'appartient qu'a elle", () => {
+    // ⚠️ **Elle ne vient pas de la graine, et c'est le sujet** (§4.26) : deux
+    // habitants tires de la meme graine sont deux personnes differentes, et
+    // leurs relations ne doivent jamais se confondre.
+    const identites = new Set([quelquUn(7), quelquUn(7), quelquUn(8)].map((p) => p.identite));
+    expect(identites.size).toBe(3);
   });
 
   it("part sans stress, sans sequelle et sans etat", () => {

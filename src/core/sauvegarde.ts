@@ -27,6 +27,8 @@ import type { Cours, EtatPort } from "./port";
 import type { EtatSubi } from "./etats";
 import type { EtatCourSauve as EtatCour } from "../game/cour";
 import type { Don } from "./dons";
+import type { Evenement, Souvenir } from "./memoire";
+import type { Lien } from "./relations";
 import type { Metier, PostureCivile, Stocks } from "./habitants";
 import type { Exploits, Personne, Rupture, Stats } from "./personne";
 import { reagreger } from "./personne";
@@ -84,6 +86,12 @@ export interface EtatCycle {
  * suffirait a l'annuler.
  */
 export interface EtatPersonne {
+  /**
+   * Son identite sociale (§4.26). **Optionnelle** : une sauvegarde d'avant le
+   * 21 septembre 2026 au soir n'en portait pas, et on lui en donne une neuve —
+   * elle n'a de toute facon aucune relation a retrouver.
+   */
+  identite?: string;
   nom: string;
   nomChoisi: boolean;
   stats: Stats;
@@ -105,6 +113,12 @@ export interface EtatPersonne {
    * apparaitre des heros la ou il n'y en avait pas.
    */
   don?: Don | null;
+  /**
+   * Ses souvenirs (§4.26, bloc 11). Absents d'une sauvegarde d'avant le
+   * 21 septembre 2026 au soir : elle reprend avec une memoire vierge, ce qui
+   * est le seul comportement honnete — on ne fabrique pas un passe.
+   */
+  souvenirs?: Souvenir[];
 }
 
 export interface EtatHabitant {
@@ -251,6 +265,14 @@ export interface Sauvegarde {
    * la lit.
    */
   morts: number[];
+  /**
+   * La memoire du village (§4.26, bloc 11). **Optionnelles** : une partie
+   * d'avant le 21 septembre 2026 au soir reprend sans passe social, ce qui est
+   * le seul comportement honnete — on ne fabrique pas des liens qui n'ont pas
+   * ete vecus.
+   */
+  relations?: [string, Lien][];
+  archives?: Evenement[];
   habitants: EtatHabitant[];
   /**
    * Ceux qu'on a laisses entrer et qui preparent quelque chose (§4.18).
@@ -428,8 +450,18 @@ export function tientEnBase(texte: string): boolean {
 
 // --------------------------------------------------------------- la personne
 
+/**
+ * Pour les sauvegardes d'avant les identites sociales (§4.26).
+ *
+ * Un nombre tres haut : il ne peut pas entrer en collision avec les identites
+ * qu'une partie neuve distribue, et une vieille sauvegarde n'a de toute facon
+ * aucune relation a retrouver.
+ */
+let prochaineIdentiteDeSecours = 900_000;
+
 export function capturerPersonne(personne: Personne, maintenant: number): EtatPersonne {
   return {
+    identite: personne.identite,
     nom: personne.nom,
     nomChoisi: personne.nomChoisi,
     stats: { ...personne.stats },
@@ -445,11 +477,13 @@ export function capturerPersonne(personne: Personne, maintenant: number): EtatPe
     exploits: { ...personne.exploits },
     grainePortrait: personne.grainePortrait,
     don: personne.don ? { ...personne.don } : null,
+    souvenirs: personne.souvenirs.map((s) => ({ ...s })),
   };
 }
 
 export function restaurerPersonne(etat: EtatPersonne, maintenant: number): Personne {
   const personne: Personne = {
+    identite: etat.identite ?? `p${prochaineIdentiteDeSecours++}`,
     nom: etat.nom,
     nomChoisi: etat.nomChoisi,
     stats: { ...etat.stats },
@@ -465,6 +499,7 @@ export function restaurerPersonne(etat: EtatPersonne, maintenant: number): Perso
     don: etat.don ? { ...etat.don } : null,
     ruptures: etat.ruptures,
     exploits: { ...etat.exploits },
+    souvenirs: (etat.souvenirs ?? []).map((s) => ({ ...s })),
     grainePortrait: etat.grainePortrait,
     // Un agregat vierge, refait juste apres : `reagreger` est la seule ecriture
     // legitime de ce champ (§4.23).

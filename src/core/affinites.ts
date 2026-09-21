@@ -99,6 +99,21 @@ export class Affinites {
     }
     return lien;
   }
+
+  /**
+   * Des paires qui n'apprennent plus rien ensemble (DESIGN.md §4.26).
+   *
+   * ⚠️ **C'est le droit de veto de la relation sur l'affinite**, et le seul
+   * endroit ou les deux systemes se touchent. « Deux ennemis refusent de
+   * cooperer : pas de formation commune, pas d'affinite qui monte. » Leur lien
+   * militaire est remis a zero — le **record** aussi, sinon le plancher
+   * d'acquis leur rendrait le quart de ce qu'ils avaient appris.
+   *
+   * Appele au meme rythme qu'`ecouler`, jamais par image.
+   */
+  oublier(paires: Iterable<[string, string]>): void {
+    for (const [a, b] of paires) this.liens.delete(cle(a, b));
+  }
 }
 
 /** La cle ignore l'ordre : une affinite n'a pas de sens. */

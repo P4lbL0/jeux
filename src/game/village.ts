@@ -34,7 +34,7 @@ import {
   stressDesEtatsDe,
   verifierExploits,
   verifierRupture,
-  voirMourir,
+
   type Personne,
 } from "../core/personne";
 import { ETATS, lireEtat, pireEtat } from "../core/etats";
@@ -122,6 +122,35 @@ export interface ContexteVillage {
    * (§4.18, bloc 9). `null` tant qu'elle n'est pas batie.
    */
   courDEntrainement: () => { point: Point; attend: boolean } | null;
+  /**
+   * Quelqu'un tombe : la scene s'occupe de ce que ca produit (§4.26, bloc 11).
+   *
+   * ⚠️ **Ce fichier ne fait plus le deuil lui-meme.** Il appliquait le pic de
+   * stress a tous les temoins, a l'identique ; depuis le bloc 11, ce que coute
+   * une mort depend de la **relation** qu'on avait avec le mort — et les
+   * relations vivent au-dessus, avec les heros dedans. Le village dit qui est
+   * tombe et qui a vu ; la scene sait ce que ca change.
+   */
+  surLaMort: (
+    mort: Personne,
+    temoins: Personne[],
+    x: number,
+    y: number,
+    /** Ce qu'on sait de sa mort : son metier, s'il s'etait arme (§4.26) */
+    details: { metier?: string; arme?: string; faits?: string[] },
+  ) => void;
+  /**
+   * Ce que la memoire du village pese sur la satisfaction en ce moment
+   * (§4.26, bloc 11). Un nombre deja agrege, jamais une liste a parcourir.
+   */
+  memoireDuVillage: () => number;
+  /** Quelqu'un craque et s'en prend aux siens : le village s'en souvient (§4.26) */
+  surLaRage: (qui: Personne, temoins: Personne[]) => void;
+  /**
+   * Doit-il quelque chose a quelqu'un d'assez vivant pour que ca compte ?
+   * (§4.26) La dette fait accepter un ordre qu'on aurait refuse.
+   */
+  obeitMalgreTout: (qui: Personne) => boolean;
 }
 
 /**
@@ -1053,6 +1082,15 @@ export class Village {
     this.contexte.annoncer(
       `${villageois.nom} craque — ${NOMS_RUPTURE[rupture]} : ${EFFETS_RUPTURE[rupture].civil}`,
     );
+    // ⚠️ **On ne regarde plus pareil celui qui s'en prend aux siens** (§4.26).
+    // Seule la rage compte : c'est la seule rupture qui se tourne vers les
+    // autres. Un abattu ou un terrorise fait peur a personne.
+    if (rupture === "rage") {
+      this.contexte.surLaRage(
+        personne,
+        this.temoinsAutourDe(villageois.x, villageois.y, villageois).map((v) => v.regles.personne),
+      );
+    }
   }
 
   /**
@@ -1064,7 +1102,14 @@ export class Village {
    */
   private aLacheSonPoste(villageois: Villageois): boolean {
     const { rupture } = villageois.regles.personne;
-    return rupture === "paranoia" || rupture === "terreur";
+    if (rupture !== "paranoia" && rupture !== "terreur") return false;
+    // ⚠️ **La dette fait accepter un ordre qu'on aurait refuse** (§4.26).
+    // C'est le seul refus que le jeu produise aujourd'hui : la paranoia refuse
+    // de sortir travailler. Celui qui doit quelque chose a un vivant y va quand
+    // meme. La terreur, elle, ne se raisonne pas — on ne discute pas avec un
+    // homme qui court.
+    if (rupture === "terreur") return true;
+    return !this.contexte.obeitMalgreTout(villageois.regles.personne);
   }
 
   private majorerUn(villageois: Villageois, delta: number, rappel: boolean): void {
@@ -1616,7 +1661,20 @@ export class Village {
    * de la carte.
    */
   private faireLeDeuil(mort: Villageois): void {
-    this.temoinsDeLaMort(mort.x, mort.y, mort);
+    // ⚠️ **On ne raconte que ce qu'on sait** (§4.26). Un pecheur tombe a son
+    // poste n'a jamais pris d'epee : le dire serait le genre de mensonge que
+    // tout le systeme de recit existe pour rendre impossible.
+    const sArmait = mort.regles.metier === "milicien" || mort.etat === "defend";
+    this.contexte.surLaMort(
+      mort.regles.personne,
+      this.temoinsAutourDe(mort.x, mort.y, mort).map((v) => v.regles.personne),
+      mort.x,
+      mort.y,
+      {
+        metier: NOMS_METIER[mort.regles.metier].toLowerCase(),
+        ...(sArmait ? { arme: "ce qu'il avait sous la main", faits: ["combattant"] } : { faits: ["civil"] }),
+      },
+    );
   }
 
   /**
@@ -1625,7 +1683,8 @@ export class Village {
    * Publique parce que **la mort d'un heros compte aussi** : le village n'a pas
    * a savoir si c'etait un des siens, seulement qu'il l'a vu.
    */
-  temoinsDeLaMort(x: number, y: number, exclu?: Villageois): void {
+  temoinsAutourDe(x: number, y: number, exclu?: Villageois): Villageois[] {
+    const vus: Villageois[] = [];
     for (const temoin of this.habitants) {
       if (temoin === exclu || !temoin.regles.vivant) continue;
       // Celui qui est enferme dans l'eglise n'a rien vu, et c'est une raison de
@@ -1633,11 +1692,15 @@ export class Village {
       if (temoin.etat === "abri") continue;
       const distance = Phaser.Math.Distance.Between(temoin.x, temoin.y, x, y);
       if (distance > REGLAGES_STRESS.rayonDuDeuil) continue;
+      vus.push(temoin);
+    }
+    return vus;
+  }
 
-      voirMourir(temoin.regles.personne);
-      for (const cle of verifierExploits(temoin.regles.personne)) {
-        this.contexte.annoncer(`${temoin.nom} devient ${cle}`);
-      }
+  /** Un trait gagne se dit : sinon le joueur ne saurait jamais qu'il l'a fait. */
+  annoncerLesExploits(personne: Personne): void {
+    for (const cle of verifierExploits(personne)) {
+      this.contexte.annoncer(`${personne.nom} devient ${cle}`);
     }
   }
 
@@ -1671,6 +1734,9 @@ export class Village {
       // Les decorations arrivent avec le mode d'amenagement, au bloc 7 (§4.24).
       // Le point d'accroche est pose : il n'y aura rien a recoder ici.
       decorations: 0,
+      // Ce dont le village se souvient : un massacre pese, une nuit tenue aussi
+      // (§4.26, bloc 11). Deja agrege par les archives, jamais parcouru ici.
+      memoire: this.contexte.memoireDuVillage(),
     });
   }
 

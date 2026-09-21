@@ -69,6 +69,14 @@ export interface ContexteSatisfaction {
   egliseDebout: boolean;
   /** Le compte de decorations posees — zero jusqu'au bloc 7 */
   decorations: number;
+  /**
+   * Ce que la memoire du village pese en ce moment (§4.26, bloc 11).
+   *
+   * Un massacre coute dix points pendant quatre jours, une nuit tenue en
+   * rapporte vingt pendant trois. C'est **deja agrege** par les archives : ce
+   * fichier ne parcourt aucune liste d'evenements, il lit un nombre.
+   */
+  memoire?: number;
 }
 
 /**
@@ -105,6 +113,9 @@ export function satisfactionDuVillage(ctx: ContexteSatisfaction): number {
   else total -= r.parNiveauEglise * 2;
 
   total += Math.min(1, ctx.decorations / 8) * r.poidsDecorations;
+
+  // --- Ce dont le village se souvient, en bien comme en mal (§4.26).
+  total += ctx.memoire ?? 0;
 
   return Math.round(Math.max(0, Math.min(100, total)));
 }

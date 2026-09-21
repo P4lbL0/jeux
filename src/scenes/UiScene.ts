@@ -109,6 +109,9 @@ export class UiScene extends Phaser.Scene {
       // Maj + clic sur une ligne ouvre la fiche de cet habitant : c'est le
       // deuxieme chemin que le §4.18 exige pour le renommage.
       (index) => this.ouvrirFicheHabitant(index),
+      // Ce dont le village se souvient (§4.26). Lu **a l'ouverture** du
+      // tableau, pas a chaque image : le recit s'assemble une fois.
+      () => this.arene.archivesDuVillage(),
     );
     // Le panneau de vente ne touche jamais aux stocks : il demande, la scene
     // vend, parce que c'est `core/port.ts` qui sait ce que ca fait au cours.
@@ -291,6 +294,7 @@ export class UiScene extends Phaser.Scene {
       genre: "hero",
       hero,
       groupe: this.arene.groupeDe(hero),
+      vie: this.arene.vieSocialeDe(hero.personne),
       surIncarner: () => this.arene.events.emit("changer-hero", index),
     });
   }
@@ -343,7 +347,11 @@ export class UiScene extends Phaser.Scene {
   private ouvrirFicheHabitant(index: number): void {
     const villageois = this.arene.village.habitants[index];
     if (!villageois) return;
-    this.fiche.afficher({ genre: "habitant", villageois });
+    this.fiche.afficher({
+      genre: "habitant",
+      villageois,
+      vie: this.arene.vieSocialeDe(villageois.personne),
+    });
   }
 
   /** Le panneau des capacites suit toujours le heros incarne. */

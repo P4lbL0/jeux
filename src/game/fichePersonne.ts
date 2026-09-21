@@ -12,6 +12,7 @@ import {
 import { EFFETS_RUPTURE, NOMS_RUPTURE, REGLAGES_STRESS, type Personne } from "../core/personne";
 import { poser, reponseA, traitsVisibles, type Arrivant } from "../core/arrivants";
 import { sequelleParId, traitParId } from "../core/traits";
+import { direLeSouvenir } from "../core/memoire";
 import { portraitDe, TAILLE_PORTRAIT } from "./portraits";
 import {
   affuter,
@@ -62,6 +63,17 @@ const LARGEUR_PORTE = 880;
 /** Largeur de la colonne des questions, et de celle des reponses. */
 const COLONNE_PORTE = 250;
 
+/**
+ * Combien de liens et de souvenirs la fiche montre (§4.26, bloc 11).
+ *
+ * ⚠️ **Deux bornes, et elles ne sont pas decoratives.** Un veteran de cinquante
+ * nuits a des dizaines de liens ; la fiche n'est pas un dossier, elle doit se
+ * lire d'un coup d'oeil. Les liens sont deja tries du plus fort au plus faible,
+ * les souvenirs du plus recent au plus ancien.
+ */
+const LIENS_MONTRES = 4;
+const SOUVENIRS_MONTRES = 5;
+
 /** Un lien d'affinite tel qu'il s'affiche : un nom et une force de 0 a 1. */
 export interface LienAffiche {
   nom: string;
@@ -81,8 +93,15 @@ export interface GroupeAffiche {
  * qu'on ne lira jamais la cadence d'un heros ni les competences d'un fermier.
  */
 export type SujetFiche =
-  | { genre: "hero"; hero: Hero; groupe: GroupeAffiche; surIncarner: () => void }
-  | { genre: "habitant"; villageois: Villageois }
+  | {
+      genre: "hero";
+      hero: Hero;
+      groupe: GroupeAffiche;
+      surIncarner: () => void;
+      /** Ses liens, deja resolus en noms (§4.26, bloc 11) */
+      vie?: VieSociale;
+    }
+  | { genre: "habitant"; villageois: Villageois; vie?: VieSociale }
   /**
    * La fiche d'observation, a la porte (§4.10, §4.18).
    *
@@ -122,6 +141,18 @@ export type SujetFiche =
       surAccepter: () => void;
       surRefuser: () => void;
     };
+
+/**
+ * Ce que quelqu'un a vecu avec les autres (DESIGN.md §4.26, bloc 11).
+ *
+ * ⚠️ **Deja resolu en noms.** Les relations sont indexees par identite ; la
+ * fiche ne connait ni la memoire du village ni la population, et ce n'est pas a
+ * elle d'aller chercher qui est `p17`. C'est la scene d'interface qui traduit,
+ * une fois, au moment d'ouvrir.
+ */
+export interface VieSociale {
+  liens: { nom: string; type: string; resume: string; intensite: number; positif: boolean }[];
+}
 
 /** La personne derriere le sujet, quel qu'il soit. */
 function personneDe(sujet: SujetFiche): Personne {
@@ -248,6 +279,10 @@ export class FichePersonne {
     // qu'on lit vraiment ligne a ligne.
     if (sujet.genre !== "arrivant") curseur = this.moral(cadre, personne, x, curseur);
     curseur = this.traits(cadre, personne, x, curseur, sujet, colonneGauche);
+
+    if (sujet.genre !== "arrivant") {
+      curseur = this.vie(cadre, personne, sujet.vie, x, curseur, colonneGauche);
+    }
 
     if (sujet.genre === "hero") {
       curseur = this.combat(cadre, sujet.hero, x, curseur);
@@ -572,6 +607,53 @@ export class FichePersonne {
         Math.max(80, largeur - 134),
       );
       cy += Math.max(16, t.height + 2);
+    }
+
+    return cy + 10;
+  }
+
+  /**
+   * **Ce qu'il a vecu avec les autres** (DESIGN.md §4.26, bloc 11).
+   *
+   * Deux listes courtes, et bornees : ses liens les plus forts, et ses derniers
+   * souvenirs. C'est ce qui fait la difference entre « j'ai passe la nuit 30 »
+   * et « j'ai perdu Marc a la nuit 17 ».
+   *
+   * ⚠️ **Le texte n'existe qu'ici.** Un souvenir stocke un type, une journee et
+   * un nom ; la phrase n'est assemblee qu'au moment ou on la regarde (§4.26).
+   */
+  private vie(
+    cadre: Phaser.GameObjects.Graphics,
+    personne: Personne,
+    vie: VieSociale | undefined,
+    x: number,
+    y: number,
+    largeur = LARGEUR - 40,
+  ): number {
+    const liens = (vie?.liens ?? []).slice(0, LIENS_MONTRES);
+    const souvenirs = personne.souvenirs.slice(-SOUVENIRS_MONTRES).reverse();
+    if (liens.length === 0 && souvenirs.length === 0) return y;
+
+    this.texte(x + 20, y, espacer("CE QU'IL A VECU"), 10, COULEURS.discret);
+    let cy = y + 20;
+
+    for (const lien of liens) {
+      this.texte(x + 24, cy, lien.nom, 10, lien.positif ? COULEURS.bon : COULEURS.mauvais);
+      const t = this.texte(x + 150, cy, `${lien.type} — ${lien.resume}`, 9, COULEURS.discret)
+        .setWordWrapWidth(Math.max(80, largeur - 134));
+      cy += Math.max(16, t.height + 2);
+    }
+
+    if (souvenirs.length > 0) {
+      // Un filet de sang seche : les souvenirs sont d'une autre nature que les
+      // liens, et la palette n'a qu'une facon de le dire (§4.10).
+      cadre.fillStyle(C.sangSeche, 1);
+      cadre.fillRect(x + 20, cy + 2, 2, souvenirs.length * 16 + 2);
+      for (const souvenir of souvenirs) {
+        this.texte(x + 28, cy + 4, direLeSouvenir(souvenir), 10, T.os);
+        cy += 16;
+      }
+      cy += 6;
     }
 
     return cy + 10;
@@ -911,6 +993,13 @@ export class FichePersonne {
 
       return Math.max(h, droite, milieu) + 52;
     }
+
+    // Ce qu'il a vecu : ses liens et ses souvenirs (§4.26, bloc 11). On n'y
+    // arrive que pour un heros ou un habitant — l'arrivant est deja reparti
+    // plus haut, avec ses trois colonnes.
+    const liens = Math.min(LIENS_MONTRES, sujet.vie?.liens.length ?? 0);
+    const souvenirs = Math.min(SOUVENIRS_MONTRES, personne.souvenirs.length);
+    if (liens + souvenirs > 0) h += 20 + liens * 18 + souvenirs * 16 + 16;
 
     if (sujet.genre === "hero") {
       h += 20 + 4 * 19 + 10; // combat

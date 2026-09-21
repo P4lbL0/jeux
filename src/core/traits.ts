@@ -156,7 +156,7 @@ export type Effets = Partial<Modificateurs>;
  * tombe au hasard, la condition est **toujours quelque chose que le joueur a
  * fait**.
  */
-export type OrigineTrait = "naissance" | "exploit" | "stele";
+export type OrigineTrait = "naissance" | "exploit" | "stele" | "heritage" | "deuil";
 
 export type CleTrait =
   // les quinze de naissance
@@ -196,7 +196,11 @@ export type CleTrait =
   | "pas-du-loup"
   | "souffle-long"
   | "main-du-batisseur"
-  | "coeur-scelle";
+  | "coeur-scelle"
+  // ceux qui viennent d'un mort (§4.26, bloc 11)
+  | "heritier"
+  | "endeuille"
+  | "aguerri";
 
 export interface TraitDef {
   cle: CleTrait;
@@ -537,6 +541,55 @@ export const TRAITS: TraitDef[] = [
     origine: "stele",
     humeur: "mixte",
     effets: { monteeStress: 0.6, stressParMort: 0.55, plancherStress: 20 },
+  },
+
+  /**
+   * ⚠️ **Le trait qu'on herite d'un mort** (§4.26, bloc 11).
+   *
+   * Le §4.26 l'appelait « Vengeance d'Arthur » — un trait **nomme d'apres le
+   * mort**. Ce n'est pas faisable tel quel : le §4.23 exige que les traits
+   * soient des identifiants numeriques et interdit d'en fabriquer un par
+   * personne. Le nom du mort n'est pas perdu pour autant, il vit dans le
+   * souvenir fondateur (« A recu ce que Marc laissait »), que la fiche affiche
+   * juste en dessous. Le trait porte l'effet, le souvenir porte l'histoire.
+   */
+  {
+    cle: "heritier",
+    nom: "Heritier",
+    resume: "Quelqu'un lui a laisse quelque chose, et il le porte",
+    origine: "heritage",
+    humeur: "mixte",
+    // Il frappe plus fort et tient mieux le coup, mais la mort le marque : on
+    // n'herite pas sans avoir perdu.
+    effets: { degats: 1.06, monteeStress: 1.1, stressParMort: 1.15, seuilRepli: -0.02 },
+  },
+
+  /**
+   * ⚠️ **Les deux sorties d'un deuil** (§4.26, bloc 11).
+   *
+   * « Certains en sortent plus courageux, d'autres plus peureux — selon leur
+   * trait. » C'est le Courage qui tranche, et il faut **deux traits neufs** :
+   * `hante` et `endurci` existaient deja, mais leurs resumes annoncent une
+   * autre histoire (« a vu mourir trois habitants », « a survecu a une nuit
+   * sous 20 % »). Les reutiliser aurait fait mentir la fiche — vu sur une
+   * capture le 21 septembre 2026, ou un bucheron devenait Hante pour avoir
+   * perdu une amie, la fiche jurant qu'il avait vu mourir trois personnes.
+   */
+  {
+    cle: "endeuille",
+    nom: "Endeuille",
+    resume: "A perdu quelqu'un qui comptait : son stress monte plus vite",
+    origine: "deuil",
+    humeur: "mauvais",
+    effets: { monteeStress: 1.2, stressParMort: 1.15 },
+  },
+  {
+    cle: "aguerri",
+    nom: "Aguerri",
+    resume: "A perdu quelqu'un qui comptait, et s'est durci",
+    origine: "deuil",
+    humeur: "bon",
+    effets: { monteeStress: 0.85, stressParMort: 0.8, degats: 1.03 },
   },
 ];
 

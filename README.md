@@ -421,6 +421,10 @@ src/
     satisfaction.ts  le moral du village, qui debloque l'eglise (testee)
     touches.ts       les 36 actions du clavier, leur touche et l'echange qui
                      fait qu'aucune ne reste muette (testee)
+    relations.ts     les liens entre les gens : onze types, un seul par paire,
+                     qui s'usent et se disputent la place (testee)
+    memoire.ts       les souvenirs bornes, les archives du village et le recit
+                     assemble — qui ne dit que ce qu'on sait (testee)
     sauvegarde.ts    la forme d'une partie enregistree, et l'arbitrage
                      local/cloud — fonction pure, testee (§4.28)
   en-ligne/  le seul dossier qui connait le reseau. Retirable en entier
@@ -444,6 +448,8 @@ src/
     touches.ts         le pont Phaser du clavier : localStorage, et une classe
                        qui rebranche tout quand on remappe
     menuPause.ts       ECHAP : reprendre, parametres, touches, quitter
+    memoire.ts         quand les liens bougent : l'aube, une mort, un sauvetage,
+                       une rage, un eveil (testee, sans Phaser)
     panneauTouches.ts  le remappage, par familles, une ligne par action
     panneauSon.ts      les trois volumes (titre et menu de pause)
     portraits.ts       portraits assembles par morceaux, en onze couches

@@ -29,6 +29,7 @@ import {
   CLE_PUITS,
   CLE_TAS_DE_BOIS,
   CLE_TONNEAU,
+  CLE_STELE,
 } from "../game/dessin/decor";
 import { origineDe, textureDe } from "../game/constructions";
 import { Clavier } from "../game/touches";
@@ -214,10 +215,15 @@ import {
   stressDesEtatsDe,
   verifierExploits,
   verifierRupture,
-  voirMourir,
   prenomLibre,
   gagnerTrait,
+  type Personne,
 } from "../core/personne";
+import { MemoireDuVillage, type GensDuJour } from "../game/memoire";
+import { estPositive, NOMS_RELATION, RESUMES_RELATION } from "../core/relations";
+import { raconter, titreDe, type Evenement } from "../core/memoire";
+import type { VieSociale } from "../game/fichePersonne";
+
 import { PART_DE_COUPS_REFUSES, traitParId } from "../core/traits";
 import type { Habitant, PostureCivile, Ressource, Stocks } from "../core/habitants";
 import {
@@ -411,6 +417,58 @@ const CONSTRUCTIONS_A_LA_TOUCHE: [string, ModeBati][] = [
  */
 const CHOISIR_QUOI_POSER: string[] = CONSTRUCTIONS_A_LA_TOUCHE.map(([action]) => action);
 
+/**
+ * Ce qu'un mort laisse derriere lui (DESIGN.md §4.26, bloc 11).
+ *
+ * **Sa meilleure competence, et rien de materiel.** Il n'y a pas d'equipement
+ * dans ce jeu, et le §4.26 refuse explicitement d'en inventer un ici.
+ *
+ * Un habitant ne legue rien de ce genre : il n'a pas de competence. Il laisse
+ * quand meme une tombe, une trace aux archives et un trait a ceux qui
+ * l'aimaient — c'est le reste de la fonction qui s'en charge.
+ */
+function competenceALeguer(hero: Hero): string | null {
+  let meilleure: string | null = null;
+  let palier = 0;
+  for (const [id, atteint] of Object.entries(hero.competences)) {
+    if (atteint <= palier) continue;
+    // On ne legue pas un emplacement achete : ce n'est pas un savoir-faire.
+    if (id === ID_EMPLACEMENT) continue;
+    meilleure = id;
+    palier = atteint;
+  }
+  return meilleure;
+}
+
+/**
+ * Combien de tombes tiennent sur la carte a la fois (§4.17, §4.26).
+ *
+ * Une borne dure, comme partout : une partie de cinquante nuits enterrerait
+ * autrement des centaines de sprites qui ne servent plus qu'a exister. Au-dela,
+ * la plus ancienne s'efface — le souvenir, lui, reste sur les fiches.
+ */
+const TOMBES_MAX = 24;
+
+/**
+ * Combien d'histoires le tableau du village montre (§4.26).
+ *
+ * Les plus recentes. Une partie de cinquante nuits en produit trop pour une
+ * plaque, et les archives gardent tout de toute facon.
+ */
+const ARCHIVES_MONTREES = 6;
+
+/**
+ * Ce qu'il faut pour qu'une nuit entre dans les archives (§4.26).
+ *
+ * *Chiffres tranches par le code, a corriger en jouant.* Trois morts d'un coup
+ * dans un village qui en compte six, c'est un massacre ; une nuit sans perte
+ * avec trente monstres au sol, c'est une nuit dont on parle. Entre les deux,
+ * c'est une nuit, et le village n'en fait pas une histoire.
+ */
+const MORTS_POUR_UN_MASSACRE = 3;
+const ELIMINES_POUR_UNE_VICTOIRE = 30;
+const AFFAMES_POUR_UNE_FAMINE = 2;
+
 /** Les sept emplacements de capacite, dans l'ordre (§4.13). */
 const ACTIONS_CAPACITE: string[] = [
   "capacite1",
@@ -603,6 +661,29 @@ export class ArenaScene extends Phaser.Scene {
   /** Experience de groupe : combattre ensemble rend plus fort (DESIGN.md §4.16) */
   affinites = new Affinites();
   private prochainTickAffinites = 0;
+  /**
+   * La memoire du village (DESIGN.md §4.26, bloc 11).
+   *
+   * ⚠️ **A ne pas confondre avec l'affinite juste au-dessus.** L'affinite est
+   * militaire — elle se gagne en combattant, elle vaut des degats, elle ne
+   * concerne que les heros. La memoire est sociale : elle se gagne en vivant,
+   * elle a des types, et elle concerne tout le monde.
+   */
+  memoire = new MemoireDuVillage();
+  /** Les tombes posees sur la carte, bornees (§4.17) */
+  private tombes: Phaser.GameObjects.Image[] = [];
+  /**
+   * Ce que chaque heros avait tue a l'aube precedente.
+   *
+   * Le compteur d'un heros est **cumule** sur toute la partie : sans ce temoin,
+   * la rivalite se declencherait sur le total et non sur la nuit, donc une
+   * fois pour toutes des la troisieme nuit.
+   */
+  private readonly killsDeLaVeille = new Map<string, number>();
+  /** Ce que la nuit qui s'acheve a coute : elle ne se retient que si elle a mordu */
+  private cadavresDeLaNuit = 0;
+  /** Et ce qu'elle a rapporte : une nuit tenue sans perte est une histoire */
+  private killsDeLaNuit = 0;
   /** Le moral avance par battements, jamais par image (DESIGN.md §4.23) */
   private prochainBattementMoral = 0;
   private static readonly PERIODE_MORAL = 500;
@@ -1105,6 +1186,9 @@ export class ArenaScene extends Phaser.Scene {
     // pas. Ils le feront le jour ou les heros survivront a une partie (§4.12).
     this.affinites = new Affinites();
     this.prochainTickAffinites = 0;
+    this.memoire = new MemoireDuVillage();
+    for (const tombe of this.tombes) tombe.destroy();
+    this.tombes = [];
     // Le premier front du monde : le plus loin du village (§4.29).
     this.fronts = [frontsOuverts()[0] ?? "nord"];
     this.partPremierFront = 1;
@@ -1442,6 +1526,7 @@ export class ArenaScene extends Phaser.Scene {
       graineMonde: this.graineMonde,
       maisons: this.maisons,
       chemins: this.chemins,
+      memoire: this.memoire,
     };
   }
 
@@ -1612,6 +1697,19 @@ export class ArenaScene extends Phaser.Scene {
       // Le poste du charpentier : ce qu on vient de poser (bloc 8).
       chantierLePlusProche: (x, y) => this.constructions.chantierLePlusProche(x, y),
       // La cour, et si quelqu'un y attend un instructeur (bloc 9).
+      // La dette fait accepter un ordre qu'on aurait refuse (§4.26).
+      obeitMalgreTout: (qui) =>
+        this.memoire.relations.obeitMalgreTout(
+          qui.identite,
+          this.toutLeMonde.map((p) => p.identite),
+        ),
+      // Quelqu'un craque et s'en prend aux siens (§4.26).
+      surLaRage: (qui, temoins) => this.memoire.rage(qui, temoins, this.cycle.jour),
+      // Ce dont le village se souvient, deja agrege (§4.26, bloc 11).
+      memoireDuVillage: () => this.memoire.archives.effets.satisfaction,
+      // Quelqu'un tombe : c'est la scene qui sait ce que ca produit (§4.26).
+      surLaMort: (mort, temoins, x, y, details) =>
+        this.uneMort(mort, [...temoins, ...this.temoinsAutourDe(x, y)], x, y, null, details),
       courDEntrainement: () => {
         const point = this.cour?.centre;
         if (!point) return null;
@@ -3875,9 +3973,49 @@ export class ArenaScene extends Phaser.Scene {
     const auCombat = this.heros.filter((h) => h.estAuCombat).map((h) => h.identifiant);
     this.affinites.ecouler(tous, auCombat, periode / 1000);
 
+    // ⚠️ **Deux ennemis refusent de cooperer** (§4.26) : leur affinite ne monte
+    // pas, meme au combat cote a cote. C'est le seul endroit ou les deux
+    // systemes se touchent — l'affinite est militaire, la relation est sociale,
+    // et la seconde a un droit de veto sur la premiere.
+    this.affinites.oublier(this.paires(auCombat, (a, b) => this.brouilles(a, b)));
+
+    const socialsAuCombat = this.heros
+      .filter((h) => h.estAuCombat)
+      .map((h) => h.personne.identite);
     for (const hero of this.heros) {
-      hero.bonusGroupe = hero.estAuCombat ? this.affinites.bonus(hero.identifiant, auCombat) : 0;
+      if (!hero.estAuCombat) {
+        hero.bonusGroupe = 0;
+        continue;
+      }
+      // L'affinite et la rivalite s'additionnent : une equipe rodee **et** qui
+      // se tire la bourre tape 20 % de plus. C'est exactement le genre
+      // d'histoire que le §4.26 veut produire.
+      hero.bonusGroupe =
+        this.affinites.bonus(hero.identifiant, auCombat) +
+        this.memoire.relations.bonusDeRivalite(hero.personne.identite, socialsAuCombat);
     }
+  }
+
+  /** Deux heros qui se detestent assez pour ne plus rien apprendre ensemble. */
+  private brouilles(a: string, b: string): boolean {
+    const un = this.heros.find((h) => h.identifiant === a);
+    const deux = this.heros.find((h) => h.identifiant === b);
+    if (!un || !deux) return false;
+    return this.memoire.relations.refusentDeCooperer(
+      un.personne.identite,
+      deux.personne.identite,
+    );
+  }
+
+  /** Les paires d'une liste qui repondent a une condition. Jamais par image. */
+  private paires(ids: readonly string[], garde: (a: string, b: string) => boolean): [string, string][] {
+    const vues: [string, string][] = [];
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        if (garde(ids[i]!, ids[j]!)) vues.push([ids[i]!, ids[j]!]);
+      }
+    }
+    return vues;
   }
 
   /**
@@ -4294,6 +4432,18 @@ export class ArenaScene extends Phaser.Scene {
     );
     this.flotter(hero.x, hero.y - 28, NOMS_RUPTURE[rupture], "#ff5a4a");
     secousse(this, "leger");
+    // Un heros qui craque de rage frappe ses allies (§4.23) : on ne le regarde
+    // plus pareil non plus (§4.26).
+    if (rupture === "rage" && this.village) {
+      this.memoire.rage(
+        personne,
+        [
+          ...this.temoinsAutourDe(hero.x, hero.y, hero),
+          ...this.village.temoinsAutourDe(hero.x, hero.y).map((v) => v.regles.personne),
+        ],
+        this.cycle.jour,
+      );
+    }
   }
 
   /**
@@ -5221,6 +5371,16 @@ export class ArenaScene extends Phaser.Scene {
     // Il arrive au combat, pas au travail : c'est un heros, pas un poste.
     hero.ordre = { posture: "temporiser", ancre: null };
 
+    // Le village le voit s'eveiller, et ne le regarde plus pareil (§4.26).
+    this.memoire.eveil(
+      personne,
+      [
+        ...this.temoinsAutourDe(x, y, hero),
+        ...this.village.temoinsAutourDe(x, y).map((v) => v.regles.personne),
+      ],
+      this.cycle.jour,
+    );
+
     this.effetCercle(x, y, 52, don.majeur ? 0xe0c060 : 0x7ee0a0);
     this.flotter(x, y - 30, don.majeur ? "DON MAJEUR" : "Un don s'eveille", "#e0c060");
     this.events.emit(
@@ -5988,6 +6148,7 @@ export class ArenaScene extends Phaser.Scene {
     const mortX = cible.x;
     const mortY = cible.y;
     this.kills += 1;
+    this.killsDeLaNuit += 1;
     this.marquerLaMort(cible);
     cible.destroy();
     // Le cadavre se releve pour le Necromancien comme n'importe quel autre : le
@@ -6233,6 +6394,7 @@ export class ArenaScene extends Phaser.Scene {
 
   private tuer(e: Ennemi, auteur: Hero): void {
     this.kills += 1;
+    this.killsDeLaNuit += 1;
     auteur.kills += 1;
     if (auteur.bonus.soinParKill > 0) auteur.soigner(auteur.bonus.soinParKill);
 
@@ -6333,11 +6495,31 @@ export class ArenaScene extends Phaser.Scene {
       // Passera au rang du heros quand les rangs existeront (DESIGN.md §4.1).
       0,
     );
+    const propositions = defs.map((d) => propositionCompetence(d, hero.competences));
+
+    // ⚠️ **L'heritage se propose, il ne se donne pas** (§4.26, decision du
+    // 21 septembre 2026). Il arrive comme une quatrieme ligne, marquee du nom
+    // du mort : c'est un arbitrage du joueur, et ca reutilise l'ecran qui
+    // existe au lieu d'en inventer un.
+    const legs = this.memoire.legsDe(hero.personne.identite);
+    if (legs) {
+      const def = competenceParId(legs.competence);
+      if (def && !propositions.some((p) => p.id === def.id)) {
+        const proposition = propositionCompetence(def, hero.competences);
+        propositions.push({
+          ...proposition,
+          etiquette: `HERITAGE DE ${legs.de.toUpperCase()}`,
+          // Le laiton de la palette (§4.10) : ce qu'on clique, ce qui compte.
+          couleur: 0xc99a3a,
+        });
+      }
+    }
+
     this.events.emit(
       "choix",
       `NIVEAU ${hero.niveau}`,
       `${hero.personne.nom} — choisis une competence`,
-      defs.map((d) => propositionCompetence(d, hero.competences)),
+      propositions,
     );
   }
 
@@ -6405,6 +6587,19 @@ export class ArenaScene extends Phaser.Scene {
 
   /** Apprend la competence, offre le niveau du Veteran, et ouvre l'evolution s'il y en a une. */
   private apprendreEtContinuer(hero: Hero, def: CompetenceDef): void {
+    // C'etait l'heritage : il le prend, donc il porte le trait et le souvenir
+    // du mort (§4.26). Le legs est consomme — on n'herite qu'une fois.
+    const legs = this.memoire.legsDe(hero.personne.identite);
+    if (legs?.competence === def.id) {
+      this.memoire.prendreLeLegs(hero.personne, this.cycle.jour);
+      this.events.emit(
+        "annonce",
+        `${hero.personne.nom} reprend ${def.nom} de ${legs.de}`,
+        "heros",
+        hero.personne.nom,
+      );
+    }
+
     const evolutions = hero.apprendre(def);
     // Veteran : un niveau offert immediatement.
     if (def.id === "veteran") {
@@ -7412,6 +7607,7 @@ export class ArenaScene extends Phaser.Scene {
     this.coucheChemins.toutRedessiner(this.chemins.visibles, this.cycle.jour);
     this.passerLaJourneeDesHeros();
     this.passerLaJourneeDeLaCour();
+    this.passerLaJourneeDeLaMemoire();
     this.programmerHorde();
     this.events.emit("annonce", `Jour ${this.cycle.jour} — le soleil se leve`, "village");
     // ⚠️ **Au matin**, pas dans la nuit. Le §4.18 veut qu'on **decouvre** le mort
@@ -7636,6 +7832,7 @@ export class ArenaScene extends Phaser.Scene {
     if (arrivant !== null) {
       if (accepte) {
         const villageois = this.village.accueillir(arrivant.personne, arrivant.metierPretendu);
+        this.memoire.accueil(villageois.personne, this.cycle.jour);
         const fou = suivreSiFou(arrivant, villageois.regles.id, this.cycle.jour, this.rng);
         if (fou !== null) this.fous.push(fou);
         this.events.emit(
@@ -7695,6 +7892,10 @@ export class ArenaScene extends Phaser.Scene {
         // voisins de travail** (§4.23) : c'est le premier usage reel de la
         // contagion, ecrite au bloc 5 et que rien ne declenchait.
         if (etat !== null) contracterEtat(villageois.personne, etat);
+        // ⚠️ **Celui qu'on ramene doit quelque chose a celui qui est venu**
+        // (§4.26) : c'est la seule dette que le jeu produise aujourd'hui, et
+        // c'est elle qui fera obeir un paranoiaque (§4.23).
+        if (this.hero) this.memoire.sauvetage(villageois.personne, this.hero.personne, this.cycle.jour);
         const fou = suivreSiFou(arrivant, villageois.regles.id, this.cycle.jour, this.rng);
         if (fou !== null) this.fous.push(fou);
         this.events.emit(
@@ -7941,6 +8142,100 @@ export class ArenaScene extends Phaser.Scene {
       }
 
       this.annoncerLesExploits(hero);
+    }
+  }
+
+  /**
+   * La journee sociale du village (DESIGN.md §4.26, bloc 11).
+   *
+   * ⚠️ **Une seule passe, a l'aube, et jamais par image.** C'est la regle du
+   * §4.26 : « les relations ne se recalculent pas par image, elles bougent sur
+   * evenement ». Une journee entiere est un evenement — celui qui dit qui a
+   * travaille avec qui et qui a tenu la meme ligne cette nuit.
+   *
+   * Elle est en n² sur les vivants : trente habitants font 435 paires **une
+   * fois par jour**. Le meme calcul par image serait exactement ce que le
+   * §4.17 interdit.
+   */
+  private passerLaJourneeDeLaMemoire(): void {
+    if (this.enMarche || !this.village) return;
+    const jour = this.cycle.jour;
+
+    const gens: GensDuJour[] = [];
+    for (const hero of this.heros) {
+      if (hero.etat === "mort") continue;
+      gens.push({
+        personne: hero.personne,
+        // Un heros mis a un poste y a passe sa journee comme les autres (bloc 8).
+        poste: hero.travail === null ? null : (POSTES.find((p) => p.metier === hero.travail)?.id ?? null),
+        sestBattu: true,
+        kills: hero.kills - (this.killsDeLaVeille.get(hero.personne.identite) ?? 0),
+      });
+      this.killsDeLaVeille.set(hero.personne.identite, hero.kills);
+    }
+    for (const villageois of this.village.vivants) {
+      gens.push({
+        personne: villageois.regles.personne,
+        poste: villageois.poste?.id ?? null,
+        // Un milicien qui a tenu les rues a vu la meme nuit qu'un heros (bloc 9).
+        sestBattu: villageois.regles.metier === "milicien" || villageois.etat === "defend",
+        kills: 0,
+      });
+    }
+
+    for (const annonce of this.memoire.passerUneJournee(gens, jour, () => this.rng.next())) {
+      this.events.emit("annonce", annonce, "village");
+    }
+
+    // La nuit qui vient de finir : ceux qui l'ont passee s'en souviennent, et
+    // seulement si elle valait la peine d'etre retenue.
+    if (this.cadavresDeLaNuit > 0) {
+      this.memoire.survivreALaNuit(
+        gens.map((g) => g.personne),
+        jour - 1,
+      );
+    }
+    this.inscrireLaNuit(jour, gens.length);
+    this.cadavresDeLaNuit = 0;
+    this.killsDeLaNuit = 0;
+  }
+
+  /**
+   * Ce que la nuit qui s'acheve laisse aux archives (DESIGN.md §4.26).
+   *
+   * Quatre des cinq types du §4.26 se decident ici, et **ils s'excluent** : une
+   * nuit est un massacre, ou une nuit tenue, ou rien. Le cinquieme — la nuit de
+   * quelqu'un — se decide a la mort, pas au matin.
+   *
+   * ⚠️ **Une nuit ordinaire n'entre pas aux archives**, et c'est tout le sujet.
+   * Un village qui inscrirait chaque nuit produirait un mur de titres qui ne
+   * veulent plus rien dire, et « la nuit ou Gaston a tenu la porte » se
+   * perdrait dedans.
+   */
+  private inscrireLaNuit(jour: number, debout: number): void {
+    if (this.cadavresDeLaNuit >= MORTS_POUR_UN_MASSACRE) {
+      this.memoire.inscrire({
+        type: "massacre",
+        jour,
+        combien: this.cadavresDeLaNuit,
+        aussi: debout,
+      });
+      this.events.emit("annonce", `Le massacre du jour ${jour}`, "guet");
+    } else if (this.cadavresDeLaNuit === 0 && this.killsDeLaNuit >= ELIMINES_POUR_UNE_VICTOIRE) {
+      this.memoire.inscrire({
+        type: "grande-victoire",
+        jour,
+        qui: this.hero?.personne.nom,
+        combien: this.killsDeLaNuit,
+      });
+      this.events.emit("annonce", "La nuit a tenu — personne n'est tombe", "guet");
+    }
+
+    // La famine est independante : on peut tenir une nuit et n'avoir rien a
+    // manger au matin.
+    const affames = this.village.vivants.filter((v) => !v.regles.rassasie).length;
+    if (affames >= AFFAMES_POUR_UNE_FAMINE) {
+      this.memoire.inscrire({ type: "famine", jour, combien: affames });
     }
   }
 
@@ -8316,25 +8611,173 @@ export class ArenaScene extends Phaser.Scene {
   /**
    * La mort d'un heros se paie chez tout le monde (DESIGN.md §4.23).
    *
-   * Le village a la meme fonction, et c'est voulu : ce sont deux populations
-   * qui partagent un systeme, pas deux systemes qui se ressemblent. Ce qui les
-   * separe, c'est seulement qui est dans la liste.
+   * Le village passe par la meme porte, et c'est voulu : ce sont deux
+   * populations qui partagent un systeme, pas deux systemes qui se ressemblent.
+   * Ce qui les separe, c'est seulement qui est dans la liste.
    */
   private faireLeDeuil(mort: Hero): void {
+    this.uneMort(
+      mort.personne,
+      [
+        ...this.temoinsAutourDe(mort.x, mort.y, mort),
+        ...this.village.temoinsAutourDe(mort.x, mort.y).map((v) => v.regles.personne),
+      ],
+      mort.x,
+      mort.y,
+      competenceALeguer(mort),
+      // Un heros s'est toujours battu : c'est ce qu'il est.
+      { metier: mort.classe.nom.toLowerCase(), arme: "les armes", faits: ["combattant"] },
+    );
+  }
+
+  /** Les heros assez pres pour avoir vu (§4.23, le rayon du deuil). */
+  private temoinsAutourDe(x: number, y: number, exclu?: Hero): Personne[] {
+    const vus: Personne[] = [];
     for (const temoin of this.heros) {
-      if (temoin === mort || temoin.etat === "mort") continue;
-      const distance = Phaser.Math.Distance.Between(temoin.x, temoin.y, mort.x, mort.y);
-      if (distance > REGLAGES_STRESS.rayonDuDeuil) continue;
-      voirMourir(temoin.personne);
-      this.annoncerLesExploits(temoin);
+      if (temoin === exclu || temoin.etat === "mort") continue;
+      if (Phaser.Math.Distance.Between(temoin.x, temoin.y, x, y) > REGLAGES_STRESS.rayonDuDeuil) {
+        continue;
+      }
+      vus.push(temoin.personne);
     }
-    this.village.temoinsDeLaMort(mort.x, mort.y);
+    return vus;
+  }
+
+  /**
+   * **Une mort ne doit jamais etre `pv = 0 → retirer(personnage)`** (§4.26).
+   *
+   * C'est la seule porte par ou passent les deux populations, et elle fait
+   * tout d'un coup : le pic de stress **module par la relation** au mort, le
+   * trait que ca donne a ceux qui l'aimaient, le souvenir fondateur, la tombe,
+   * l'entree aux archives, et le legs mis de cote pour son proche.
+   */
+  private uneMort(
+    mort: Personne,
+    temoins: Personne[],
+    x: number,
+    y: number,
+    competence: string | null,
+    /** Ce qu'on sait de sa mort. Ce qu'on ignore ne sera pas raconte (§4.26). */
+    details: Partial<Evenement> = {},
+  ): void {
+    // ⚠️ **L'appelant donne la liste entiere**, heros et habitants melanges :
+    // la completer ici compterait deux fois ceux que le village a deja vus.
+    const tousLesTemoins = temoins;
+    const deuil = this.memoire.mourir(
+      mort,
+      tousLesTemoins,
+      this.toutLeMonde,
+      this.cycle.jour,
+      competence,
+      {
+        ...details,
+        // Ce qu'on sait du moment : le titre et le recit en dependent, et ils
+        // ne doivent rien affirmer d'autre (§4.26).
+        faits: [
+          ...(details.faits ?? []),
+          ...(this.cycle.phase === "nuit" ? ["nuit", "defenseurs"] : []),
+        ],
+      },
+    );
+
+    this.cadavresDeLaNuit += 1;
+    for (const temoin of tousLesTemoins) this.annoncerLesExploitsDe(temoin);
+    // La tombe : un lieu, et un souvenir fondateur pour ceux qui l'ont connu.
+    this.poserUneTombe(x, y);
+
+    if (deuil.evenement) {
+      this.events.emit("annonce", `${mort.nom} entre dans la memoire du village`, "village");
+    }
+    if (deuil.heritier !== null && competence !== null) {
+      const heritier = this.toutLeMonde.find((p) => p.identite === deuil.heritier);
+      if (heritier) {
+        this.events.emit(
+          "annonce",
+          `${heritier.nom} portera ce que ${mort.nom} laisse`,
+          "village",
+        );
+      }
+    }
+  }
+
+  /**
+   * Une tombe, la ou quelqu'un est tombe (§4.26).
+   *
+   * C'est la trace la plus simple que la regle du §4.26 exige — « tout
+   * evenement important doit laisser une trace » — et la moins chere : une
+   * image de decor, posee une fois, qui ne fait plus rien ensuite.
+   */
+  private poserUneTombe(x: number, y: number): void {
+    const tombe = this.add
+      .image(x, y, CLE_STELE)
+      .setOrigin(0.5, decorParCle(CLE_STELE).origineY)
+      .setDepth(y)
+      // Du fer, pas de la pierre neuve : une tombe n'est pas un monument.
+      .setTint(0x6b6478)
+      .setScale(0.72);
+    this.tombes.push(tombe);
+    while (this.tombes.length > TOMBES_MAX) this.tombes.shift()?.destroy();
+  }
+
+  /**
+   * Ce dont le village se souvient (DESIGN.md §4.26, bloc 11).
+   *
+   * ⚠️ **Appele a l'ouverture du tableau, jamais par image.** C'est la regle du
+   * §4.26 : « aucun texte n'est construit tant qu'on ne l'affiche pas ». Un
+   * evenement stocke ses variables ; la phrase est assemblee ici, une fois, au
+   * moment ou le joueur demande a lire. `etatVillage`, lui, est lu soixante
+   * fois par seconde — les archives n'y ont donc rien a faire.
+   */
+  archivesDuVillage(): { titre: string; recit: string[]; vif: boolean }[] {
+    const jour = this.cycle.jour;
+    const vifs = new Set(this.memoire.archives.vifs(jour));
+    return [...this.memoire.archives.tout]
+      .reverse()
+      .slice(0, ARCHIVES_MONTREES)
+      .map((evenement) => ({
+        titre: titreDe(evenement),
+        recit: raconter(evenement),
+        vif: vifs.has(evenement),
+      }));
+  }
+
+  /**
+   * Ses liens, resolus en noms, pour la fiche (DESIGN.md §4.26, bloc 11).
+   *
+   * ⚠️ **Traduit ici, une fois, au moment d'ouvrir.** Les relations sont
+   * indexees par identite ; la fiche ne connait ni la memoire du village ni la
+   * population, et ce n'est pas a elle d'aller chercher qui est `p17`.
+   */
+  vieSocialeDe(personne: Personne): VieSociale {
+    const gens = new Map(this.toutLeMonde.map((p) => [p.identite, p.nom]));
+    const liens = this.memoire.relations
+      .lesLiensDe(personne.identite)
+      .filter((lien) => gens.has(lien.avec))
+      .map((lien) => ({
+        nom: gens.get(lien.avec)!,
+        type: NOMS_RELATION[lien.type].toLowerCase(),
+        resume: RESUMES_RELATION[lien.type],
+        intensite: lien.intensite,
+        positif: estPositive(lien.type),
+      }));
+    return { liens };
+  }
+
+  /** Tout le monde, heros et habitants : c'est la population des relations. */
+  private get toutLeMonde(): Personne[] {
+    const gens = this.heros.filter((h) => h.etat !== "mort").map((h) => h.personne);
+    for (const villageois of this.village?.vivants ?? []) gens.push(villageois.regles.personne);
+    return gens;
   }
 
   /** Un trait gagne se dit : sinon le joueur ne saurait jamais qu'il l'a fait. */
   private annoncerLesExploits(hero: Hero): void {
-    for (const cle of verifierExploits(hero.personne)) {
-      this.events.emit("annonce", `je deviens ${cle}`, "heros", hero.personne.nom);
+    this.annoncerLesExploitsDe(hero.personne);
+  }
+
+  private annoncerLesExploitsDe(personne: Personne): void {
+    for (const cle of verifierExploits(personne)) {
+      this.events.emit("annonce", `${personne.nom} devient ${cle}`, "village");
     }
   }
 

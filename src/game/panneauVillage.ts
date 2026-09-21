@@ -69,6 +69,16 @@ function couleurDeLigne(rassasie: boolean, stress: number, enAlerte: boolean): s
 /** Nombre maximum d'habitants listes dans le panneau. */
 const LIGNES = 12;
 
+/**
+ * Les lignes reservees aux archives (§4.26, bloc 11).
+ *
+ * Six histoires de trois lignes plus leur titre : vingt-quatre objets Texte,
+ * fabriques **une fois** au demarrage comme tout le reste de ce fichier. Le
+ * §4.17 interdit d'en creer en cours de partie, et ce panneau n'a jamais fait
+ * d'exception.
+ */
+const LIGNES_ARCHIVES = 24;
+
 /** Ce qui manque pour monter l'eglise, en un mot chacun. */
 const NOMS_BLOCAGE: Record<string, string> = {
   materiaux: "materiaux",
@@ -106,6 +116,10 @@ function lireEglise(etat: EtatVillage): string {
 
 export class PanneauVillage {
   private fond: Phaser.GameObjects.Graphics;
+  /** Les lignes du recit, fabriquees une fois et recyclees (§4.17) */
+  private archives: Phaser.GameObjects.Text[] = [];
+  /** Ce qu'on a lu a l'ouverture : les phrases sont deja assemblees */
+  private memoire: { titre: string; recit: string[]; vif: boolean }[] = [];
   private entete: Phaser.GameObjects.Text;
   private titre: Phaser.GameObjects.Text;
   private stocks: Phaser.GameObjects.Text;
@@ -123,6 +137,11 @@ export class PanneauVillage {
     private changerPosture: (index: number) => void,
     private changerPoste: (index: number) => void,
     private ouvrirFiche: (index: number) => void,
+    /**
+     * Ce dont le village se souvient (§4.26). **Appele a l'ouverture**, jamais
+     * par image : le recit n'est assemble qu'au moment ou on le lit.
+     */
+    private lireLesArchives: () => { titre: string; recit: string[]; vif: boolean }[] = () => [],
   ) {
     this.fond = scene.add.graphics().setDepth(1500).setVisible(false);
     this.entete = this.texte(T.titre, 11);
@@ -151,6 +170,8 @@ export class PanneauVillage {
       });
       this.lignes.push(ligne);
     }
+
+    for (let i = 0; i < LIGNES_ARCHIVES; i++) this.archives.push(this.texte(T.os, 10));
   }
 
   private texte(couleur: string, taille: number): Phaser.GameObjects.Text {
@@ -159,6 +180,10 @@ export class PanneauVillage {
 
   basculer(): void {
     this.ouvert = !this.ouvert;
+    // ⚠️ **Le recit s'assemble ici et nulle part ailleurs** (§4.26). Ce panneau
+    // se redessine a chaque image ; y construire des phrases serait exactement
+    // ce que le §4.17 interdit.
+    if (this.ouvert) this.memoire = this.lireLesArchives();
   }
 
   get estOuvert(): boolean {
@@ -196,6 +221,7 @@ export class PanneauVillage {
     this.stocks.setVisible(this.ouvert);
     this.aide.setVisible(this.ouvert);
     for (const ligne of this.lignes) ligne.setVisible(false);
+    for (const ligne of this.archives) ligne.setVisible(false);
     if (!this.ouvert) return;
 
     this.aide.setText(
@@ -250,10 +276,22 @@ export class PanneauVillage {
       teindre(ligne, couleurDeLigne(habitant.rassasie, personne.stress, alerte !== ""));
     });
 
+    // --- Ce dont le village se souvient (§4.26) ---
+    const ecrites = this.ecrireLesArchives();
+
     // --- La plaque, une fois qu'on sait ce qu'il y a dedans ---
-    const contenus = [this.titre, this.stocks, this.aide, ...this.lignes.slice(0, montres.length)];
+    const contenus = [
+      this.titre,
+      this.stocks,
+      this.aide,
+      ...this.lignes.slice(0, montres.length),
+      ...this.archives.slice(0, ecrites),
+    ];
     const largeur = Math.max(320, ...contenus.map((t) => t.width)) + 24;
-    const hauteur = HAUTEUR_TITRE + 12 + 20 + 22 + montres.length * 16 + 12 + this.aide.height + 12;
+    const hauteur =
+      HAUTEUR_TITRE + 12 + 20 + 22 + montres.length * 16 + 12 +
+      (ecrites > 0 ? 12 + ecrites * 14 + 10 : 0) +
+      this.aide.height + 12;
 
     const x = 16;
     const y = Math.max(16, hauteurEcran(this.scene) - hauteur - 16);
@@ -275,6 +313,44 @@ export class PanneauVillage {
     montres.forEach((_, index) => {
       this.lignes[index]?.setPosition(x + 12, hautTableau + index * 16);
     });
-    this.aide.setPosition(x + 12, hautTableau + montres.length * 16 + 10);
+
+    let bas = hautTableau + montres.length * 16 + 10;
+    if (ecrites > 0) {
+      // Un second filet : la memoire du village est une troisieme lecture,
+      // apres les chiffres et apres les gens.
+      this.fond.fillStyle(C.sangSeche, 0.6);
+      this.fond.fillRect(x + 12, bas, largeur - 24, 1);
+      bas += 10;
+      for (let i = 0; i < ecrites; i++) this.archives[i]!.setPosition(x + 12, bas + i * 14);
+      bas += ecrites * 14 + 8;
+    }
+    this.aide.setPosition(x + 12, bas);
+  }
+
+  /**
+   * Le recit, pose dans les objets Texte deja fabriques.
+   *
+   * ⚠️ **Les phrases viennent de `this.memoire`, lue a l'ouverture** : rien
+   * n'est assemble ici. Un titre en sang seche quand l'evenement pese encore
+   * sur le village, en os mat quand il s'est estompe — c'est la seule chose qui
+   * distingue « ca compte maintenant » de « c'est arrive » (§4.26).
+   */
+  private ecrireLesArchives(): number {
+    let i = 0;
+    for (const histoire of this.memoire) {
+      if (i >= LIGNES_ARCHIVES) break;
+      const titre = this.archives[i]!;
+      titre.setVisible(true).setText(histoire.titre);
+      teindre(titre, histoire.vif ? T.sangFrais : T.osMat);
+      i += 1;
+      for (const ligne of histoire.recit) {
+        if (i >= LIGNES_ARCHIVES) break;
+        const t = this.archives[i]!;
+        t.setVisible(true).setText(`  ${ligne}`);
+        teindre(t, T.os);
+        i += 1;
+      }
+    }
+    return i;
   }
 }

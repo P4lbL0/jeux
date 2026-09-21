@@ -1598,6 +1598,139 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le bloc 11 — la mémoire du village (21 septembre 2026, au soir)
+
+**L'avant-dernier bloc du jalon 5**, et celui qui décide si le joueur dira « j'ai passé la
+nuit 30 » ou « j'ai perdu Marc à la nuit 17 ».
+
+Trois fichiers, et la séparation porte tout le reste : `core/relations.ts` (ce qu'un lien
+vaut), `core/memoire.ts` (souvenirs, archives, récit, conséquences d'une mort),
+`game/memoire.ts` (**quand** tout ça bouge). Aucun des trois ne connaît Phaser, y compris
+le dernier — il ne voit que des personnes, des postes et des journées, ce qui permet de le
+tester sans navigateur comme `ennemis.test.ts`.
+
+#### L'identité sociale vit sur la personne, et c'est le choix structurant
+
+Chaque `Personne` reçoit une identité stable à sa création. **Pas sur le héros, pas sur
+l'habitant : sur la personne.** Un villageois qui s'éveille au bloc 9 garde sa `Personne`,
+donc il garde ses liens — un identifiant posé sur le corps aurait fait disparaître
+l'histoire de quelqu'un au moment précis où elle devient intéressante.
+
+Elle ne remplace pas `hero.identifiant`, qui sert à l'affinité du §4.16. Les deux systèmes
+ne se touchent qu'en **un** point, et c'est un veto : deux ennemis (haine ≥ 60) voient leur
+affinité militaire remise à zéro, **record compris** — sinon le plancher d'acquis leur
+aurait rendu le quart de ce qu'ils avaient appris.
+
+#### Un seul type par paire, et il se dispute la place
+
+C'est la décision qui évite le piège évident (deux entrées « amitié 40 » et « haine 30 »
+qui coexistent sans rien vouloir dire). Poser de la haine sur une amitié **use** l'amitié,
+et si elle tombe à zéro le reste passe en haine. Deux sentiments de même signe se
+remplacent sans rien perdre ; de signes opposés, ils se mangent. La famille est la seule
+exception : elle s'installe par-dessus tout et ne s'use pas.
+
+Garde-fous, tous testés : plancher à 5 (sous lequel le lien est **effacé**, pas gardé à
+zéro), plafond à 100, 600 paires au maximum. Un test pose 3 160 paires sur 80 habitants et
+vérifie que la borne tient.
+
+#### Huit sources de liens, toutes sur événement
+
+Journée au même poste (+3 amitié), nuit à tenir la même ligne (+4 respect), les deux gros
+tueurs d'une nuit (+8 rivalité), un sauvetage (+20 dette), une rage (+25 peur chez les
+témoins), un éveil (+18 admiration), une amitié qui passe 70 (amour, une chance sur huit
+par jour), et une mort.
+
+> **Deux règles trouvées en test, et les deux comptent.** La rivalité se pose **avant** la
+> passe des paires : posée après, elle se heurtait au respect que la même nuit venait de
+> créer, les deux s'annulaient, et il ne restait rien. Et **un lien négatif n'est jamais
+> adouci par une journée de travail** — sans ça, une haine passait son temps à être rongée
+> par l'amitié du poste commun et ne tenait pas deux nuits.
+
+La passe de l'aube est en n² sur les vivants : trente habitants font 435 paires **une fois
+par jour**. C'est sans commune mesure avec 435 paires soixante fois par seconde, et c'est
+exactement la lecture que le §4.26 demande de ses « relations qui bougent sur événement ».
+
+#### Une mort passe par une seule porte
+
+`Village.temoinsDeLaMort` appliquait le pic de stress lui-même, à l'identique pour tous.
+Il ne peut plus : ce que coûte une mort dépend de la **relation** qu'on avait avec le mort,
+et les relations vivent au-dessus, avec les héros dedans. Le village dit maintenant **qui
+est tombé et qui a vu** ; la scène sait ce que ça change. Les deux populations passent par
+la même fonction, `uneMort`, qui fait tout d'un coup : stress modulé, trait, souvenir
+fondateur, tombe sur la carte (24 au plus), archives, legs mis de côté.
+
+#### Trois mensonges du récit, attrapés sur les captures
+
+C'est le vrai travail de la soirée, et il ne se voyait qu'à l'image.
+
+1. « **Il n'avait jamais combattu.** » ne porte aucune variable, donc elle survivait à
+   l'absence du métier : le jeu l'affirmait d'un inconnu. D'où `{?fait}`, un marqueur qui
+   **conditionne une ligne sans rien y écrire**.
+2. « **Tancrède a pris une épée.** » pour un pêcheur tombé à son poste, qui n'avait rien
+   pris du tout. Une mort porte désormais ce qu'on sait d'elle — le métier, si la personne
+   s'était armée (milicien ou sorti défendre), si c'était la nuit — et le récit ne dit que
+   ça.
+3. « **LA NUIT DE BERTILLE** » pour une mort survenue en plein jour. Le titre lit le même
+   fait et écrit « LE JOUR DE » quand c'en était un.
+
+> C'est exactement la garantie que le §4.26 réclame — « un texte assemblé ne raconte jamais
+> quelque chose qui n'a pas eu lieu » — et elle ne tenait pas. Trois tests la tiennent
+> maintenant, dont un qui passe les cinq types d'événement avec et sans variables et
+> vérifie qu'aucune accolade ni aucun `undefined` n'atteint jamais l'écran.
+
+#### Deux traits neufs, pour la même raison
+
+Le §4.26 dit « certains en sortent plus courageux, d'autres plus peureux ». `hante` et
+`endurci` existaient — mais leurs résumés annoncent une autre histoire (« a vu mourir trois
+habitants », « a survécu à une nuit sous 20 % »). Les réutiliser **faisait mentir la
+fiche** : vu sur une capture, un bûcheron devenait *Hanté* pour avoir perdu une amie, la
+fiche jurant qu'il avait vu mourir trois personnes. D'où **Endeuillé** et **Aguerri**,
+départagés par le Courage au seuil de 55.
+
+Et un troisième, **Héritier**, parce que le trait nommé d'après le mort que le §4.26
+imaginait (« Vengeance d'Arthur ») n'est pas faisable : le §4.23 exige des identifiants
+numériques et interdit d'en fabriquer un par personne. Le nom du mort vit dans le souvenir
+fondateur juste en dessous. Le trait porte l'effet, le souvenir porte l'histoire.
+
+#### L'héritage réutilise l'écran de montée de niveau
+
+*Décision d'Angelos* : proposé, jamais donné. La compétence du mort arrive en **quatrième
+ligne** du choix, marquée « HÉRITAGE DE MARC » en laiton. Zéro interface neuve.
+
+#### Ce qui se lit à l'écran
+
+La fiche gagne **CE QU'IL A VÉCU** : ses quatre liens les plus forts, puis ses cinq derniers
+souvenirs derrière un filet de sang séché. Le tableau du village (`F`) gagne les
+**archives** : six histoires, titre en sang frais tant que l'événement pèse, en os mat une
+fois estompé.
+
+> ⚠️ **Le texte n'est assemblé qu'à l'ouverture du panneau.** `etatVillage` est lu soixante
+> fois par seconde — y mettre les archives aurait construit des phrases à chaque image, ce
+> que le §4.17 interdit et ce que le §4.26 interdit deux fois. Le panneau les lit dans
+> `basculer()` et les garde.
+
+#### Ce qui n'est pas fait, et pourquoi
+
+- **La peur qui fait fuir un poste** : écrite et testée (`craint`), pas branchée. Elle
+  demande un réveil **au tour de rôle**, ce qui est précisément ce que le bloc 12 apporte.
+- **Jalousie et trahison** existent comme types mais rien ne les crée : aucun système ne
+  produit aujourd'hui de traître ni de promotion enviable. Les poser au hasard serait
+  exactement ce que la section interdit.
+- **La famille** ne vient de nulle part tant que les naissances n'existent pas (§4.18).
+
+**Vérifié dans le navigateur** (`.tmp/verifier-memoire.ts`, trois lancements, mondes tirés
+au sort, relance jusqu'à trouver un village d'au moins trois habitants) : **20 contrôles
+sur 20**, aucune erreur de console. Les identités sont uniques, le village démarre sans un
+seul lien, un ami paie 35 points de stress là où un inconnu en coûte 14, les liens du mort
+partent avec lui, la tombe se pose, l'archive s'inscrit et pèse sur la satisfaction, trois
+morts d'un coup font un massacre, une nuit sans perte fait une nuit tenue, la dette fait
+obéir un paranoïaque, et la sauvegarde emporte tout.
+
+**À regarder** : `captures/jeu/2026-09-21-memoire/` — les archives sous le tableau du
+village, et la fiche d'un bûcheron qui a perdu quelqu'un.
+
+**832 tests verts** (+86).
+
 ### Le bloc 10 — la pause et les touches remappables (21 septembre 2026, au soir)
 
 **Le dernier bloc du jalon 5 dont l'absence se paie.** Sa moitié visuelle était tombée la

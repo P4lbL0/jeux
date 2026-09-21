@@ -122,3 +122,31 @@ describe("Affinites — l'oubli", () => {
     expect(a.bonus("a", EQUIPE)).toBe(0);
   });
 });
+
+describe("le veto de la relation (§4.26)", () => {
+  it("efface ce que deux ennemis avaient appris ensemble", () => {
+    const a = new Affinites();
+    a.ecouler(["h1", "h2"], ["h1", "h2"], SECONDES_POUR_PLAFOND);
+    expect(a.affinite("h1", "h2")).toBe(1);
+
+    a.oublier([["h1", "h2"]]);
+    expect(a.affinite("h1", "h2")).toBe(0);
+  });
+
+  it("efface aussi le record : le plancher d'acquis ne leur rend rien", () => {
+    const a = new Affinites();
+    a.ecouler(["h1", "h2"], ["h1", "h2"], SECONDES_POUR_PLAFOND);
+    a.oublier([["h1", "h2"]]);
+    // Une seconde separes : sans record, rien a remonter.
+    a.ecouler(["h1", "h2"], ["h1"], 1);
+    expect(a.affinite("h1", "h2")).toBe(0);
+  });
+
+  it("ne touche pas aux autres paires", () => {
+    const a = new Affinites();
+    a.ecouler(["h1", "h2", "h3"], ["h1", "h2", "h3"], 60);
+    a.oublier([["h1", "h2"]]);
+    expect(a.affinite("h1", "h2")).toBe(0);
+    expect(a.affinite("h1", "h3")).toBeGreaterThan(0);
+  });
+});

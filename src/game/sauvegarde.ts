@@ -14,12 +14,14 @@ import Phaser from "phaser";
 import { CLASSES, type ClassId } from "../core/classes";
 import { POSTES } from "../core/carte";
 import type { Cour } from "./cour";
+import type { MemoireDuVillage } from "./memoire";
 import { EMPLACEMENTS_ACTIFS, competenceParId } from "../core/competences";
 import { Cycle } from "../core/cycle";
 import type { Fou } from "../core/arrivants";
 import type { BatimentPort } from "./port";
 import { reserverIdentifiants, stocksVides, type Habitant } from "../core/habitants";
 import { Rng } from "../core/rng";
+import { numeroDIdentite, reserverIdentites } from "../core/personne";
 import {
   EMPLACEMENTS,
   capturerPersonne,
@@ -90,6 +92,8 @@ export interface PartieEnCours {
   chemins: Chemins;
   /** La cour d'entrainement et ses eleves (§4.18, bloc 9) */
   cour: Cour;
+  /** La memoire du village : les relations et les archives (§4.26, bloc 11) */
+  memoire: MemoireDuVillage;
 }
 
 /** La memoire des morts qu'on garde : au-dela, la satisfaction ne la lit plus. */
@@ -117,6 +121,9 @@ export function capturer(partie: PartieEnCours, maintenant: number): Sauvegarde 
     stocks: { ...partie.village.stocks },
     kills: partie.kills,
     morts: partie.village.memoireDesMorts.slice(-MORTS_MEMORISES),
+    // La memoire sociale du village (§4.26). Les souvenirs, eux, voyagent sur
+    // chaque personne : ils font partie de qui elle est.
+    ...partie.memoire.exporter(),
     habitants: partie.village.habitants
       // Les morts ne sont plus que des corps au sol : leur fiche entiere ne sert
       // plus a rien, et c'est ce qui fait grossir une sauvegarde pour rien.
@@ -243,6 +250,23 @@ export function appliquer(
 
   reprendreLesHabitants(sauvegarde, partie, maintenant);
   reprendreLesHeros(sauvegarde, partie, maintenant);
+
+  // ⚠️ **Apres les gens, et pas avant** : les relations pointent vers des
+  // identites, et il faut que les identites existent pour que les effets
+  // reposes aient un sens. Une sauvegarde d'avant le bloc 11 n'en porte pas :
+  // le village reprend sans passe social, ce qui est le seul comportement
+  // honnete — on ne fabrique pas des liens qui n'ont pas ete vecus (§4.26).
+  partie.memoire.importer(sauvegarde.relations, sauvegarde.archives, sauvegarde.cycle.jour);
+  // Le compteur des identites repart au-dessus de ce qu'on vient de relire :
+  // sans ca, le premier arrivant d'une partie reprise porterait une identite
+  // deja prise, et deux personnes se confondraient dans toutes les relations.
+  reserverIdentites(
+    Math.max(
+      0,
+      ...partie.heros.map((h) => numeroDIdentite(h.personne.identite)),
+      ...partie.village.habitants.map((v) => numeroDIdentite(v.regles.personne.identite)),
+    ),
+  );
 
   // Sur place, comme les heros : la scene tient cette liste. Une sauvegarde
   // d'avant le bloc 6a n'a pas le champ, et « pas de champ » veut dire
