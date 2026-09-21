@@ -15,7 +15,8 @@ incertain d'abord. À chaque jalon, le jeu doit être **jouable** — moche, mai
 | **3** | ✅ Équipe, IA, règle des 20%, cité, switch, barre d'équipe, mort définitive | Le cœur du jeu est là |
 | **4** | ✅ Ordres, postures et formations, expérience de groupe (§4.16) | La couche tactique existe |
 | **5** | Le village vivant, en **douze** blocs (voir ci-dessous) | Les deux moitiés du jeu sont reliées |
-| **5.5** | **Le nouveau départ** (§4.29) : ✅ un seul héros, ✅ le monde tiré (mer, relief, lacs, village posé au sort, fronts de 2 à 4), ✅ l'écran-titre animé (§4.10) et ✅ **la marche** — on paraît loin, quelqu'un vient parler à la porte, on accepte ou on reprend la route — ✅ **le refus qui se paie** (le village qui se jette sur nous, l'or et l'XP sur les cadavres, les deux traits du §4.23 remontés du jalon 8) et ✅ **le village déjà peuplé** (de 1 à 20 habitants, leurs métiers, leurs réserves, les toits debout par foyers de quatre) et ✅ **le budget cadeaux/menaces** (un seul nombre, trois menaces, une phrase annoncée avant d'entrer), ✅ **la zone jouable ×2 posée** et ✅ **la presqu'île à un front** — codés le 20 septembre 2026 ; **reste l'errance continue**, bloquée par la carte qui se peint d'un seul bloc | Tomber dans un monde qui existait avant nous change-t-il le jeu ? |
+| **5.5** ✅ | **Le nouveau départ** (§4.29), **fini la nuit du 20 septembre 2026** : un seul héros, le monde tiré, l'écran-titre animé (§4.10), **la marche**, **le refus qui se paie**, **le village déjà peuplé**, **le budget cadeaux/menaces**, **la presqu'île à un front** — puis, dans la nuit : **la carte se peint par morceaux** (le gel de 2,5 s disparaît, une partie s'ouvre en une demi-seconde), **la zone jouable passe à ×3** (et le tirage du monde, qui se disait pur, l'est enfin), et **l'errance continue** (refuser fait traverser un, trois, puis sept mondes muets) | Tomber dans un monde qui existait avant nous change-t-il le jeu ? |
+| **5.6** | **Les trouvailles de la route** (§4.31) : les caches dans les ruines, le survivant à ramener, la stèle qui donne un trait — et les camps de bêtes qui gardent les grosses. Naît du 5.5 : depuis que refuser fait traverser sept mondes vides, il faut une raison de ne pas aller tout droit | Explorer vaut-il le détour, ou l'errance est-elle un couloir ? |
 | **6** | Le ciel : pluie, orages, incendies, météores, carte modifiable (§4.21) | Le monde a une humeur |
 | **6.5** | **Les builds** (§4.25) : tags, 36 compétences neuves, 26 fusions, synergies, compétences de village et de formation | Deux parties de la même classe sont-elles enfin différentes ? |
 | **6.7** | **Le moral devient une arme** (§4.23, §4.13, §4.10) : les monstres qui **hurlent**, le **Cri** du Chevalier Sacré qui répond, l'**étourdissement** et ses quatre garde-fous, trois traits de naissance de plus (Malchanceux, Alcoolique, Blasphémateur) — et la **lecture** : traits en laiton/sang séché avec leur histoire au survol, dégâts cumulés par compétence | La jauge de stress est-elle enfin quelque chose qu'on joue, et non qu'on regarde ? |
@@ -25,6 +26,22 @@ incertain d'abord. À chaque jalon, le jeu doit être **jouable** — moche, mai
 | **10** | Prologue, choix de classe, dialogues, narration | Le jeu a un début |
 | **11** | Défaite, corruption, retour du héros en antagoniste | Le jeu a une **suite** |
 | **12** | Leaderboard en ligne | Le score compte pour de vrai |
+| **13** | **Les portails et le donjon** (§4.32) : un portail très rare qui s'ouvre sans prévenir, un labyrinthe tiré au sort, des ennemis, des caches, des stèles de compétence — et, pendant qu'on y est, **un village qui reste seul** | Quitter son village pour du butin est-il une vraie décision ? |
+
+> **Le jalon 5.6 et le jalon 13 naissent la nuit du 20 septembre 2026**, à quelques minutes
+> d'écart, tous deux d'une demande d'Angelos faite en regardant l'errance tourner.
+>
+> **Le 5.6 répond à un défaut que le 5.5 vient de créer.** Refuser un village fait désormais
+> traverser un, trois, puis sept mondes muets : c'est beaucoup d'espace vide, et sans rien
+> dedans le chemin optimal est la ligne droite. Il passe donc **juste après**, et pas
+> ailleurs — c'est la même règle de dépendance qui a mis l'église en tête du jalon 5.
+>
+> **Le jalon 13 passe après tout le reste, et pour une raison précise.** Ce qui rend un
+> portail intéressant, ce n'est pas le donjon : c'est **le village qu'on laisse derrière**,
+> qui continue de vivre, d'avoir faim et de se faire attaquer pendant qu'on est ailleurs.
+> Or ça, c'est le **bloc 12** (§4.27, la vie autonome) et le **bloc 9** (le village armé).
+> Coder le donjon avant eux, c'est livrer un village qui se fige ou qui meurt bêtement dès
+> qu'on tourne le dos — et gâcher la seule chose qui fait l'intérêt de la section.
 
 ## Le jalon 5 en détail
 

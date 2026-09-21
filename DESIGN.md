@@ -3,7 +3,13 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-08-11, tard (les **sept notes brutes** de `design/a-faire.md`
+> Dernière mise à jour : la nuit du 2026-09-20 — **le jalon 5.5 est fini** (la carte se
+> peint par morceaux, la zone passe à ×3, l'errance continue), et **deux sections neuves**
+> naissent dans la foulée : le **§4.31** (les trouvailles de la route — ce qu'on gagne à ne
+> pas aller tout droit) et le **§4.32** (les portails et le donjon labyrinthe, à coder
+> après le jalon 5).
+>
+> Avant ça : 2026-08-11, tard (les **sept notes brutes** de `design/a-faire.md`
 > sont dépouillées : elles donnent un **jalon 6.7** neuf — le moral devient une arme — et
 > elles nourrissent les §4.1, §4.10, §4.13, §4.23 et §7. Le **bloc 7 se coupe en 7a / 7b**,
 > et le §4.20 **annule** son propre paragraphe « le jeu n'a pas besoin de savoir qu'un anneau
@@ -94,6 +100,8 @@ Détail complet : [§1 Pitch](design/01-pitch.md).
 | **4.28** | [**La sauvegarde et le compte**](design/4.28-la-sauvegarde-et-le-compte.md) |
 | **4.29** | [**Le nouveau départ : le monde qu'on traverse, le village qu'on choisit**](design/4.29-le-nouveau-depart.md) |
 | **4.30** | [**La refonte visuelle : dessinée par le code, puis low-poly Blender (18 sept.)**](design/4.30-la-refonte-visuelle.md) |
+| **4.31** | [**Les trouvailles de la route : ce qu'on gagne à ne pas aller tout droit**](design/4.31-les-trouvailles-de-la-route.md) |
+| **4.32** | [**Les portails et le donjon : ce qui s'ouvre sans prévenir**](design/4.32-les-portails-et-le-donjon.md) |
 
 ### Le plan
 
@@ -120,7 +128,9 @@ Détail complet : [§1 Pitch](design/01-pitch.md).
   [§4.25 tags, fusions et synergies](design/4.25-tags-fusions-et-synergies.md),
   [§4.26 la mémoire du village](design/4.26-les-relations-les-souvenirs-et-la-memoire-du-village.md),
   [§4.27 la vie autonome](design/4.27-la-vie-autonome.md),
-  [§4.29 le nouveau départ](design/4.29-le-nouveau-depart.md).
+  [§4.29 le nouveau départ](design/4.29-le-nouveau-depart.md),
+  [§4.31 les trouvailles de la route](design/4.31-les-trouvailles-de-la-route.md),
+  [§4.32 les portails et le donjon](design/4.32-les-portails-et-le-donjon.md).
   (Le §4.22, l'église, est **codé** depuis le 10 août.)
 
 ## Comment on tient ce document
