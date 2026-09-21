@@ -16,8 +16,16 @@
 - **On voit d'un village ce qui se voit de loin** : le terrain, sa taille, les defenses encore
   debout, les habitants dehors. **Jamais** les maladies, le stress, ni les reserves. Le choix
   est un pari eclaire, pas un calcul.
-- **Le premier village arrive vite** — deux a trois minutes de marche. **Refuser coute** : le
+- **Le premier village arrive vite** — une demi-minute de marche. **Refuser coute** : le
   suivant est deux fois plus loin, et ainsi de suite.
+
+  > ⚠️ **Ce paragraphe disait « deux a trois minutes », et c'etait impossible.** Rectifie le
+  > 20 septembre 2026, dans la nuit, par Angelos, apres mesure : a 108 pixels par seconde,
+  > deux minutes de marche font **13 000 pixels**, quand la diagonale de la zone jouable a x3
+  > — la plus grande qu'on ait — en fait **4 330**. Aucune carte finie ne peut contenir ce
+  > chiffre ; il aurait fallu traverser plusieurs mondes, ou ralentir le heros. **Tranche :
+  > on garde les vingt-sept secondes**, qui suffisent a comprendre qu'on est seul. Ce sont
+  > les **refus** qui s'allongent, pas le premier chemin.
 - **Le budget du monde s'annonce en une phrase** avant d'entrer : « un village riche, bien
   defendu — et la foret grouille ». On echange du confort contre du danger, en le sachant.
 - **Une journee fait 10 minutes de jour et 5 de nuit** (contre 30 + 15). C'est la decision qui

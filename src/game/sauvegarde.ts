@@ -469,6 +469,32 @@ export function effacerEnLocal(emplacement: Emplacement): void {
   }
 }
 
+/**
+ * Efface les parties d'un format perime. **Au demarrage, une fois.**
+ *
+ * ⚠️ **Une partie qui ne peut plus etre reprise ne doit pas rester sur
+ * l'ecran des emplacements.** Elle y apparaitrait comme un emplacement occupe
+ * qu'on ne peut ni jouer ni comprendre — la pire des deux options. On l'efface,
+ * et on dit combien.
+ *
+ * C'est arrive une fois, la nuit du 20 septembre 2026 : le tirage du monde a
+ * ete repare, donc une graine ne rend plus la meme carte, donc une sauvegarde
+ * d'avant poserait ses murs et ses habitants sur une geographie qui n'est plus
+ * la leur (voir `VERSION_SAUVEGARDE`).
+ *
+ * @returns les emplacements effaces
+ */
+export function purgerLesPerimees(): Emplacement[] {
+  const effaces: Emplacement[] = [];
+  for (const emplacement of EMPLACEMENTS) {
+    const lecture = relireEnLocal(emplacement);
+    if (lecture.ok || lecture.raison !== "perimee") continue;
+    effacerEnLocal(emplacement);
+    effaces.push(emplacement);
+  }
+  return effaces;
+}
+
 /** Ce qu'il y a dans les trois emplacements, pour l'ecran de depart. */
 export function inventaire(): Map<Emplacement, Sauvegarde | null> {
   const tout = new Map<Emplacement, Sauvegarde | null>();

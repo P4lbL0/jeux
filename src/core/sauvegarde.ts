@@ -38,8 +38,17 @@ import type { CaseFouleeSauvee } from "./chemins";
  * ⚠️ **A monter des qu'un champ change de sens** — pas quand on en ajoute un
  * qu'on sait combler par un defaut. C'est ce numero qui permet de refuser
  * honnetement une sauvegarde qu'on ne sait pas lire.
+ *
+ * **2 — la nuit du 20 septembre 2026.** Aucun champ n'a change de sens : c'est
+ * le **monde** qui a change. Le tirage se disait pur et dependait en fait du
+ * monde deja charge (`monde.ts`, `placerLesPostes`) ; repare, il ne rend plus
+ * la meme carte pour la meme graine. Or une sauvegarde ne garde pas sa carte,
+ * elle garde **sa graine** : une partie d'avant reprendrait avec son heros, ses
+ * habitants et ses murs poses sur une geographie qui n'est plus la leur — un
+ * village au milieu d'un lac, des postes dans la roche. Mieux vaut la refuser,
+ * et le dire.
  */
-export const VERSION_SAUVEGARDE = 1;
+export const VERSION_SAUVEGARDE = 2;
 
 /** Trois parties en parallele (§4.28). La base en accepte trois, pas une de plus. */
 export const EMPLACEMENTS = [1, 2, 3] as const;
@@ -288,7 +297,7 @@ export function serialiser(sauvegarde: Sauvegarde): string {
 }
 
 /** Pourquoi une sauvegarde n'a pas pu etre relue. */
-export type RefusLecture = "vide" | "illisible" | "trop-recente" | "incomplete";
+export type RefusLecture = "vide" | "illisible" | "trop-recente" | "perimee" | "incomplete";
 
 export type Lecture =
   | { ok: true; sauvegarde: Sauvegarde }
@@ -332,6 +341,19 @@ export function lire(texte: string | null | undefined): Lecture {
       raison: "trop-recente",
       message:
         "Cette sauvegarde vient d'une version plus recente du jeu. Mettez le jeu a jour pour la reprendre.",
+    };
+  }
+
+  // ⚠️ **Une sauvegarde d'un format plus ancien n'est pas rattrapable ici.**
+  // Elle garde une graine, pas une carte : si le tirage du monde a change, son
+  // village n'est plus au meme endroit que ses murs. On la refuse, et
+  // `purgerLesPerimees` l'efface au demarrage plutot que de la laisser hanter
+  // l'ecran des emplacements.
+  if (candidat.version < VERSION_SAUVEGARDE) {
+    return {
+      ok: false,
+      raison: "perimee",
+      message: "Cette partie vient d'une ancienne version du monde et ne peut plus etre reprise.",
     };
   }
 

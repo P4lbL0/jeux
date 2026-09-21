@@ -145,6 +145,21 @@ describe("la relecture", () => {
     expect(lecture.message).toContain("plus recente");
   });
 
+  it("refuse une sauvegarde d'un format plus ancien, au lieu de la reprendre de travers", () => {
+    // ⚠️ Une sauvegarde garde **sa graine**, pas sa carte. Quand le tirage du
+    // monde change — ce qui est arrive la nuit du 20 septembre 2026, quand il a
+    // cesse de dependre du monde deja charge —, la meme graine ne rend plus la
+    // meme geographie : le village d'une vieille partie se retrouverait au
+    // milieu d'un lac. On la refuse, et `purgerLesPerimees` l'efface.
+    const vieille = serialiser(sauvegardeMinimale({ version: VERSION_SAUVEGARDE - 1 }));
+    const lecture = lire(vieille);
+
+    expect(lecture.ok).toBe(false);
+    if (lecture.ok) return;
+    expect(lecture.raison).toBe("perimee");
+    expect(lecture.message).toContain("ancienne version");
+  });
+
   it("ne jette jamais, meme sur du texte abime", () => {
     for (const texte of ["", "   ", "{", "null", "[]", "{\"version\":1}"]) {
       const lecture = lire(texte);

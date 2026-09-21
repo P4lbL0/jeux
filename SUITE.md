@@ -1402,10 +1402,10 @@ maintenant **mises en pause, par battements d'un quart de seconde**.
 - **La marche s'allonge** : 2 176 à 3 330 px, **27 s en médiane** au pas du guerrier, contre
   21 s à ×2 et 12 s à ×1.
 
-⚠️ **Et le §6 demande « deux à trois minutes » pour le premier village.** À 108 px/s, deux
-minutes font 13 000 px de marche : **aucune carte finie ne peut les contenir** (la diagonale
-de ×3 en fait 4 330). Ce chiffre-là n'est atteignable que par l'errance continue, en
-traversant plusieurs mondes — ou en ralentissant la marche, ce que personne n'a demandé.
+⚠️ **Le §6 demandait « deux à trois minutes » pour le premier village, et c'était
+impossible.** À 108 px/s, deux minutes font 13 000 px de marche quand la diagonale de ×3 en
+fait 4 330. ✅ **Tranché par Angelos dans la nuit : on garde les vingt-sept secondes**, et
+le §6 est réécrit. Ce sont les refus qui s'allongent, pas le premier chemin.
 
 **Vérifié dans le navigateur** (`.tmp/verifier-morceaux.ts`, trois mondes tirés, avec la
 marche) : **23 contrôles sur 24**, le seul raté étant une image à 116 ms au lieu de 120 sur
@@ -1540,7 +1540,8 @@ et n'était appliquée nulle part : une partie commence maintenant dessus.
   logiciel — une vraie machine fera mieux). ⚠️ **C'est le prix du refus** : refuser un village
   tire un monde neuf, donc repeint la carte. La dette notée la veille est maintenant chiffrée.
 - **La marche s'allonge** : 2 174 px au lieu de 1 200 à 1 800, soit une trentaine de secondes.
-  On se rapproche des « deux à trois minutes » du §6.
+  (Le §6 demandait alors « deux à trois minutes » ; ce chiffre a été rectifié dans la nuit —
+  il était impossible sur une carte finie.)
 
 **La presqu'île existe.** Sur 120 graines, aucun monde n'avait un seul front ; le §4.29 en
 fait pourtant le plus gros cadeau du jeu.

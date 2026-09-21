@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { ASSETS } from "../game/assets";
 import { INTRO, SON_INTRO } from "../game/intro";
 import { SONS_INTERFACE, reprendreLesReglages } from "../game/son";
+import { purgerLesPerimees } from "../game/sauvegarde";
 
 /**
  * Le prechargement, avant tout le reste.
@@ -42,6 +43,15 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     reprendreLesReglages(this.game);
+    // Les parties d'un format perime s'en vont ici, et nulle part ailleurs :
+    // elles ne sont plus reprenables et n'ont rien a faire sur l'ecran des
+    // emplacements (§4.28).
+    const purgees = purgerLesPerimees();
+    if (purgees.length > 0) {
+      console.log(
+        `[boot] ${purgees.length} partie(s) d'une ancienne version du monde effacee(s) : ${purgees.join(", ")}`,
+      );
+    }
     if (ASSETS.length > 0) {
       console.log(`[boot] ${ASSETS.length} sprite(s) Blender : ils remplacent le dessin au code`);
     }
