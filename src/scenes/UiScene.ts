@@ -18,6 +18,10 @@ import {
   affuter, POLICE } from "../game/ui/chrome";
 import type { ArenaScene } from "./ArenaScene";
 import { calerLaCamera, largeurEcran, hauteurEcran } from "../game/ui/ecran";
+import { MenuPause } from "../game/menuPause";
+import { PanneauSon } from "../game/panneauSon";
+import { PanneauTouches } from "../game/panneauTouches";
+import { Clavier } from "../game/touches";
 
 /**
  * Toute l'interface vit dans cette scene, separee de l'arene.
@@ -49,6 +53,20 @@ export class UiScene extends Phaser.Scene {
   private route!: PanneauRoute;
   private boiteJournal!: BoiteJournal;
   private rencontre!: PanneauRencontre;
+  /**
+   * La pause et ses deux panneaux (§4.10, bloc 10).
+   *
+   * ⚠️ **ECHAP appartient a cette scene, pas a l'arene.** C'est la seule qui
+   * sache ce qui est ouvert par-dessus le jeu, et ECHAP doit d'abord refermer ce
+   * qui l'est — un menu d'ordres, une fiche, le tableau du village — avant
+   * d'ouvrir quoi que ce soit.
+   */
+  private menuPause!: MenuPause;
+  private parametres!: PanneauSon;
+  private touches!: PanneauTouches;
+  private clavier!: Clavier;
+  /** Vrai pendant un renommage : les lettres vont au champ, pas au jeu. */
+  private saisie = false;
 
   constructor() {
     super("ui");
@@ -76,9 +94,10 @@ export class UiScene extends Phaser.Scene {
     this.choix = new ChoixCompetence(this);
     // Le renommage capte le clavier : sans ce relais, taper « Bertrand »
     // sonnerait la cloche et batirait deux palissades (§4.18).
-    this.fiche = new FichePersonne(this, (enCours) =>
-      this.arene.events.emit("saisie-clavier", enCours),
-    );
+    this.fiche = new FichePersonne(this, (enCours) => {
+      this.saisie = enCours;
+      this.arene.events.emit("saisie-clavier", enCours);
+    });
     this.ordres = new PanneauOrdres(this, 12, 12 + 62 + 10);
     // Le menu ne decide rien : il rend l'identifiant de la ligne cliquee, et
     // c'est l'arene qui sait ce qu'une tache fait au village (§4.4).
@@ -110,6 +129,8 @@ export class UiScene extends Phaser.Scene {
     // d'autre qui pose la question, et nous qui repondons.
     this.rencontre = new PanneauRencontre(this);
 
+    this.construireLaPause();
+
     // « ? » deplie la ligne des touches (§4.10). L'arene garde la main sur la
     // touche parce que c'est elle qui sait si une saisie est en cours — taper
     // un nom ne doit pas ouvrir l'aide.
@@ -138,6 +159,109 @@ export class UiScene extends Phaser.Scene {
       evenements.off("menu-ordres", this.ouvrirLeMenu, this);
       evenements.off("fermer-menu-ordres", this.fermerLeMenu, this);
     });
+  }
+
+  // ------------------------------------------------------------- la pause
+
+  /**
+   * ECHAP, et les trois panneaux qu'il ouvre (§4.10, bloc 10).
+   *
+   * Le menu de pause **arrete vraiment le jeu** : c'est l'arene qui met le
+   * temps en suspens, exactement comme pour le mode d'amenagement, et qui le
+   * rend a la reprise. Sans ce rendu, toute la nuit frapperait dans l'image du
+   * degel.
+   */
+  private construireLaPause(): void {
+    // `false` : ECHAP appartient a cette scene, pas au panneau. Les deux y
+    // repondraient, et le menu de pause se refermerait dans la foulee.
+    this.parametres = new PanneauSon(this, () => this.menuPause.ouvrir(), false);
+    this.touches = new PanneauTouches(this, () => this.menuPause.ouvrir());
+    this.menuPause = new MenuPause(this, {
+      reprendre: () => this.fermerLaPause(),
+      // `effacer` et non `fermer` : le voile reste, et les deux panneaux se
+      // posent dessus au lieu de flotter sur un village en pleine lumiere.
+      parametres: () => {
+        this.menuPause.effacer();
+        this.parametres.ouvrir();
+      },
+      touches: () => {
+        this.menuPause.effacer();
+        this.touches.ouvrir();
+      },
+      sauverEtQuitter: () => {
+        this.menuPause.fermer();
+        this.arene.sauverEtQuitter();
+      },
+      abandonner: () => {
+        this.menuPause.fermer();
+        this.arene.abandonnerLaPartie();
+      },
+    });
+
+    this.clavier = new Clavier(this, () => !this.arene.partieFinie && !this.saisie);
+    this.clavier.surAppui("pause", () => this.surEchap());
+
+    const replacer = (): void => {
+      this.menuPause.replacer();
+      this.parametres.replacer();
+      this.touches.replacer();
+    };
+    this.scale.on("resize", replacer);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off("resize", replacer));
+  }
+
+  /**
+   * ECHAP : **on referme d'abord ce qui est ouvert**, et seulement ensuite on
+   * met le jeu en pause.
+   *
+   * L'ordre suit la pile de l'ecran, du plus haut au plus bas. Trois panneaux
+   * ne sont pas dedans, et c'est voulu : le choix de competence, la fiche
+   * d'observation d'un arrivant et la rencontre **attendent une reponse**
+   * (§4.18, §4.29). Les fermer sans repondre laisserait le jeu en pause avec
+   * quelqu'un qui attend dehors.
+   */
+  private surEchap(): void {
+    // Les deux panneaux d'options se referment sur le menu, pas sur le jeu.
+    if (this.touches.ouvert) {
+      this.touches.fermer();
+      return;
+    }
+    if (this.parametres.ouvert) {
+      this.parametres.fermer();
+      return;
+    }
+    if (this.menuPause.ouvert) {
+      this.fermerLaPause();
+      return;
+    }
+    if (this.choix.estOuvert || this.fiche.exigeUneReponse || this.rencontre.estOuvert) return;
+
+    if (this.menu.ouvert) {
+      this.menu.fermer();
+      return;
+    }
+    if (this.fiche.estOuverte) {
+      this.fiche.fermer();
+      return;
+    }
+    if (this.port.estOuvert) {
+      this.port.fermer();
+      return;
+    }
+    if (this.village.estOuvert) {
+      this.village.fermer();
+      return;
+    }
+    // Le mode d'amenagement est deja une pause : ECHAP en sort, il n'en empile
+    // pas une seconde par-dessus (§4.24).
+    if (this.arene.quitterLAmenagement()) return;
+
+    if (this.arene.poserLaPauseDuJoueur()) this.menuPause.ouvrir();
+  }
+
+  private fermerLaPause(): void {
+    this.menuPause.fermer();
+    this.arene.leverLaPauseDuJoueur();
   }
 
   private ouvrirLeMenu(contenu: ContenuMenu): void {

@@ -169,6 +169,18 @@ export class FichePersonne {
     return this.sujet !== null;
   }
 
+  /**
+   * Vrai quand la fiche **attend une reponse** : un arrivant a la porte, un
+   * blesse ramene du bord de la carte.
+   *
+   * ECHAP ne la referme pas dans ce mode (§4.10, bloc 10) : laisser entrer ou
+   * refuser est un arbitrage du joueur, et le fermer sans repondre laisserait
+   * le jeu en pause avec quelqu'un qui attend dehors.
+   */
+  get exigeUneReponse(): boolean {
+    return this.sujet?.genre === "arrivant";
+  }
+
   basculer(sujet: SujetFiche): void {
     if (this.sujet !== null) {
       this.fermer();

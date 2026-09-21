@@ -105,6 +105,13 @@ l'onglet apres avoir perdu un heros ne le ramene pas.
 | `G` `K` `H` `J` `L` `N` | Batir : palissade, porte, tour, champ, maison, douve — puis clic. **Sur un segment de mur ou de porte existant, l'outil le renforce** (fer, puis pierre) ; `N` sur une douve la remplit d'eau ; `K` sur une porte devant une douve en eau en fait un pont-levis (§4.20) |
 | `M` | Le mode d'amenagement : le temps s'arrete, on pose, on prend, on demolit (clic droit) |
 | `2` a `7` | Les competences actives — quatre emplacements, puis ceux qu'on achete (§4.13) |
+| `Echap` | **Referme ce qui est ouvert**, et sinon met le jeu en **pause** : reprendre, volumes, touches, sauver et quitter, abandonner |
+| `?` | Deplier la ligne d'aide, en bas de l'ecran — elle dit les vraies touches |
+
+**Toutes les touches se remappent**, sans exception : menu `Echap` > *Touches*. Une touche
+deja prise n'est pas refusee, elle est **echangee** — l'autre action recupere celle qu'on
+vient de liberer, et aucune ne se retrouve muette. Le reglage est retenu d'une partie a
+l'autre, et la ligne d'aide du bas **lit le mappage** : elle ne ment jamais.
 
 L'attaque, la visee et l'esquive sont **automatiques** : le joueur ne controle
 que le deplacement et ses ultimes.
@@ -126,7 +133,7 @@ jamais pour donner un ordre (DESIGN.md §4.4).
 | **Maj + clic droit** sur un portrait | Selectionne toute sa classe |
 | `W` / `X` / `C` | Temporiser / Agressif / Repli |
 | `V` | Change de formation (libre, mur, cercle) |
-| `Echap` | *Rompez* : plus de selection, plus de position tenue |
+| `O` | *Rompez* : plus de selection, plus de position tenue (c'etait `Echap` jusqu'au 21 septembre, qui est devenu la pause) |
 
 Sans selection, l'ordre vaut pour **toute l'equipe**. Le heros incarne n'obeit
 jamais : c'est le joueur qui le pilote.
@@ -261,7 +268,7 @@ passe dedans est **rendu** a la fermeture.
 
 | Geste | Effet |
 |---|---|
-| `G` / `H` / `J` / `K` / `L` | Choisir quoi poser. Ce sont les **seules** touches vivantes sous cette pause |
+| `G` / `H` / `J` / `K` / `L` / `N` / `U` | Choisir quoi poser. Ce sont les **seules** touches vivantes sous cette pause — avec `Echap`, qui en sort |
 | **Clic gauche** | Poser si un outil est choisi ; sinon **prendre** ce qui est sous le curseur (mur, tour, porte, maison, ruine) ; et si on tient quelque chose, le **reposer** |
 | **Clic droit** | Demolir — ca rend **la moitie** de ce qui tenait encore debout, rien pour une ruine |
 
@@ -412,6 +419,8 @@ src/
     traits.ts        traits, sequelles et leur agregat (testee)
     etats.ts         maladie, hemorragie, infection, lethargie (testee)
     satisfaction.ts  le moral du village, qui debloque l'eglise (testee)
+    touches.ts       les 36 actions du clavier, leur touche et l'echange qui
+                     fait qu'aucune ne reste muette (testee)
     sauvegarde.ts    la forme d'une partie enregistree, et l'arbitrage
                      local/cloud — fonction pure, testee (§4.28)
   en-ligne/  le seul dossier qui connait le reseau. Retirable en entier
@@ -432,6 +441,11 @@ src/
     panneauOrdres.ts   qui obeit, et a quoi
     choixCompetence.ts ecran de montee de niveau
     fichePersonne.ts   LA fiche : heros et habitants, et le renommage
+    touches.ts         le pont Phaser du clavier : localStorage, et une classe
+                       qui rebranche tout quand on remappe
+    menuPause.ts       ECHAP : reprendre, parametres, touches, quitter
+    panneauTouches.ts  le remappage, par familles, une ligne par action
+    panneauSon.ts      les trois volumes (titre et menu de pause)
     portraits.ts       portraits assembles par morceaux, en onze couches
     sauvegarde.ts      le pont : capture de la partie, reprise, localStorage
   scenes/    les ecrans du jeu

@@ -161,6 +161,14 @@ export class PanneauVillage {
     this.ouvert = !this.ouvert;
   }
 
+  get estOuvert(): boolean {
+    return this.ouvert;
+  }
+
+  fermer(): void {
+    this.ouvert = false;
+  }
+
   /**
    * Le compteur permanent — jour, population, survie — a quitte ce fichier pour
    * `ui/panneauEtat.ts` : il etait pose a nu sur l'herbe, et il faisait paire

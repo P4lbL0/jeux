@@ -12,6 +12,7 @@ import {
   yTitre,
   type Plaque,
 } from "./ui/chrome";
+import { largeurEcran, hauteurEcran } from "./ui/ecran";
 import { PISTES, bruitDInterface, reglerLaPiste, volumeDeLaPiste, type Piste } from "./son";
 
 /**
@@ -32,7 +33,7 @@ const NOMS: Record<Piste, string> = { musique: "Musique", ambiance: "Ambiance", 
 
 const LARGEUR = 380;
 const HAUTEUR = 196;
-const PROFONDEUR = 200;
+const PROFONDEUR = 2200;
 /** La glissiere : ou elle commence dans la plaque, sa longueur, son epaisseur. */
 const GLISSIERE = { x: 118, longueur: 180, epaisseur: 8 };
 
@@ -42,9 +43,15 @@ export class PanneauSon {
   private curseurs = new Map<Piste, { g: Phaser.GameObjects.Graphics; texte: Phaser.GameObjects.Text; x0: number; y: number }>();
   private tiree: Piste | null = null;
 
+  /**
+   * @param gereEchap vrai sur l'ecran-titre, ou ce panneau est seul. **Faux en
+   *   partie** : la scene d'interface est la seule a tenir ECHAP, sinon les deux
+   *   repondent au meme appui et le menu de pause se referme dans la foulee.
+   */
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly surFermer: () => void,
+    private readonly gereEchap = true,
   ) {}
 
   get ouvert(): boolean {
@@ -54,7 +61,11 @@ export class PanneauSon {
   ouvrir(): void {
     if (this.ouvert) return;
     const s = this.scene;
-    const { width: l, height: h } = s.scale;
+    // ⚠️ **Jamais `scale.width`** : il compte en vrais pixels depuis le
+    // 21 septembre 2026, et sur un ecran a 150 % la plaque partirait hors du
+    // cadre (`ui/ecran.ts`).
+    const l = largeurEcran(s);
+    const h = hauteurEcran(s);
     const p: Plaque = {
       x: Math.round((l - LARGEUR) / 2),
       y: Math.round(h * 0.3 - 10),
@@ -90,7 +101,7 @@ export class PanneauSon {
 
     s.input.on("pointermove", this.tirer, this);
     s.input.on("pointerup", this.lacher, this);
-    s.input.keyboard?.on("keydown-ESC", this.fermer, this);
+    if (this.gereEchap) s.input.keyboard?.on("keydown-ESC", this.fermer, this);
   }
 
   fermer(): void {
@@ -110,7 +121,7 @@ export class PanneauSon {
     const s = this.scene;
     s.input.off("pointermove", this.tirer, this);
     s.input.off("pointerup", this.lacher, this);
-    s.input.keyboard?.off("keydown-ESC", this.fermer, this);
+    if (this.gereEchap) s.input.keyboard?.off("keydown-ESC", this.fermer, this);
     for (const o of this.objets) o.destroy();
     this.objets = [];
     this.curseurs.clear();
@@ -141,7 +152,7 @@ export class PanneauSon {
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", (pointeur: Phaser.Input.Pointer) => {
         this.tiree = piste;
-        this.regler(piste, pointeur.x);
+        this.regler(piste, this.xDansLaScene(pointeur));
       });
     this.objets.push(zone);
     this.dessiner(piste);
@@ -173,8 +184,20 @@ export class PanneauSon {
     texte.setText(`${Math.round(v * 100)} %`);
   }
 
+  /**
+   * Ou le pointeur tombe **dans le repere de la scene**.
+   *
+   * ⚠️ `pointeur.x` compte en pixels de canvas, et la camera d'une scene
+   * d'interface est zoomee de `RATIO` (`ui/ecran.ts`) : sur un ecran a 150 %,
+   * le curseur sautait d'une fois et demie la distance parcourue par la souris.
+   */
+  private xDansLaScene(pointeur: Phaser.Input.Pointer): number {
+    const dedans = pointeur.positionToCamera(this.scene.cameras.main) as Phaser.Math.Vector2;
+    return dedans.x;
+  }
+
   private tirer(pointeur: Phaser.Input.Pointer): void {
-    if (this.tiree && pointeur.isDown) this.regler(this.tiree, pointeur.x);
+    if (this.tiree && pointeur.isDown) this.regler(this.tiree, this.xDansLaScene(pointeur));
   }
 
   private lacher(): void {

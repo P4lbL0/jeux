@@ -31,6 +31,7 @@ import {
   CLE_TONNEAU,
 } from "../game/dessin/decor";
 import { origineDe, textureDe } from "../game/constructions";
+import { Clavier } from "../game/touches";
 import { Bruits, chargerLesBruits } from "../game/bruits";
 import {
   abimerLeSol,
@@ -380,19 +381,45 @@ export interface EtatVillage {
 const RAYON_DE_VUE = 340;
 
 /**
- * Les seules touches qui restent vivantes sous la pause du mode d'amenagement.
+ * Ce qu'une touche pose sur la grille, par action (§4.10, §4.24).
  *
- * Ce sont celles qui choisissent **quoi poser** — palissade, tour, champ. Tout
- * le reste doit rester bloque : la cloche, les postures ou l'eglise n'ont aucun
- * sens pendant que le temps est arrete (§4.24).
+ * ⚠️ **Ce sont des identifiants d'action, plus des codes de touche** : depuis le
+ * bloc 10 le joueur remappe, et une liste de codes serait devenue fausse au
+ * premier remappage.
  */
-const CHOISIR_QUOI_POSER: number[] = [
-  Phaser.Input.Keyboard.KeyCodes.G,
-  Phaser.Input.Keyboard.KeyCodes.H,
-  Phaser.Input.Keyboard.KeyCodes.J,
-  Phaser.Input.Keyboard.KeyCodes.K,
-  Phaser.Input.Keyboard.KeyCodes.L,
-  Phaser.Input.Keyboard.KeyCodes.N,
+const CONSTRUCTIONS_A_LA_TOUCHE: [string, ModeBati][] = [
+  ["palissade", "palissade"],
+  ["tour", "tour"],
+  ["champ", "champ"],
+  ["porte", "porte"],
+  ["maison", "maison"],
+  ["douve", "douve"],
+  // La cour d'entrainement : le batiment du bloc 9, un seul par village.
+  ["cour", "cour"],
+];
+
+/**
+ * Les seules actions qui restent vivantes sous la pause du mode d'amenagement.
+ *
+ * Ce sont celles qui choisissent **quoi poser**. Tout le reste doit rester
+ * bloque : la cloche, les postures ou l'eglise n'ont aucun sens pendant que le
+ * temps est arrete (§4.24).
+ *
+ * ⚠️ **La cour y entre le 21 septembre 2026.** Elle manquait depuis le bloc 9 —
+ * un simple oubli : on ne pouvait pas choisir de poser une cour une fois entre
+ * en amenagement, alors que les six autres constructions le permettaient.
+ */
+const CHOISIR_QUOI_POSER: string[] = CONSTRUCTIONS_A_LA_TOUCHE.map(([action]) => action);
+
+/** Les sept emplacements de capacite, dans l'ordre (§4.13). */
+const ACTIONS_CAPACITE: string[] = [
+  "capacite1",
+  "capacite2",
+  "capacite3",
+  "capacite4",
+  "capacite5",
+  "capacite6",
+  "capacite7",
 ];
 
 /**
@@ -611,9 +638,14 @@ export class ArenaScene extends Phaser.Scene {
   /** Archetypes deja croises, pour n'annoncer chacun qu'une fois */
   private archetypesVus = new Set<string>();
 
-  private zqsd!: Record<string, Phaser.Input.Keyboard.Key>;
-  private fleches!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private touchesCapacites: Phaser.Input.Keyboard.Key[][] = [];
+  /**
+   * Le clavier, branche sur des **actions** et non sur des lettres (§4.10).
+   *
+   * Depuis le bloc 10, plus une seule touche n'est ecrite en dur ici : la table
+   * vit dans `core/touches.ts`, le joueur la remappe depuis le menu ECHAP, et
+   * cette scene comme la ligne d'aide la lisent.
+   */
+  private clavier!: Clavier;
 
   private destination: Phaser.Math.Vector2 | null = null;
   private marqueur: Phaser.GameObjects.Image | null = null;
@@ -865,6 +897,9 @@ export class ArenaScene extends Phaser.Scene {
   /** Vrai quand la pause vient de la fenetre, pas du menu de choix */
   private pauseHorsFocus = false;
   private debutPause = 0;
+  /** Vrai quand c'est le joueur qui a demande la pause (ECHAP, §4.10) */
+  private pauseDuJoueur = false;
+  private debutPauseDuJoueur = 0;
   private modeChoix: "competence" | "evolution" | "remplacement" = "competence";
   /** La competence qui attend une place, le temps de l'ecran « laquelle oublier ? » (§4.13). */
   private competenceEnAttente: CompetenceDef | null = null;
@@ -1723,6 +1758,91 @@ export class ArenaScene extends Phaser.Scene {
     this.physics.resume();
     this.anims.resumeAll();
     this.enPause = false;
+  }
+
+  // ------------------------------------------------- la pause du joueur
+
+  /**
+   * **La premiere vraie pause commandee** (DESIGN.md §4.10, bloc 10).
+   *
+   * Jusqu'au 21 septembre 2026 le jeu ne s'arretait que tout seul : perte de
+   * focus, choix de competence, mode d'amenagement. On ne pouvait pas poser la
+   * manette.
+   *
+   * Elle se comporte exactement comme les autres : le temps passe dedans est
+   * **rendu** a la reprise, sinon toute la nuit frapperait dans l'image du degel.
+   *
+   * @returns faux si une autre pause tient deja le jeu — on ne se met pas en
+   *   travers de qui rendra la main.
+   */
+  poserLaPauseDuJoueur(): boolean {
+    if (this.termine || this.enPause) return false;
+    this.enPause = true;
+    this.pauseDuJoueur = true;
+    this.debutPauseDuJoueur = this.time.now;
+    this.physics.pause();
+    this.anims.pauseAll();
+    return true;
+  }
+
+  leverLaPauseDuJoueur(): void {
+    if (!this.pauseDuJoueur || this.termine) return;
+    this.pauseDuJoueur = false;
+    this.decalerLeTemps(this.time.now - this.debutPauseDuJoueur);
+    this.physics.resume();
+    this.anims.resumeAll();
+    this.enPause = false;
+  }
+
+  /** Vrai quand une saisie de texte capte le clavier (le renommage, §4.18). */
+  get clavierPris(): boolean {
+    return this.saisieEnCours;
+  }
+
+  /** Vrai quand le mode d'amenagement tient le jeu (§4.24). */
+  get enAmenagement(): boolean {
+    return this.amenagement;
+  }
+
+  get partieFinie(): boolean {
+    return this.termine;
+  }
+
+  /** Referme le mode d'amenagement. Rend vrai s'il etait ouvert. */
+  quitterLAmenagement(): boolean {
+    if (!this.amenagement) return false;
+    this.fermerAmenagement();
+    return true;
+  }
+
+  /**
+   * « Sauver et quitter » (§4.10, §4.28).
+   *
+   * On force l'enregistrement — la regle ironman ecrase, toujours — puis on
+   * rend l'ecran d'accueil, d'ou REPRENDRE relance exactement cette partie.
+   */
+  sauverEtQuitter(): void {
+    this.enregistrer(true);
+    this.retournerAuMenu();
+  }
+
+  /**
+   * « Abandonner » (§4.10).
+   *
+   * ⚠️ **La seule ligne destructive du jeu.** L'emplacement se libere des deux
+   * cotes — local et cloud — exactement comme a la mort de l'equipe : sinon la
+   * partie abandonnee se reprendrait en changeant de machine.
+   */
+  abandonnerLaPartie(): void {
+    effacerEnLocal(this.emplacement);
+    void effacerCloud(this.emplacement);
+    this.retournerAuMenu();
+  }
+
+  private retournerAuMenu(): void {
+    this.musique.eteindre(1);
+    this.scene.stop("ui");
+    this.scene.start("menu");
   }
 
   /**
@@ -3473,100 +3593,109 @@ export class ArenaScene extends Phaser.Scene {
     this.marqueur?.setVisible(false);
   }
 
+  /**
+   * Le clavier de la partie, branche sur des actions (DESIGN.md §4.10).
+   *
+   * ⚠️ **Plus aucune touche n'est ecrite ici.** On declare ce qu'on veut faire,
+   * `game/touches.ts` sait quelle touche le fait, et il rebranche tout seul
+   * quand le joueur remappe depuis le menu ECHAP. C'etait la condition pour que
+   * la ligne d'aide cesse de reciter des lettres qui pouvaient etre fausses.
+   *
+   * **ECHAP n'est pas ici** : la pause appartient a la scene d'interface, la
+   * seule qui sache ce qui est ouvert par-dessus le jeu.
+   */
   private configurerTouches(): void {
+    // Le clavier se cree meme sans plugin clavier : `enfoncee` et
+    // `justeAppuyee` sont lues a chaque image, et un champ vide les ferait
+    // planter des la premiere.
+    this.clavier = new Clavier(this, (id) => this.toucheAutorisee(id));
     const clavier = this.input.keyboard;
     if (!clavier) return;
-    this.zqsd = clavier.addKeys("Z,Q,S,D") as Record<string, Phaser.Input.Keyboard.Key>;
-    this.fleches = clavier.createCursorKeys();
 
-    const K = Phaser.Input.Keyboard.KeyCodes;
-    // ESPACE en plus du 1 : sur AZERTY la rangee des chiffres demande Shift.
-    const codesParCapacite = [
-      [K.ONE, K.NUMPAD_ONE, K.SPACE],
-      [K.TWO, K.NUMPAD_TWO],
-      [K.THREE, K.NUMPAD_THREE],
-      [K.FOUR, K.NUMPAD_FOUR],
-      [K.FIVE, K.NUMPAD_FIVE],
-      // Les emplacements qu'on achete (§4.13) : un cinquieme, un sixieme.
-      [K.SIX, K.NUMPAD_SIX],
-      [K.SEVEN, K.NUMPAD_SEVEN],
-    ];
-    this.touchesCapacites = codesParCapacite.map((codes) => codes.map((c) => clavier.addKey(c)));
+    // Ce qui se lit a l'image plutot qu'a l'appui : les jambes et les capacites.
+    this.clavier.suivre("haut", "bas", "gauche", "droite", ...ACTIONS_CAPACITE);
 
     // A et E encadrent ZQSD : on change de heros sans lacher les deplacements.
-    clavier.addKey(K.A).on("down", () => this.changerHeroRelatif(-1));
-    clavier.addKey(K.E).on("down", () => this.changerHeroRelatif(1));
+    this.brancher("heroPrecedent", () => this.changerHeroRelatif(-1));
+    this.brancher("heroSuivant", () => this.changerHeroRelatif(1));
 
     // Les ordres tombent sous la rangee de deplacement : la main gauche
     // commande sans jamais lacher ZQSD (DESIGN.md §4.4).
-    const ordres: [number, () => void][] = [
-      [K.W, () => this.ordonnerPosture("temporiser")],
-      [K.X, () => this.ordonnerPosture("agressif")],
-      [K.C, () => this.ordonnerPosture("repli")],
-      [K.V, () => this.changerFormation()],
-      // Tab : le mode commandement (§4.4, bloc 8). Elle est seule de son
-      // espece — toutes les autres touches font quelque chose, celle-ci change
-      // ce que fait la souris.
-      [K.TAB, () => this.basculerCommandement()],
-      [K.ESC, () => this.rompre()],
-      // La cloche : une touche, tout le monde rentre. C'est l'outil de
-      // l'urgence — quand une horde tombe, on n'a pas le temps de changer sept
-      // postures une par une (DESIGN.md §4.18).
-      [K.B, () => this.sonnerLaCloche()],
-      // Le tableau du village. L'ecran reste degage : tout ce qui n'est pas la
-      // population se lit ici, a la demande.
-      [K.F, () => this.events.emit("basculer-village")],
-      // Batir : une touche par construction, et la meme touche referme. Deux
-      // suffisent aujourd'hui — l'arsenal complet est au jalon 7.
-      [K.G, () => this.basculerConstruction("palissade")],
-      [K.H, () => this.basculerConstruction("tour")],
-      [K.J, () => this.basculerConstruction("champ")],
-      [K.K, () => this.basculerConstruction("porte")],
-      [K.L, () => this.basculerConstruction("maison")],
-      // La cour d'entrainement : le batiment du bloc 9, un seul par village.
-      [K.U, () => this.basculerConstruction("cour")],
-      [K.N, () => this.basculerConstruction("douve")],
-      [K.T, () => this.basculerTour()],
-      // L'eglise : une seule touche pour les deux gestes qu'on peut lui faire —
-      // la monter d'un niveau, ou relancer son chantier quand elle est a terre.
-      // Ce sont deux actions exclusives, jamais disponibles en meme temps.
-      [K.Y, () => this.oeuvrerALEglise()],
-      // Le port, meme principe : relever le chantier, ou ouvrir la vente quand
-      // un navire est a quai. Les deux gestes ne coexistent jamais (§4.18).
-      [K.P, () => this.oeuvrerAuPort()],
-    ];
-    for (const [code, action] of ordres) {
-      clavier.addKey(code).on("down", () => {
-        if (this.termine || this.saisieEnCours) return;
-        // ⚠️ Le mode d'amenagement **est** une pause, et il faut donc pouvoir y
-        // travailler : G, H et J y choisissent quoi poser. Tout le reste — la
-        // cloche, les postures, l'eglise, le port — reste bloque, comme sous
-        // n'importe quelle autre pause.
-        if (this.enPause && !(this.amenagement && CHOISIR_QUOI_POSER.includes(code))) return;
-        // Toute autre touche lache l'outil de construction : on choisit une
-        // palissade, on sonne la cloche, et le fantome ne doit plus etre la.
-        if (!CHOISIR_QUOI_POSER.includes(code)) this.lacherLOutil();
-        action();
-      });
+    this.brancher("temporiser", () => this.ordonnerPosture("temporiser"));
+    this.brancher("agressif", () => this.ordonnerPosture("agressif"));
+    this.brancher("repli", () => this.ordonnerPosture("repli"));
+    this.brancher("formation", () => this.changerFormation());
+    // Le mode commandement (§4.4, bloc 8). Il est seul de son espece — toutes
+    // les autres actions font quelque chose, celle-ci change ce que fait la souris.
+    this.brancher("commandement", () => this.basculerCommandement());
+    // *Rompez* tenait ECHAP jusqu'au 21 septembre 2026 ; ECHAP est devenu la
+    // pause, qui n'existait pas. Il reste par ailleurs une ligne du menu d'ordres.
+    this.brancher("rompez", () => this.rompre());
+    // La cloche : une touche, tout le monde rentre. C'est l'outil de l'urgence —
+    // quand une horde tombe, on n'a pas le temps de changer sept postures une
+    // par une (DESIGN.md §4.18).
+    this.brancher("cloche", () => this.sonnerLaCloche());
+    // Le tableau du village. L'ecran reste degage : tout ce qui n'est pas la
+    // population se lit ici, a la demande.
+    this.brancher("village", () => this.events.emit("basculer-village"));
+
+    // Batir : une action par construction, et la meme action referme.
+    for (const [action, quoi] of CONSTRUCTIONS_A_LA_TOUCHE) {
+      this.brancher(action, () => this.basculerConstruction(quoi), true);
     }
+    this.brancher("monterTour", () => this.basculerTour());
 
-    // `M` vit hors de la boucle ci-dessus : elle doit s'entendre **pendant** la
-    // pause qu'elle a elle-meme posee, sinon on ne pourrait plus refermer.
-    clavier.addKey(K.M).on("down", () => this.basculerAmenagement());
+    // L'eglise : une seule touche pour les deux gestes qu'on peut lui faire —
+    // la monter d'un niveau, ou relancer son chantier quand elle est a terre.
+    // Ce sont deux actions exclusives, jamais disponibles en meme temps.
+    this.brancher("eglise", () => this.oeuvrerALEglise());
+    // Le port, meme principe : relever le chantier, ou ouvrir la vente quand
+    // un navire est a quai. Les deux gestes ne coexistent jamais (§4.18).
+    this.brancher("port", () => this.oeuvrerAuPort());
 
-    // « ? » deplie la ligne des touches (§4.10). On l'ecoute par son caractere
-    // et non par un code : le « ? » demande Maj sur AZERTY comme sur QWERTY, et
-    // ce n'est pas la meme touche physique des deux cotes.
-    clavier.on("keydown", (e: KeyboardEvent) => {
-      if (this.termine || this.saisieEnCours) return;
-      if (e.key === "?") this.events.emit("basculer-aide");
-    });
+    // Le mode d'amenagement doit s'entendre **pendant** la pause qu'il a
+    // lui-meme posee, sinon on ne pourrait plus le refermer : son laissez-passer
+    // est dans `toucheAutorisee`.
+    this.brancher("amenagement", () => this.basculerAmenagement(), true);
+    // Deplier l'aide marche aussi sous la pause : c'est la qu'on la lit.
+    this.brancher("aide", () => this.events.emit("basculer-aide"), true);
 
-    clavier.addKey(K.R).on("down", () => {
+    // `R` reste ecrite en dur : elle n'existe que sur l'ecran de fin, ou plus
+    // rien d'autre ne repond, et la remapper n'aurait aucun sens.
+    clavier.addKey(Phaser.Input.Keyboard.KeyCodes.R).on("down", () => {
       if (!this.termine) return;
       this.scene.stop("ui");
       this.scene.start("choix-classe");
     });
+  }
+
+  /**
+   * Une action du jeu, avec ce que toutes partagent.
+   *
+   * @param gardeLOutil vrai pour celles qui **choisissent quoi poser**. Toute
+   *   autre action lache l'outil de construction : on choisit une palissade, on
+   *   sonne la cloche, et le fantome ne doit plus etre la.
+   */
+  private brancher(id: string, action: () => void, gardeLOutil = false): void {
+    this.clavier.surAppui(id, () => {
+      if (!gardeLOutil) this.lacherLOutil();
+      action();
+    });
+  }
+
+  /**
+   * Ce qui a le droit de passer maintenant.
+   *
+   * ⚠️ **Le mode d'amenagement est une pause, et il faut pouvoir y travailler**
+   * : les actions qui choisissent quoi poser y restent vivantes. Tout le reste —
+   * la cloche, les postures, l'eglise, le port — reste bloque, comme sous
+   * n'importe quelle autre pause (§4.24).
+   */
+  private toucheAutorisee(id: string): boolean {
+    if (this.termine || this.saisieEnCours) return false;
+    if (id === "amenagement" || id === "aide") return true;
+    if (!this.enPause) return true;
+    return this.amenagement && CHOISIR_QUOI_POSER.includes(id);
   }
 
   // ------------------------------------------------- changement de heros
@@ -4415,10 +4544,10 @@ export class ArenaScene extends Phaser.Scene {
     }
 
     const dir = new Phaser.Math.Vector2(0, 0);
-    if (this.zqsd["Q"]?.isDown || this.fleches.left.isDown) dir.x -= 1;
-    if (this.zqsd["D"]?.isDown || this.fleches.right.isDown) dir.x += 1;
-    if (this.zqsd["Z"]?.isDown || this.fleches.up.isDown) dir.y -= 1;
-    if (this.zqsd["S"]?.isDown || this.fleches.down.isDown) dir.y += 1;
+    if (this.clavier.enfoncee("gauche")) dir.x -= 1;
+    if (this.clavier.enfoncee("droite")) dir.x += 1;
+    if (this.clavier.enfoncee("haut")) dir.y -= 1;
+    if (this.clavier.enfoncee("bas")) dir.y += 1;
 
     if (dir.lengthSq() > 0) {
       this.effacerDestination();
@@ -6313,8 +6442,8 @@ export class ArenaScene extends Phaser.Scene {
 
     hero.capacites.forEach((capacite, i) => {
       if (capacite.automatique) return;
-      const touches = this.touchesCapacites[i];
-      if (!touches || !touches.some((t) => Phaser.Input.Keyboard.JustDown(t))) return;
+      const action = ACTIONS_CAPACITE[i];
+      if (!action || !this.clavier.justeAppuyee(action)) return;
       if (!hero.peutLancer(capacite)) return;
       this.lancerCapacite(hero, capacite);
     });

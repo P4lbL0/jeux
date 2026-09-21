@@ -4,6 +4,8 @@ import type { Hero } from "./entities";
 import { plancheDe } from "./dessin/monde";
 import { C, T, cadre, jauge, teindre, texte, type Plaque } from "./ui/chrome";
 import { largeurEcran, hauteurEcran } from "./ui/ecran";
+import { ecrireAction, ecrireActionCourte } from "../core/touches";
+import { mappage, surChangementDesTouches } from "./touches";
 
 /**
  * Barre d'equipe, en haut a gauche, a l'horizontale (DESIGN.md §4.10).
@@ -64,32 +66,58 @@ const COULEURS_ETAT: Record<string, string> = {
  * Elle est en bas **au centre**, c'est-a-dire exactement sous le heros qu'on
  * pilote : une plaque opaque permanente y masquerait du terrain qu'on est en
  * train d'esquiver. Elle ne montre donc qu'une ligne courte, et « ? » la deplie.
+ *
+ * ⚠️ **Elle lit le mappage, elle ne recite plus des lettres** (§4.10, bloc 10).
+ *
+ * C'etait ecrit d'avance dans le §4.10 : « cette ligne devra alors lire le
+ * mappage au lieu de reciter des lettres ecrites en dur ». Une aide qui ment
+ * est pire que pas d'aide — et depuis que le joueur remappe, une lettre ecrite
+ * ici serait fausse au premier reglage.
  */
-const AIDE_COURTE = "ZQSD se deplacer  ·  ESPACE capacite  ·  TAB commander";
+function aideCourte(): string {
+  const m = mappage();
+  const jambes = ["haut", "gauche", "bas", "droite"].map((id) => ecrireAction(m, id)).join("");
+  return `${jambes} se deplacer  ·  ${ecrireActionCourte(m, "capacite1")} capacite  ·  ${ecrireAction(m, "commandement")} commander`;
+}
+
+/** Deux touches d'affilee, pour les lignes qui en groupent plusieurs. */
+function suite(...ids: string[]): string {
+  const m = mappage();
+  return ids.map((id) => ecrireAction(m, id)).join(" / ");
+}
 
 /** Depliee : deux colonnes de paires touche / action, en une seule plaque. */
-const AIDE_LONGUE: [string, string][][] = [
-  [
-    ["ZQSD", "se deplacer (ou clic gauche)"],
-    ["ESPACE 2 3", "capacites"],
-    ["A / E", "changer de heros"],
-    ["TAB", "commander : clic, ou glisse un cadre"],
-    ["clic DROIT", "ou ils vont"],
-    ["W X C", "temporiser, agressif, repli"],
-    ["V", "formation"],
-    ["ECHAP", "rompez"],
-  ],
-  [
-    ["B", "la cloche : tout le monde rentre"],
-    ["F", "le tableau du village"],
-    ["Y", "l'eglise"],
-    ["P", "le port"],
-    ["G / H / J / K / L / N", "palissade, tour, champ, porte, maison, douve"],
-    ["U", "la cour d entrainement"],
-    ["T", "monter dans une tour"],
-    ["molette", "zoomer"],
-  ],
-];
+function aideLongue(): [string, string][][] {
+  const m = mappage();
+  const t = (id: string): string => ecrireAction(m, id);
+  return [
+    [
+      [suite("haut", "gauche", "bas", "droite"), "se deplacer (ou clic gauche)"],
+      [`${ecrireActionCourte(m, "capacite1")} / ${t("capacite2")} / ${t("capacite3")}`, "capacites"],
+      [suite("heroPrecedent", "heroSuivant"), "changer de heros"],
+      [t("commandement"), "commander : clic, ou glisse un cadre"],
+      ["clic DROIT", "ou ils vont"],
+      [suite("temporiser", "agressif", "repli"), "temporiser, agressif, repli"],
+      [t("formation"), "formation"],
+      [t("rompez"), "rompez"],
+    ],
+    [
+      [t("cloche"), "la cloche : tout le monde rentre"],
+      [t("village"), "le tableau du village"],
+      [t("eglise"), "l'eglise"],
+      [t("port"), "le port"],
+      [
+        suite("palissade", "tour", "champ", "porte", "maison", "douve"),
+        "palissade, tour, champ, porte, maison, douve",
+      ],
+      [t("cour"), "la cour d entrainement"],
+      [t("monterTour"), "monter dans une tour"],
+      [t("amenagement"), "amenager le village"],
+      [t("pause"), "pause et options"],
+      ["molette", "zoomer"],
+    ],
+  ];
+}
 
 interface Carte {
   portrait: Phaser.GameObjects.Image;
@@ -148,23 +176,19 @@ export class Hud {
     this.alerte = this.texte(0, 0, 12, T.sangFrais).setOrigin(0.5, 0);
 
     this.aideCourte = this.texte(0, 0, 11, T.osMat).setOrigin(0, 0);
-    this.aideCourte.setText(AIDE_COURTE);
     this.aideTouche = this.texte(0, 0, 11, T.laiton).setOrigin(0, 0);
-    this.aideTouche.setText("  ·  ?  aide");
 
-    for (const colonne of AIDE_LONGUE) {
+    for (let i = 0; i < aideLongue().length; i++) {
       this.aideTouches.push(
         this.texte(0, 0, 11, T.laiton)
-          .setText(colonne.map(([t]) => t).join("\n"))
           // ⚠️ `setOrigin(1, 0)` cale le **bloc** a droite, pas ses lignes : sans
           // `setAlign`, les touches restaient alignees a gauche a l'interieur.
           .setAlign("right")
           .setOrigin(1, 0),
       );
-      this.aideActions.push(
-        this.texte(0, 0, 11, T.os).setText(colonne.map(([, a]) => a).join("\n")),
-      );
+      this.aideActions.push(this.texte(0, 0, 11, T.os));
     }
+    this.ecrireLAide();
 
     this.plaqueAide = scene.add.graphics().setDepth(1002);
 
@@ -179,10 +203,31 @@ export class Hud {
 
     const replacer = () => this.placerBas();
     scene.scale.on("resize", replacer);
+    // On remappe une touche : l'aide se reecrit tout de suite. C'est la seule
+    // facon de verifier son reglage sans relancer la partie.
+    const oublier = surChangementDesTouches(() => {
+      this.ecrireLAide();
+      this.placerBas();
+    });
     // Le gestionnaire de taille est global : sans ce retrait, l'ecouteur
     // survivrait a la scene et pointerait vers des objets detruits.
-    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.scale.off("resize", replacer));
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      scene.scale.off("resize", replacer);
+      oublier();
+    });
     this.placerBas();
+  }
+
+  /** Le seul endroit qui lit le mappage pour l'ecrire en bas de l'ecran. */
+  private ecrireLAide(): void {
+    this.aideCourte.setText(aideCourte());
+    this.aideTouche.setText(`  ·  ${ecrireAction(mappage(), "aide")}  aide`);
+    aideLongue().forEach((colonne, i) => {
+      this.aideTouches[i]?.setText(colonne.map(([t]) => t).join("\n"));
+      this.aideActions[i]?.setText(colonne.map(([, a]) => a).join("\n"));
+    });
+    // Le cadre se remesure : les touches n'ont pas toutes la meme largeur.
+    this.signatureAide = "";
   }
 
   private texte(

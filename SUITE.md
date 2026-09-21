@@ -1598,6 +1598,124 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le bloc 10 — la pause et les touches remappables (21 septembre 2026, au soir)
+
+**Le dernier bloc du jalon 5 dont l'absence se paie.** Sa moitié visuelle était tombée la
+veille (le rendu à la densité de l'écran, §4.11) ; restaient les trois choses que le §4.10
+annonçait depuis le début : la pause, le menu d'options, et des touches qu'on règle.
+
+**Quatre décisions prises avant de coder**, groupées : *Rompez* passe d'Échap à `O` ; le menu
+a cinq lignes, dont « Abandonner » ; l'héritage du bloc 11 sera **proposé** et non
+automatique ; et la vie autonome du bloc 12 ne coûtera **rien** à la production.
+
+#### Une seule table de touches, et trois lecteurs
+
+`src/core/touches.ts` — pur, sans Phaser — porte les **36 actions** du jeu : leur nom, leur
+famille, leur touche par défaut et leurs alias fixes. Trois endroits la lisent et plus aucun
+ne décide : `ArenaScene.configurerTouches`, `panneauTouches.ts`, et la ligne d'aide de
+`hud.ts`.
+
+> **C'est la réparation d'une dette écrite d'avance.** Le §4.10 disait déjà que la ligne
+> d'aide « devra lire le mappage au lieu de réciter des lettres écrites en dur ». Les touches
+> vivaient à deux endroits, et les deux dérivaient l'une de l'autre dès qu'on en ajoutait
+> une : `U` (la cour, bloc 9) n'était pas dans l'aide, `M` (l'aménagement) non plus.
+
+Trois règles portent tout le fichier, et elles sont testées :
+
+1. **Deux actions ne se disputent jamais une touche : elles l'échangent.** Poser `G` sur la
+   cloche rend à la palissade l'ancienne touche de la cloche. Sans ça, remapper vite ferait
+   disparaître une fonction du jeu sans prévenir — et le panneau dit l'échange en une ligne.
+   Le test le vérifie sur six remappages d'affilée : aucune action ne finit muette, aucune
+   touche n'est partagée.
+2. **Une action a une touche principale et des alias fixes.** Pavé numérique, flèches,
+   ESPACE : du confort de clavier, pas des réglages. Une touche prise par un alias est
+   **refusée**, en disant laquelle — un alias appartient à son action par construction, il ne
+   peut pas s'échanger.
+3. **On n'enregistre que ce qui diffère du défaut.** Une action ajoutée plus tard arrive donc
+   avec sa touche sans invalider le réglage du joueur, et un fichier abîmé (valeur qui n'est
+   pas une chaîne, doublon) retombe sur le défaut au lieu de rendre le jeu injouable.
+
+`src/game/touches.ts` est le pont Phaser : `localStorage` (comme les volumes de `son.ts`),
+conversion nom ↔ code, et une classe `Clavier` qui **débranche et rebranche tout** quand le
+mappage change. Les appelants déclarent une action (`surAppui("cloche", …)`), jamais une
+lettre.
+
+> ⚠️ **Le mappage est unique pour tout le jeu**, pas un par scène. Deux scènes écoutent le
+> clavier — l'arène et l'interface — et un mappage par scène aurait garanti qu'un des deux
+> soit périmé le jour où on remappe en pleine partie.
+
+#### Échap appartient à l'interface, pas à l'arène
+
+C'est la seule scène qui sache ce qui est ouvert par-dessus le jeu. Échap **referme d'abord**
+— panneaux d'options, menu, menu d'ordres, fiche, port, tableau du village, mode
+d'aménagement — et ne met en pause qu'une fois l'écran net. Trois panneaux ne sont pas dans
+la pile, et c'est voulu : le choix de compétence, la fiche d'un arrivant et la rencontre
+**attendent une réponse**.
+
+**La pause rend le temps.** `poserLaPauseDuJoueur` / `leverLaPauseDuJoueur` suivent exactement
+le patron du mode d'aménagement : `decalerLeTemps(now - début)` à la reprise. Sans ça, toute
+la nuit frapperait dans l'image du dégel — rechargements, coups armés et apparitions arrivant
+à échéance d'un coup.
+
+#### Trois pièges payés
+
+- **Deux panneaux répondaient au même Échap.** `PanneauSon` écoutait `keydown-ESC` tout seul
+  (il est seul sur l'écran-titre) ; en partie, il se fermait **et** l'interface enchaînait sur
+  la ligne suivante de sa pile. Il prend maintenant un `gereEchap` que l'écran-titre laisse à
+  vrai et que la partie met à faux.
+- **Remapper une touche déjà prise était impossible**, parce que la touche Phaser existante
+  mangeait l'événement. Le panneau écoute donc sur `document` **en capture** : `window`
+  reçoit en bulle (`addEventListener('keydown', …, false)` dans le `KeyboardManager` de
+  Phaser), donc un `stopPropagation()` au niveau `document` passe devant lui.
+- **Le panneau des volumes était cassé depuis la veille**, et personne ne l'avait vu : il se
+  plaçait avec `scale.width` — qui compte en **vrais pixels** depuis le passage à la densité
+  d'écran — et ses curseurs lisaient `pointer.x` sans le passer dans la caméra. Sur un écran
+  à 150 %, la plaque partait hors du cadre et le volume sautait d'une fois et demie la
+  distance parcourue par la souris. Corrigé avec `largeurEcran` et `positionToCamera`.
+
+#### Corrigé en regardant les captures
+
+La première version du panneau des touches mettait « se déplacer » et « se battre » à gauche
+et les trois autres familles à droite : **17 lignes contre 24**, et la moitié gauche restait
+vide sur toute sa hauteur. Le partage est maintenant mesuré. Deux autres défauts vus sur la
+même image : « Tout remettre à zéro » débordait du cadre par la gauche (le lien est centré sur
+son point), et les panneaux d'options flottaient sur un village en pleine lumière — le voile
+du menu **survit** maintenant quand le menu s'efface pour leur laisser la place.
+
+Et un troisième, vu sur la ligne d'aide : elle annonçait « ESPACE capacité » ; le jour où elle
+s'est mise à lire le mappage, elle est passée à « 1 capacité ». Vrai, mais moins utile — sur
+un clavier AZERTY le 1 demande Maj et ESPACE non. Elle dit les deux : « 1/ESPACE ».
+
+#### Ce qui a changé de place
+
+- **Rompez : Échap → `O`.** Il reste une ligne du menu d'ordres, donc accessible sans clavier.
+- **La cour d'entraînement (`U`) rejoint les touches vivantes sous le mode d'aménagement.**
+  Elle manquait depuis le bloc 9 : on ne pouvait pas choisir d'en poser une une fois entré en
+  aménagement, alors que les six autres constructions le permettaient. Un oubli, pas une règle.
+- **`R` reste écrite en dur** : elle n'existe que sur l'écran de fin, où plus rien d'autre ne
+  répond.
+
+#### Le test de performance de la carte, assoupli avec sa raison
+
+`carte.test.ts` mesurait une peinture avec `performance.now()` et exigeait moins d'une
+seconde. Vitest fait tourner ses fichiers **en parallèle** : la même peinture prend 520 ms
+seule et 820 ms quand toute la suite occupe la machine — et elle a dépassé la seconde le jour
+où la suite a grossi de 26 tests. Mesuré des deux côtés, avec et sans le bloc 10 : aucune
+régression, c'était le budget qui était trop serré pour une machine chargée. Le test prend
+maintenant **le meilleur de trois passes** — une vraie lenteur ralentit les trois.
+
+**Vérifié dans le navigateur** (`.tmp/verifier-pause.ts`, trois lancements, mondes tirés au
+sort) : **21 contrôles sur 21**, aucune erreur de console. Échap arrête vraiment le jeu (le
+cycle ne bouge pas), le remappage prend, l'échange rend sa touche à l'autre, Échap referme
+dans le bon ordre, `O` dit « Rompez ». Et (`.tmp/verifier-sortie.ts`) : « Sauver et quitter »
+rend l'écran d'accueil avec la partie enregistrée, « Abandonner » demande confirmation au
+premier clic et efface la sauvegarde au second.
+
+**À regarder** : `captures/jeu/2026-09-21-pause/` — le menu, le panneau des touches, les
+volumes, et l'aide dépliée qui lit le mappage.
+
+**746 tests verts** (+26).
+
 ### Le bloc 9 — le village armé, et la seule source de héros (21 septembre 2026)
 
 **Le bloc le plus important du jalon 5.** Depuis le 5.5 on commence seul, et quatre jalons
