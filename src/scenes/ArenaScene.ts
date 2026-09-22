@@ -175,6 +175,7 @@ import {
   villageAttire,
 } from "../core/cycle";
 import { Meteo, annonceDuMatin } from "../core/meteo";
+import { Pluie } from "../game/pluie";
 import { Village, type Villageois } from "../game/village";
 import { CASE, COLONNES, Grille, IMPOSENT_UNE_DISTANCE, LIGNES, type Case } from "../core/grille";
 import { cleCase, genererVillage, graineDeVillage, placesOuSeTenir, type PlanVillage,
@@ -892,6 +893,8 @@ export class ArenaScene extends Phaser.Scene {
    * le temps illisible.
    */
   private meteo = new Meteo();
+  /** Ce qu'on voit du ciel : les rideaux, l'assombrissement, les eclairs (§4.21) */
+  private pluie!: Pluie;
   private tailleHordeEnRoute = 0;
   /** Le voile de nuit : une seule image noire, dont on module l'opacite */
   private voile!: Phaser.GameObjects.Rectangle;
@@ -1876,6 +1879,10 @@ export class ArenaScene extends Phaser.Scene {
       // jamais les informations.
       .setDepth(900);
 
+    // La pluie se pose autour du voile de nuit : son assombrissement dessous,
+    // ses gouttes et ses eclairs dessus (§4.21).
+    this.pluie = new Pluie(this);
+
     // « Quand on n'est pas sur l'ecran, ca met pause et tout s'arrete » : une
     // journee dure 30 minutes reelles, aller chercher un cafe couterait un
     // habitant.
@@ -2065,7 +2072,12 @@ export class ArenaScene extends Phaser.Scene {
     );
 
     this.prochaineArriveeJournee = null;
-    // Un monde muet n'a pas de fumee a l'horizon : on ne promet donc pas un
+    // ⚠️ **Le ciel du monde qu'on traverse** (§4.21) : un tirage par monde, et
+    // pas un par journee — sur la route le cycle est a l'arret, l'aube
+    // n'arrive jamais. Rien n'y pousse, donc seul le rendu tourne ; mais
+    // marcher sous la pluie vers une fumee a l'horizon est exactement le debut
+    // de partie que le §4.29 demande.
+    this.meteo.passerLaJournee(this.rng);
     // village, on dit la route. Le cap reste, sinon on tournerait en rond.
     this.events.emit(
       "annonce",
@@ -2792,8 +2804,7 @@ export class ArenaScene extends Phaser.Scene {
     // de la deuxieme. Meme raison que le premier visiteur, offert juste en
     // dessous — un systeme qu'on ne rencontre jamais n'existe pas.
     this.meteo.passerLaJournee(this.rng);
-    const ciel = annonceDuMatin(this.meteo);
-    if (ciel) this.events.emit("annonce", ciel, "guet");
+    this.annoncerLeCiel();
     // ⚠️ **Le premier visiteur est offert**, des le premier matin (decision du
     // 10 aout 2026). Au rythme de croisiere — un tous les 2 a 3 jours — la
     // premiere porte se serait ouverte apres des heures de jeu. On peut
@@ -7618,6 +7629,17 @@ export class ArenaScene extends Phaser.Scene {
       this.regarderLHorizon();
     }
     this.teinterLeCiel();
+    // Le ciel se voit meme pendant la marche : il appartient au monde, pas au
+    // role de Protecteur (§4.21, §4.29). C'est la seule chose qui tourne quand
+    // le cycle est a l'arret.
+    this.pluie.majorer(
+      delta,
+      this.time.now,
+      this.meteo,
+      this.cycle.phase,
+      this.cycle.part,
+      this.rng,
+    );
   }
 
   /**
@@ -7640,6 +7662,20 @@ export class ArenaScene extends Phaser.Scene {
       opacite = part > 1 - FONDU ? (1 - (part - (1 - FONDU)) / FONDU) * NUIT_PLEINE : NUIT_PLEINE;
     }
     this.voile.setAlpha(opacite);
+  }
+
+  /**
+   * Ce que le ciel dit au lever (§4.21).
+   *
+   * ⚠️ **La voix n'est pas la meme selon le temps**, et ce n'est pas un detail :
+   * la voix du guet est ecrite en sang, et le §4.11 reserve le rouge au danger.
+   * Une averse n'est pas un danger — c'est le village qui l'annonce. L'orage,
+   * lui, l'est : il envoie plus de monstres, plus forts, des le jour.
+   */
+  private annoncerLeCiel(): void {
+    const ciel = annonceDuMatin(this.meteo);
+    if (!ciel) return;
+    this.events.emit("annonce", ciel, this.meteo.orage ? "guet" : "village");
   }
 
   private tomberLaNuit(): void {
@@ -7695,8 +7731,7 @@ export class ArenaScene extends Phaser.Scene {
     // Le ciel de la journee : il decide avant tout le reste, parce que la
     // pousse, l'effectif de la nuit et les hordes de jour le lisent (§4.21).
     this.meteo.passerLaJournee(this.rng);
-    const ciel = annonceDuMatin(this.meteo);
-    if (ciel) this.events.emit("annonce", ciel, "guet");
+    this.annoncerLeCiel();
 
     this.port.regles.passerLaJournee(this.rng);
     this.navireAttendu = this.port.debout && unNavireVeutVenir(this.rng);

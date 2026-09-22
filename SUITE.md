@@ -1568,6 +1568,61 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6, morceau 2 — ce qu'on voit du ciel (22 septembre 2026)
+
+Le rendu de la pluie, de l'orage et des eclairs. **Quatre objets, crees une fois**
+(`game/pluie.ts`), et deux textures cuites au demarrage (`game/dessin/pluie.ts`).
+
+#### Deux rideaux qui defilent, jamais une goutte par goutte
+
+Un systeme de particules aurait fait naitre des centaines d'objets par seconde : les regles
+1 et 3 du §4.17 l'interdisent. On cuit donc **deux tuiles de 128 px** — un rideau proche,
+long et rapide ; un rideau lointain, court et pale — et le jeu ne fait plus que les faire
+defiler. Deux objets pour toute la pluie du jeu, quelle que soit la taille de la fenetre.
+
+Les tuiles sont **raccordables a elles-memes dans les deux sens** : un trait qui deborde est
+redessine de l'autre cote, sinon le defilement montrerait une couture toutes les
+cent vingt-huit images.
+
+#### Trois defauts trouves en regardant les captures, pas en relisant le code
+
+1. **L'averse ne se voyait pas.** 26 et 54 traits par tuile : sur une image fixe, quelques
+   hachures. Doubles (52 et 115), opacites remontees, relus sur capture.
+2. **Le zoom grossissait la pluie.** Colle a la camera, un rideau subit quand meme le zoom :
+   dezoomer agrandissait les gouttes au lieu d'en montrer davantage, et a la taille exacte
+   de l'ecran un dezoom aurait decouvert des bandes seches sur les bords. Les quatre couches
+   font donc **trois fois l'ecran**, et le `tileScale` compense le zoom — deux affectations
+   quand le zoom change, rien par image.
+3. **L'eclair delavait la nuit.** Un rectangle blanc a 0,55 d'opacite donnait un brouillard
+   gris uniforme : le village disparaissait au lieu d'etre revele. Deux lectures de capture
+   plus tard : **lumiere additive**, opacite **0,3**, et un **bleu froid** plutot qu'un
+   blanc — un ajout blanc delave, un ajout bleu teinte.
+
+#### Ce qui se voit maintenant
+
+- La pluie **monte et descend en fondu** (2,5 s), jamais d'un coup : une averse qui apparait
+  d'un coup se lit comme un bug d'affichage.
+- L'assombrissement de l'averse est **sous** le voile de nuit, les gouttes **au-dessus** :
+  une pluie peinte sous la nuit disparaitrait au crepuscule, alors que c'est la nuit qu'elle
+  se voit le mieux. L'eclair, lui, passe **au-dessus de tout** — c'est tout son interet.
+- L'eclair est **deux battements dans une meme fenetre de 180 ms**, pas un creneau : un
+  eclair frappe rarement une seule fois, et un flash carre fait mal aux yeux.
+
+#### L'annonce du matin change de voix selon le temps
+
+Premiere capture : « Le ciel est bas — il pleuvra ce matin » s'affichait **en sang**, la
+voix du guet. Or le §4.11 reserve le rouge au danger, et une averse n'en est pas un — c'est
+un cadeau pour les champs. La pluie parle donc avec la voix du **village** ; l'orage, lui,
+garde celle du **guet**, puisqu'il envoie plus de monstres, plus forts, des le jour.
+
+**A regarder** : `captures/jeu/2026-09-22-ciel/` — le temoin au sec, l'averse, l'orage,
+l'eclair de jour, la pluie de nuit, l'orage de nuit, l'eclair qui revele le village, et le
+matin de crue.
+
+⚠️ **Le son n'est pas fait** : bruit de pluie et tonnerre restent a trouver en CC0
+(OpenGameArt, dix secondes entre deux requetes) et a brancher sur le curseur des bruits qui
+existe deja (bloc 10).
+
 ### Le jalon 6, morceau 1 — le ciel dans le noyau (22 septembre 2026)
 
 **Le premier morceau du jalon 6**, et celui qui porte la plomberie : `core/meteo.ts`,
