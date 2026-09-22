@@ -42,6 +42,8 @@ P = 1.0 / monde.PX_PAR_UNITE
 # bord bas, le milieu un pixel a gauche du centre.
 CADRE = 20
 CADRE_GROS = 30
+# L'orc de la horde (§4.33) : 24, sa tete ne tenait pas dans 20.
+CADRE_ORC = 24
 
 
 def cadre_de(taille):
@@ -218,10 +220,22 @@ def orc(rig, variante):
     trainent jusqu'aux genoux.
     """
     peau = "orc"
+    # ⚠️ **Un cadre de 24 px, pas 20** (decision d'Angelos, 22 septembre 2026) :
+    # dans 20, la tete se fondait dans le buste. Tout le corps est ecrit dans
+    # les pixels d'un orc de 20 et agrandi de `K` : la tete, la machoire et les
+    # defenses ont enfin la place d'exister, et l'orc depasse un villageois.
+    K = 24 / 20
+
+    def piece(matiere, taille, pos, parent, rot=(0, 0, 0)):
+        return rig.piece(matiere, tuple(t * K for t in taille), tuple(v * K for v in pos), parent, rot)
+
+    def joint(nom, pos, parent=None):
+        return rig.joint(nom, tuple(v * K for v in pos), parent)
+
     HANCHE, EPAULE = 4.0, 8.6
     TORSE = EPAULE - HANCHE
-    rig.joint("racine", (0, 0, 0))
-    rig.joint("bassin", (0, 0, HANCHE * P), "racine")
+    joint("racine", (0, 0, 0))
+    joint("bassin", (0, 0, HANCHE * P), "racine")
     # ⚠️ **Le bas sombre, le haut clair.** Quatre jets presque tout en peau
     # claire sont sortis en blocs gris : a vingt pixels, une matiere est une
     # masse. Le villageois se lit parce que sa tunique sombre domine et que seul
@@ -229,39 +243,42 @@ def orc(rig, variante):
     # pagne sombres, torse, bras et tete clairs. C'est la que la teinte du jeu
     # posera sa couleur, et c'est ce qui se voit d'abord.
     for cote, y in (("avant", -1.5), ("arriere", 1.5)):
-        rig.joint(f"jambe_{cote}", (0, y * P, 0), "bassin")
-        rig.piece("tissu", (2.6, 2.4, HANCHE), (0, 0, -HANCHE / 2), f"jambe_{cote}")
-        rig.piece("tissu", (3.0, 2.6, 1.0), (0.5, 0, -HANCHE + 0.5), f"jambe_{cote}")
-    rig.piece("tissu", (3.4, 6.8, 2.4), (0.1, 0, 0.1), "bassin")
-    rig.joint("buste", (0, 0, 0), "bassin")
-    rig.piece(peau, (3.4, 6.8, TORSE), (0.2, 0, TORSE / 2), "buste")
+        joint(f"jambe_{cote}", (0, y * P, 0), "bassin")
+        piece("tissu", (2.6, 2.4, HANCHE), (0, 0, -HANCHE / 2), f"jambe_{cote}")
+        piece("tissu", (3.0, 2.6, 1.0), (0.5, 0, -HANCHE + 0.5), f"jambe_{cote}")
+    piece("tissu", (3.4, 6.8, 2.4), (0.1, 0, 0.1), "bassin")
+    joint("buste", (0, 0, 0), "bassin")
+    piece(peau, (3.4, 6.8, TORSE), (0.2, 0, TORSE / 2), "buste")
     # la ceinture de cuir et la sangle en travers du torse : deux traits sombres
-    # qui disent le dos voute et le poitrail
-    rig.piece("bois", (3.5, 6.9, 0.7), (0.2, 0, 0.35), "buste")
-    rig.piece("tissu", (0.8, 7.0, TORSE + 0.6), (0.3, 0, TORSE / 2), "buste", rot=(math.radians(0), math.radians(35), 0))
-    rig.piece(peau, (2.4, 7.6, 1.2), (-0.1, 0, TORSE - 0.4), "buste")
-    # la tete : au-dessus des epaules, un peu grosse — a vingt pixels, c'est elle
-    # qu'on reconnait
-    rig.joint("cou", (0.6 * P, 0, (TORSE - 0.2) * P), "buste")
-    rig.piece(peau, (3.4, 3.2, 3.0), (1.0, 0, 1.5), "cou")
-    rig.piece("tissu", (2.8, 1.0, 0.9), (0.6, 0, 3.1), "cou")
-    rig.piece(peau, (1.0, 3.2, 0.7), (2.4, 0, 2.3), "cou")
-    rig.piece("sang", (0.6, 0.6, 0.5), (2.6, -0.75, 1.65), "cou")
-    rig.piece("sang", (0.6, 0.6, 0.5), (2.6, 0.75, 1.65), "cou")
-    rig.piece("os", (0.5, 0.5, 1.1), (2.7, -0.9, 0.55), "cou")
-    rig.piece("os", (0.5, 0.5, 1.1), (2.7, 0.9, 0.55), "cou")
-    avant_bras = 3.4 if variante == "bras" else 2.4
+    piece("bois", (3.5, 6.9, 0.7), (0.2, 0, 0.35), "buste")
+    piece("tissu", (0.8, 7.0, TORSE + 0.6), (0.3, 0, TORSE / 2), "buste", rot=(0, math.radians(35), 0))
+    piece(peau, (2.4, 7.6, 1.2), (-0.1, 0, TORSE - 0.4), "buste")
+    # la tete : grosse, au-dessus des epaules, et **la machoire qui avance** —
+    # c'est elle, avec les defenses, qui fait l'orc plutot qu'une brute
+    joint("cou", (0.6 * P, 0, (TORSE - 0.2) * P), "buste")
+    piece(peau, (3.2, 3.2, 2.6), (0.9, 0, 1.8), "cou")
+    piece(peau, (2.2, 3.0, 1.4), (1.9, 0, 0.7), "cou")
+    piece("tissu", (3.0, 1.1, 1.3), (0.5, 0, 3.4), "cou")
+    piece(peau, (1.0, 3.3, 0.7), (2.4, 0, 2.6), "cou")
+    piece("sang", (0.6, 0.6, 0.5), (2.6, -0.8, 2.0), "cou")
+    piece("sang", (0.6, 0.6, 0.5), (2.6, 0.8, 2.0), "cou")
+    # les defenses : elles sortent de la machoire et montent devant la levre
+    piece("os", (0.6, 0.6, 1.5), (3.05, -1.0, 1.2), "cou")
+    piece("os", (0.6, 0.6, 1.5), (3.05, 1.0, 1.2), "cou")
+    # les oreilles pointues, vers l'arriere
+    rig.cone(peau, 0.7 * K, 1.8 * K, (-0.3 * K, -1.9 * K, 2.2 * K), "cou", cotes=4)
+    rig.cone(peau, 0.7 * K, 1.8 * K, (-0.3 * K, 1.9 * K, 2.2 * K), "cou", cotes=4)
     for cote, y in (("avant", -4.0), ("arriere", 4.0)):
-        rig.joint(f"bras_{cote}", (0.2 * P, y * P, (TORSE - 0.6) * P), "buste")
-        rig.piece(peau, (2.2, 2.0, 2.6), (0, 0, -1.3), f"bras_{cote}")
-        rig.piece(peau, (2.0, 1.8, avant_bras), (0, 0, -2.6 - avant_bras / 2), f"bras_{cote}")
+        joint(f"bras_{cote}", (0.2 * P, y * P, (TORSE - 0.6) * P), "buste")
+        piece(peau, (2.2, 2.0, 2.6), (0, 0, -1.3), f"bras_{cote}")
+        piece(peau, (2.0, 1.8, 2.4), (0, 0, -3.8), f"bras_{cote}")
         # un brassard sombre sur l'avant-bras : le bras garde son coude
-        rig.piece("tissu", (2.1, 1.9, 1.0), (0, 0, -3.1), f"bras_{cote}")
-        rig.piece(peau, (2.4, 2.2, 1.3), (0.2, 0, -2.6 - avant_bras - 0.45), f"bras_{cote}")
-        rig.joint(f"main_{cote}", (0.2 * P, 0, (-2.6 - avant_bras - 0.6) * P), f"bras_{cote}")
+        piece("tissu", (2.1, 1.9, 1.0), (0, 0, -3.1), f"bras_{cote}")
+        piece(peau, (2.4, 2.2, 1.3), (0.2, 0, -5.45), f"bras_{cote}")
+        joint(f"main_{cote}", (0.2 * P, 0, -5.6 * P), f"bras_{cote}")
     if variante == "gourdin":
-        rig.piece("bois", (1.1, 1.1, 4.4), (2.1, 0, -0.75), "main_avant", rot=(0, math.radians(110), 0))
-        rig.piece("bois", (1.9, 1.9, 1.8), (4.0, 0, -1.45), "main_avant", rot=(0, math.radians(110), 0))
+        piece("bois", (1.1, 1.1, 4.4), (2.1, 0, -0.75), "main_avant", rot=(0, math.radians(110), 0))
+        piece("bois", (1.9, 1.9, 1.8), (4.0, 0, -1.45), "main_avant", rot=(0, math.radians(110), 0))
 
 
 def peindre_arme(rig, arme, laiton):
@@ -574,13 +591,15 @@ def familles():
     # L'orc de la horde (§4.33, palier 2, 22 septembre 2026 dans la nuit) : trois
     # silhouettes a l'essai, une seule survivra. Un repos, une image : dans la
     # horde, la marche ne s'anime pas, elle se calcule au dessin.
-    for variante in ("trapu", "gourdin", "bras"):
+    # (les longs bras sont abandonnes : a la taille du jeu, on ne les distinguait
+    # pas des mains nues)
+    for variante in ("trapu", "gourdin"):
         # `garde` : les bras portes en avant, ajoutes a la posture humaine.
         # ⚠️ Trois jets bras ballants : vu de flanc, le bras avant pendait entre
         # la camera et le corps et cachait tout, du coude aux hanches — il ne
         # restait qu'une tete sur un bloc clair. En garde, le flanc se decouvre.
         f[f"monstre-orc-{variante}"] = dict(sorte="orc", variante=variante, gestes=[("repos", 1, True)],
-                                            cadre=cadre_de(CADRE), voute=0.2, garde=(0.6, 0.35))
+                                            cadre=cadre_de(CADRE_ORC), voute=0.2, garde=(0.6, 0.35))
     # Les familiers : deux flammes qui flottent, et le golem de pierre.
     for nom, b in FAMILIERS.items():
         f[nom] = dict(sorte="bete", bete=b, gestes=GESTES_BETE, cadre=cadre_de(b["cadre"]))

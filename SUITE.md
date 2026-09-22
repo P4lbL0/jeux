@@ -1607,9 +1607,12 @@ fonce se lit. Deux limites dites franchement : **à 25 % de vie, la nuit, l'orc 
 le noir** ; et **de jour, le vert d'orc sur l'herbe** tient parce qu'il est plus clair
 qu'elle, avec moins de contraste que la nuit.
 
-La **silhouette reste faible** : un bossu trapu aux jambes sombres, dont la tête ne se
-détache pas. En horde, à la taille du jeu, les canaux font le travail — mais on voit de
-petites créatures vertes, pas encore des orcs.
+La silhouette à 20 px restait faible — un bossu trapu dont la tête ne se détachait pas.
+**Décision d'Angelos : un cadre de 24 px.** Sixième jet, avec la tête retravaillée (plus
+grosse, une mâchoire qui avance, des défenses plus longues, une crête plus haute, des
+oreilles pointues) : la tête se lit enfin, l'orc dépasse franchement le villageois, et le
+gourdin se lit comme un gourdin. Les longs bras sont abandonnés — à la taille du jeu, on ne
+les distinguait pas des mains nues. **Les couleurs sont gardées** (Angelos).
 
 **À regarder** : `captures/planches/2026-09-22-orc/` — le langage (1), la horde de jour (2)
 et de nuit (3), les trois silhouettes à côté d'un villageois et d'une bête (4).

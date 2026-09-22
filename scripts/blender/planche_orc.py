@@ -40,7 +40,7 @@ CORPS_ORC = 166
 TYPES = [("ordinaire", BILE), ("cracheur", LAITON), ("kamikaze", CIEL_SALE)]
 VIES = [1.0, 0.7, 0.45, 0.25]
 RANGS = [("pietaille", 1.0), ("boss", 1.5), ("enorme", 2.2)]
-VARIANTES = ["trapu", "gourdin", "bras"]
+VARIANTES = ["trapu", "gourdin"]
 
 
 def charger(variante):
@@ -95,7 +95,7 @@ except OSError:
 
 def bandeau(titre, cellules, zoom, fond_jour, fond_nuit, legendes):
     """Une ligne : les cellules sur le jour, puis les memes sur la nuit."""
-    pas = int(20 * zoom * 2.4)
+    pas = int(24 * zoom * 2.2)
     w = 40 + pas * len(cellules) * 2 + 60
     h = 40 + pas + 30
     img = Image.new("RGBA", (w, h), (24, 20, 18, 255))
@@ -106,7 +106,7 @@ def bandeau(titre, cellules, zoom, fond_jour, fond_nuit, legendes):
         img.alpha_composite(sol(fond, BOITE_JOUR if moitie == 0 else BOITE_NUIT, (pas * len(cellules), pas)), (x0, 36))
         for i, (sprite, echelle) in enumerate(cellules):
             z = zoom * echelle
-            g = sprite.resize((int(20 * z), int(20 * z)), Image.NEAREST)
+            g = sprite.resize((int(sprite.width * z), int(sprite.height * z)), Image.NEAREST)
             img.alpha_composite(g, (x0 + i * pas + (pas - g.width) // 2, 36 + pas - g.height - 4))
             d.text((x0 + i * pas + 4, 36 + pas + 4), legendes[i], fill=(200, 190, 175, 255), font=PETITE)
     return img
@@ -130,7 +130,7 @@ def horde(sprites, zoom, fond, boite, graine=7, n=70):
     for o in sorted(orcs, key=lambda o: o[0]):
         y, x, s = o[0], o[1], o[2]
         e = o[3] if len(o) > 3 else 1.0
-        g = s.resize((int(20 * zoom * e), int(20 * zoom * e)), Image.NEAREST)
+        g = s.resize((int(s.width * zoom * e), int(s.height * zoom * e)), Image.NEAREST)
         img.alpha_composite(g, (x, y))
     return img
 
@@ -140,7 +140,7 @@ def main():
     base = sprites["trapu"]
     lignes = []
     lignes.append(bandeau(
-        "1. Les trois silhouettes, en vert d'orc ordinaire (x6) — jour, puis nuit",
+        "1. Les deux silhouettes, en vert d'orc ordinaire (x6) — jour, puis nuit",
         [(teinter(sprites[v], BILE), 1.0) for v in VARIANTES], 6, JOUR, NUIT, VARIANTES))
     lignes.append(bandeau(
         "2. La teinte dit qui c'est : bile pour l'ordinaire, laiton pour le cracheur, ciel sale pour le kamikaze",
