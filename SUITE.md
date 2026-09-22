@@ -3640,6 +3640,12 @@ brancher.
 
 ## Dettes et pièges connus
 
+- **`npm run ciel` réécrit tous les `.ogg`, même ceux qu'on n'a pas touchés.** Le contenu
+  sonore est identique (même graine, même code), mais l'encodeur Vorbis ne produit pas deux
+  fois le même fichier octet pour octet — les `.mp3`, eux, ne bougent pas. Après une passe de
+  son, `git status` montre donc cinq ou six fichiers modifiés pour rien : **ne commiter que
+  ceux dont le son a vraiment changé**, et rendre les autres (`git checkout --`).
+
 - **La fluidité.** Les cinq règles du §4.17 de `DESIGN.md` sont à respecter absolument :
   tout ce qui apparaît a un plafond, la difficulté monte par la force et non par le
   nombre, aucun objet Texte créé en plein combat, aucune minuterie par coup encaissé,
