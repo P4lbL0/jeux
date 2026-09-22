@@ -157,12 +157,14 @@ Dans l'ordre :
    Un bug trouvé en passant, corrigé sur décision d'Angelos : trois frappes en ligne
    touchaient toute la droite au lieu de leur trait. La même décision a fait entrer la
    **pénétration** au design des builds (§4.25), sans chiffres.
-3. **Le palier 2 — le rendu maison** : Angelos a vu les captures à 800 et a donné son go,
-   le 22 septembre au soir. Découpé en quatre morceaux : (1) l'orc et son langage sur image,
-   (2) la passe instanciée dans le jeu, (3) les bandes horizontales, (4) la mesure et une
-   nuit filmée où la horde vient petit à petit. **Le morceau 1 est sur planche**
-   (`captures/planches/2026-09-22-orc/`) et **attend le choix d'Angelos** : le langage
-   marche, la silhouette reste faible.
+3. ✅ **Le palier 2 — la nuée** : fait le 22 septembre, tard. L'orc unique (24 px, Blender),
+   teinté au dessin, dessiné en une passe instanciée par bandes de profondeur, les cadavres
+   couchés. **60 images/s jusqu'à 3 500 monstres**, 43-51 à 5 000. Angelos a tranché : les
+   boss seront des géants (×2 à ×3) avec beaucoup plus de PV — **rangs à créer**.
+4. **La suite, à faire trancher par Angelos** : ce qui reste à 5 000, c'est l'IA et le corps
+   Arcade de chaque monstre (~15 ms). Pour aller vers vingt mille, la logique de la
+   piétaille doit passer en tableaux typés, sans objet ni corps (l'ancien palier 3). Ou
+   s'arrêter là et passer aux builds (6.5) : la horde tient déjà ~4 000.
 
 Toute mesure se fait **sur la vraie carte graphique**, sans fenêtre
 (`--use-angle=d3d11`), et **sur le même monde et le même village** que son témoin : le

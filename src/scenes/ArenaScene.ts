@@ -75,7 +75,9 @@ import {
   type Capacite,
   type Dome,
 } from "../game/entities";
-import { ARCHETYPE_HUMAIN, beteDEau, choisirArchetype } from "../game/ennemis";
+import { ARCHETYPE_HUMAIN, beteDEau, choisirArchetype, teinteDeNuee } from "../game/ennemis";
+import { Nuee } from "../game/nuee";
+import { C as COULEURS } from "../game/ui/couleurs";
 import { POLICE } from "../game/ui/chrome";
 import { Survivants, type SpriteSurvivant } from "../game/survivants";
 import { Caches } from "../game/caches";
@@ -830,6 +832,11 @@ export class ArenaScene extends Phaser.Scene {
   private fixesY1 = new Float32Array(64);
   /** Le numero de l'image, qui distribue les tours de decision (§4.33, palier 1). */
   private numeroDImage = 0;
+  /**
+   * La nuee (§4.33, palier 2) : la pietaille dessinee en une passe instanciee.
+   * `null` si le navigateur ne sait pas instancier — tout reste alors en sprites.
+   */
+  private nuee: Nuee | null = null;
   /** Le filtre de toutes les recherches : un monstre tue pendant l'image est encore range. */
   private readonly monstreDebout = (i: number): boolean => this.horde[i]!.active;
   /** Cadavres en train de tomber : plafonnes, une mort en masse coute cher */
@@ -1477,6 +1484,10 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   create(): void {
+    // ⚠️ **Avant le premier monstre de la partie** — les camps de betes naissent
+    // tot : un `Ennemi` decide a sa naissance s'il est dessine par la nuee
+    // (§4.33, palier 2), et la reponse depend du navigateur.
+    Ennemi.nueeActive = Nuee.possible(this);
     const graine = Date.now() % 1_000_000;
     this.rng = new Rng(graine);
     console.log(`[arene] graine = ${graine}`);
@@ -1618,6 +1629,19 @@ export class ArenaScene extends Phaser.Scene {
     // notre propre ecouteur d'arret passerait — le debrancher planterait chaque
     // nouvelle partie.
     this.physics.world.on(Phaser.Physics.Arcade.Events.WORLD_STEP, this.pasDeLaHorde, this);
+    // La nuee se remplit apres la physique, juste avant le dessin : les
+    // positions sont alors celles que Phaser va afficher pour tout le reste.
+    // ⚠️ Les evenements de la scene, eux, survivent a la partie : on les
+    // debranche a l'arret, et la nuee rend sa memoire a la carte graphique.
+    if (Ennemi.nueeActive) {
+      this.nuee = new Nuee(this, MONDE.hauteur);
+      this.events.on(Phaser.Scenes.Events.POST_UPDATE, this.remplirLaNuee, this);
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+        this.events.off(Phaser.Scenes.Events.POST_UPDATE, this.remplirLaNuee, this);
+        this.nuee?.detruire();
+        this.nuee = null;
+      });
+    }
 
     this.construireVillageVivant();
     this.demelerLesPrenoms();
@@ -5241,6 +5265,42 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   /**
+   * La nuee de cette image (§4.33, palier 2) : chaque orc debout, avec ses quatre
+   * canaux. La teinte dit qui c'est, la luminosite la vie qui reste, le rouge le
+   * coup encaisse, la taille le rang.
+   *
+   * ⚠️ **Le rouge dure 120 ms**, comme le veut le §4.33 : l'eclair blanc que pose
+   * `blesserEnnemi` n'en dure que 70, on le prolonge de 50. Un monstre sous
+   * contrat reste rouge : c'est la marque de l'assassin, elle ne s'efface pas.
+   */
+  private remplirLaNuee(): void {
+    const nuee = this.nuee;
+    if (!nuee) return;
+    nuee.commencer();
+    const maintenant = this.time.now;
+    for (const objet of this.ennemis.getChildren()) {
+      const e = objet as Ennemi;
+      if (!e.active || !e.dansLaNuee) continue;
+      const coup = maintenant < e.flashJusqua + 50 || e.souscontrat;
+      const vie = e.pvMax > 0 ? Math.max(0, Math.min(1, e.pv / e.pvMax)) : 1;
+      const corps = e.body as Phaser.Physics.Arcade.Body | null;
+      const bouge = !!corps && Math.abs(corps.velocity.x) + Math.abs(corps.velocity.y) > 8;
+      nuee.poser(
+        e.x,
+        e.y,
+        e.archetype.echelle,
+        e.flipX ? -1 : 1,
+        coup ? COULEURS.sangFrais : teinteDeNuee(e.archetype),
+        // Il fonce en mourant, jusqu'a un tiers de sa lumiere : plus sombre, il
+        // disparaitrait dans la nuit (vu sur planche, a 25 %).
+        coup ? 1 : 0.35 + 0.65 * vie,
+        bouge ? e.phaseDeMarche : -1,
+      );
+    }
+    nuee.finir();
+  }
+
+  /**
    * Le niveau de detail temporel (DESIGN.md §4.33, palier 1) : les alentours des
    * heros, marques une fois par image.
    *
@@ -5305,8 +5365,8 @@ export class ArenaScene extends Phaser.Scene {
         this.avancerEnnemi(e, maintenant, pleinRegime);
       }
       // Hors de l'ecran, une teinte ne se voit pas : elle sera juste des la
-      // premiere image ou il y entre.
-      if (aLEcran) this.teinterEnnemi(e, maintenant);
+      // premiere image ou il y entre. Un orc de la nuee, lui, se teinte au dessin.
+      if (aLEcran && !e.dansLaNuee) this.teinterEnnemi(e, maintenant);
       this.bloquerParLesDomes(e);
     }
   }
@@ -5552,7 +5612,8 @@ export class ArenaScene extends Phaser.Scene {
     }
     for (const objet of this.ennemis.getChildren()) {
       const e = objet as Ennemi;
-      if (e.active) animerEntite(e);
+      // La nuee ne s'anime pas : sa marche se calcule au dessin (§4.33).
+      if (e.active && !e.dansLaNuee) animerEntite(e);
     }
     for (const objet of this.invocations.getChildren()) {
       const i = objet as Invocation;
@@ -5568,7 +5629,8 @@ export class ArenaScene extends Phaser.Scene {
     for (const hero of this.heros) hero.setDepth(hero === perche ? this.tourDuHero!.depth + 1 : hero.y);
     for (const objet of this.ennemis.getChildren()) {
       const e = objet as Ennemi;
-      e.setDepth(e.y);
+      // La nuee se range par bandes, pas par profondeur (§4.33, palier 2).
+      if (!e.dansLaNuee) e.setDepth(e.y);
     }
   }
 
@@ -6993,6 +7055,13 @@ export class ArenaScene extends Phaser.Scene {
    */
   private marquerLaMort(e: Ennemi): void {
     poufMort(this, e.x, e.y, e.archetype.couleurImpact);
+    // ⚠️ **Dans la nuee, un cadavre est un orc couche** (§4.33 §5) : quelques
+    // octets, donc plus de plafond de 24 — ils restent tous, et le champ de
+    // bataille se couvre.
+    if (e.dansLaNuee && this.nuee) {
+      this.nuee.coucher(e.x, e.y, e.archetype.echelle, e.flipX ? -1 : 1, teinteDeNuee(e.archetype));
+      return;
+    }
     if (this.cadavres >= MAX_CADAVRES) return;
 
     const cle = `${e.familleSprite}-mort`;

@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { ARCHETYPES, ARCHETYPE_DEFAUT, archetypeParId, choisirArchetype } from "./ennemis";
+import {
+  ARCHETYPES,
+  ARCHETYPES_DEAU,
+  ARCHETYPE_DEFAUT,
+  ARCHETYPE_HUMAIN,
+  archetypeParId,
+  choisirArchetype,
+  estDeLaNuee,
+  teinteDeNuee,
+} from "./ennemis";
+import { C } from "./ui/couleurs";
 
 /**
  * `ennemis.ts` est une table de donnees et une fonction pure : elle ne touche
@@ -95,5 +105,25 @@ describe("Archetypes de monstres — le tirage", () => {
       expect(ARCHETYPES).toContain(choisirArchetype(10, t));
     }
     expect(choisirArchetype(-5, 0.5)).toBe(ARCHETYPE_DEFAUT);
+  });
+});
+
+describe("La nuee (§4.33) — qui y entre, et de quelle couleur", () => {
+  it("prend les six archetypes des vagues, et laisse les humains et les betes d'eau a part", () => {
+    for (const a of ARCHETYPES) expect(estDeLaNuee(a, false), a.id).toBe(true);
+    for (const a of ARCHETYPES_DEAU) expect(estDeLaNuee(a, false), a.id).toBe(false);
+    expect(estDeLaNuee(ARCHETYPE_HUMAIN, true)).toBe(false);
+    // Un habitant enrage a l'archetype du fonceur : c'est son visage qui compte.
+    expect(estDeLaNuee(ARCHETYPE_DEFAUT, true)).toBe(false);
+  });
+
+  it("teinte ce que le monstre fait : laiton qui crache, ciel sale qui explose, bile le reste", () => {
+    for (const a of ARCHETYPES) {
+      const attendue =
+        a.comportement === "cracheur" ? C.laiton : a.comportement === "kamikaze" ? C.cielSale : C.bile;
+      expect(teinteDeNuee(a), a.id).toBe(attendue);
+    }
+    // Le rouge est reserve au coup encaisse : aucun type n'en porte.
+    for (const a of ARCHETYPES) expect(teinteDeNuee(a)).not.toBe(C.sangFrais);
   });
 });

@@ -420,3 +420,42 @@ export class Emprises {
     return k;
   }
 }
+
+/**
+ * Range des positions par **bandes horizontales** (DESIGN.md §4.33, palier 2) :
+ * un tri par comptage sur la hauteur, rien d'autre.
+ *
+ * C'est la reponse au piege du tri de profondeur : dessinee d'un seul bloc, la
+ * nuee recouvrait les maisons et l'eglise. Rangee par bandes, chaque bande se
+ * dessine a sa propre profondeur — une vingtaine d'appels a l'ecran au lieu
+ * d'un, et un monstre passe derriere la maison du dessus et devant celle du
+ * dessous. Dans une bande, l'ordre est celui de la liste : l'erreur tient dans
+ * la hauteur d'une bande.
+ *
+ * @param debuts rempli : ou commence chaque bande dans `ordre` (une case de plus pour la fin)
+ * @param ordre rempli : les index, bande par bande
+ */
+export function rangerParBandes(
+  n: number,
+  ys: ArrayLike<number>,
+  hauteurBande: number,
+  debuts: Int32Array,
+  ordre: Int32Array,
+): void {
+  const bandes = debuts.length - 1;
+  debuts.fill(0);
+  const bandeDe = (y: number) => {
+    const b = Math.floor(y / hauteurBande);
+    return b < 0 ? 0 : b >= bandes ? bandes - 1 : b;
+  };
+  for (let i = 0; i < n; i++) debuts[bandeDe(ys[i]!) + 1]! += 1;
+  for (let b = 1; b <= bandes; b++) debuts[b]! += debuts[b - 1]!;
+  // Les curseurs partent des debuts ; on les rembobine ensuite d'un cran.
+  for (let i = 0; i < n; i++) {
+    const b = bandeDe(ys[i]!);
+    ordre[debuts[b]!] = i;
+    debuts[b]! += 1;
+  }
+  for (let b = bandes; b > 0; b--) debuts[b] = debuts[b - 1]!;
+  debuts[0] = 0;
+}

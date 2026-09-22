@@ -40,11 +40,11 @@ CORPS_ORC = 166
 TYPES = [("ordinaire", BILE), ("cracheur", LAITON), ("kamikaze", CIEL_SALE)]
 VIES = [1.0, 0.7, 0.45, 0.25]
 RANGS = [("pietaille", 1.0), ("boss", 1.5), ("enorme", 2.2)]
-VARIANTES = ["trapu", "gourdin"]
+VARIANTES = ["orc"]
 
 
 def charger(variante):
-    im = Image.open(os.path.join(PLANCHES, f"monstre-orc-{variante}-planche.png")).convert("RGBA")
+    im = Image.open(os.path.join(PLANCHES, f"monstre-{variante}-planche.png")).convert("RGBA")
     return im.crop((0, 0, im.height, im.height))
 
 
@@ -124,9 +124,9 @@ def horde(sprites, zoom, fond, boite, graine=7, n=70):
         vie = rng.choice([1.0, 1.0, 0.8, 0.6, 0.4, 0.25])
         coup = rng.random() < 0.12
         x, y = rng.randint(10, w - 60), rng.randint(10, h - 60)
-        orcs.append((y, x, teinter(sprites["trapu"], couleur, vie, coup)))
+        orcs.append((y, x, teinter(sprites["orc"], couleur, vie, coup)))
     # Un boss au milieu : il est plus grand, c'est tout ce qui le distingue.
-    orcs.append((h // 2, w // 2, teinter(sprites["trapu"], BILE, 1.0), 1.5))
+    orcs.append((h // 2, w // 2, teinter(sprites["orc"], BILE, 1.0), 1.5))
     for o in sorted(orcs, key=lambda o: o[0]):
         y, x, s = o[0], o[1], o[2]
         e = o[3] if len(o) > 3 else 1.0
@@ -137,7 +137,7 @@ def horde(sprites, zoom, fond, boite, graine=7, n=70):
 
 def main():
     sprites = {v: charger(v) for v in VARIANTES}
-    base = sprites["trapu"]
+    base = sprites["orc"]
     lignes = []
     lignes.append(bandeau(
         "1. Les deux silhouettes, en vert d'orc ordinaire (x6) — jour, puis nuit",

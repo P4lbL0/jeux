@@ -3,7 +3,14 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-09-22, dans la nuit — **le palier 1 de la horde est posé**
+> Dernière mise à jour : 2026-09-22, tard — **le palier 2 de la horde est posé**
+> (§4.33) : la piétaille est dessinée par **la nuée**, une passe instanciée qui teinte un orc
+> unique (24 px, sorti de Blender) selon ce qu'il fait, ce qu'il lui reste de vie et le coup
+> qu'il vient d'encaisser, rangée par bandes pour passer derrière les maisons. Les cadavres
+> restent, couchés. La horde qui arrive tient **60 images/s jusqu'à 3 500 monstres** ; les
+> boss seront des géants, deux à trois fois plus gros.
+>
+> Avant ça : 2026-09-22, le soir — **le palier 1 de la horde est posé**
 > (§4.33) : une grille spatiale, les onze passes d'Arcade qui touchaient les monstres
 > remplacées sans changer la physique, et un niveau de détail temporel. La horde qui arrive
 > tient **60 images/s jusqu'à 2 500 monstres**, contre ~1 600. Et la mesure du rendu a

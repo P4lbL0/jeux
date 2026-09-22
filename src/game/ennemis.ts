@@ -15,6 +15,7 @@
  */
 
 import { REGLAGES_BUTIN } from "../core/butin";
+import { C } from "./ui/couleurs";
 
 /**
  * Ce que le monstre fait de son corps.
@@ -341,4 +342,34 @@ export function choisirArchetype(puissance: number, tirage: number): Archetype {
     if (curseur < 0) return archetype;
   }
   return ARCHETYPE_DEFAUT;
+}
+
+// ------------------------------------------------------------ la nuee (§4.33)
+
+/**
+ * Qui entre dans la nuee (DESIGN.md §4.33, palier 2) : les six archetypes des
+ * vagues, dessines en orcs, en une passe.
+ *
+ * ⚠️ **Ce qui reste un sprite a part, et pourquoi** : l'humain enrage (§4.29) a
+ * le visage et le nom d'un habitant qu'on a refuse — c'est tout son sens ; les
+ * betes d'eau (§4.21) ne sortent qu'une nuit de crue, et leur silhouette dit
+ * d'ou elles viennent. Elles sont rares : les garder a part ne coute rien au
+ * rendu, et ce sont deux silhouettes validees exprès, le jour meme.
+ */
+export function estDeLaNuee(archetype: Archetype, humain: boolean): boolean {
+  return !humain && ARCHETYPES.some((a) => a.id === archetype.id);
+}
+
+/**
+ * La teinte d'un orc de la nuee : ce qu'il **fait**, pas ce qu'il est (§4.33).
+ *
+ * Tranche sur planches par Angelos le 22 septembre 2026 : la bile pour
+ * l'ordinaire (le fonceur, l'essaim, le revenant, la brute), le laiton pour le
+ * cracheur, le ciel sale pour le kamikaze. Pas d'orange : il se confondrait avec
+ * le rouge du coup encaisse, qui est le seul rouge de la horde.
+ */
+export function teinteDeNuee(archetype: Archetype): number {
+  if (archetype.comportement === "cracheur") return C.laiton;
+  if (archetype.comportement === "kamikaze") return C.cielSale;
+  return C.bile;
 }

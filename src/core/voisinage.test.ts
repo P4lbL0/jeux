@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Rng } from "./rng";
-import { COTE_VOISINAGE, distanceAuSegment, Emprises, Voisinage } from "./voisinage";
+import { COTE_VOISINAGE, distanceAuSegment, Emprises, rangerParBandes, Voisinage } from "./voisinage";
 
 /**
  * Le voisinage de la horde (§4.33, palier 1).
@@ -247,5 +247,44 @@ describe("Les frappes en ligne — juste devant", () => {
 
   it("tient un trait de longueur nulle : c'est la distance au point", () => {
     expect(distanceAuSegment(3, 4, 0, 0, 0, 0)).toBe(5);
+  });
+});
+
+describe("Les bandes de la nuee — la profondeur sans trier", () => {
+  it("range chaque position dans sa bande, et garde l'ordre de la liste dans une bande", () => {
+    const ys = [40, 5, 17, 33, 2, 40];
+    const debuts = new Int32Array(4 + 1);
+    const ordre = new Int32Array(ys.length);
+    rangerParBandes(ys.length, ys, 16, debuts, ordre);
+    // Bandes de 16 : [0,16) -> 1 et 4 ; [16,32) -> 2 ; [32,48) -> 0, 3 et 5.
+    expect(Array.from(debuts)).toEqual([0, 2, 3, 6, 6]);
+    expect(Array.from(ordre)).toEqual([1, 4, 2, 0, 3, 5]);
+  });
+
+  it("range au bord ce qui deborde, sans rien perdre", () => {
+    const ys = [-30, 1000];
+    const debuts = new Int32Array(3 + 1);
+    const ordre = new Int32Array(2);
+    rangerParBandes(2, ys, 16, debuts, ordre);
+    expect(Array.from(debuts)).toEqual([0, 1, 1, 2]);
+    expect(Array.from(ordre)).toEqual([0, 1]);
+  });
+
+  it("tient vingt mille positions, et chaque bande ne contient que les siennes", () => {
+    const rng = new Rng(61);
+    const n = 20000;
+    const ys = new Float32Array(n);
+    for (let i = 0; i < n; i++) ys[i] = rng.range(0, 2598);
+    const bandes = Math.ceil(2598 / 16);
+    const debuts = new Int32Array(bandes + 1);
+    const ordre = new Int32Array(n);
+    rangerParBandes(n, ys, 16, debuts, ordre);
+    expect(debuts[bandes]).toBe(n);
+    for (let b = 0; b < bandes; b++) {
+      for (let k = debuts[b]!; k < debuts[b + 1]!; k++) {
+        expect(Math.floor(ys[ordre[k]!]! / 16)).toBe(b);
+        if (k > debuts[b]!) expect(ordre[k]!).toBeGreaterThan(ordre[k - 1]!);
+      }
+    }
   });
 });

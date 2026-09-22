@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { cleEglise, cleMaison, CLE_FERME, CLE_MAISON_RUINE, VARIANTES_MAISON } from "./batiments";
 import { DECORS } from "./decor";
 import { CLES_FLAMME, CLES_FUMEE, HAUTEUR_FUMEE, LARGEUR_FUMEE } from "./feu";
+import { CLE_ORC, TAILLE_ORC } from "./orc";
 import { ORDRE_CLASSES } from "../../core/classes";
 import { familleDeHero } from "./heros";
 import { familleDeMonstre } from "./monstres";
@@ -39,6 +40,8 @@ const CLES_CONNUES = new Set<string>([
   // avec une particularite : elles sont les seules du dossier **sans contour de
   // fer**, parce qu'une fumee n'a pas de bord (`rendre.py`).
   ...CLES_FUMEE,
+  // L'orc de la horde (§4.33, palier 2) : une image, celle que la nuee teinte.
+  CLE_ORC,
   ...Array.from({ length: VARIANTES_MAISON }, (_, v) => cleMaison(v)),
   CLE_FERME,
   CLE_MAISON_RUINE,
@@ -61,6 +64,12 @@ describe("Sprites Blender — src/assets", () => {
   it("chaque PNG porte une cle de texture du jeu", () => {
     const inconnus = pngs.map((f) => f.replace(/\.png$/, "")).filter((c) => !CLES_CONNUES.has(c));
     expect(inconnus).toEqual([]);
+  });
+
+  it("l'orc de la horde a la taille que la nuee attend", () => {
+    const fichier = `${CLE_ORC}.png`;
+    if (!pngs.includes(fichier)) return;
+    expect(taillePng(resolve(DOSSIER, fichier))).toEqual({ largeur: TAILLE_ORC, hauteur: TAILLE_ORC });
   });
 
   it("les bouffees de fumee ont la taille de feu.ts", () => {

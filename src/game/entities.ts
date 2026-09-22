@@ -19,7 +19,7 @@ import type { Metier } from "../core/habitants";
 import { creerPersonne, prenomLibre, type Personne } from "../core/personne";
 import { Rng } from "../core/rng";
 import { nouvellePose } from "./poses";
-import { ARCHETYPE_DEFAUT, type Archetype } from "./ennemis";
+import { ARCHETYPE_DEFAUT, estDeLaNuee, type Archetype } from "./ennemis";
 import { familleDeMonstre } from "./dessin/monstres";
 import { familleDeHero } from "./dessin/heros";
 import { assurerHero, plancheDe } from "./dessin/monde";
@@ -796,8 +796,15 @@ export interface ApparenceHumaine {
 }
 
 export class Ennemi extends Phaser.Physics.Arcade.Sprite {
-  /** Le compteur qui distribue les tours de decision. */
+  /** Le compteur qui distribue les tours de decision et les phases de marche. */
   private static prochainTour = 0;
+
+  /**
+   * La nuee dessine-t-elle la horde dans cette partie (§4.33, palier 2) ? Pose
+   * par la scene a sa creation : sans WebGL instancie, tout le monde reste un
+   * sprite.
+   */
+  static nueeActive = false;
 
   /**
    * Son tour de decision, de 0 a 3 (DESIGN.md §4.33, palier 1).
@@ -806,7 +813,19 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
    * sur quatre : il garde son elan entre deux. Les quatre quarts de la horde se
    * relaient, pour que la charge ne tombe jamais sur la meme image.
    */
-  readonly tourDeDecision = Ennemi.prochainTour++ & 3;
+  readonly tourDeDecision = Ennemi.prochainTour & 3;
+  /**
+   * Sa phase de marche, pour le balancement que la nuee calcule au dessin
+   * (§4.33 §2). L'angle d'or ecarte au mieux les phases successives : deux
+   * voisins ne se balancent jamais ensemble.
+   */
+  readonly phaseDeMarche = (Ennemi.prochainTour++ * 2.399963) % (Math.PI * 2);
+  /**
+   * Dessine par la nuee, et non par Phaser (§4.33, palier 2) : il n'est ni dans
+   * la liste d'affichage, ni dans celle des animations. Tout le reste de lui —
+   * son corps, son IA, ses coups — est inchange.
+   */
+  readonly dansLaNuee: boolean;
   pv: number;
   pvMax: number;
   vitesse: number;
@@ -913,7 +932,10 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
     this.degats = Math.max(1, Math.round((6 + puissance * 2) * archetype.multDegats));
     this.xpDonnee = archetype.xp;
 
-    scene.add.existing(this);
+    this.dansLaNuee = Ennemi.nueeActive && estDeLaNuee(archetype, humain !== null);
+    // Un orc de la nuee n'entre ni dans la liste d'affichage ni dans celle des
+    // animations : c'est tout le gain du palier 2. Il existe pour la physique.
+    if (!this.dansLaNuee) scene.add.existing(this);
     scene.physics.add.existing(this);
     // La mer et la montagne ne laissent passer personne (DESIGN.md §4.6) :
     // un flanc qu'un monstre peut contourner n'est pas un flanc ferme.

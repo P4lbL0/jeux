@@ -26,6 +26,14 @@ import { join } from "node:path";
 
 const PORT = 5221;
 const DOSSIER = process.argv[2] ?? "captures/jeu/2026-09-22-horde-800";
+/**
+ * `--d-un-coup` remplit la nuit jusqu'au plafond en une image, comme la
+ * premiere serie du 22 septembre. Par defaut, la horde vient **petit a petit**
+ * (decision d'Angelos, §4.33) : un flot qui monte aux fronts, pas un tapis pose.
+ */
+const D_UN_COUP = process.argv.includes("--d-un-coup");
+/** Le flot : combien d'orcs paraissent par seconde de jeu, jusqu'au plafond. */
+const PAR_SECONDE = 16;
 const BROUILLON = process.argv[3] ?? join(process.env.TEMP ?? ".", "horde-800");
 const GRAINES = [4242, 777];
 const PLAFOND = 800;
@@ -35,7 +43,7 @@ const NUIT = 12;
  * La maree met vingt-cinq a trente secondes a traverser la carte depuis les
  * fronts : avant, la vue du village est vide.
  */
-const INSTANTS = [20, 35, 50, 65];
+const INSTANTS = D_UN_COUP ? [20, 35, 50, 65] : [15, 30, 45, 60, 75];
 
 interface Fenetre {
   __jeu?: {
@@ -149,7 +157,22 @@ try {
       arene.cycle.ecoule = arene.cycle.duree * 0.3;
       arene.resteDeLaNuit = 100000;
       const puissance = arene.puissanceIci(arene.cycle.nuit);
-      for (let i = arene.ennemis.getLength(); i < ${PLAFOND}; i++) arene.faireApparaitreEnnemi(puissance);
+      if (${D_UN_COUP}) {
+        for (let i = arene.ennemis.getLength(); i < ${PLAFOND}; i++) arene.faireApparaitreEnnemi(puissance);
+      } else {
+        // Le flot : a chaque image, ce que le temps ecoule autorise, aux fronts,
+        // jusqu'au plafond du jeu.
+        let dus = 0;
+        arene.events.on("update", (_t, delta) => {
+          dus += (delta / 1000) * ${PAR_SECONDE};
+          while (dus >= 1 && arene.ennemis.getLength() < ${PLAFOND}) {
+            arene.faireApparaitreEnnemi(puissance);
+            dus -= 1;
+          }
+          if (dus > 1) dus = 1;
+        });
+        for (let i = 0; i < 20; i++) arene.faireApparaitreEnnemi(puissance);
+      }
       // ⚠️ **A l'eglise, le heros se soigne, il ne se bat pas** (etat cite,
       // dans les 90 px). On le pose a 150 px, du cote d'ou vient la maree :
       // c'est la que le joueur serait, et c'est la qu'on juge la lisibilite.

@@ -1568,7 +1568,72 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
-### Le jalon 6.2, palier 2, morceau 1 — l'orc à l'essai et son langage (22 septembre 2026, dans la nuit)
+### Le jalon 6.2, palier 2 — la nuée (22 septembre 2026, tard)
+
+**La piétaille est dessinée par la nuée** : un orc unique, teinté au dessin, rangé par bandes
+de profondeur. La horde qui arrive tient **60 images/s jusqu'à 3 500 monstres** (contre
+37-39 au palier 1), et **43 à 51 à 5 000** (contre 24-25).
+
+#### Ce qui a été tranché, et par qui
+
+Sur les planches de l'orc (`captures/planches/2026-09-22-orc/`), Angelos : **un cadre de
+24 px** (dans 20, la tête se fondait dans le buste), **les couleurs gardées**, et **les boss
+seront des géants, deux à trois fois plus gros, avec beaucoup plus de points de vie** — ils
+se distinguent par la taille, pas par une arme. Le gourdin pour tous est un choix par défaut,
+à défaire d'un mot. Les boss et les énormes restent à créer : le jeu n'a aujourd'hui que
+l'échelle d'archétype (0,8 à 1,4).
+
+#### Ce qui a été fait
+
+- **`game/nuee.ts`** : le prototype du banc de rendu devenu module. Un objet `Extern` par
+  bande de 16 px, à sa profondeur ; neuf nombres par orc (position, échelle, sens, couleur
+  déjà multipliée par la vie, phase de marche, couché) ; un tampon envoyé **une fois par
+  image**, et chaque bande dessine sa tranche en décalant ses pointeurs — WebGL 1 ne sait
+  pas commencer à la n-ième instance. Le shader teinte (le ton moyen de l'orc devient
+  exactement la couleur du type), balance la marche et couche les morts.
+- **`core/voisinage.ts`, `rangerParBandes`** : le tri par comptage des bandes, pur et testé.
+- **`game/ennemis.ts`** : `estDeLaNuee` (les six archétypes des vagues ; l'humain enragé et
+  les bêtes d'eau restent des sprites) et `teinteDeNuee` (laiton qui crache, ciel sale qui
+  explose, bile le reste), testées.
+- **`Ennemi.dansLaNuee`** : décidé à la naissance. Un orc de la nuée n'entre **ni dans la
+  liste d'affichage, ni dans celle des animations** — c'est tout le gain. Plus de
+  `setDepth`, de teinte ni de pose par image pour lui.
+- **Les cadavres** : un quart de tour, assombris, sur une couche à -700 (au-dessus des
+  champs, sous les repères d'ordres). Vingt mille en anneau.
+- **`scripts/capturer-horde.ts`** : la horde vient maintenant **petit à petit** par défaut
+  (seize orcs par seconde de jeu aux fronts, jusqu'au plafond) ; `--d-un-coup` rejoue
+  l'ancienne série.
+
+#### Trois choses que la mesure et l'image ont dites
+
+1. **Les bandes marchent** — vérifié sur une scène fabriquée (`.tmp/verifier-bandes.ts`) :
+   une file d'orcs figés par l'Heure sombre traverse une maison ; ceux d'au-dessus de son
+   pied passent derrière son mur, celui d'en dessous passe devant son coin.
+2. **La nuée se remplit en `POST_UPDATE`**, après la physique et juste avant le dessin : les
+   positions sont celles que Phaser affiche pour tout le reste. Remplie dans `update`, elle
+   aurait eu une image de retard sur les héros.
+3. **Le rouge dure 120 ms** comme le veut le §4.33, alors que l'éclair blanc de
+   `blesserEnnemi` n'en dure que 70 : la nuée le prolonge de 50.
+
+#### Ce que la nuée a fait disparaître — à dire à Angelos
+
+Le **télégraphe de la piétaille** (la teinte jaune d'armement, la mèche du kamikaze qui
+clignote) : c'est ce que veut le §4.33, mais un kamikaze explose désormais sans prévenir. La
+**teinte bleue du ralenti** et le **gris de l'Heure sombre** : l'effet reste, il ne se voit
+plus sur la piétaille. Les **gestes** d'attaque et de chute.
+
+#### Le filet
+
+Sans WebGL instancié (`Nuee.possible`), `Ennemi.nueeActive` reste faux et tout le monde reste
+un sprite : le jeu d'avant le palier 2, à l'identique. Jamais de monstre invisible.
+
+**À regarder** : `captures/jeu/2026-09-22-horde-nuee/` — deux nuits où la horde monte
+(270, puis 507, 681, et le plafond de 800 à la minute), vue du joueur et du village, à
+59-61 images/s tout du long.
+
+**966 tests verts** (+6). `npm run build` propre.
+
+### Le jalon 6.2, palier 2, morceau 1 — l'orc à l'essai et son langage (22 septembre 2026, tard)
 
 Le palier 2 change l'apparence de la horde : avant d'intégrer quoi que ce soit, **l'orc et
 son langage sur image**, pour qu'Angelos choisisse.
@@ -1617,8 +1682,8 @@ les distinguait pas des mains nues. **Les couleurs sont gardées** (Angelos).
 **À regarder** : `captures/planches/2026-09-22-orc/` — le langage (1), la horde de jour (2)
 et de nuit (3), les trois silhouettes à côté d'un villageois et d'une bête (4).
 
-⚠️ **Rien n'est encore dans le jeu** : les trois familles d'essai ne sont pas livrées dans
-`src/assets/`. La suite attend le choix d'Angelos.
+La suite a été tranchée le soir même, et l'orc est entré dans le jeu : voir « palier 2 — la
+nuée » au-dessus.
 
 ### Le jalon 6.2, palier 1 — la grille et le niveau de détail (22 septembre 2026, tard)
 

@@ -588,17 +588,17 @@ def familles():
                     # pas une de plus : a 0,18 par cran le villageois use etait plie en deux.
                     gestes=GESTES_VILLAGEOIS, cadre=cadre_de(CADRE), voute=0.125 * usure, outil_au_travail=True,
                 )
-    # L'orc de la horde (§4.33, palier 2, 22 septembre 2026 dans la nuit) : trois
-    # silhouettes a l'essai, une seule survivra. Un repos, une image : dans la
-    # horde, la marche ne s'anime pas, elle se calcule au dessin.
-    # (les longs bras sont abandonnes : a la taille du jeu, on ne les distinguait
-    # pas des mains nues)
-    for variante in ("trapu", "gourdin"):
+    # L'orc de la horde (§4.33, palier 2, 22 septembre 2026 dans la nuit) : une
+    # seule silhouette pour toute la horde, au gourdin, dans 24 px — tranche sur
+    # planches (les mains nues et les longs bras ne se distinguaient pas a la
+    # taille du jeu). Un repos, une image : la marche ne s'anime pas, elle se
+    # calcule au dessin. Livree en `src/assets/horde-orc.png`.
+    for variante in ("gourdin",):
         # `garde` : les bras portes en avant, ajoutes a la posture humaine.
         # ⚠️ Trois jets bras ballants : vu de flanc, le bras avant pendait entre
         # la camera et le corps et cachait tout, du coude aux hanches — il ne
         # restait qu'une tete sur un bloc clair. En garde, le flanc se decouvre.
-        f[f"monstre-orc-{variante}"] = dict(sorte="orc", variante=variante, gestes=[("repos", 1, True)],
+        f["monstre-orc"] = dict(sorte="orc", variante=variante, gestes=[("repos", 1, True)],
                                             cadre=cadre_de(CADRE_ORC), voute=0.2, garde=(0.6, 0.35))
     # Les familiers : deux flammes qui flottent, et le golem de pierre.
     for nom, b in FAMILIERS.items():
