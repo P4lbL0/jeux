@@ -68,17 +68,27 @@ coûte cher ou casse quelque chose.
 
 ## 3. Ce qui reste à coder
 
-### A. Le jalon 6 — le ciel (§4.21)
+### A. Le jalon 6 — le ciel (§4.21) : **la moitié est codée** (22 septembre 2026)
 
-**C'est par là qu'il faut reprendre.** Pluie, orages, **incendies**, météores, carte
-modifiée à jamais.
+✅ **Ce qui tourne** : la **pluie** (une journée sur trois, tirée à l'aube et à
+l'installation, pousse ×2, elle tombe aussi sur la route), l'**orage** (une journée sur
+douze, effectif de la nuit ×1,5, deux nuits d'avance en puissance, hordes de jour sans
+répit, éclairs), la **crue** (trois journées d'affilée : champs noyés, bâtiments abîmés qui
+cèdent, douves qui débordent), les **bêtes d'eau** (Écumeur et Engloutisseur, qui sortent
+des berges la nuit de crue), et le **son** (deux averses, deux tonnerres, fabriqués au code,
+le tonnerre arrivant après la lumière).
 
-⚠️ **Deux choses l'attendent déjà**, et elles sont écrites dans le code :
+⚠️ **Ce qui reste** : l'**incendie** et le **météore**.
+
+⚠️ **Trois crochets l'attendent déjà**, et ils sont écrits dans le code :
 
 - `Maisons.abimerLaPlusProche` est ce qu'un **Pyromane** fait quand il craque (§4.27). Elle
   abîme faute de pouvoir brûler ; le jour où l'incendie existera, c'est elle qui l'allumera
   et rien d'autre ne changera.
 - Le trait **Pyromane** porte déjà un drapeau `feuEnCraquant` que rien ne lit.
+- `Meteo.extinction()` (un feu s'éteint deux fois plus vite sous la pluie) et
+  `Meteo.unEclairAllumeUnFeu()` (un éclair sur vingt) : les deux règles sont écrites et
+  testées, rien ne les lit encore.
 
 ### B. Les jalons suivants, écrits et pas codés
 
