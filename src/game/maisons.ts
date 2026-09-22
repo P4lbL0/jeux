@@ -3,6 +3,7 @@ import { CASE, Grille, type Occupation } from "../core/grille";
 import type { Stocks } from "../core/habitants";
 import type { MaisonPlan } from "../core/village";
 import { cleMaison, CLE_FERME, CLE_MAISON_RUINE, EMPRISE_MAISON, VARIANTES_MAISON } from "./dessin/batiments";
+import { melanger } from "./dessin/palette";
 
 /**
  * Les maisons du village (DESIGN.md §4.24).
@@ -53,6 +54,15 @@ export class Maison extends Phaser.Physics.Arcade.Image {
   debout = true;
   /** Eclair blanc quand elle encaisse, gere sans minuterie (§4.17) */
   flashJusqua = 0;
+  /**
+   * Ce que le feu lui a pris, de 0 (intacte) a 1 (charbon) — §4.21.
+   *
+   * ⚠️ **Elle ne compte que les degats du feu**, pas ceux des monstres : une
+   * maison enfoncee a coups de masse n'est pas noire. Et elle ne redescend
+   * jamais — une maison qui a brule garde ses marques une fois le feu eteint,
+   * et sa ruine aussi.
+   */
+  brulee = 0;
   /** Jusqu'a quand elle tremble d'un coup ; un coup par secousse, pas plus. */
   secoueeJusqua = 0;
 
@@ -114,6 +124,22 @@ export class Maison extends Phaser.Physics.Arcade.Image {
  * chose de celui qui a craque.
  */
 const PART_ABIMEE = 0.25;
+
+/**
+ * Ce que le feu fait a la couleur d'un batiment (§4.21).
+ *
+ * `setTint` **multiplie** : blanc ne change rien, et plus la teinte est sombre
+ * plus le batiment noircit. On ne va pas jusqu'au charbon pur — a 1, la maison
+ * devient une silhouette noire et on ne lit plus ni son toit ni ses
+ * colombages. Aux trois quarts, elle est manifestement brulee et reste lisible.
+ *
+ * ⚠️ **Ce n'est pas un effet, c'est une information** : quarante secondes
+ * separent le depart de feu de la ruine, et sans ca rien dans le batiment lui-
+ * meme ne dit ou on en est. La flamme dit « ca brule », le noircissement dit
+ * « depuis combien de temps ».
+ */
+const CHARBON = 0x4a423c;
+const PART_NOIRCIE = 0.75;
 
 export class Maisons {
   readonly groupe: Phaser.Physics.Arcade.StaticGroup;
@@ -415,6 +441,7 @@ export class Maisons {
   teinter(maintenant: number): void {
     for (const m of this.liste) {
       if (maintenant < m.flashJusqua) m.setTintFill(0xffffff);
+      else if (m.brulee > 0) m.setTint(melanger(0xffffff, CHARBON, Math.min(1, m.brulee) * PART_NOIRCIE));
       else m.clearTint();
     }
   }

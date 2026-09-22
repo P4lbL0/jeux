@@ -203,7 +203,32 @@ export const SANG = matiere(C.sangFrais);
  */
 export const FLAMME = matiere(melanger(C.laiton, C.sangFrais, 0.5), 0.16, 0.34);
 export const BRAISE = matiere(melanger(C.sangSeche, C.sangFrais, 0.45), 0.22, 0.22);
-export const COEUR_DU_FEU = matiere(melanger(C.laiton, C.os, 0.62), 0.1, 0.42);
+
+/**
+ * La fumee (23 septembre 2026) : du fer monte d'un quart vers l'os.
+ *
+ * ⚠️ **Elle prend l'ombre a l'envers de tout le reste** : ombre forte, lumiere
+ * faible — l'inverse exact des trois matieres du feu juste au-dessus. Premier
+ * reglage a 0,34 avec les valeurs ordinaires : le soleil du rendu posait
+ * presque toutes les faces sur la marche la plus claire et les bouffees
+ * sortaient **plus claires que la prairie**, donc plus proches d'un rocher que
+ * d'une fumee. Ce qui monte d'un toit doit assombrir ce qu'il y a derriere,
+ * jamais l'eclaircir.
+ *
+ * Et ses cinq marches tiennent dans une **bande etroite** (0,20 et 0,13, la
+ * plus serree du jeu) : une bouffee franchement facettee, face claire contre
+ * face sombre, se lit comme un tas de pierres. Il reste juste assez d'ecart
+ * pour qu'on voie qu'elle a des faces.
+ */
+export const FUMEE = matiere(melanger(C.fer, C.os, 0.26), 0.20, 0.13);
+/**
+ * ⚠️ **Le coeur monte vers l'os, mais pas jusqu'au sable.** Premier reglage a
+ * 0,62 : une fois sorti du corps de la flamme (23 septembre 2026), il est
+ * apparu **beige** au milieu de l'orange — un coeur de bougie, pas un coeur de
+ * feu. A 0,42 il reste du laiton, donc de l'or, et c'est la couleur la plus
+ * chaude que les neuf permettent.
+ */
+export const COEUR_DU_FEU = matiere(melanger(C.laiton, C.os, 0.42), 0.1, 0.42);
 
 /**
  * Le sol : la bile salie, franchement.

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { cleEglise, cleMaison, CLE_FERME, CLE_MAISON_RUINE, VARIANTES_MAISON } from "./batiments";
 import { DECORS } from "./decor";
-import { CLES_FLAMME } from "./feu";
+import { CLES_FLAMME, CLES_FUMEE, HAUTEUR_FUMEE, LARGEUR_FUMEE } from "./feu";
 import { ORDRE_CLASSES } from "../../core/classes";
 import { familleDeHero } from "./heros";
 import { familleDeMonstre } from "./monstres";
@@ -35,6 +35,10 @@ const CLES_CONNUES = new Set<string>([
   // pas des decors : pas de pied a caler, pas d'ombre portee — une flamme est
   // posee sur un toit.
   ...CLES_FLAMME,
+  // Les trois bouffees de fumee (23 septembre 2026), pour la meme raison —
+  // avec une particularite : elles sont les seules du dossier **sans contour de
+  // fer**, parce qu'une fumee n'a pas de bord (`rendre.py`).
+  ...CLES_FUMEE,
   ...Array.from({ length: VARIANTES_MAISON }, (_, v) => cleMaison(v)),
   CLE_FERME,
   CLE_MAISON_RUINE,
@@ -57,6 +61,17 @@ describe("Sprites Blender — src/assets", () => {
   it("chaque PNG porte une cle de texture du jeu", () => {
     const inconnus = pngs.map((f) => f.replace(/\.png$/, "")).filter((c) => !CLES_CONNUES.has(c));
     expect(inconnus).toEqual([]);
+  });
+
+  it("les bouffees de fumee ont la taille de feu.ts", () => {
+    for (const cle of CLES_FUMEE) {
+      const fichier = `${cle}.png`;
+      if (!pngs.includes(fichier)) continue;
+      expect(taillePng(resolve(DOSSIER, fichier)), cle).toEqual({
+        largeur: LARGEUR_FUMEE,
+        hauteur: HAUTEUR_FUMEE,
+      });
+    }
   });
 
   it("chaque decor a la taille de decor.ts, sinon son pied tombe a cote", () => {

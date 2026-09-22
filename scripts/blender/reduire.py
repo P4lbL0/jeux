@@ -98,7 +98,11 @@ def reduire_tableaux(ids, lum, meta):
             sortie[y, x, 3] = 255
             opaque[y, x] = True
 
-    # le contour : tout pixel non opaque qui touche la silhouette (4 voisins)
+    # le contour : tout pixel non opaque qui touche la silhouette (4 voisins).
+    # ⚠️ La fumée le refuse (`contour: false` dans le meta) : elle n'a pas de
+    # bord, et un trait de fer autour en ferait un objet.
+    if not meta.get("contour", True):
+        return sortie
     voisin = np.zeros_like(opaque)
     voisin[1:, :] |= opaque[:-1, :]
     voisin[:-1, :] |= opaque[1:, :]

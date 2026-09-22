@@ -331,6 +331,9 @@ const PORTEE_CORPS_A_CORPS = 90;
  */
 const MAX_ENNEMIS = REGLAGES_CYCLE.plafondEcran;
 
+/** Ce que le voile de nuit atteint au plus noir (`teinterLeCiel`). */
+const NUIT_PLEINE = 0.55;
+
 /**
  * Rayon dans lequel le heros incarne recolte a la main, autour d'un poste.
  *
@@ -7829,7 +7832,6 @@ export class ArenaScene extends Phaser.Scene {
    */
   private teinterLeCiel(): void {
     const { phase, part } = this.cycle;
-    const NUIT_PLEINE = 0.55;
     const FONDU = 0.12;
 
     let opacite: number;
@@ -7839,6 +7841,17 @@ export class ArenaScene extends Phaser.Scene {
       opacite = part > 1 - FONDU ? (1 - (part - (1 - FONDU)) / FONDU) * NUIT_PLEINE : NUIT_PLEINE;
     }
     this.voile.setAlpha(opacite);
+  }
+
+  /**
+   * Ou on en est de la nuit, de 0 (plein jour) a 1 (nuit pleine).
+   *
+   * Lu sur le voile plutot que recalcule : c'est la meme valeur, et deux
+   * formules qui doivent rester d'accord finissent toujours par diverger. Sert
+   * au feu, dont la lueur n'a de sens que la nuit.
+   */
+  get partDeNuit(): number {
+    return this.voile.alpha / NUIT_PLEINE;
   }
 
   /**
@@ -7962,7 +7975,7 @@ export class ArenaScene extends Phaser.Scene {
 
     this.servirLesSeaux();
 
-    this.feux.majorer(this.incendie.foyers, this.time.now);
+    this.feux.majorer(this.incendie.foyers, this.time.now, this.partDeNuit);
   }
 
   /**
@@ -8046,6 +8059,10 @@ export class ArenaScene extends Phaser.Scene {
 
     if (sorte === "maison") {
       const maison = objet as Maison;
+      // Le batiment noircit a mesure qu'il brule (§4.21) : compte ici et pas
+      // sur ses points de vie, parce qu'une maison enfoncee par une horde n'est
+      // pas une maison brulee.
+      maison.brulee = Math.min(1, maison.brulee + degats / REGLAGES_MAISONS.pvMax);
       if (!this.maisons.blesser(maison, degats, this.time.now)) return;
       this.cibles.delete(cible);
       this.incendie.eteindre(cible);

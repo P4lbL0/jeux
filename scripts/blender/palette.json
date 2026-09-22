@@ -228,9 +228,14 @@
       "clair": 12275517
     },
     "coeur_du_feu": {
-      "sombre": 12625528,
-      "corps": 13875075,
-      "clair": 14073750
+      "sombre": 12426851,
+      "corps": 13676140,
+      "clair": 13941129
+    },
+    "fumee": {
+      "sombre": 4011570,
+      "corps": 4669498,
+      "clair": 5919305
     },
     "trou": {
       "sombre": 4210497,

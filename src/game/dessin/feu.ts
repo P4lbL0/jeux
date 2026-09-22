@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { C } from "../ui/couleurs";
+import { melanger } from "./palette";
 
 /**
  * Le feu qui brule (DESIGN.md §4.21, l'incendie).
@@ -30,6 +31,19 @@ export const CLES_FLAMME = [0, 1, 2].map((i) => `feu-flamme-${i}`);
 export const CLE_LUEUR = "feu-lueur";
 
 /**
+ * La bouffee de fumee, et la braise qui monte (23 septembre 2026).
+ *
+ * ⚠️ **Elles restent dessinees au code, et c'est volontaire** alors que tout ce
+ * qui se voit passe par Blender. Le rendu low-poly range chaque pixel dans les
+ * trois tons de sa matiere et l'entoure d'un contour de fer : c'est ce qu'il
+ * faut a un objet, et c'est exactement ce qu'il ne faut pas a une fumee, qui
+ * n'a ni face ni bord. Elles sont de la meme famille que la lueur, qui est au
+ * code pour la meme raison.
+ */
+export const CLES_FUMEE = [0, 1, 2].map((i) => `feu-fumee-${i}`);
+export const CLE_ETINCELLE = "feu-etincelle";
+
+/**
  * Le repere qui pointe un feu sorti de l'ecran (§4.21, l'alerte).
  *
  * **Deux images et pas une** : la pastille dit *ce que c'est*, la pointe dit
@@ -56,12 +70,33 @@ export const HAUTEUR_FLAMME = 30;
 /** Diametre de la lueur. Large et molle : c'est une lumiere, pas un halo net. */
 export const COTE_LUEUR = 96;
 
+/**
+ * Taille d'une bouffee de fumee a l'echelle 1, et d'une braise.
+ *
+ * ⚠️ La fumee est aussi dans `scripts/blender/rendre.py`, qui la rend a cette
+ * taille : les deux doivent bouger ensemble.
+ */
+export const LARGEUR_FUMEE = 46;
+export const HAUTEUR_FUMEE = 40;
+export const COTE_ETINCELLE = 6;
+
+/**
+ * La couleur de la fumee : du fer monte d'un tiers vers l'os.
+ *
+ * Assez clair pour se voir sur un toit d'ardoise, assez sombre pour se voir sur
+ * une prairie — c'est le seul endroit du jeu ou une couleur doit se detacher
+ * des **deux** cotes a la fois.
+ */
+const FUMEE = melanger(C.fer, C.os, 0.32);
+
 /** Millisecondes entre deux images de flamme. */
 export const CADENCE_FLAMME = 110;
 
 export function cuireLeFeu(scene: Phaser.Scene): void {
   for (let i = 0; i < CLES_FLAMME.length; i++) graverFlamme(scene, i);
   graverLueur(scene);
+  for (let i = 0; i < CLES_FUMEE.length; i++) graverFumee(scene, i);
+  graverEtincelle(scene);
   graverRepere(scene);
   graverPointe(scene);
 }
@@ -202,5 +237,73 @@ function graverLueur(scene: Phaser.Scene): void {
     g.fillCircle(rayon, rayon, rayon * part);
   }
   g.generateTexture(CLE_LUEUR, COTE_LUEUR, COTE_LUEUR);
+  g.destroy();
+}
+
+/**
+ * Une bouffee de fumee : trois lobes de cercles concentriques.
+ *
+ * ⚠️ **Trois lobes et pas un disque.** Un disque flou monte comme une bulle de
+ * savon ; trois lobes decentres donnent un bord irregulier, et c'est tout ce
+ * qu'il faut pour que l'oeil lise de la fumee. Ils se recouvrent, donc les
+ * alphas s'ajoutent — le coeur de la bouffee sort plus dense que ses bords sans
+ * qu'on ait a le calculer.
+ */
+function graverFumee(scene: Phaser.Scene, index: number): void {
+  const cle = CLES_FUMEE[index]!;
+  if (scene.textures.exists(cle)) return;
+
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  const u = LARGEUR_FUMEE / 46;
+  // Trois dispositions, une par variante : ce qui monte d'un toit ne doit pas
+  // monter deux fois de la meme facon.
+  const lobes = [
+    [
+      { x: 23, y: 20, r: 11 },
+      { x: 13, y: 24, r: 8 },
+      { x: 33, y: 23, r: 7.5 },
+      { x: 25, y: 11, r: 6 },
+    ],
+    [
+      { x: 22, y: 21, r: 10.5 },
+      { x: 32, y: 25, r: 8.5 },
+      { x: 13, y: 26, r: 7 },
+      { x: 19, y: 11, r: 6.5 },
+    ],
+    [
+      { x: 24, y: 22, r: 10 },
+      { x: 14, y: 21, r: 8.5 },
+      { x: 32, y: 27, r: 7.5 },
+      { x: 27, y: 12, r: 7 },
+    ],
+  ][index]!;
+  const anneaux = 10;
+  for (const lobe of lobes) {
+    for (let i = anneaux; i > 0; i--) {
+      g.fillStyle(FUMEE, 0.055);
+      g.fillCircle(lobe.x * u, lobe.y * u, (lobe.r * u * i) / anneaux);
+    }
+  }
+  g.generateTexture(cle, LARGEUR_FUMEE, HAUTEUR_FUMEE);
+  g.destroy();
+}
+
+/**
+ * Une braise qui monte : un point de laiton, un halo de sang frais.
+ *
+ * Six pixels de cote, et la moitie est du halo. C'est le plus petit objet du
+ * jeu, et il est en lumiere additive comme la lueur : une braise est de la
+ * lumiere qui monte, pas un caillou orange.
+ */
+function graverEtincelle(scene: Phaser.Scene): void {
+  if (scene.textures.exists(CLE_ETINCELLE)) return;
+
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  const m = COTE_ETINCELLE / 2;
+  g.fillStyle(C.sangFrais, 0.45);
+  g.fillCircle(m, m, m);
+  g.fillStyle(C.laiton, 0.85);
+  g.fillCircle(m, m, m * 0.55);
+  g.generateTexture(CLE_ETINCELLE, COTE_ETINCELLE, COTE_ETINCELLE);
   g.destroy();
 }

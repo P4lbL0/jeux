@@ -1568,6 +1568,81 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### L'incendie se voit enfin — la fumee, et cinq flammes (23 septembre 2026)
+
+Angelos, en une phrase : « les flammes de l'incendie c'est deja moche, c'est juste une petite
+flamme sur un batiment ». Il avait raison, et **la cause n'etait pas le dessin de la flamme**.
+
+#### Le bug qui a tenu tout le chantier de la veille
+
+Le coeur clair de la flamme, dans `monde.py`, etait pose a `y = +0,02` avec une base deux
+fois plus etroite que celle du corps. Autrement dit : **entierement enferme dans le maillage
+du corps**. La camera ne l'a jamais vu. Les trois flammes sont donc sorties d'**une seule
+couleur plate** — un orange saumon sans contraste — pendant toute la session du 22.
+
+La camera de `rendre.py` regarde depuis les `y` negatifs : c'est par la qu'on sort une piece.
+Le coeur est passe a `y = -0,24`, avec un `z` releve pour rattraper ce que l'avancee fait
+perdre en hauteur d'ecran (0,574 perdue par unite avancee contre 0,819 gagnee par unite
+montee — c'est la camera penchee a 55°). Et `COEUR_DU_FEU` est passe de 0,62 a **0,42** vers
+l'os : a 0,62 le coeur sortait **beige**, un coeur de bougie.
+
+⚠️ La cisaille du biais partant de `y_devant = -0,4` poussait toute la flamme d'un pixel et
+demi a droite, et la variante qui penche a droite **sortait du cadre de deux pixels**. Le
+premier nombre rendu par `flamme()` ne sert plus de pied : il recentre.
+
+#### Ce qui manquait vraiment : la fumee
+
+Une maison qui brule se lit a trois choses, et **la premiere n'est pas le feu**. De jour, la
+flamme est un detail de vingt pixels ; ce qui dit « ca brule la-bas » a l'autre bout de la
+carte, c'est le panache.
+
+- **Huit bouffees par foyer**, 150 px de montee, decalees d'un huitieme de cycle. A six, la
+  colonne avait un **trou** : une bouffee jeune est encore transparente et une vieille l'est
+  redevenue.
+- **L'exposant de la disparition est 0,6**, pas 1,25. Le sol de ce jeu est moutonne de taches
+  sombres : une fumee qui palit vite s'y confond avec l'herbe et il ne reste qu'un nuage pose
+  sur le toit.
+- ⚠️ **Essayee claire, et repris.** L'idee etait de la detacher des taches sombres de la
+  prairie. Mesure en jeu, c'est l'inverse — le sol est un vert khaki **clair**, et une fumee
+  claire s'y dissout. Sombre, elle se voit sur les deux.
+- ⚠️ **Le panache ne retrecit pas au meme rythme que le feu.** Multiplier sa taille par
+  l'ardeur le faisait disparaitre des le premier seau : a mi-feu il tombait a quarante pixels
+  et le village semblait deja sauve. Sa taille suit `0,55 + 0,45 x ardeur`, son opacite suit
+  l'ardeur.
+
+**Elle vient de Blender**, comme le reste — avec une exception ecrite dans la chaine :
+`rendre.py` et `reduire.py` acceptent maintenant un drapeau **`contour`**, et la fumee est la
+seule du dossier a le refuser. Un contour de fer dit *ou finit un objet* ; une fumee ne finit
+nulle part, et le trait noir en faisait un caillou gris qui flotte. Premier jet posee sur
+`z = 0` : la camera la coupait a plat par le bas et les trois variantes sortaient en
+**cailloux**, juges sur planche. Une fumee n'a pas de dessous.
+
+#### Le reste de la refonte
+
+- **Cinq flammes au lieu d'une**, a des places fixes de l'emprise (trois sur le toit, deux
+  sur la facade), **chacune avec sa phase** — sans le decalage, les cinq images changent
+  ensemble et on voit un panneau qui clignote. Leur nombre suit l'ardeur : chaque seau en
+  enleve une visiblement.
+- **Le batiment noircit** (`Maison.brulee`, une teinte multiplicative jusqu'aux trois quarts
+  du charbon). C'est ce qui a le plus change la lecture : les flammes ressortent enfin, et on
+  voit ou en est la maison dans ses quarante secondes. Il ne compte que les degats **du feu**.
+- **Des braises** montent et s'eteignent en l'air, en lumiere additive.
+- **La lueur suit la nuit** (`ArenaScene.partDeNuit`, lu sur le voile plutot que recalcule) :
+  0,22 de jour, 1 la nuit. A pleine force de jour, trois maisons en feu posaient trois
+  **flaques jaunes** sur la prairie.
+
+⚠️ **Rien ne garde d'etat** : la position d'une bouffee et d'une braise se calcule entierement
+du temps et de leur rang, et leur dispersion vient d'une empreinte tiree de la **cle du
+foyer** (sa case) — donc deux maisons voisines n'ont jamais le meme panache, et la meme
+maison retrouve le sien apres un rechargement. 272 images cuites une fois, aucune minuterie,
+aucune liste a nettoyer (§4.17).
+
+**944 tests verts** (+1 : les trois bouffees ont leur taille tenue par le test des sprites
+Blender). `npm run build` propre.
+
+**A regarder** : `captures/jeu/2026-09-23-feu/` — `feu-*-jour` (le panache de loin),
+`feu-*-pres`, `feu-*-noirci` (vingt secondes plus tard), `feu-*-nuit`.
+
 ### Le jalon 6, morceau 7 — le meteore, et le ciel est fini (22 septembre 2026, le soir)
 
 Le dernier morceau, et le seul qui **change la carte pour de bon**.

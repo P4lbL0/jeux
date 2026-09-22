@@ -89,6 +89,12 @@ def sprites():
     # par terre : son ombre portee n'aurait aucun sens.
     for v in range(3):
         s[f"feu-flamme-{v}"] = (lambda a, v=v: monde.flamme(a, v), 22, 30, 26, 11, False)
+    # La fumée (23 septembre 2026) : taille dans `dessin/feu.ts` (LARGEUR_FUMEE,
+    # HAUTEUR_FUMEE). ⚠️ **Sans sol et sans contour** — le dernier `False`. Un
+    # contour de fer dit où finit un objet ; une bouffée ne finit nulle part, et
+    # le trait noir en faisait un caillou gris qui flotte au-dessus du toit.
+    for v in range(3):
+        s[f"feu-fumee-{v}"] = (lambda a, v=v: monde.fumee(a, v), 46, 40, 38, 23, False, False)
     return s
 
 
@@ -119,7 +125,7 @@ def blanc():
     return m
 
 
-def rendre(cle, fabrique, W, H, pied, ancre, avec_sol=True):
+def rendre(cle, fabrique, W, H, pied, ancre, avec_sol=True, contour=True):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     a = monde.Atelier()
@@ -190,7 +196,7 @@ def rendre(cle, fabrique, W, H, pied, ancre, avec_sol=True):
 
     with open(os.path.join(TMP, f"{cle}.json"), "w", encoding="utf-8") as f:
         json.dump({"cle": cle, "largeur": W, "hauteur": H, "pied": pied, "ancre": ancre,
-                   "marge": MARGE,
+                   "marge": MARGE, "contour": contour,
                    "sur": SUR, "codes": CODE}, f)
     print(f"[rendre] {cle}")
 
@@ -202,4 +208,5 @@ if __name__ == "__main__":
             continue
         rendre(cle, fab, W, H, pied,
                reste[0] if reste else W / 2,
-               reste[1] if len(reste) > 1 else True)
+               reste[1] if len(reste) > 1 else True,
+               reste[2] if len(reste) > 2 else True)

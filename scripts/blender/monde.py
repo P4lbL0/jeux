@@ -363,18 +363,63 @@ def flamme(a, variante=0):
     haut = (0.97, 0.86, 0.94)[variante]
 
     # La braise : large, basse, et c'est elle qui accroche la flamme au toit.
-    a.cone("braise", 0.48, 0.20, (0, 0, 0), cotes=6, r_haut=0.34)
+    a.cone("braise", 0.46, 0.20, (0, 0, 0), cotes=6, r_haut=0.32)
 
-    # Le corps, et deux langues plus courtes de chaque cote.
-    _langue(a, "flamme", 0.46, 1.98 * haut, (vent * 1.5, 0.05), (0, 0, 0.11))
-    _langue(a, "flamme", 0.23, 0.95 * haut, (vent - 0.20, 0.02), (-0.36, 0.05, 0.07))
-    _langue(a, "flamme", 0.21, 0.84 * haut, (vent + 0.22, 0.02), (0.38, 0.03, 0.07))
+    # Le corps, et deux langues plus courtes de chaque cote. Elles partent
+    # **bas et franchement de cote** : c'est ce qui creuse deux encoches dans la
+    # silhouette. Serrees contre le corps (premier jet), les trois langues
+    # fondaient en un seul bloc et la flamme ressemblait a une goutte.
+    _langue(a, "flamme", 0.40, 2.15 * haut, (vent * 1.6, 0.05), (0, 0, 0.11))
+    _langue(a, "flamme", 0.22, 0.80 * haut, (vent - 0.34, 0.02), (-0.41, 0.06, 0.04))
+    _langue(a, "flamme", 0.20, 0.68 * haut, (vent + 0.36, 0.02), (0.43, 0.04, 0.04))
 
-    # Le coeur : la moitie de la hauteur, decale par le vent. Il ne sort jamais
-    # du corps, sinon la flamme a deux couleurs cote a cote au lieu d'une
-    # couleur dans l'autre.
-    _langue(a, "coeur_du_feu", 0.24, 1.15 * haut, (vent * 1.2, 0.02), (vent * 0.3, 0.02, 0.15))
-    return (0, -0.4)
+    # Le coeur : les deux tiers de la hauteur, decale par le vent.
+    #
+    # ⚠️ **Il est DEVANT le corps, pas dedans.** Premier jet : pose a y = +0,02
+    # avec une base deux fois plus etroite que celle du corps, il etait
+    # entierement **enferme dans le maillage du corps** — la camera ne l'a
+    # jamais vu, et les trois flammes sont sorties d'une seule couleur plate
+    # pendant tout le chantier du 22 septembre. La camera regarde depuis les y
+    # negatifs : c'est par la qu'on sort une piece.
+    #
+    # Le `z` rattrape ce que le `y` fait perdre : avancer vers la camera
+    # **descend** a l'ecran (0,574 de hauteur perdue par unite avancee, contre
+    # 0,819 gagnee par unite montee), et sans ce rattrapage le coeur glissait
+    # deux pixels sous sa place.
+    _langue(a, "coeur_du_feu", 0.23, 1.10 * haut, (vent * 1.1, 0.0), (vent * 0.25, -0.24, 0.26))
+
+    # ⚠️ **Le premier nombre recentre la flamme dans son cadre**, il n'est pas un
+    # pied. La cisaille du biais part de `y_devant` (le second nombre) : posee a
+    # -0,4, elle pousse tout le corps de la flamme d'un pixel et demi vers la
+    # droite, et la variante qui penche a droite sortait du cadre de deux
+    # pixels. Mesure sur les trois variantes, pas devine.
+    return (0.16, -0.4)
+
+
+def fumee(a, variante=0):
+    """Une bouffee de fumee, en facettes (DESIGN.md §4.21, l'incendie).
+
+    Trois bouffees alternees, comme les trois flammes — et pour la meme raison :
+    ce qui monte d'un toit ne doit pas monter deux fois de la meme facon.
+
+    ⚠️ **Rendue sans contour de fer** (`rendre.py`), la seule du dossier avec la
+    lueur. Un contour dit *ou finit un objet* ; une fumee ne finit nulle part, et
+    le trait noir en faisait un caillou gris qui flotte. C'est aussi pour ca
+    qu'elle est bossuee fort (0,30 contre 0,18 ailleurs) : ses facettes doivent
+    se voir jusque dans les vingt pour cent d'opacite ou le jeu la pose.
+    """
+    g = (11, 47, 83)[variante]
+    # ⚠️ **Rien ne touche le sol**, et c'est le reglage qui a tout change : le
+    # premier jet posait la bouffee sur z = 0, la camera la coupait a plat par le
+    # bas et les trois sortaient en **cailloux**, juges sur planche. Une fumee
+    # n'a pas de dessous.
+    a.boule("fumee", 1.02, (0.00, 0.00, 1.62), graine=g, bosses=0.26, echelle=(1.10, 0.95, 1.00))
+    a.boule("fumee", 0.78, (-0.94, 0.12, 1.22), graine=g + 1, bosses=0.28)
+    a.boule("fumee", 0.70, (0.90, -0.14, 1.34), graine=g + 2, bosses=0.28)
+    a.boule("fumee", 0.60, (0.18, 0.06, 2.48), graine=g + 3, bosses=0.30)
+    a.boule("fumee", 0.50, (-0.56, -0.10, 2.18), graine=g + 4, bosses=0.30)
+    a.boule("fumee", 0.46, (0.58, 0.10, 0.86), graine=g + 5, bosses=0.30)
+    return (0, 0)
 
 
 def meteorite(a):
