@@ -202,6 +202,68 @@ def humain(rig, tunique, jambes="tissu", peau="chair", coiffe=None, plastron=Fal
         rig.piece("laiton" if laiton else "bois", (0.4, 1.6, 1.6), (1.1, 0, -2.5), "bras_arriere")
 
 
+# ------------------------------------------------------------------- l'orc
+def orc(rig, variante):
+    """L'orc de la horde (DESIGN.md §4.33, palier 2) : **une seule silhouette**.
+
+    Le corps de `humain`, articulations comprises et aux memes noms — les postures
+    humaines le posent sans une ligne de plus —, mais trapu : jambes courtes et
+    epaisses, buste large et profond, epaules en bosse, tete petite enfoncee entre
+    elles, deux defenses. Tout ce qui est chair est dans la matiere `orc`, claire
+    et neutre : **c'est le jeu qui le colore**, orc par orc (la teinte dit qui, la
+    luminosite dit la vie). Seul le pagne reste sombre : il dit ou est la taille.
+
+    Trois essais, un seul restera (decision d'Angelos, sur image) :
+    `trapu` a mains nues, `gourdin` avec un gros baton, `bras` aux bras qui
+    trainent jusqu'aux genoux.
+    """
+    peau = "orc"
+    HANCHE, EPAULE = 4.0, 8.6
+    TORSE = EPAULE - HANCHE
+    rig.joint("racine", (0, 0, 0))
+    rig.joint("bassin", (0, 0, HANCHE * P), "racine")
+    # ⚠️ **Le bas sombre, le haut clair.** Quatre jets presque tout en peau
+    # claire sont sortis en blocs gris : a vingt pixels, une matiere est une
+    # masse. Le villageois se lit parce que sa tunique sombre domine et que seul
+    # le visage est clair ; l'orc prend le principe a l'envers — jambes bandees et
+    # pagne sombres, torse, bras et tete clairs. C'est la que la teinte du jeu
+    # posera sa couleur, et c'est ce qui se voit d'abord.
+    for cote, y in (("avant", -1.5), ("arriere", 1.5)):
+        rig.joint(f"jambe_{cote}", (0, y * P, 0), "bassin")
+        rig.piece("tissu", (2.6, 2.4, HANCHE), (0, 0, -HANCHE / 2), f"jambe_{cote}")
+        rig.piece("tissu", (3.0, 2.6, 1.0), (0.5, 0, -HANCHE + 0.5), f"jambe_{cote}")
+    rig.piece("tissu", (3.4, 6.8, 2.4), (0.1, 0, 0.1), "bassin")
+    rig.joint("buste", (0, 0, 0), "bassin")
+    rig.piece(peau, (3.4, 6.8, TORSE), (0.2, 0, TORSE / 2), "buste")
+    # la ceinture de cuir et la sangle en travers du torse : deux traits sombres
+    # qui disent le dos voute et le poitrail
+    rig.piece("bois", (3.5, 6.9, 0.7), (0.2, 0, 0.35), "buste")
+    rig.piece("tissu", (0.8, 7.0, TORSE + 0.6), (0.3, 0, TORSE / 2), "buste", rot=(math.radians(0), math.radians(35), 0))
+    rig.piece(peau, (2.4, 7.6, 1.2), (-0.1, 0, TORSE - 0.4), "buste")
+    # la tete : au-dessus des epaules, un peu grosse — a vingt pixels, c'est elle
+    # qu'on reconnait
+    rig.joint("cou", (0.6 * P, 0, (TORSE - 0.2) * P), "buste")
+    rig.piece(peau, (3.4, 3.2, 3.0), (1.0, 0, 1.5), "cou")
+    rig.piece("tissu", (2.8, 1.0, 0.9), (0.6, 0, 3.1), "cou")
+    rig.piece(peau, (1.0, 3.2, 0.7), (2.4, 0, 2.3), "cou")
+    rig.piece("sang", (0.6, 0.6, 0.5), (2.6, -0.75, 1.65), "cou")
+    rig.piece("sang", (0.6, 0.6, 0.5), (2.6, 0.75, 1.65), "cou")
+    rig.piece("os", (0.5, 0.5, 1.1), (2.7, -0.9, 0.55), "cou")
+    rig.piece("os", (0.5, 0.5, 1.1), (2.7, 0.9, 0.55), "cou")
+    avant_bras = 3.4 if variante == "bras" else 2.4
+    for cote, y in (("avant", -4.0), ("arriere", 4.0)):
+        rig.joint(f"bras_{cote}", (0.2 * P, y * P, (TORSE - 0.6) * P), "buste")
+        rig.piece(peau, (2.2, 2.0, 2.6), (0, 0, -1.3), f"bras_{cote}")
+        rig.piece(peau, (2.0, 1.8, avant_bras), (0, 0, -2.6 - avant_bras / 2), f"bras_{cote}")
+        # un brassard sombre sur l'avant-bras : le bras garde son coude
+        rig.piece("tissu", (2.1, 1.9, 1.0), (0, 0, -3.1), f"bras_{cote}")
+        rig.piece(peau, (2.4, 2.2, 1.3), (0.2, 0, -2.6 - avant_bras - 0.45), f"bras_{cote}")
+        rig.joint(f"main_{cote}", (0.2 * P, 0, (-2.6 - avant_bras - 0.6) * P), f"bras_{cote}")
+    if variante == "gourdin":
+        rig.piece("bois", (1.1, 1.1, 4.4), (2.1, 0, -0.75), "main_avant", rot=(0, math.radians(110), 0))
+        rig.piece("bois", (1.9, 1.9, 1.8), (4.0, 0, -1.45), "main_avant", rot=(0, math.radians(110), 0))
+
+
 def peindre_arme(rig, arme, laiton):
     """L'arme, dans la main avant, dans le prolongement du bras (vers -Z au repos)."""
     m = "main_avant"
@@ -509,6 +571,16 @@ def familles():
                     # pas une de plus : a 0,18 par cran le villageois use etait plie en deux.
                     gestes=GESTES_VILLAGEOIS, cadre=cadre_de(CADRE), voute=0.125 * usure, outil_au_travail=True,
                 )
+    # L'orc de la horde (§4.33, palier 2, 22 septembre 2026 dans la nuit) : trois
+    # silhouettes a l'essai, une seule survivra. Un repos, une image : dans la
+    # horde, la marche ne s'anime pas, elle se calcule au dessin.
+    for variante in ("trapu", "gourdin", "bras"):
+        # `garde` : les bras portes en avant, ajoutes a la posture humaine.
+        # ⚠️ Trois jets bras ballants : vu de flanc, le bras avant pendait entre
+        # la camera et le corps et cachait tout, du coude aux hanches — il ne
+        # restait qu'une tete sur un bloc clair. En garde, le flanc se decouvre.
+        f[f"monstre-orc-{variante}"] = dict(sorte="orc", variante=variante, gestes=[("repos", 1, True)],
+                                            cadre=cadre_de(CADRE), voute=0.2, garde=(0.6, 0.35))
     # Les familiers : deux flammes qui flottent, et le golem de pierre.
     for nom, b in FAMILIERS.items():
         f[nom] = dict(sorte="bete", bete=b, gestes=GESTES_BETE, cadre=cadre_de(b["cadre"]))
@@ -585,6 +657,8 @@ def rendre_famille(cle, f):
     rig = Rig(a)
     if f["sorte"] == "humain":
         humain(rig, **f["tenue"])
+    elif f["sorte"] == "orc":
+        orc(rig, f["variante"])
     else:
         bete(rig, f["bete"])
     a.racine(cle, y_devant=0.0)
@@ -604,8 +678,11 @@ def rendre_famille(cle, f):
         plages.append({"cle": geste, "debut": index, "fin": index + frames - 1})
         for i in range(frames):
             t = avancement(frames, boucle, i)
-            if f["sorte"] == "humain":
+            if f["sorte"] in ("humain", "orc"):
                 p = posture_humain(geste, t, f.get("voute", 0.0))
+                garde = f.get("garde", (0.0, 0.0))
+                p["bras_avant"] += garde[0]
+                p["bras_arriere"] += garde[1]
                 # un villageois ne tient son outil qu'au travail (`villageois.ts`)
                 if f.get("outil_au_travail"):
                     p["outil"] = geste == "travail"

@@ -158,8 +158,11 @@ Dans l'ordre :
    touchaient toute la droite au lieu de leur trait. La même décision a fait entrer la
    **pénétration** au design des builds (§4.25), sans chiffres.
 3. **Le palier 2 — le rendu maison** : Angelos a vu les captures à 800 et a donné son go,
-   le 22 septembre au soir. Le chiffre qui compte n'est pas celui qui tient à 60 images par
-   seconde, c'est celui qui reste lisible.
+   le 22 septembre au soir. Découpé en quatre morceaux : (1) l'orc et son langage sur image,
+   (2) la passe instanciée dans le jeu, (3) les bandes horizontales, (4) la mesure et une
+   nuit filmée où la horde vient petit à petit. **Le morceau 1 est sur planche**
+   (`captures/planches/2026-09-22-orc/`) et **attend le choix d'Angelos** : le langage
+   marche, la silhouette reste faible.
 
 Toute mesure se fait **sur la vraie carte graphique**, sans fenêtre
 (`--use-angle=d3d11`), et **sur le même monde et le même village** que son témoin : le

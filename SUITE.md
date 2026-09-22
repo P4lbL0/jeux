@@ -1568,6 +1568,55 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6.2, palier 2, morceau 1 — l'orc à l'essai et son langage (22 septembre 2026, dans la nuit)
+
+Le palier 2 change l'apparence de la horde : avant d'intégrer quoi que ce soit, **l'orc et
+son langage sur image**, pour qu'Angelos choisisse.
+
+- **Une matière neuve, `orc`**, la seule faite pour être teintée : un gris clair neutre (l'os
+  désaturé, un cran vers le fer), parce qu'une teinte **multiplie** — sur une matière déjà
+  colorée, un vert donnerait de la boue. Ajoutée **tout au bout** de `palette.json`, après
+  `trou`, pour ne décaler la couleur-code d'aucune matière existante. (Le sol, lui, prend
+  toujours le code qui suit la dernière matière : il a glissé d'un rang. Sans conséquence —
+  `reduire.py` relit les codes enregistrés avec chaque rendu, pas ceux de la palette du
+  moment.)
+- **L'orc dans `persos.py`** : le rig humain, articulations aux mêmes noms — les postures
+  humaines le posent sans une ligne de plus —, trapu, voûté, des défenses. Trois variantes
+  à l'essai (`trapu`, `gourdin`, `bras`), une image chacune.
+- **`scripts/blender/planche_orc.py`** : la planche du langage, teinte appliquée comme le
+  fera le shader — le ton moyen de l'orc devient **exactement** la couleur du type.
+
+#### Cinq jets pour une silhouette, et ce que chacun a appris
+
+1. **Une bosse d'épaules** : vue d'en haut, elle couvrait tête et buste — un rocher gris.
+2. **Jambes courtes, bras longs** : les mains arrivaient au sol, et tout ce qui pendait
+   dessous (le gourdin, les longs avant-bras) était sous terre, donc coupé. Les trois
+   variantes sortaient identiques.
+3. **Une seule matière claire** : à vingt pixels, une matière est une masse. Et vue de
+   flanc, le bras avant pend entre la caméra et le corps et cache tout du coude aux hanches.
+4. **En garde**, les bras portés en avant : le flanc se découvre.
+5. **Le bas sombre, le haut clair** — le principe du villageois à l'envers : jambes bandées
+   et pagne sombres, torse, bras et tête clairs. C'est là que la teinte pose sa couleur.
+
+#### Ce que dit la planche
+
+Le **langage marche** : trois teintes tirées des neuf (bile pour l'ordinaire, laiton pour le
+cracheur, ciel sale pour le kamikaze — pas d'orange, qui se confondrait avec le rouge du
+coup), le rouge du coup saute aux yeux même sur un blessé, la taille dit le rang, la vie qui
+fonce se lit. Deux limites dites franchement : **à 25 % de vie, la nuit, l'orc se fond dans
+le noir** ; et **de jour, le vert d'orc sur l'herbe** tient parce qu'il est plus clair
+qu'elle, avec moins de contraste que la nuit.
+
+La **silhouette reste faible** : un bossu trapu aux jambes sombres, dont la tête ne se
+détache pas. En horde, à la taille du jeu, les canaux font le travail — mais on voit de
+petites créatures vertes, pas encore des orcs.
+
+**À regarder** : `captures/planches/2026-09-22-orc/` — le langage (1), la horde de jour (2)
+et de nuit (3), les trois silhouettes à côté d'un villageois et d'une bête (4).
+
+⚠️ **Rien n'est encore dans le jeu** : les trois familles d'essai ne sont pas livrées dans
+`src/assets/`. La suite attend le choix d'Angelos.
+
 ### Le jalon 6.2, palier 1 — la grille et le niveau de détail (22 septembre 2026, tard)
 
 Le palier que le §4.33 annonçait « l'IA et la physique ensemble ». **La horde qui arrive

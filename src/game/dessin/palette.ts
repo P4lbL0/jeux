@@ -222,6 +222,22 @@ export const BRAISE = matiere(melanger(C.sangSeche, C.sangFrais, 0.45), 0.22, 0.
  */
 export const FUMEE = matiere(melanger(C.fer, C.os, 0.26), 0.20, 0.13);
 /**
+ * L'orc de la horde (DESIGN.md §4.33, palier 2 — 22 septembre 2026, dans la nuit).
+ *
+ * ⚠️ **La seule matiere faite pour etre teintee.** Le §4.33 fait tout passer par
+ * des nombres poses au dessin : la teinte dit qui c'est, la luminosite la vie
+ * qui reste, le rouge le coup encaisse. Une teinte **multiplie** : sur une
+ * matiere deja coloree, un vert donnerait de la boue. L'orc sort donc de Blender
+ * en gris clair et neutre — l'os desature jusqu'au bout, pour descendre des neuf
+ * comme toute couleur du monde (§4.30) — et c'est le jeu qui le colore, orc par
+ * orc.
+ *
+ * ⚠️ **Un cran sous l'os, pas l'os lui-meme.** Premier jet a l'os desature : il
+ * est deja a la luminosite de l'os, qui est la lumiere de toute matiere — le ton
+ * clair ne pouvait plus monter, et l'orc sortait plat, sans une face eclairee.
+ */
+export const ORC = matiere(desaturer(melanger(C.os, C.fer, 0.2), 1), 0.4, 0.55);
+/**
  * ⚠️ **Le coeur monte vers l'os, mais pas jusqu'au sable.** Premier reglage a
  * 0,62 : une fois sorti du corps de la flamme, le meme soir, il est
  * apparu **beige** au milieu de l'orange — un coeur de bougie, pas un coeur de

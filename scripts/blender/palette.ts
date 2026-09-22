@@ -18,6 +18,7 @@ import {
   FLAMME,
   LAITON,
   MONSTRE,
+  ORC,
   PIERRE,
   ROCHE,
   SABLE,
@@ -119,7 +120,10 @@ const trou = melanger(PIERRE.sombre, FER.sombre, 0.6);
 const sortie = {
   contour: CONTOUR,
   ombre: C.fer,
-  matieres: { ...MATIERES, trou: { sombre: trou, corps: trou, clair: trou } },
+  // ⚠️ L'orc (§4.33) vient **apres** `trou`, tout au bout : une matiere de plus
+  // au milieu decalerait la couleur-code de toutes les suivantes — et `trou`,
+  // les portes et les fenetres, en fait partie.
+  matieres: { ...MATIERES, trou: { sombre: trou, corps: trou, clair: trou }, orc: ORC },
 };
 
 const chemin = resolve("scripts/blender/palette.json");

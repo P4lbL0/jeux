@@ -510,6 +510,7 @@ npm run persos                         # tous les personnages en low-poly Blende
 npm run persos -- hero-mage --dossier <dossier>  # une famille, la planche ailleurs
 npm run persos -- villageois-          # les 48 villageois (8 metiers x 3 crans d'usure x sang) : ~9 min de rendu
 python scripts/blender/planche_persos.py monstre-   # reduire SANS re-rendre : les 92 familles demandent 20 min
+python scripts/blender/planche_orc.py <dossier>      # l'orc de la horde et son langage (teinte, vie, coup, rang), jour et nuit (§4.33)
 ```
 
 ⚠️ Un PNG depose dans `src/assets/` remplace le dessin au code sous la meme
