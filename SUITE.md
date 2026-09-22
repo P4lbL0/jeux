@@ -1,65 +1,35 @@
-# Prompt de reprise
+# Journal de bord
 
-> Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
+> Ce fichier est le **journal de bord technique** : chaque chantier, ce qu'il a coûté, les
+> pièges rencontrés. Le prompt à coller dans une nouvelle session, lui, est
+> **`PROMPT-SUITE.md`** — c'est lui qui dit où on en est et par quoi reprendre.
 >
-> Dernière mise à jour : 2026-09-20, tard le soir. **630 tests verts.**
+> Dernière mise à jour : 2026-09-21, tard. **859 tests verts**, `npm run build` propre.
 >
-> ✅ **La marche est codée** (§4.29, deuxième moitié du jalon 5.5) : une partie neuve ne
-> commence plus dans un village. On paraît seul par le bord le plus loin, on n'a qu'un cap,
-> la caméra dézoome seule, **rien du Protecteur ne tourne** tant qu'on marche — et à dix cases
-> d'une porte, **un habitant vient poser sa question** : *Veux-tu nous protéger ?* Accepter
-> fait commencer le jour 1 ; refuser, ou passer au large, mène au monde suivant. Détail à la
-> section « La marche ».
+> ✅ **LE JALON 5 EST FINI** — ses douze blocs, du cycle jour/nuit à la vie autonome. Les
+> trois derniers sont tombés le 21 septembre au soir : le **bloc 10** (la pause Échap, le
+> menu d'options, les 36 touches remappables), le **bloc 11** (la mémoire du village :
+> relations, souvenirs, héritage, archives) et le **bloc 12** (la vie autonome : la journée
+> sans ordre, les bulles, les six initiatives).
 >
-> ✅ **Et refuser en face se paie** : le risque qu'ils se jettent sur nous, tous ensemble, monte
-> avec leur désespoir ; le village se vide et chacun repasse en face avec son visage et son
-> nom, en sortant **par la porte** ; tout ce qu'on tue donne de l'**or** et de l'XP, sans tuer
-> le port (c'est un test) ; les deux traits *Miséricordieux* / *Bourreau d'hommes* remontent du
-> jalon 8. ⚠️ **Passer au large reste gratuit**, et l'errance n'est toujours pas continue.
+> ✅ **Le jalon 5.5** (le nouveau départ, §4.29) et le **jalon 5.6** (les trouvailles de la
+> route, §4.31) sont finis eux aussi : la marche, le refus qui se paie, le village déjà
+> peuplé, le budget cadeaux/menaces, la carte qui se peint par morceaux, la zone à ×3,
+> l'errance continue, puis les caches, le survivant et la stèle.
 >
-> ✅ **Le bloc 7z est fini et branché (10 septembre 2026) : tout ce qui se voit est dessiné
-> par le code, et il n'y a plus un seul PNG.** La direction est tranchée avec Angelos ce
-> jour-là : **fer, os, sang gardés** ; « Clash of Clans » veut dire **comment les
-> constructions bougent** (chantier visible, murs en blocs qui se raccordent, tremblent et
-> s'effondrent, un dessin par palier), pas des couleurs ; l'interface est **gothique
-> apocalyptique** ; **aucune image de référence**, main libre. **Et le sol s'abîme** :
-> cratères, brûlures, terre retournée, écrits dans la carte. Angelos a vu les premières
-> captures : *« dans le global je kiffe »*, sauf les murs, refaits en blocs dans la foulée.
-> Captures avant/après dans `captures/jeu/2026-09-10-bloc-7z-etage-4/avant-*.png` et `captures/jeu/2026-09-10-bloc-7z-etage-4/apres-*.png`. Détail à la
-> section « Le bloc 7z, étage 4 ».
+> ✅ **Le bloc 7z est fini** (10 septembre 2026) : tout ce qui se voit est dessiné par le
+> code, il n'y a plus un seul PNG de sprite, et les personnages viennent de **Blender**.
+> La direction est tranchée ce jour-là : **fer, os, sang gardés** ; « Clash of Clans » veut
+> dire **comment les constructions bougent**, pas des couleurs ; interface **gothique
+> apocalyptique** ; **aucune image de référence**.
 >
-> **Les sept notes brutes de `design/a-faire.md` sont dépouillées** et donnent un **jalon
-> 6.7** neuf (le moral devient une arme : le hurlement, le Cri, l'étourdissement, trois
-> traits, et la lecture). **Le bloc 7 se coupe en 7a / 7b.** Et **les fondations du 7a sont
-> codées** : la ruine qui se rebâtit, les règles de pose, la démolition, le déplacement.
+> ➡️ **La suite, c'est le jalon 6 — le ciel** (§4.21) : pluie, orages, incendies, météores,
+> carte modifiée à jamais. Deux crochets l'attendent déjà dans le code :
+> `Maisons.abimerLaPlusProche` (ce qu'un Pyromane fait faute de pouvoir brûler) et le
+> drapeau `feuEnCraquant` du trait Pyromane, que rien ne lit.
 >
-> **La boucle du village est refermée de bout en bout** : on produit, on vend au port, on
-> monte l'église. Les **quatre** conditions du §4.22 mordent enfin toutes les quatre — il
-> ne reste plus un seul champ neutralisé.
->
-> ⚠️ **Le prochain morceau n'est plus le 7a : c'est le bloc 7z, la refonte visuelle** (§4.30),
-> décidé le 11 août très tard. **Tout sera dessiné par le code** — plus aucun PNG de sprite —,
-> le monde passe en **fer/os/sang** comme les panneaux, et tout est **vu de face**. Le prompt
-> complet est dans **`PROMPT-BLOC-7Z.md`**.
->
-> ✅ **Les étages 1 et 2 du 7z sont livrés (12-13 août 2026) : le socle, les héros, le sol.** `src/game/dessin/` porte la
-> palette dérivée des neuf, le pinceau à angles, le four à frames et un villageois cobaye —
-> **426 tests verts**. Rien n'est branché sur le jeu, et c'est voulu : la planche
-> (`captures/planches/2026-08-12-socle/planche-socle-*.png`) se juge d'abord. **Deux réponses attendues sur image** : le
-> sol vert ou cendre, et la lisibilité du villageois à 32 px.
->
-> **Pourquoi avant le 7a** : le 7a pose les bâtiments, les maisons destructibles et le sol.
-> Les coder sur des sprites qu'on va jeter, ce serait les coder deux fois.
->
-> Le **7a** reprend derrière (le mode d'aménagement est déjà debout, il reste les maisons
-> destructibles et le village en ruines), puis le **7b** (la forteresse : fer, portes, douves).
->
-> ⚠️ **Le jalon 5.5, le nouveau départ** (§4.29), est **à moitié codé** depuis le 20 septembre
-> 2026 : un seul héros, une graine un monde (fronts de **1 à 4**), l'**écran-titre animé**
-> (§4.10), la zone jouable en paramètre, et **la marche** jusqu'à la question posée à la
-> porte, et le refus qui se paie. **Reste** : l'errance
-> **continue** au lieu d'un monde par village, le village déjà peuplé, la zone qui se ferme à
-> l'installation, et le **budget** qui fait payer chaque cadeau en menaces.
+> ⚠️ **Presque aucun chiffre des blocs 8 à 12 n'a été joué** — ils sont tous dans des tables
+> de réglages, faits pour être corrigés une manette en main.
 
 ---
 
@@ -3117,7 +3087,10 @@ pour trente personnes. **Chaque morceau est bon ; l'ensemble est un très gros j
 dérape, le bon réflexe est de **livrer la version minimale qui se joue** et de le dire, pas
 d'étendre encore.
 
-### Jalon 5 — le village *(blocs 1 à 5 faits, 6 à 12 à faire)*
+### Jalon 5 — le village *(les douze blocs sont faits, le 21 septembre 2026)*
+
+> La liste qui fait foi est celle du **§5 du design** (`design/05-ordre-de-construction.md`).
+> Ce tableau n'est gardé que pour l'histoire du réordonnancement du 9 août.
 
 L'ordre est fixé au §5 du design, et **il a été réordonné le 9 août pour cause de
 dépendances** :
@@ -3130,11 +3103,13 @@ dépendances** :
 | **6b** ✅ | **Le port** : le port en ruine qu'on relève, la voile qui paraît quand c'est calme, le **cours** de chaque ressource, la vente, l'**argent** |
 | **6d** ✅ | **La refonte de l'interface** : `chrome.ts`, les panneaux rhabillés, la discussion, la fiche, la porte, le village, le port, les deux écrans d'avant-partie |
 | **6c2** ✅ | **Les survivants** : ils paraissent au bord de la carte, parfois poursuivis, parfois blessés, et il faut aller les ramener vivants |
-| **7a** | **Mode d'aménagement** : ✅ la ruine qui se rebâtit, ✅ les règles de pose, ✅ démolir / déplacer — puis l'édition **en pause**, la pose à la souris, les maisons destructibles, le village en ruines, le sol et les chemins |
-| **7b** | **La forteresse** : murs au fer, **portes qui s'ouvrent et se ferment** (et qu'on ne peut pas ne pas avoir), autant d'enceintes qu'on en bâtit, douves, eau, pont-levis |
-| **8** | **Les ordres pour tous** : n'importe qui fait n'importe quoi, menu d'ordres, héros au travail |
-| **9** | **Le village armé** : entraînement au combat, métier de milicien, passage villageois → héros |
-| **10** | Confort : options, pause Échap, touches remappables |
+| **7a** ✅ | **Mode d'aménagement** : ✅ la ruine qui se rebâtit, ✅ les règles de pose, ✅ démolir / déplacer — puis l'édition **en pause**, la pose à la souris, les maisons destructibles, le village en ruines, le sol et les chemins |
+| **7b** ✅ | **La forteresse** : murs au fer, **portes qui s'ouvrent et se ferment** (et qu'on ne peut pas ne pas avoir), autant d'enceintes qu'on en bâtit, douves, eau, pont-levis |
+| **8** ✅ | **Les ordres pour tous** : n'importe qui fait n'importe quoi, menu d'ordres, héros au travail |
+| **9** ✅ | **Le village armé** : entraînement au combat, métier de milicien, passage villageois → héros |
+| **10** ✅ | Confort : options, pause Échap, touches remappables |
+| **11** ✅ | **La mémoire du village** : relations, souvenirs, ce qu'une mort produit, héritage, archives |
+| **12** ✅ | **La vie autonome** : la journée sans ordre, le tour de rôle, les bulles, les six initiatives |
 
 **Pourquoi cet ordre et pas celui d'avant.** Les arrivées étaient prévues en premier parce
 qu'elles étaient déjà écrites. Elles ne peuvent plus : la fiche d'observation a besoin des
