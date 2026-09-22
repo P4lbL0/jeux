@@ -360,6 +360,27 @@ export class Maisons {
     return maison;
   }
 
+  /**
+   * La crue acheve ce qui etait deja atteint (§4.21).
+   *
+   * ⚠️ **Seulement ce qui est deja abime.** Une maison intacte tient la pluie —
+   * c'est une maison, pas un chateau de sable. Ce que la crue punit, c'est de
+   * **ne pas avoir repare** : on l'a vue venir deux journees.
+   *
+   * @param seuil la part de vie sous laquelle une maison souffre
+   * @param part la part des points de vie max qu'elle perd a chaque passage
+   * @returns les maisons qui sont tombees a ce passage
+   */
+  ronger(seuil: number, part: number, maintenant: number): Maison[] {
+    const tombees: Maison[] = [];
+    for (const maison of this.liste) {
+      if (!maison.debout) continue;
+      if (maison.pv > seuil * REGLAGES_MAISONS.pvMax) continue;
+      if (this.blesser(maison, part * REGLAGES_MAISONS.pvMax, maintenant)) tombees.push(maison);
+    }
+    return tombees;
+  }
+
   /** Elle tombe : une ruine, qu'on releve ou qu'on demolit. */
   tomber(maison: Maison): void {
     maison.debout = false;

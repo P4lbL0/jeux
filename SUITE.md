@@ -1568,6 +1568,58 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6, morceau 4 — la crue coute enfin quelque chose (22 septembre 2026)
+
+Jusqu'ici la crue existait comme **etat** — trois journees pluvieuses d'affilee — mais elle
+ne coutait rien. Ses trois degats, decides le 22 septembre, sont codes.
+
+#### 1. Les champs se noient
+
+`Champs.noyer()` : toutes les cultures repartent de zero. C'est le seul des trois qui frappe
+**d'un coup, a l'aube** — les deux autres rongent toute la journee. Ce que la pluie a donne
+(la pousse doublee pendant deux journees), elle le reprend.
+
+> Un champ deja **mur** n'est pas perdu : la moisson est automatique et passe a la seconde
+> d'avant. Reprendre un ble deja rentre serait incomprehensible.
+
+#### 2. Les batiments deja abimes cedent
+
+`Maisons.ronger(seuil, part, maintenant)`, appelee toutes les **40 secondes** tant que la
+crue dure : les maisons sous **60 %** de vie perdent **2 %** de leurs points de vie max.
+
+⚠️ **Seulement ce qui est deja abime.** Une maison intacte tient la pluie — c'est une
+maison, pas un chateau de sable. Ce que la crue punit, c'est de **ne pas avoir repare**
+quand on voyait l'eau monter depuis deux journees.
+
+Les chiffres sont regles pour **fragiliser sans detruire seul** : sur une journee et sa
+nuit, une maison a 60 % descend vers 15 % — elle ne tombe pas d'elle-meme, mais le premier
+monstre qui passe l'acheve. ⚠️ **Aucun des trois n'a ete joue.**
+
+#### 3. Les douves debordent
+
+Un drapeau `crue` sur la grille, et `bloque()` cesse de compter `douve-eau` parmi les cases
+qui arretent un corps. Le champ de directions se refait **aux deux bascules seulement** —
+c'est un changement de passage, exactement comme la pose d'un mur, et ca ne coute donc rien
+de plus que ce qui existait.
+
+Celui qui n'a mise que sur l'eau pour se defendre paie sa nuit : le pont-levis ne sert plus
+a rien, les monstres passent par-dessus. Quatre tests dans `grille.test.ts` tiennent la
+regle, dont un qui verifie qu'un **mur reste un mur** sous la crue : le debordement ne
+devait ouvrir que l'eau.
+
+#### Ce que la reprise d'une partie doit faire
+
+Une partie enregistree pendant une crue **reprend en crue** : les douves redebordent et le
+rongement repart. Sans ca, recharger serait une facon de faire baisser l'eau (§4.28, regle
+ironman). Les champs, eux, sont deja noyes dans la sauvegarde — il n'y a rien a refaire.
+
+**Verifie dans le navigateur** (`.tmp/verifier-ciel.ts`, **trois lancements**) : **16
+controles sur 16**. Les champs perdent leur pousse, la douve passe de barree a franchissable
+puis redevient barree quand l'eau se retire, et une maison a 60 points de vie descend a 56
+au premier passage.
+
+**897 tests verts** (+4).
+
 ### Le jalon 6, morceau 3 — le son du ciel (22 septembre 2026)
 
 Quatre sons, **fabriques et non telecharges** (`npm run ciel`,

@@ -307,3 +307,42 @@ describe("Les constructions (§4.20)", () => {
     expect(cout.bois!).toBeLessThan(def.cout.bois!);
   });
 });
+
+describe("La crue — l'eau passe par-dessus les douves (§4.21)", () => {
+  const point = () => {
+    const grille = new Grille();
+    // Une case franchement dans le village, pour ne pas tomber sur de l'eau
+    // naturelle ou de la roche selon le monde tire.
+    const x = VILLAGE.x + CASE * 2;
+    const y = VILLAGE.y + CASE * 2;
+    return { grille, x, y };
+  };
+
+  it("laisse une douve en eau barrer le passage par temps sec", () => {
+    const { grille, x, y } = point();
+    grille.poser(x, y, "douve-eau");
+    expect(grille.bloque(x, y)).toBe(true);
+  });
+
+  it("ouvre la douve en eau pendant la crue : elle ne barre plus rien", () => {
+    const { grille, x, y } = point();
+    grille.poser(x, y, "douve-eau");
+    grille.crue = true;
+    expect(grille.bloque(x, y)).toBe(false);
+  });
+
+  it("referme la douve quand l'eau se retire", () => {
+    const { grille, x, y } = point();
+    grille.poser(x, y, "douve-eau");
+    grille.crue = true;
+    grille.crue = false;
+    expect(grille.bloque(x, y)).toBe(true);
+  });
+
+  it("ne touche a rien d'autre : un mur reste un mur sous la crue", () => {
+    const { grille, x, y } = point();
+    grille.poser(x, y, "mur");
+    grille.crue = true;
+    expect(grille.bloque(x, y)).toBe(true);
+  });
+});

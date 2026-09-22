@@ -143,6 +143,28 @@ export class Champs {
   }
 
   /**
+   * La crue noie les champs (§4.21).
+   *
+   * Ce que la pluie a donne, elle le reprend : trois journees d'eau et les
+   * cultures repartent de zero. C'est le seul des trois degats de la crue qui
+   * frappe **d'un coup**, a l'aube — les deux autres rongent toute la journee.
+   * Un champ deja mur n'est pas perdu : la moisson passe avant, a la seconde
+   * d'avant, et reprendre un ble deja rentre serait incomprehensible.
+   *
+   * @returns le nombre de champs qui ont vraiment perdu quelque chose
+   */
+  noyer(): number {
+    let perdus = 0;
+    for (const champ of this.liste) {
+      if (champ.maturite <= 0) continue;
+      champ.maturite = 0;
+      champ.setTexture(CLES_CHAMP.jeune);
+      perdus++;
+    }
+    return perdus;
+  }
+
+  /**
    * Ce que le budget de cadence donne comme maturite par seconde, **par temps
    * sec**. Le ciel multiplie le resultat dans `majorer` (§4.21).
    */

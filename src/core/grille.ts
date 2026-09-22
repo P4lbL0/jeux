@@ -249,10 +249,23 @@ export class Grille {
     }
   }
 
+  /**
+   * L'eau est montee et passe par-dessus les douves (§4.21, la crue).
+   *
+   * ⚠️ **Tant que c'est vrai, une douve en eau ne barre plus rien** : celui qui
+   * n'a mise que sur l'eau pour se defendre paie sa nuit. Le champ de
+   * directions doit etre refait aux deux bascules — c'est un changement de
+   * passage, exactement comme la pose d'un mur.
+   */
+  crue = false;
+
   /** Vrai si un corps ne peut pas traverser ce point. */
   bloque(x: number, y: number): boolean {
     const occupation = this.occupationEn(x, y);
     if (occupation === "porte") return this.portesFermees;
+    // Une douve **seche** reste franchissable en temps normal (c'est un fosse,
+    // pas un mur) ; c'est l'eau qui arrete. La crue annule cette eau-la.
+    if (occupation === "douve-eau" && this.crue) return false;
     return BLOQUANTES.includes(occupation);
   }
 

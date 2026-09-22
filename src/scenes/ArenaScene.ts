@@ -895,6 +895,10 @@ export class ArenaScene extends Phaser.Scene {
   private meteo = new Meteo();
   /** Ce qu'on voit du ciel : les rideaux, l'assombrissement, les eclairs (§4.21) */
   private pluie!: Pluie;
+  /** Vrai tant que la crue dure : c'est lui qui dit quand les douves se remettent a barrer */
+  private crueEnCours = false;
+  /** L'instant du prochain rongement des batiments par l'eau */
+  private prochainRongement = 0;
   private tailleHordeEnRoute = 0;
   /** Le voile de nuit : une seule image noire, dont on module l'opacite */
   private voile!: Phaser.GameObjects.Rectangle;
@@ -1617,6 +1621,16 @@ export class ArenaScene extends Phaser.Scene {
       this.village.tomberLaNuit();
       this.fronts = frontsDeLaVague(this.cycle.nuit, this.rng.next());
       this.partPremierFront = repartition(this.fronts, this.rng.next());
+    }
+
+    // ⚠️ **Une partie enregistree pendant une crue reprend en crue** (§4.21) :
+    // les douves doivent redeborder, sinon recharger serait une facon de faire
+    // baisser l'eau. Les champs, eux, sont deja noyes dans la sauvegarde.
+    if (this.meteo.crue) {
+      this.crueEnCours = true;
+      this.grille.crue = true;
+      this.recalculerLeParcours();
+      this.prochainRongement = this.time.now + ArenaScene.CRUE.cadence;
     }
 
     const moment = this.cycle.phase === "nuit" ? "Nuit" : "Jour";
@@ -7611,6 +7625,24 @@ export class ArenaScene extends Phaser.Scene {
     this.journal.ajouter(message, voix, this.cycle.jour, qui);
   }
 
+  /**
+   * Ce que la crue ronge (§4.21).
+   *
+   * ⚠️ **Aucun de ces trois chiffres n'a ete joue.** Ils sont regles pour que la
+   * crue **fragilise sans detruire seule** : sur une journee et sa nuit, une
+   * maison a 60 % de vie descend vers 15 % — elle ne tombe pas toute seule,
+   * mais le premier monstre qui passe l'acheve. C'est la punition voulue : ne
+   * pas avoir repare quand on voyait l'eau monter.
+   */
+  private static readonly CRUE = {
+    /** Sous cette part de vie, une maison souffre de l'eau */
+    seuil: 0.6,
+    /** Ce qu'elle perd a chaque passage, en part de ses points de vie max */
+    part: 0.02,
+    /** Entre deux passages, en millisecondes de jeu */
+    cadence: 40_000,
+  };
+
   private majCycle(delta: number): void {
     // ⚠️ **Le temps ne commence qu'a l'installation** (§4.29) : pendant la
     // marche le cycle est a l'arret, et tout ce qui pend a lui avec — la nuit,
@@ -7640,6 +7672,7 @@ export class ArenaScene extends Phaser.Scene {
       this.cycle.part,
       this.rng,
     );
+    this.majCrue();
   }
 
   /**
@@ -7676,6 +7709,73 @@ export class ArenaScene extends Phaser.Scene {
     const ciel = annonceDuMatin(this.meteo);
     if (!ciel) return;
     this.events.emit("annonce", ciel, this.meteo.orage ? "guet" : "village");
+  }
+
+  /**
+   * L'eau monte, ou elle se retire (§4.21).
+   *
+   * Appelee **a l'aube seulement** : la crue est un etat de journee, comme le
+   * temps qu'il fait. Elle fait trois choses, et les trois ont ete decidees le
+   * 22 septembre 2026.
+   */
+  private reglerLaCrue(): void {
+    const crue = this.meteo.crue;
+    if (crue === this.crueEnCours) return;
+    this.crueEnCours = crue;
+
+    // 1. Les douves debordent : l'eau ne barre plus rien tant que ca dure. Le
+    // champ de directions se refait, comme a la pose d'un mur — deux fois par
+    // crue, pas une fois par image.
+    this.grille.crue = crue;
+    this.recalculerLeParcours();
+
+    if (!crue) {
+      this.events.emit("annonce", "L'eau se retire — les douves barrent de nouveau", "village");
+      return;
+    }
+
+    // 2. Les champs se noient : ce que la pluie a donne, elle le reprend.
+    const perdus = this.champs.noyer();
+
+    // 3. Les batiments deja abimes commencent a ceder : c'est `majCrue` qui
+    // s'en charge, tout au long de la journee et de sa nuit.
+    this.prochainRongement = this.time.now + ArenaScene.CRUE.cadence;
+
+    this.events.emit(
+      "annonce",
+      perdus > 0
+        ? `La crue — ${perdus} champ${perdus > 1 ? "s" : ""} noye${perdus > 1 ? "s" : ""}, et les douves debordent`
+        : "La crue — l'eau passe par-dessus les douves",
+      "guet",
+    );
+  }
+
+  /**
+   * Ce que l'eau ronge pendant que la crue dure (§4.21).
+   *
+   * Un horodatage compare a l'horloge, jamais une minuterie : la regle 4 du
+   * §4.17 vaut pour le ciel comme pour le reste.
+   */
+  private majCrue(): void {
+    if (!this.crueEnCours || this.enMarche || this.enPause) return;
+    if (this.time.now < this.prochainRongement) return;
+    this.prochainRongement = this.time.now + ArenaScene.CRUE.cadence;
+
+    const tombees = this.maisons.ronger(
+      ArenaScene.CRUE.seuil,
+      ArenaScene.CRUE.part,
+      this.time.now,
+    );
+    if (tombees.length === 0) return;
+
+    // Une maison qui tombe, c'est des gens a reloger : ca se dit (§4.18).
+    this.events.emit(
+      "annonce",
+      tombees.length > 1
+        ? `L'eau emporte ${tombees.length} maisons deja fendues`
+        : "L'eau emporte une maison deja fendue",
+      "guet",
+    );
   }
 
   private tomberLaNuit(): void {
@@ -7732,6 +7832,7 @@ export class ArenaScene extends Phaser.Scene {
     // pousse, l'effectif de la nuit et les hordes de jour le lisent (§4.21).
     this.meteo.passerLaJournee(this.rng);
     this.annoncerLeCiel();
+    this.reglerLaCrue();
 
     this.port.regles.passerLaJournee(this.rng);
     this.navireAttendu = this.port.debout && unNavireVeutVenir(this.rng);
