@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { cleEglise, cleMaison, CLE_FERME, CLE_MAISON_RUINE, VARIANTES_MAISON } from "./batiments";
 import { DECORS } from "./decor";
+import { CLES_FLAMME } from "./feu";
 import { ORDRE_CLASSES } from "../../core/classes";
 import { familleDeHero } from "./heros";
 import { familleDeMonstre } from "./monstres";
@@ -30,6 +31,10 @@ const pngs = readdirSync(DOSSIER).filter((f) => f.endsWith(".png"));
 
 const CLES_CONNUES = new Set<string>([
   ...DECORS.map((d) => d.cle),
+  // Les trois flammes de l'incendie (§4.21, 22 septembre 2026). Elles ne sont
+  // pas des decors : pas de pied a caler, pas d'ombre portee — une flamme est
+  // posee sur un toit.
+  ...CLES_FLAMME,
   ...Array.from({ length: VARIANTES_MAISON }, (_, v) => cleMaison(v)),
   CLE_FERME,
   CLE_MAISON_RUINE,

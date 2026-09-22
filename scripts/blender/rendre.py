@@ -82,6 +82,11 @@ def sprites():
     s["decor-cache-trappe"] = (lambda a: monde.cache_trappe(a), 32, 24, 21)
     s["decor-cache-charrette"] = (lambda a: monde.cache_charrette(a), 40, 28, 25, 20)
     s["decor-stele"] = (lambda a: monde.stele(a), 26, 44, 40)
+    # Le feu (§4.21) : tailles dans `dessin/feu.ts` (LARGEUR_FLAMME,
+    # HAUTEUR_FLAMME). ⚠️ **Sans sol** — une flamme est posee sur un toit, pas
+    # par terre : son ombre portee n'aurait aucun sens.
+    for v in range(3):
+        s[f"feu-flamme-{v}"] = (lambda a, v=v: monde.flamme(a, v), 22, 30, 26, 11, False)
     return s
 
 
@@ -112,16 +117,17 @@ def blanc():
     return m
 
 
-def rendre(cle, fabrique, W, H, pied, ancre):
+def rendre(cle, fabrique, W, H, pied, ancre, avec_sol=True):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     a = monde.Atelier()
     px, py = fabrique(a)
     a.racine(cle, y_devant=py)
 
-    sol = monde.Atelier()
-    sol._mats = a._mats
-    sol.boite("sol", (40, 40, 0.02), (px, py, -0.011))
+    if avec_sol:
+        sol = monde.Atelier()
+        sol._mats = a._mats
+        sol.boite("sol", (40, 40, 0.02), (px, py, -0.011))
 
     # le soleil : de l'ouest, un peu du sud, haut — le clair à gauche et le
     # sombre à droite, comme tout ce que dessine `pinceau.ts`
@@ -192,4 +198,6 @@ if __name__ == "__main__":
     for cle, (fab, W, H, pied, *reste) in sprites().items():
         if argv and not any(cle.startswith(p) for p in argv):
             continue
-        rendre(cle, fab, W, H, pied, reste[0] if reste else W / 2)
+        rendre(cle, fab, W, H, pied,
+               reste[0] if reste else W / 2,
+               reste[1] if len(reste) > 1 else True)

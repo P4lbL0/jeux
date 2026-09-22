@@ -330,6 +330,53 @@ def puits(a):
     return (0, -0.7)
 
 
+def _langue(a, matiere, base, hauteur, pointe, pos=(0, 0, 0), cotes=5):
+    """Une langue de feu : une pyramide a cinq pans dont la pointe part de cote.
+
+    C'est la seule forme du fichier qui ne tient pas debout : sa pointe est
+    deportee, et c'est ce qui la fait lire comme une flamme plutot que comme un
+    cone. Le pied reste sur place — ce qui brule ne glisse pas.
+    """
+    verts = []
+    for i in range(cotes):
+        t = 2 * math.pi * i / cotes
+        verts.append((pos[0] + math.cos(t) * base, pos[1] + math.sin(t) * base * 0.8, pos[2]))
+    verts.append((pos[0] + pointe[0], pos[1] + pointe[1], pos[2] + hauteur))
+    faces = [(i, (i + 1) % cotes, cotes) for i in range(cotes)]
+    faces.append(tuple(range(cotes - 1, -1, -1)))
+    return a.maillage(matiere, verts, faces)
+
+
+def flamme(a, variante=0):
+    """Une flamme, en trois images alternees (DESIGN.md §4.21, l'incendie).
+
+    Trois langues et une braise, la meme construction pour les trois variantes :
+    ce qui change est le **vent** (de quel cote partent les pointes) et la
+    hauteur. Alternees a onze images par seconde, elles donnent le tremblement
+    d'un feu sans qu'aucune image ne soit animee.
+
+    ⚠️ **Rien ne tourne autour de l'axe vertical d'une variante a l'autre.** Une
+    flamme qui pivote s'entend comme un objet qui tourne sur lui-meme ; une
+    flamme dont les pointes changent de cote s'entend comme du vent.
+    """
+    vent = (0.20, -0.20, 0.05)[variante]
+    haut = (0.97, 0.86, 0.94)[variante]
+
+    # La braise : large, basse, et c'est elle qui accroche la flamme au toit.
+    a.cone("braise", 0.48, 0.20, (0, 0, 0), cotes=6, r_haut=0.34)
+
+    # Le corps, et deux langues plus courtes de chaque cote.
+    _langue(a, "flamme", 0.46, 1.98 * haut, (vent * 1.5, 0.05), (0, 0, 0.11))
+    _langue(a, "flamme", 0.23, 0.95 * haut, (vent - 0.20, 0.02), (-0.36, 0.05, 0.07))
+    _langue(a, "flamme", 0.21, 0.84 * haut, (vent + 0.22, 0.02), (0.38, 0.03, 0.07))
+
+    # Le coeur : la moitie de la hauteur, decale par le vent. Il ne sort jamais
+    # du corps, sinon la flamme a deux couleurs cote a cote au lieu d'une
+    # couleur dans l'autre.
+    _langue(a, "coeur_du_feu", 0.24, 1.15 * haut, (vent * 1.2, 0.02), (vent * 0.3, 0.02, 0.15))
+    return (0, -0.4)
+
+
 def tonneau(a):
     """Un tonneau ventru : deux troncs de cone bout a bout, deux cercles de fer."""
     a.cone("bois", 0.29, 0.4, (0, 0, 0), cotes=8, r_haut=0.36)

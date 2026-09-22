@@ -10,3 +10,4 @@ grondement de l'ecran-titre. Les refaire, c'est relancer la commande.
 | `bruit-pluie-forte` | L'averse d'orage, boucle de 12 s |
 | `bruit-tonnerre` | Le coup proche : un craquement puis un roulement |
 | `bruit-tonnerre-loin` | Le coup lointain : rien que le roulement |
+| `bruit-feu` | L'incendie, boucle de 8 s |

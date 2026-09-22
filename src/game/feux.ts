@@ -7,6 +7,7 @@ import {
   cuireLeFeu,
   HAUTEUR_FLAMME,
 } from "./dessin/feu";
+import { jouer, type Voix } from "./son";
 
 /**
  * Ce qu'on voit d'un incendie (DESIGN.md §4.21).
@@ -29,6 +30,21 @@ const POOL = 16;
 const PROFONDEUR_LUEUR = 904;
 
 /**
+ * A quelle distance du milieu de l'ecran un feu s'entend, et a partir de
+ * laquelle il se tait.
+ *
+ * **Deux seuils et pas un** : avec un seul, un feu pose juste a la limite
+ * s'allumerait et se couperait a chaque pas du heros. On ouvre pres, on ferme
+ * loin.
+ */
+const SON_ENTRE = 700;
+const SON_SORT = 950;
+
+/** Le fondu du crepitement, comme celui de l'averse. */
+const FONDU = 0.9;
+const VOLUME = 0.5;
+
+/**
  * Ce que la lueur respire : son echelle va et vient autour de 1.
  *
  * Une lumiere de feu qui ne bouge pas est une tache ; une qui bat trop est une
@@ -40,8 +56,10 @@ const SOUFFLE = 2_500;
 export class Feux {
   private readonly flammes: Phaser.GameObjects.Image[] = [];
   private readonly lueurs: Phaser.GameObjects.Image[] = [];
+  /** Le crepitement en cours, ou null quand rien ne brule assez pres */
+  private voix: Voix | null = null;
 
-  constructor(scene: Phaser.Scene) {
+  constructor(private readonly scene: Phaser.Scene) {
     cuireLeFeu(scene);
 
     for (let i = 0; i < POOL; i++) {
@@ -54,6 +72,13 @@ export class Feux {
       );
       this.flammes.push(scene.add.image(0, 0, CLES_FLAMME[0]!).setOrigin(0.5, 1).setVisible(false));
     }
+
+    // Un feu ne survit pas a sa partie : sans ca, on quitte vers le menu et ca
+    // crepite encore (le piege deja paye par l'averse).
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.voix?.arreter(0.3);
+      this.voix = null;
+    });
   }
 
   /**
@@ -96,11 +121,46 @@ export class Feux {
       flamme.setScale(souffle * force);
       lueur.setPosition(foyer.x, foyer.y).setVisible(true).setScale(souffle * force);
     }
+
+    this.majorerLeSon(foyers);
+  }
+
+  /**
+   * Le crepitement (§4.21).
+   *
+   * **Une seule voix en boucle**, quel que soit le nombre de feux : deux voix
+   * identiques sur un meme son ne font pas deux feux, elles font un feu deux
+   * fois trop fort. Ce qui decide, c'est le foyer **le plus proche du milieu de
+   * l'ecran** — ce qu'on regarde est ce qu'on entend.
+   */
+  private majorerLeSon(foyers: readonly Foyer[]): void {
+    const vue = this.scene.cameras.main.worldView;
+    let plusProche = Infinity;
+    for (const foyer of foyers) {
+      plusProche = Math.min(plusProche, Math.hypot(foyer.x - vue.centerX, foyer.y - vue.centerY));
+    }
+
+    const seuil = this.voix ? SON_SORT : SON_ENTRE;
+    const voulu = plusProche <= seuil;
+    if (voulu === (this.voix !== null)) return;
+
+    if (!voulu) {
+      this.voix?.arreter(FONDU);
+      this.voix = null;
+      return;
+    }
+    this.voix = jouer(this.scene, "bruit-feu", "ambiance", {
+      boucle: true,
+      volume: VOLUME,
+      fondu: FONDU,
+    });
   }
 
   /** Plus rien ne brule : une fin de partie, une reprise. */
   toutCacher(): void {
     for (const f of this.flammes) f.setVisible(false);
     for (const l of this.lueurs) l.setVisible(false);
+    this.voix?.arreter(FONDU);
+    this.voix = null;
   }
 }

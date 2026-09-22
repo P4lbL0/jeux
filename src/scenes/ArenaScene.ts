@@ -947,6 +947,8 @@ export class ArenaScene extends Phaser.Scene {
   private cibles = new Map<string, Maison | Champ>();
   /** Ou l'on remplit son seau (§4.21, §4.24). Null tant qu'aucun puits n'est pose */
   private puits: Point | null = null;
+  /** Vrai tant qu'un feu brule : c'est lui qui dit quand ranger flammes et son */
+  private quelqueChoseBrulait = false;
   /** Vrai tant que la crue dure : c'est lui qui dit quand les douves se remettent a barrer */
   private crueEnCours = false;
   /** L'instant du prochain rongement des batiments par l'eau */
@@ -7889,7 +7891,16 @@ export class ArenaScene extends Phaser.Scene {
    * pas. Le vrai travail est dans le noyau, une fois par seconde.
    */
   private majIncendie(): void {
-    if (!this.incendie.actif) return;
+    if (!this.incendie.actif) {
+      // Le dernier feu vient de s'eteindre : on range les flammes et on coupe
+      // le crepitement **une fois**, pas a chaque image.
+      if (this.quelqueChoseBrulait) {
+        this.quelqueChoseBrulait = false;
+        this.feux.toutCacher();
+      }
+      return;
+    }
+    this.quelqueChoseBrulait = true;
     if (this.enPause) return;
 
     const passage = this.incendie.avancer(

@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import {
   TAUX,
   aNiveau,
+  adoucir,
   boucler,
   duree,
   ecrire,
@@ -177,6 +178,81 @@ function tonnerre(proche: number, graine: number): Son {
   return son;
 }
 
+// --------------------------------------------------------------------- le feu
+
+/** La boucle du feu : plus courte que la pluie, un feu bouge plus vite. */
+const SECONDES_FEU = 8;
+
+/**
+ * Un feu qui brule (§4.21, l'incendie).
+ *
+ * Trois couches, comme l'averse — et pour la meme raison : un bruit filtre seul
+ * s'entend comme un souffle, pas comme du feu.
+ *
+ * 1. **Le ronflement** : une bande grave qui porte la masse. C'est ce qui donne
+ *    sa **taille** au feu ; sans elle on entend un feu de camp.
+ * 2. **Les craquements** : des impacts secs, beaucoup plus rares que les
+ *    gouttes d'une averse (une vingtaine par seconde contre trois cents) et
+ *    **inegaux** — un feu regulier s'entend comme une friture.
+ * 3. **La respiration** : il enfle et retombe, plus vite que la pluie.
+ *
+ * ⚠️ Pas de sifflement au-dela de 6 kHz : c'est la bande qui fait entendre une
+ * poele, et un incendie n'a rien d'une cuisine.
+ */
+function crepitement(secondes: number, graine: number): Son {
+  const alea = hasard(graine);
+  const n = Math.round(secondes * TAUX);
+  const brut: Son = { g: new Float32Array(n), d: new Float32Array(n) };
+  for (let i = 0; i < n; i++) {
+    brut.g[i] = alea() * 2 - 1;
+    brut.d[i] = alea() * 2 - 1;
+  }
+
+  const ronflement = gain(passeBas({ g: brut.g.slice(), d: brut.d.slice() }, 320), 0.85);
+  const corps = gain(passeBas(passeHaut(brut, 700), 3800), 0.16);
+
+  const son = silence(secondes);
+  for (let i = 0; i < n; i++) {
+    son.g[i] = ronflement.g[i] + corps.g[i];
+    son.d[i] = ronflement.d[i] + corps.d[i];
+  }
+
+  // Les craquements : le bois qui cede. Un sur six est gros, et c'est lui qu'on
+  // remarque — les autres tiennent le fond.
+  const coups = Math.round(secondes * 22);
+  for (let k = 0; k < coups; k++) {
+    const gros = alea() < 0.17;
+    poser(son, craquement(alea, gros), alea() * (secondes - 0.1), (gros ? 0.5 : 0.22) * (0.5 + alea()), alea() * 2 - 1);
+  }
+
+  // La respiration : deux periodes sans rapport, plus courtes que celles de
+  // l'averse. Un feu ne tient pas un niveau plus de deux secondes.
+  for (let i = 0; i < n; i++) {
+    const t = i / TAUX;
+    const souffle = 1 + 0.22 * Math.sin((t * Math.PI * 2) / 2.7) + 0.12 * Math.sin((t * Math.PI * 2) / 1.3 + 0.9);
+    son.g[i] *= souffle;
+    son.d[i] *= souffle;
+  }
+
+  return son;
+}
+
+/** Un craquement : un impact sec, qui traine un peu quand il est gros. */
+function craquement(alea: () => number, gros: boolean): Son {
+  const secondes = gros ? 0.09 : 0.025;
+  const n = Math.round(secondes * TAUX);
+  const s: Son = { g: new Float32Array(n), d: new Float32Array(n) };
+  for (let i = 0; i < n; i++) {
+    const env = Math.exp((-i / n) * (gros ? 5 : 9));
+    const v = (alea() * 2 - 1) * env;
+    s.g[i] = v;
+    s.d[i] = v;
+  }
+  // Un craquement de bois est **medium-grave** : au-dessus de 3 kHz, c'est de
+  // la friture.
+  return passeBas(passeHaut(s, gros ? 320 : 900), gros ? 2400 : 3400);
+}
+
 // ---------------------------------------------------------------------- livrer
 
 mkdirSync(LIVRAISON, { recursive: true });
@@ -206,6 +282,20 @@ livrer(orage, "bruit-pluie-forte");
 // entre les deux selon ce qu'il veut faire ressentir.
 livrer(aNiveau(tonnerre(1, 7), 0.5), "bruit-tonnerre");
 livrer(aNiveau(tonnerre(0.1, 13), 0.34), "bruit-tonnerre-loin");
+
+// Le feu : une seule boucle, que le jeu monte et coupe en fondu selon qu'un
+// foyer brule assez pres (§4.21).
+// ⚠️ **`adoucir` avant le niveau**, et c'est exactement le cas qu'il decrit :
+// un gros craquement passe vingt decibels au-dessus du ronflement, et sans
+// arrondi c'est lui qui dicterait le volume de tout le reste. Le feu est ensuite
+// pose **trois decibels sous l'averse** : c'est une ambiance locale, pas une
+// couverture de tout l'ecran.
+const feu = boucler(
+  aNiveau(adoucir(crepitement(SECONDES_FEU + CROISEMENT + 1, 611), -4), -3),
+  SECONDES_FEU,
+  CROISEMENT,
+);
+livrer(feu, "bruit-feu");
 
 // ---------------------------------------------------------- la page d'ecoute
 
@@ -238,6 +328,12 @@ const MORCEAUX = [
     fichier: "bruit-tonnerre",
     quand: "Environ quatre eclairs sur dix, entre 0,2 et 0,9 s apres le flash.",
     juger: "Il doit claquer avant de rouler. Le jeu le rejoue un peu plus grave ou plus aigu a chaque fois.",
+  },
+  {
+    nom: "Le feu",
+    fichier: "bruit-feu",
+    quand: "Des qu'un incendie brule a portee de regard, en boucle sur la piste « ambiance ». Il se coupe en fondu quand le feu s'eteint ou qu'on s'en eloigne.",
+    juger: "Il doit s'entendre comme une maison qui brule, pas comme un feu de camp : du grave dessous, des craquements inegaux dessus, et aucun sifflement.",
   },
   {
     nom: "Le tonnerre lointain",
@@ -314,6 +410,7 @@ writeFileSync(
     "| `bruit-pluie-forte` | L'averse d'orage, boucle de 12 s |",
     "| `bruit-tonnerre` | Le coup proche : un craquement puis un roulement |",
     "| `bruit-tonnerre-loin` | Le coup lointain : rien que le roulement |",
+    "| `bruit-feu` | L'incendie, boucle de 8 s |",
     "",
   ].join("\n"),
 );

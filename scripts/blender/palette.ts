@@ -6,12 +6,15 @@ import { TABLIERS } from "../../src/game/dessin/villageois";
 import {
   ARDOISE,
   BOIS,
+  BRAISE,
+  COEUR_DU_FEU,
   CHAIR,
   CONTOUR,
   ECORCE,
   EAU,
   FER,
   FEUILLE,
+  FLAMME,
   LAITON,
   MONSTRE,
   PIERRE,
@@ -96,6 +99,11 @@ const MATIERES: Record<string, Matiere> = {
   chair_usee: matiere(desaturer(melanger(CHAIR.corps, C.os, 0.3), 0.3)),
   familier: matiere(desaturer(melanger(C.cielSale, C.fer, 0.3), 0.25)),
   spectre: matiere(melanger(C.os, C.fer, 0.3)),
+  // Le feu (§4.21) : ajoutees **a la fin**, pour ne pas decaler les
+  // couleurs-codes des sprites deja rendus.
+  flamme: FLAMME,
+  braise: BRAISE,
+  coeur_du_feu: COEUR_DU_FEU,
 };
 
 // Les ouvertures (portes, fenetres) : le meme noir que `ouverture()` dans

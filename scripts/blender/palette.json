@@ -217,6 +217,21 @@
       "corps": 10392192,
       "clair": 11576206
     },
+    "flamme": {
+      "sombre": 11951661,
+      "corps": 13987122,
+      "clair": 14060637
+    },
+    "braise": {
+      "sombre": 9446938,
+      "corps": 11742237,
+      "clair": 12275517
+    },
+    "coeur_du_feu": {
+      "sombre": 12625528,
+      "corps": 13875075,
+      "clair": 14073750
+    },
     "trou": {
       "sombre": 4210497,
       "corps": 4210497,

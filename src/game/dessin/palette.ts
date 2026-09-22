@@ -190,6 +190,22 @@ export const EAU = matiere(melanger(melanger(C.acier, C.fer, 0.62), C.cielSale, 
 export const SANG = matiere(C.sangFrais);
 
 /**
+ * Le feu (§4.21, l'incendie) : trois matieres, et **aucune couleur neuve**.
+ *
+ * Le laiton chauffe vers le sang frais pour le corps de la flamme, le sang
+ * seche fait la braise, et le laiton monte vers l'os pour le coeur. La regle du
+ * §4.30 tient : rien ici ne descend d'autre chose que des neuf couleurs.
+ *
+ * ⚠️ **Leur ombre est faible et leur lumiere forte**, contrairement a tout le
+ * reste. Une flamme ombree comme une pierre ressemble a un caillou orange : ce
+ * qui brule doit rester clair sur toutes ses faces, y compris celle que le
+ * soleil ne touche pas.
+ */
+export const FLAMME = matiere(melanger(C.laiton, C.sangFrais, 0.5), 0.16, 0.34);
+export const BRAISE = matiere(melanger(C.sangSeche, C.sangFrais, 0.45), 0.22, 0.22);
+export const COEUR_DU_FEU = matiere(melanger(C.laiton, C.os, 0.62), 0.1, 0.42);
+
+/**
  * Le sol : la bile salie, franchement.
  *
  * Tranche sur image le 13 aout 2026 : **le sol reste vert**. Le sol de cendre
@@ -291,4 +307,7 @@ export const MATIERES: ReadonlyArray<{ nom: string; matiere: Matiere }> = [
   { nom: "eboulis", matiere: EBOULIS },
   { nom: "ecorce", matiere: ECORCE },
   { nom: "monstre", matiere: MONSTRE },
+  { nom: "flamme", matiere: FLAMME },
+  { nom: "braise", matiere: BRAISE },
+  { nom: "coeur du feu", matiere: COEUR_DU_FEU },
 ];
