@@ -1568,7 +1568,7 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
-### L'incendie se voit enfin — la fumee, et cinq flammes (23 septembre 2026)
+### L'incendie se voit enfin — la fumee, et cinq flammes (22 septembre 2026, tard)
 
 Angelos, en une phrase : « les flammes de l'incendie c'est deja moche, c'est juste une petite
 flamme sur un batiment ». Il avait raison, et **la cause n'etait pas le dessin de la flamme**.
@@ -1640,7 +1640,7 @@ aucune liste a nettoyer (§4.17).
 **944 tests verts** (+1 : les trois bouffees ont leur taille tenue par le test des sprites
 Blender). `npm run build` propre.
 
-**A regarder** : `captures/jeu/2026-09-23-feu/` — `feu-*-jour` (le panache de loin),
+**A regarder** : `captures/jeu/2026-09-22-feu/` — `feu-*-jour` (le panache de loin),
 `feu-*-pres`, `feu-*-noirci` (vingt secondes plus tard), `feu-*-nuit`.
 
 ### Le jalon 6, morceau 7 — le meteore, et le ciel est fini (22 septembre 2026, le soir)

@@ -89,7 +89,7 @@ def sprites():
     # par terre : son ombre portee n'aurait aucun sens.
     for v in range(3):
         s[f"feu-flamme-{v}"] = (lambda a, v=v: monde.flamme(a, v), 22, 30, 26, 11, False)
-    # La fumée (23 septembre 2026) : taille dans `dessin/feu.ts` (LARGEUR_FUMEE,
+    # La fumée (22 septembre 2026, tard) : taille dans `dessin/feu.ts` (LARGEUR_FUMEE,
     # HAUTEUR_FUMEE). ⚠️ **Sans sol et sans contour** — le dernier `False`. Un
     # contour de fer dit où finit un objet ; une bouffée ne finit nulle part, et
     # le trait noir en faisait un caillou gris qui flotte au-dessus du toit.

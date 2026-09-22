@@ -17,7 +17,7 @@ import { jouer, type Voix } from "./son";
  * Le noyau (`core/incendie.ts`) sait ou ca brule et combien de temps ; ce
  * fichier ne fait que **montrer**. Il ne decide de rien.
  *
- * ⚠️ **Refait le 23 septembre 2026, sur une phrase d'Angelos** : « c'est juste
+ * ⚠️ **Refait le soir du 22 septembre 2026, sur une phrase d'Angelos** : « c'est juste
  * une petite flamme sur un batiment ». Il avait raison, et la cause n'etait pas
  * le dessin de la flamme : c'etait qu'il n'y en avait **qu'une**, posee au
  * milieu du toit comme un chapeau, sans rien autour. Une maison qui brule, ca
@@ -122,7 +122,7 @@ const DERIVE_FUMEE = 36;
  * Ce que la fumee fait de plus opaque, et ce qu'une bouffee grossit.
  *
  * ⚠️ **Deux fois plus haut et deux fois plus large que le premier jet**, juge
- * sur capture le 23 septembre : a un demi d'opacite et cinquante pixels de
+ * sur capture : a un demi d'opacite et cinquante pixels de
  * large, le panache existait dans le code et ne se voyait pas a l'ecran. Une
  * fumee de maison doit etre **plus grande que la maison** — c'est elle qui dit
  * « ca brule la-bas » quand la flamme n'est qu'un detail de vingt pixels.
@@ -162,7 +162,7 @@ const SOUFFLE = 2_500;
 /**
  * Ce que la lueur vaut en plein jour, et ce qu'elle vaut la nuit pleine.
  *
- * ⚠️ **Juge sur capture le 23 septembre** : a pleine force de jour, trois
+ * ⚠️ **Juge sur capture** : a pleine force de jour, trois
  * maisons en feu posaient trois **flaques jaunes** sur la prairie, comme si le
  * sol s'allumait. Une lueur de feu ne se voit que sur ce qui est sombre — c'est
  * la nuit qu'elle est tout l'interet d'un incendie, et le jour qu'elle ment.

@@ -35,7 +35,7 @@ const CLES_CONNUES = new Set<string>([
   // pas des decors : pas de pied a caler, pas d'ombre portee — une flamme est
   // posee sur un toit.
   ...CLES_FLAMME,
-  // Les trois bouffees de fumee (23 septembre 2026), pour la meme raison —
+  // Les trois bouffees de fumee (22 septembre 2026, tard), pour la meme raison —
   // avec une particularite : elles sont les seules du dossier **sans contour de
   // fer**, parce qu'une fumee n'a pas de bord (`rendre.py`).
   ...CLES_FUMEE,

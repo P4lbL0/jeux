@@ -5,9 +5,9 @@ import { melanger } from "./palette";
 /**
  * Le feu qui brule (DESIGN.md §4.21, l'incendie).
  *
- * > **Ce qu'on voit** : des flammes animees (trois images alternees) et une
- * > lueur chaude qui respire **au-dessus du voile de nuit** — un seul objet par
- * > feu, rien par image.
+ * > **Ce qu'on voit** : cinq flammes animees (trois images alternees) reparties
+ * > sur ce qui brule, un panache de fumee, des braises, et une lueur chaude qui
+ * > respire **au-dessus du voile de nuit**. Rien de fabrique par image.
  *
  * Trois silhouettes, pas une animation lisse : a cette taille, trois images qui
  * alternent donnent le meme tremblement qu'une vraie flamme pour le prix de
@@ -31,7 +31,7 @@ export const CLES_FLAMME = [0, 1, 2].map((i) => `feu-flamme-${i}`);
 export const CLE_LUEUR = "feu-lueur";
 
 /**
- * La bouffee de fumee, et la braise qui monte (23 septembre 2026).
+ * La bouffee de fumee, et la braise qui monte (22 septembre 2026, tard).
  *
  * ⚠️ **Elles restent dessinees au code, et c'est volontaire** alors que tout ce
  * qui se voit passe par Blender. Le rendu low-poly range chaque pixel dans les

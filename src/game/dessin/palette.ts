@@ -205,7 +205,7 @@ export const FLAMME = matiere(melanger(C.laiton, C.sangFrais, 0.5), 0.16, 0.34);
 export const BRAISE = matiere(melanger(C.sangSeche, C.sangFrais, 0.45), 0.22, 0.22);
 
 /**
- * La fumee (23 septembre 2026) : du fer monte d'un quart vers l'os.
+ * La fumee (22 septembre 2026, tard) : du fer monte d'un quart vers l'os.
  *
  * ⚠️ **Elle prend l'ombre a l'envers de tout le reste** : ombre forte, lumiere
  * faible — l'inverse exact des trois matieres du feu juste au-dessus. Premier
@@ -223,7 +223,7 @@ export const BRAISE = matiere(melanger(C.sangSeche, C.sangFrais, 0.45), 0.22, 0.
 export const FUMEE = matiere(melanger(C.fer, C.os, 0.26), 0.20, 0.13);
 /**
  * ⚠️ **Le coeur monte vers l'os, mais pas jusqu'au sable.** Premier reglage a
- * 0,62 : une fois sorti du corps de la flamme (23 septembre 2026), il est
+ * 0,62 : une fois sorti du corps de la flamme, le meme soir, il est
  * apparu **beige** au milieu de l'orange — un coeur de bougie, pas un coeur de
  * feu. A 0,42 il reste du laiton, donc de l'or, et c'est la couleur la plus
  * chaude que les neuf permettent.

@@ -105,7 +105,7 @@ const MATIERES: Record<string, Matiere> = {
   flamme: FLAMME,
   braise: BRAISE,
   coeur_du_feu: COEUR_DU_FEU,
-  // La fumee (23 septembre 2026) : ajoutee **apres** les trois du feu, pour la
+  // La fumee (22 septembre 2026, tard) : ajoutee **apres** les trois du feu, pour la
   // meme raison qu'elles — un rang de plus au milieu decalerait la
   // couleur-code de toutes les matieres suivantes, et les sprites deja
   // rendus se reduiraient avec les mauvaises teintes.
