@@ -20,6 +20,7 @@ import { Cycle } from "../core/cycle";
 import type { Fou } from "../core/arrivants";
 import type { BatimentPort } from "./port";
 import { reserverIdentifiants, stocksVides, type Habitant } from "../core/habitants";
+import type { Meteo } from "../core/meteo";
 import { Rng } from "../core/rng";
 import { numeroDIdentite, reserverIdentites } from "../core/personne";
 import {
@@ -94,6 +95,8 @@ export interface PartieEnCours {
   cour: Cour;
   /** La memoire du village : les relations et les archives (§4.26, bloc 11) */
   memoire: MemoireDuVillage;
+  /** Le temps qu'il fait, repris **sur place** comme le cycle (§4.21, jalon 6) */
+  meteo: Meteo;
 }
 
 /** La memoire des morts qu'on garde : au-dela, la satisfaction ne la lit plus. */
@@ -113,6 +116,7 @@ export function capturer(partie: PartieEnCours, maintenant: number): Sauvegarde 
     graineMonde: partie.graineMonde,
     zone: { ...partie.zone },
     portesFermees: partie.constructions.portesFermees,
+    meteo: partie.meteo.instantane,
     cycle: {
       jour: partie.cycle.jour,
       phase: partie.cycle.phase,
@@ -242,6 +246,9 @@ export function appliquer(
   partie.cycle.jour = sauvegarde.cycle.jour;
   partie.cycle.phase = sauvegarde.cycle.phase;
   partie.cycle.ecoule = sauvegarde.cycle.ecoule;
+  // Le ciel de la journee en cours : une crue reprend en crue, un orage aussi.
+  // Recharger ne doit pas etre une facon d'eteindre le ciel (§4.28, ironman).
+  partie.meteo.reprendreDe(sauvegarde.meteo);
 
   // Les stocks sont un objet partage : on ecrit dedans, on ne le remplace pas.
   for (const cle of Object.keys(partie.village.stocks) as (keyof typeof partie.village.stocks)[]) {

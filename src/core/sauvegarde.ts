@@ -20,6 +20,7 @@
 
 import type { ClassId, EtatHero, Rang } from "./classes";
 import type { Phase } from "./cycle";
+import type { EtatMeteo } from "./meteo";
 import type { EtatEglise, NiveauEglise } from "./eglise";
 import type { Matiere, TypeConstruction } from "./constructions";
 import type { Fou } from "./arrivants";
@@ -254,6 +255,12 @@ export interface Sauvegarde {
    */
   portesFermees?: boolean;
   cycle: EtatCycle;
+  /**
+   * Le temps qu'il fait (§4.21, jalon 6). **Optionnel** : une sauvegarde
+   * d'avant le ciel n'en a pas, et reprend au sec — la pluie est l'etat d'une
+   * journee, pas un acquis qu'on perdrait.
+   */
+  meteo?: EtatMeteo;
   stocks: Stocks;
   kills: number;
   /**

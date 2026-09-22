@@ -1568,6 +1568,90 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6, morceau 1 — le ciel dans le noyau (22 septembre 2026)
+
+**Le premier morceau du jalon 6**, et celui qui porte la plomberie : `core/meteo.ts`,
+pur et teste comme le cycle. L'orage, l'incendie et le meteore viendront s'y brancher
+plutot que d'inventer chacun leur horloge.
+
+#### Trois temps, un seul tirage par journee
+
+`Meteo.passerLaJournee(rng)` est appelee **une fois par journee**, a l'aube — jamais par
+image. Un tirage rejoue a chaque image consommerait la graine et rendrait le temps
+illisible : c'est la meme regle qui vaut pour les fronts (§4.6) et pour la voile (§4.18).
+
+Une journee sur trois est pluvieuse, et un quart de celles-la tournent a l'**orage** —
+soit une journee sur douze. Deux tests de frequence sur trois mille journees tiennent les
+deux chiffres : sans eux, un reglage change en passant ne se verrait qu'en jouant une
+heure.
+
+#### Le defaut que le premier controle navigateur a trouve
+
+Le tirage etait branche a l'aube, et **a l'aube seulement**. Or l'aube n'arrive qu'au bout
+d'une journee entiere de jeu : la premiere journee de toute partie aurait ete seche, et le
+ciel n'aurait existe qu'a partir de la deuxieme. Le tirage du jour 1 se fait donc a
+l'**installation**, juste a cote du premier visiteur, qui est offert pour exactement la
+meme raison — un systeme qu'on ne rencontre jamais n'existe pas.
+
+#### La crue, et pourquoi elle ne s'enchaine pas
+
+Trois journees pluvieuses d'affilee font la **crue** (§4.21). Le lendemain d'une crue est
+sec **quoi que dise le tirage** : sans ca, une quatrieme journee pluvieuse rendrait la crue
+quotidienne, et l'evenement rare serait devenu le decor. Un test l'exige explicitement —
+sous une pluie continue de quarante journees, deux crues ne se suivent jamais.
+
+#### L'orage : l'entorse consentie, et sa borne
+
+*Decision d'Angelos, 22 septembre 2026* : « les monstres sont plus nombreux et plus forts
+la nuit, et ils peuvent meme attaquer beaucoup plus souvent en plein jour ».
+
+⚠️ **« Plus nombreux » contredit frontalement la regle n°2 du §4.17** (« la difficulte monte
+par la force, pas par le nombre »), qui n'est pas une regle de gout : elle a ete ecrite le
+jour ou le jeu s'est mis a ramer. La contradiction a ete signalee une fois, puis tranchee de
+la seule facon qui tienne les deux bouts :
+
+- l'**effectif d'une nuit** d'orage monte de moitie — c'est le total que la nuit envoie,
+  donc la duree et la pression de l'assaut ;
+- le **plafond d'ennemis a l'ecran ne bouge pas d'un pouce**. C'est lui que le §4.17
+  protege, et c'est lui qui decide si le jeu rame.
+
+Le reste de l'orage ne coute rien de neuf :
+
+- **plus forts** : `nuitEquivalente` ajoute deux nuits d'avance a la puissance. Les memes
+  betes, en pire — et comme les hordes de jour lisent la meme fonction, elles montent avec.
+- **plus souvent, meme de jour** : c'est **exactement** le mecanisme du village qui
+  « attire » au-dela de soixante-cinq habitants (§4.18). On le reutilise au lieu d'en
+  ecrire un deuxieme : un orage, c'est un village qui attire pour une journee. Mesure en
+  jeu : **181 s entre deux hordes par temps sec, 30 s sous l'orage**.
+- l'**annonce**, elle, reste celle du village : le ciel a deja parle au lever, et deux
+  lignes pour le meme evenement chasseraient les quatre autres de la boite (§4.10).
+
+#### Deux crochets poses d'avance, que rien ne lit encore
+
+`extinction()` (un feu s'eteint deux fois plus vite sous la pluie) et
+`unEclairAllumeUnFeu()` (un eclair sur vingt). **Rien ne brule encore** — l'incendie est le
+morceau suivant du jalon. Poser les deux maintenant coute deux fonctions et evite d'avoir a
+rouvrir le ciel quand le feu arrivera. Meme geste que `Maisons.abimerLaPlusProche` au bloc
+12.
+
+#### Ce que la sauvegarde garde
+
+`meteo?: EtatMeteo`, optionnel : une partie d'avant le jalon 6 reprend au sec, ce qui ne
+lui fait rien perdre — la pluie est l'etat d'une journee, pas un acquis. Et le ciel se
+reprend **sur place** (`reprendreDe`), comme le cycle : la scene tient la reference depuis
+sa construction. Une crue reprend en crue, un orage aussi — recharger n'est pas une facon
+d'eteindre le ciel (§4.28, regle ironman).
+
+**Verifie dans le navigateur** (`.tmp/verifier-ciel.ts`, **trois lancements**, mondes tires
+au sort) : **11 controles sur 11**, aucune erreur de console. Le ciel existe des le jour 1,
+un champ murit exactement deux fois plus vite sous la pluie (0,024 contre 0,048 de
+maturite), la nuit d'orage passe de 119 a 178 monstres, leur puissance de 4,5 a 6,3, les
+hordes de jour de 181 s a 30 s d'ecart, un matin sec ne dit rien dans la discussion, et le
+ciel part bien dans la sauvegarde.
+
+**893 tests verts** (+34). ⚠️ **Rien ne se voit encore** : le rendu — gouttes,
+assombrissement, eclairs, son — est le morceau 2.
+
 ### Le bloc 12 — la vie autonome, et le jalon 5 est fini (21 septembre 2026, tard)
 
 **Le dernier bloc du jalon 5**, et celui que le §4.27 annonce comme « le système le plus

@@ -174,6 +174,7 @@ import {
   tailleDeLaHorde,
   villageAttire,
 } from "../core/cycle";
+import { Meteo, annonceDuMatin } from "../core/meteo";
 import { Village, type Villageois } from "../game/village";
 import { CASE, COLONNES, Grille, IMPOSENT_UNE_DISTANCE, LIGNES, type Case } from "../core/grille";
 import { cleCase, genererVillage, graineDeVillage, placesOuSeTenir, type PlanVillage,
@@ -883,6 +884,14 @@ export class ArenaScene extends Phaser.Scene {
   private hordeAuDepart = 0;
   /** Le village attire-t-il les monstres (§4.18) ? Garde, pour ne le dire qu'au changement. */
   private villageAttire = false;
+  /**
+   * Le ciel de la partie (§4.21, jalon 6).
+   *
+   * Tire **une fois par journee**, a l'aube, comme le cours du marche et la
+   * voile : un tirage rejoue a chaque image consommerait la graine et rendrait
+   * le temps illisible.
+   */
+  private meteo = new Meteo();
   private tailleHordeEnRoute = 0;
   /** Le voile de nuit : une seule image noire, dont on module l'opacite */
   private voile!: Phaser.GameObjects.Rectangle;
@@ -1560,6 +1569,7 @@ export class ArenaScene extends Phaser.Scene {
       maisons: this.maisons,
       chemins: this.chemins,
       memoire: this.memoire,
+      meteo: this.meteo,
     };
   }
 
@@ -2776,6 +2786,14 @@ export class ArenaScene extends Phaser.Scene {
       this.events.emit("annonce", "Tu as donne ta parole. Ce village est le tien.", "toi");
     }
     this.events.emit("annonce", "Jour 1 — le village se reveille", "village");
+    // ⚠️ **Le ciel du premier jour se tire ici, pas a l'aube** (§4.21). L'aube
+    // n'arrive qu'au bout d'une journee entiere : sans ce tirage, la premiere
+    // journee de toute partie serait seche, et le ciel n'existerait qu'a partir
+    // de la deuxieme. Meme raison que le premier visiteur, offert juste en
+    // dessous — un systeme qu'on ne rencontre jamais n'existe pas.
+    this.meteo.passerLaJournee(this.rng);
+    const ciel = annonceDuMatin(this.meteo);
+    if (ciel) this.events.emit("annonce", ciel, "guet");
     // ⚠️ **Le premier visiteur est offert**, des le premier matin (decision du
     // 10 aout 2026). Au rythme de croisiere — un tous les 2 a 3 jours — la
     // premiere porte se serait ouverte apres des heures de jeu. On peut
@@ -3964,7 +3982,12 @@ export class ArenaScene extends Phaser.Scene {
     this.constructions.avancerLesChantiers(this.village.batisseursALOeuvre, delta);
     this.majPortes();
     // Les champs poussent une fois par seconde, jamais par image (§4.17).
-    this.champs.majorer(this.time.now, this.village.auTravail("fermier"), this.village.stocks);
+    this.champs.majorer(
+      this.time.now,
+      this.village.auTravail("fermier"),
+      this.village.stocks,
+      this.meteo.pousse(this.cycle.phase, this.cycle.part),
+    );
     // Tant qu'on marche, les nuits n'ont pas commence : on ne defend pas encore
     // ce village, et il n'est pas attaque pour nous faire une demonstration
     // (§4.29). C'est l'installation qui lance le compte a rebours.
@@ -7669,6 +7692,12 @@ export class ArenaScene extends Phaser.Scene {
     // Le marche bouge d'une journee a l'autre, et une voile decide **une fois
     // par jour** si elle veut venir. Le calme, lui, ne decide que du moment :
     // sans ce tirage unique, un village calme verrait un navire par seconde.
+    // Le ciel de la journee : il decide avant tout le reste, parce que la
+    // pousse, l'effectif de la nuit et les hordes de jour le lisent (§4.21).
+    this.meteo.passerLaJournee(this.rng);
+    const ciel = annonceDuMatin(this.meteo);
+    if (ciel) this.events.emit("annonce", ciel, "guet");
+
     this.port.regles.passerLaJournee(this.rng);
     this.navireAttendu = this.port.debout && unNavireVeutVenir(this.rng);
     // Plus personne ne venait : on redemande une fois par jour, la reputation a
@@ -8313,7 +8342,11 @@ export class ArenaScene extends Phaser.Scene {
    * combien **veulent** paraitre, pas combien tiennent a l'ecran.
    */
   private effectifDeLaNuitIci(nuit: number): number {
-    return Math.max(1, Math.round(effectifDeLaNuit(nuit) * (1 + this.menaces.effectifEnPlus)));
+    // Une nuit d'orage en envoie la moitie en plus (§4.21). Le plafond d'ecran
+    // ne bouge pas : c'est l'assaut qui dure plus longtemps, pas la foule qui
+    // grossit — la regle n°2 du §4.17 tient toujours a l'image pres.
+    const base = this.meteo.effectif(effectifDeLaNuit(nuit));
+    return Math.max(1, Math.round(base * (1 + this.menaces.effectifEnPlus)));
   }
 
   /**
@@ -8325,7 +8358,10 @@ export class ArenaScene extends Phaser.Scene {
    * c'est la meme echelle qui ouvre les deux.
    */
   private puissanceIci(numero: number): number {
-    return puissanceDeLaNuit(numero + this.menaces.nuitsDAvance);
+    // Sous l'orage, on se bat contre les monstres de deux nuits plus loin
+    // (§4.21) : les memes betes, en pire. C'est le levier que le §4.17 reclame,
+    // et il joue aussi sur les hordes de jour, qui lisent la meme fonction.
+    return puissanceDeLaNuit(this.meteo.nuitEquivalente(numero) + this.menaces.nuitsDAvance);
   }
 
   private deverserLaNuit(): void {
@@ -8392,7 +8428,12 @@ export class ArenaScene extends Phaser.Scene {
         "guet",
       );
     }
-    this.prochaineHorde = this.time.now + delaiProchaineHorde(this.rng.next(), attire);
+    // Un orage fait le meme effet qu'un village trop gros : les hordes ne
+    // s'arretent plus de la journee (§4.21). On reutilise le mecanisme du
+    // §4.18 au lieu d'en ecrire un deuxieme — mais **sans l'annonce**, qui
+    // parle du village : le ciel, lui, a deja parle au lever.
+    const sansRepit = attire || this.meteo.hordesDeJour;
+    this.prochaineHorde = this.time.now + delaiProchaineHorde(this.rng.next(), sansRepit);
     this.hordeAuDepart = 0;
   }
 

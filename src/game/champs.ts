@@ -18,8 +18,9 @@ import { CLES_CHAMP } from "./dessin/batiments";
  * voulait. Le rang du fermier ne change toujours qu'une chose, la cadence
  * (§4.18).
  *
- * La pluie du jalon 6 (§4.21) n'aura qu'a multiplier ce budget : le point
- * d'accroche est deja la, c'est `croissanceParSeconde`.
+ * La pluie du §4.21 multiplie ce budget, et c'est son seul effet sur la
+ * production : `majorer` recoit le multiplicateur du ciel, elle ne va pas le
+ * chercher. Un champ ne sait pas qu'il pleut — il pousse plus vite, c'est tout.
  */
 
 export const REGLAGES_CHAMPS = {
@@ -109,9 +110,10 @@ export class Champs {
    * La croissance, une fois par seconde.
    *
    * @param fermiers ceux qui sont a leur poste et qui travaillent vraiment
+   * @param ciel ce que le ciel multiplie a la pousse (§4.21) : 2 sous la pluie
    * @returns le ble moissonne pendant ce tick
    */
-  majorer(maintenant: number, fermiers: Habitant[], stocks: Stocks): number {
+  majorer(maintenant: number, fermiers: Habitant[], stocks: Stocks, ciel = 1): number {
     if (maintenant < this.prochainTick) return 0;
     this.prochainTick = maintenant + 1000;
     if (this.liste.length === 0) return 0;
@@ -119,7 +121,7 @@ export class Champs {
     const budget = fermiers.reduce((somme, f) => somme + cadence(f), 0);
     if (budget <= 0) return 0;
 
-    const pousse = this.croissanceParSeconde(budget) / this.liste.length;
+    const pousse = (this.croissanceParSeconde(budget) * ciel) / this.liste.length;
     let moisson = 0;
 
     for (const champ of this.liste) {
@@ -141,9 +143,8 @@ export class Champs {
   }
 
   /**
-   * Ce que le budget de cadence donne comme maturite par seconde.
-   *
-   * C'est ici que la pluie du §4.21 se branchera : un simple multiplicateur.
+   * Ce que le budget de cadence donne comme maturite par seconde, **par temps
+   * sec**. Le ciel multiplie le resultat dans `majorer` (§4.21).
    */
   private croissanceParSeconde(budget: number): number {
     const { cadenceDeReference, secondesPourMurir } = REGLAGES_CHAMPS;
