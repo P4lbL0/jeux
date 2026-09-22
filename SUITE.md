@@ -1568,6 +1568,74 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6, morceau 5 — les betes d'eau (22 septembre 2026)
+
+Le dernier morceau du ciel, et le plus cher : deux creatures modelisees pour ca, et une
+nuit qui n'attaque plus par ou l'on attend.
+
+#### Deux betes, deux metiers, aucun comportement neuf
+
+- L'**Ecumeur** : le plus rapide du jeu (×1,5), frappe plus fort qu'un rodeur (×1,4), tient
+  moins qu'une nuee (×0,6). Il traverse, il tape, il tombe.
+- L'**Engloutisseur** : le plus lent (×0,5), encaisse comme une brute et demi (×3,4), et son
+  coup est le plus telegraphe de tous (700 ms). On a le temps de s'ecarter, pas celui de le
+  tuer.
+
+Deux sur trois sont des ecumeurs : c'est le nombre qui doit faire peur, et un mur
+d'engloutisseurs serait aussi impossible a tenir qu'ennuyeux a jouer.
+
+⚠️ **Aucun des deux ne porte de comportement neuf** — ils reutilisent `fonceur` et `brute`.
+Un comportement de plus, c'est une IA de plus a regler, et le §4.17 en a assez.
+
+Et comme `ARCHETYPE_HUMAIN`, ils sont **hors de la table `ARCHETYPES`** : cette table est
+celle qu'on **tire** pour les vagues, et ces deux-la ne se tirent jamais. Leurs champs
+`seuil` et `poids` sont poses a zero pour que ca se voie.
+
+#### D'ou elles sortent : les rives, pas les fronts
+
+`rivesAutour(centre, rayon, combien)` cherche la terre ferme qui **touche** l'eau, dans un
+rayon de 1 400 px autour de l'eglise, et rend les quatre plus proches.
+
+On ne les fait pas paraitre **dans** l'eau : rien ne nage dans ce jeu, et un monstre pose
+sur la mer serait un monstre qui flotte. Il sort donc **sur la berge**, la ou il pourrait
+poser une patte.
+
+⚠️ **Le tri se fait une seule fois, a la tombee de la nuit** — jamais par image (regle 5 du
+§4.17). Et la liste peut revenir **vide** : un village sans lac ni mer a portee ne voit rien
+sortir, et le jeu le dit (« l'eau est haute, mais elle est loin : la nuit sera ordinaire »).
+C'est la seule reponse honnete — un village loin de l'eau ne craint pas la crue.
+
+#### Ce que la planche a corrige
+
+Premier rendu, deux defauts qu'aucune relecture de code n'aurait trouves :
+
+1. **L'ecumeur debordait de son cadre.** Corps de 16 et queue de 9 : sur la planche, deux
+   images se touchaient. Ramene a 11 + 5 — il reste le plus long du bestiaire, ce qui suffit
+   a dire le nageur.
+2. **L'engloutisseur etait un tas de pierres.** Sa matiere melangeait la chair de monstre a
+   l'eau **sombre**, puis desaturait : gris sur gris, impossible de deviner qu'il sort de
+   l'eau. Il prend desormais la couleur de l'eau elle-meme, en plus fonce.
+
+Les deux matieres (`monstre_ecume`, `monstre_fond`) sont des **melanges** de ce qui existe,
+pas des inventions : une bete d'eau doit rester une bete de ce jeu (§4.30).
+
+#### Un troisieme defaut, trouve sur la capture en jeu
+
+Le journal annoncait **« Nuit 1 — ils arrivent a l'EST »** pendant que les betes remontaient
+du lac, a l'ouest. Une annonce qui ment sur la direction est pire que pas d'annonce — le
+§4.6 veut qu'un assaut **se voie venir**. La nuit de crue dit donc « ils remontent de
+l'eau », et n'annonce plus de front du tout.
+
+**Verifie dans le navigateur** (trois lancements) : **18 controles sur 18**. Une nuit de crue
+ne fait sortir que des betes d'eau (12 sur 12), et toutes surgissent a moins de 40 px d'une
+berge. Sur un monde sans eau a portee, la nuit reste ordinaire — le controle le verifie
+aussi.
+
+**A regarder** :  — elles ont traverse la
+douve debordee et sont dans le village.
+
+**902 tests verts** (+5, les rives).
+
 ### Le jalon 6, morceau 4 — la crue coute enfin quelque chose (22 septembre 2026)
 
 Jusqu'ici la crue existait comme **etat** — trois journees pluvieuses d'affilee — mais elle
@@ -1768,10 +1836,11 @@ sous une pluie continue de quarante journees, deux crues ne se suivent jamais.
 *Decision d'Angelos, 22 septembre 2026* : « les monstres sont plus nombreux et plus forts
 la nuit, et ils peuvent meme attaquer beaucoup plus souvent en plein jour ».
 
-⚠️ **« Plus nombreux » contredit frontalement la regle n°2 du §4.17** (« la difficulte monte
-par la force, pas par le nombre »), qui n'est pas une regle de gout : elle a ete ecrite le
-jour ou le jeu s'est mis a ramer. La contradiction a ete signalee une fois, puis tranchee de
-la seule facon qui tienne les deux bouts :
+⚠️ **« Plus nombreux » contredisait frontalement la regle n°2 du §4.17** (« la difficulte
+monte par la force, pas par le nombre »). La contradiction a ete signalee une fois, puis
+tranchee de la seule facon qui tienne les deux bouts — et **le meme jour, Angelos a annule
+cette regle** en ecrivant le §4.33 (le jalon 6.2, la horde). Ce qui suit reste pourtant
+vrai, parce que ca ne parlait pas de la meme chose :
 
 - l'**effectif d'une nuit** d'orage monte de moitie — c'est le total que la nuit envoie,
   donc la duree et la pression de l'assaut ;

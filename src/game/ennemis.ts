@@ -207,6 +207,80 @@ export const ARCHETYPES: Archetype[] = [
 export const ARCHETYPE_DEFAUT: Archetype = ARCHETYPES[0]!;
 
 /**
+ * Les betes d'eau (DESIGN.md §4.21, la nuit de crue — 22 septembre 2026).
+ *
+ * ⚠️ **Elles ne sont pas dans `ARCHETYPES`, et c'est volontaire** : cette table
+ * est celle des vagues ordinaires, et elle est tiree au sort. Une bete d'eau
+ * n'apparait **jamais** dans une horde normale — elle n'existe que la nuit qui
+ * suit trois journees de pluie, et elle sort **de l'eau**, pas d'un front. Meme
+ * raison qu'`ARCHETYPE_HUMAIN` : un archetype qui ne se tire pas n'a rien a
+ * faire dans la table qu'on tire.
+ *
+ * Les deux ne font pas le meme metier, et leurs chiffres le disent :
+ *
+ * - l'**ecumeur** est le plus rapide du jeu et frappe plus fort qu'un rodeur,
+ *   mais il tient moins qu'une nuee : il traverse, il tape, il tombe ;
+ * - l'**engloutisseur** est le plus lent, il encaisse comme une brute et son
+ *   coup est le plus telegraphe de tous — on a le temps de s'ecarter, mais pas
+ *   celui de le tuer.
+ *
+ * Aucun des deux ne porte de comportement neuf : ils reutilisent ceux qui
+ * existent. Un comportement de plus, c'est une IA de plus a regler, et le §4.17
+ * en a assez.
+ */
+export const ARCHETYPES_DEAU: Archetype[] = [
+  {
+    id: "ecumeur",
+    nom: "Ecumeur",
+    texture: "monstre-ecumeur",
+    teinte: BLANC,
+    echelle: 1,
+    multPv: 0.6,
+    multVitesse: 1.5,
+    multDegats: 1.4,
+    comportement: "fonceur",
+    couleurImpact: IMPACT.os,
+    armement: 220,
+    recuperation: 600,
+    portee: CORPS_A_CORPS,
+    xp: 2,
+    // ⚠️ `seuil` et `poids` ne servent a rien ici — ils ne sont lus que par le
+    // tirage des vagues, qui ne verra jamais ces deux-la. Ils sont poses a zero
+    // pour que ca se voie.
+    seuil: 0,
+    poids: 0,
+  },
+  {
+    id: "engloutisseur",
+    nom: "Engloutisseur",
+    texture: "monstre-engloutisseur",
+    teinte: BLANC,
+    echelle: 1.35,
+    multPv: 3.4,
+    multVitesse: 0.5,
+    multDegats: 2.2,
+    comportement: "brute",
+    couleurImpact: IMPACT.sang,
+    armement: 700,
+    recuperation: 1200,
+    portee: 52,
+    xp: 5,
+    seuil: 0,
+    poids: 0,
+  },
+];
+
+/**
+ * Celle qui sort de l'eau cette fois-ci.
+ *
+ * Deux sur trois sont des ecumeurs : c'est le nombre qui doit faire peur, et un
+ * mur d'engloutisseurs serait impossible a tenir autant qu'ennuyeux a jouer.
+ */
+export function beteDEau(tirage: number): Archetype {
+  return tirage < 0.66 ? ARCHETYPES_DEAU[0]! : ARCHETYPES_DEAU[1]!;
+}
+
+/**
  * L'habitant qui se jette sur nous (DESIGN.md §4.29, 20 septembre 2026 au soir).
  *
  * ⚠️ **Il n'est pas dans `ARCHETYPES`, et c'est volontaire** : cette table est

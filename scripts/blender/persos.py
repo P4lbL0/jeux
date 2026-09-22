@@ -342,6 +342,20 @@ BETES = {
     "cracheur": dict(corps=(12, 9, "monstre_bile"), pattes=(4, 3.5, 2.4), tete=(4, 4), dos="pustules", queue=0, cadre=CADRE),
     "brute": dict(corps=(18, 13, "monstre_fer"), pattes=(4, 8, 3.5), tete=(4.5, 2.5), dos="plaques", queue=0, cadre=CADRE_GROS),
     "kamikaze": dict(corps=(11, 11, "monstre_sang"), pattes=(4, 6, 1.2), tete=(2.6, 2), dos="pustules", queue=0, cadre=CADRE),
+    # Les deux betes d'eau (§4.21) : elles ne sortent que la nuit de crue, et
+    # elles sortent **de l'eau**, pas d'un front. Leur silhouette doit se lire a
+    # ca, sans qu'on ait besoin de dire d'ou elles viennent.
+    #
+    # L'ecumeur : long, bas, presque pas de pattes — c'est un nageur. La queue
+    # fait la moitie de sa longueur : elle dit comment il se deplace, et c'est
+    # la seule chose qui le distingue d'un rodeur a la silhouette.
+    # ⚠️ Premier jet a 16 de corps et 9 de queue : il **debordait du cadre**, et
+    # deux images se touchaient sur la planche. Ramene a 11 + 5 — il reste le
+    # plus long du bestiaire, ce qui suffit a dire le nageur.
+    "ecumeur": dict(corps=(11, 6, "monstre_ecume"), pattes=(4, 3.5, 1.4), tete=(3, 4), dos="epines", queue=5, cadre=CADRE),
+    # L'engloutisseur : large, lourd, beaucoup de pattes courtes. Il ne court
+    # pas, il **traine** — et ce qu'il attrape, il le ramene.
+    "engloutisseur": dict(corps=(16, 12, "monstre_fond"), pattes=(6, 4, 3.2), tete=(4.2, 3), dos="pustules", queue=4, cadre=CADRE_GROS),
 }
 
 

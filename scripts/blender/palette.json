@@ -117,6 +117,16 @@
       "corps": 6234138,
       "clair": 8672071
     },
+    "monstre_ecume": {
+      "sombre": 4208956,
+      "corps": 5984855,
+      "clair": 8484466
+    },
+    "monstre_fond": {
+      "sombre": 3287586,
+      "corps": 4471341,
+      "clair": 7431508
+    },
     "classe_guerrier": {
       "sombre": 5778728,
       "corps": 8535863,
@@ -186,6 +196,11 @@
       "sombre": 8224121,
       "corps": 12500921,
       "clair": 13025974
+    },
+    "tablier_milicien": {
+      "sombre": 4406070,
+      "corps": 6248013,
+      "clair": 8681835
     },
     "chair_usee": {
       "sombre": 8352868,

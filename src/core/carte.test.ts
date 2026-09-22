@@ -5,6 +5,7 @@ import {
   dansLeVillage,
   distanceALEglise,
   EGLISE,
+  CASE,
   estPraticable,
   estTerreFerme,
   frontsDeLaVague,
@@ -13,6 +14,7 @@ import {
   ondulation,
   PORT,
   POSTES,
+  rivesAutour,
   PRATICABLE,
   pointDApparition,
   repartition,
@@ -290,5 +292,49 @@ describe("Carte — les apparitions", () => {
         expect(distance).toBeGreaterThan(VILLAGE.rayon * 2);
       }
     }
+  });
+});
+
+describe("Les rives de la crue — d'ou sortent les betes d'eau (§4.21)", () => {
+  const centre = { x: EGLISE.x, y: EGLISE.y };
+
+  it("ne rend que de la terre ferme : rien ne nage dans ce jeu", () => {
+    for (const point of rivesAutour(centre, 1400, 6)) {
+      expect(estPraticable(point.x, point.y)).toBe(true);
+      expect(estTerreFerme(point.x, point.y)).toBe(true);
+    }
+  });
+
+  it("ne rend que des berges : chaque point touche l'eau", () => {
+    const rives = rivesAutour(centre, 1400, 6);
+    for (const point of rives) {
+      const voisines = [
+        terrainEn(point.x + CASE, point.y),
+        terrainEn(point.x - CASE, point.y),
+        terrainEn(point.x, point.y + CASE),
+        terrainEn(point.x, point.y - CASE),
+      ];
+      expect(voisines.some((t) => t === "haut-fond" || t === "mer" || t === "abysse")).toBe(true);
+    }
+  });
+
+  it("rend les plus proches d'abord, et jamais plus qu'on en demande", () => {
+    const rives = rivesAutour(centre, 1400, 3);
+    expect(rives.length).toBeLessThanOrEqual(3);
+    const distances = rives.map((p) => Math.hypot(p.x - centre.x, p.y - centre.y));
+    for (let i = 1; i < distances.length; i++) {
+      expect(distances[i]!).toBeGreaterThanOrEqual(distances[i - 1]!);
+    }
+  });
+
+  it("ne rend rien quand l'eau est hors de portee : un village loin de l'eau ne craint pas la crue", () => {
+    // Un rayon d'une case et demie autour de l'eglise : il n'y a pas de lac sur
+    // la place du village.
+    expect(rivesAutour(centre, CASE * 1.5, 4)).toEqual([]);
+  });
+
+  it("tient sa promesse sur le monde classique, qui a la mer a l'ouest", () => {
+    // La graine zero rend la carte d'avant : la mer y est, donc des berges aussi.
+    expect(rivesAutour(centre, 2000, 4).length).toBeGreaterThan(0);
   });
 });

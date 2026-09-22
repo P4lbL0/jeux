@@ -69,6 +69,17 @@ const MATIERES: Record<string, Matiere> = {
   monstre_bile: matiere(melanger(MONSTRE.corps, C.bile, 0.35)),
   monstre_fer: matiere(melanger(MONSTRE.corps, C.fer, 0.25)),
   monstre_sang: matiere(melanger(MONSTRE.corps, C.sangSeche, 0.3)),
+  // Les deux betes d'eau (§4.21, la nuit de crue, 22 septembre 2026). La meme
+  // chair de monstre, noyee : l'ecumeur prend le reflet du ciel comme l'eau
+  // elle-meme, l'engloutisseur prend la vase du fond. Deux melanges, pas deux
+  // inventions — une bete d'eau doit rester une bete de ce jeu.
+  monstre_ecume: matiere(melanger(MONSTRE.corps, EAU.corps, 0.62)),
+  // ⚠️ **Deux jets rates avant celui-la**, et la raison est la meme : l'eau de
+  // ce jeu est un gris-bleu derive du fer, donc **melanger a l'eau ne teinte
+  // rien** — l'engloutisseur restait un tas de pierres, confondu avec le golem.
+  // Ce qui dit le fond, ce n'est pas l'eau : c'est la **vase**. Il prend donc
+  // le vert du sous-bois, juste mouille d'un peu d'eau.
+  monstre_fond: matiere(melanger(melanger(MONSTRE.corps, SOUS_BOIS.corps, 0.55), EAU.sombre, 0.25)),
   // La tunique de chaque classe, rebasee dans le monde comme dans `heros.ts`.
   ...Object.fromEntries(ORDRE_CLASSES.map((c) => [`classe_${c}`, rebaser(CLASSES[c].couleur)])),
   // Les villageois (20 septembre 2026, soir) : le tablier de chaque metier —

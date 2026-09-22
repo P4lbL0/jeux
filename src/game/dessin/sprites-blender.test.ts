@@ -37,7 +37,10 @@ const CLES_CONNUES = new Set<string>([
   // Les planches de personnages (20 septembre 2026) : une par classe et par
   // palier, une par archetype de monstre — la cle du four, `<famille>-planche`.
   ...ORDRE_CLASSES.flatMap((classe) => [0, 1, 2, 3, 4].map((palier) => `${familleDeHero(classe, palier)}-planche`)),
-  ...["fonceur", "essaim", "cracheur", "brute", "kamikaze", "revenant", "mort-vivant", "familier", "familier-golem", "familier-spectre"].map(
+  // ⚠️ `ecumeur` et `engloutisseur` (§4.21, 22 septembre 2026) sont **dans
+  // cette liste mais pas dans `ARCHETYPES`** : ils ne sortent que la nuit de
+  // crue, et c'est `familleDeMonstre` qui leur donne leur planche.
+  ...["fonceur", "essaim", "cracheur", "brute", "kamikaze", "revenant", "ecumeur", "engloutisseur", "mort-vivant", "familier", "familier-golem", "familier-spectre"].map(
     (id) => `${familleDeMonstre(id)}-planche`,
   ),
   ...(["pecheur", "fermier", "bucheron", "mineur", "forgeron", "charpentier", "guetteur", "survivant"] as const).flatMap((metier) =>

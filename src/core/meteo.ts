@@ -71,12 +71,16 @@ export const REGLAGES_METEO = {
   /**
    * Ce que la nuit d'orage ajoute a l'effectif, en part.
    *
-   * ⚠️ **C'est la seule entorse consentie a la regle n°2 du §4.17** (« la
-   * difficulte monte par la force, pas par le nombre »), et elle est bornee :
-   * l'effectif d'une nuit monte de moitie, **le plafond technique a l'ecran ne
-   * bouge pas**. Ce plafond a ete ecrit apres que le jeu se soit mis a ramer,
-   * et celui-la ne se negocie pas (Angelos, 22 septembre 2026 : « plus
-   * nombreux et plus forts »).
+   * Demande d'Angelos le 22 septembre 2026 : « plus nombreux et plus forts ».
+   * Elle heurtait alors la regle n°2 du §4.17 (« la difficulte monte par la
+   * force, pas par le nombre »), et la contradiction a ete signalee.
+   *
+   * ⚠️ **Cette regle est tombee le jour meme** : le §4.33 (le jalon 6.2, la
+   * horde) l'annule explicitement. Ce qui reste vrai, et qui n'a rien a voir,
+   * c'est le **plafond d'ennemis a l'ecran** : il tient tant que la horde n'est
+   * pas codee, et c'est lui qui decide si le jeu rame. Ce qui monte ici, c'est
+   * donc le **total qu'une nuit envoie** — sa duree et sa pression —, pas le
+   * nombre de corps simultanes.
    */
   effectifDOrage: 1.5,
   /**

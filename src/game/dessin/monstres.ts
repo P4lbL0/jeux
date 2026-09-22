@@ -3,7 +3,9 @@ import type { Geste, Modele } from "./four";
 import type { Toile } from "./pinceau";
 import {
   CHAIR,
+  EAU,
   MONSTRE,
+  SOUS_BOIS,
   PIERRE,
   SANG,
   TISSU,
@@ -136,6 +138,38 @@ export const BETES: Record<string, Bete> = {
     tete: { rayon: 2.6, museau: 2 },
     dos: "pustules",
     queue: 0,
+    yeux: C.sangFrais,
+  },
+  /**
+   * L'Ecumeur : long, bas, presque pas de pattes. C'est un nageur, et sa queue
+   * le dit — elle fait la moitie de son corps (§4.21, la nuit de crue).
+   */
+  ecumeur: {
+    famille: "monstre-ecumeur",
+    cadre: CADRE_BETE,
+    corps: { longueur: 11, hauteur: 6, matiere: matiere(melanger(MONSTRE.corps, EAU.corps, 0.62)) },
+    pattes: { nombre: 4, longueur: 3.5, epaisseur: 1.4 },
+    tete: { rayon: 3, museau: 4 },
+    dos: "epines",
+    queue: 5,
+    yeux: C.sangFrais,
+  },
+  /**
+   * L'Engloutisseur : large, lourd, six pattes courtes. Il ne court pas, il
+   * traine — et ce qu'il attrape, il le ramene vers l'eau (§4.21).
+   */
+  engloutisseur: {
+    famille: "monstre-engloutisseur",
+    cadre: CADRE_GROSSE_BETE,
+    corps: {
+      longueur: 16,
+      hauteur: 12,
+      matiere: matiere(melanger(melanger(MONSTRE.corps, SOUS_BOIS.corps, 0.55), EAU.sombre, 0.25)),
+    },
+    pattes: { nombre: 6, longueur: 4, epaisseur: 3.2 },
+    tete: { rayon: 4.2, museau: 3 },
+    dos: "pustules",
+    queue: 4,
     yeux: C.sangFrais,
   },
   /** Le familier du Mage : une flamme froide qui flotte. */

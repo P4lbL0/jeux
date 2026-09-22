@@ -73,7 +73,7 @@ import {
   type Capacite,
   type Dome,
 } from "../game/entities";
-import { ARCHETYPE_HUMAIN, choisirArchetype } from "../game/ennemis";
+import { ARCHETYPE_HUMAIN, beteDEau, choisirArchetype } from "../game/ennemis";
 import { POLICE } from "../game/ui/chrome";
 import { Survivants, type SpriteSurvivant } from "../game/survivants";
 import { Caches } from "../game/caches";
@@ -145,6 +145,7 @@ import {
   PRATICABLE,
   pointDApparition,
   repartition,
+  rivesAutour,
   TAILLE_CLASSIQUE,
   terrainEn,
   VILLAGE,
@@ -899,6 +900,12 @@ export class ArenaScene extends Phaser.Scene {
   private crueEnCours = false;
   /** L'instant du prochain rongement des batiments par l'eau */
   private prochainRongement = 0;
+  /**
+   * Les berges d'ou sortent les betes d'eau, cherchees **une fois** a la
+   * tombee de la nuit de crue (§4.21). Vide : il n'y a pas d'eau assez pres,
+   * et rien ne sort — un village loin de l'eau ne craint pas la crue.
+   */
+  private rivesDeLaCrue: Point[] = [];
   private tailleHordeEnRoute = 0;
   /** Le voile de nuit : une seule image noire, dont on module l'opacite */
   private voile!: Phaser.GameObjects.Rectangle;
@@ -7634,6 +7641,15 @@ export class ArenaScene extends Phaser.Scene {
    * mais le premier monstre qui passe l'acheve. C'est la punition voulue : ne
    * pas avoir repare quand on voyait l'eau monter.
    */
+  /**
+   * Ou l'on cherche les berges de la nuit de crue (§4.21).
+   *
+   * Un rayon large — le lac d'un monde tire peut etre loin de l'eglise — et peu
+   * de points : quatre berges suffisent a faire sortir une nuit entiere, et
+   * elles donnent une direction lisible au lieu d'un encerclement.
+   */
+  private static readonly RIVES_DE_LA_CRUE = { rayon: 1400, combien: 4 };
+
   private static readonly CRUE = {
     /** Sous cette part de vie, une maison souffre de l'eau */
     seuil: 0.6,
@@ -7791,6 +7807,23 @@ export class ArenaScene extends Phaser.Scene {
     this.partPremierFront = repartition(this.fronts, this.rng.next());
     this.prochaineApparition = this.time.now;
 
+    // ⚠️ **La nuit de crue, ce qui attaque sort de l'eau** (§4.21) : la mer, le
+    // lac ou la douve la plus proche, et pas les fronts habituels. Les murs
+    // sont du mauvais cote. Les berges se cherchent **ici, une seule fois** —
+    // c'est un tri par distance, et le §4.17 interdit d'en faire un par image.
+    this.rivesDeLaCrue = this.meteo.crue
+      ? rivesAutour({ x: EGLISE.x, y: EGLISE.y }, ArenaScene.RIVES_DE_LA_CRUE.rayon, ArenaScene.RIVES_DE_LA_CRUE.combien)
+      : [];
+    if (this.meteo.crue) {
+      this.events.emit(
+        "annonce",
+        this.rivesDeLaCrue.length > 0
+          ? "Quelque chose remonte de l'eau — les murs ne servent a rien cette nuit"
+          : "L'eau est haute, mais elle est loin : la nuit sera ordinaire",
+        "guet",
+      );
+    }
+
     // ⚠️ **Le navire repart avant la nuit, pas au matin.** Vu en jouant : arrive
     // dans une journee calme, il restait a quai pendant tout l'assaut, et l'on
     // pouvait commercer tranquillement pendant que le village se faisait
@@ -7798,8 +7831,16 @@ export class ArenaScene extends Phaser.Scene {
     // de rester quand ca ne l'est plus (§4.18).
     if (this.port.navireAQuai) this.port.appareiller(this);
 
-    const ou = this.fronts.map((f) => NOMS_FRONT[f]).join(" et ");
-    this.events.emit("annonce", `Nuit ${nuit} — ils arrivent ${ou}`, "guet");
+    // ⚠️ **La nuit de crue n'annonce pas de front**, et c'est un defaut vu sur
+    // capture : le journal disait « ils arrivent a l'est » pendant que les
+    // betes remontaient du lac a l'ouest. Une annonce qui ment sur la direction
+    // est pire que pas d'annonce — le §4.6 veut qu'un assaut se voie venir.
+    if (this.rivesDeLaCrue.length > 0) {
+      this.events.emit("annonce", `Nuit ${nuit} — ils remontent de l'eau`, "guet");
+    } else {
+      const ou = this.fronts.map((f) => NOMS_FRONT[f]).join(" et ");
+      this.events.emit("annonce", `Nuit ${nuit} — ils arrivent ${ou}`, "guet");
+    }
     // Un moment qui compte, et le dernier calme avant longtemps (§4.28).
     this.enregistrer();
   }
@@ -8480,7 +8521,8 @@ export class ArenaScene extends Phaser.Scene {
   private effectifDeLaNuitIci(nuit: number): number {
     // Une nuit d'orage en envoie la moitie en plus (§4.21). Le plafond d'ecran
     // ne bouge pas : c'est l'assaut qui dure plus longtemps, pas la foule qui
-    // grossit — la regle n°2 du §4.17 tient toujours a l'image pres.
+    // grossit. Ce plafond tient jusqu'au jalon 6.2 (§4.33), qui le fera sauter
+    // pour tout le monde — mais pas avant.
     const base = this.meteo.effectif(effectifDeLaNuit(nuit));
     return Math.max(1, Math.round(base * (1 + this.menaces.effectifEnPlus)));
   }
@@ -8574,6 +8616,12 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private faireApparaitreEnnemi(puissance: number): void {
+    // ⚠️ **La nuit de crue passe devant tout le reste** (§4.21) : ce qui sort de
+    // l'eau ne vient pas d'un front, et ce n'est pas un monstre de la table des
+    // vagues. Le reste de la nuit — l'effectif, la puissance, le pillage — ne
+    // change pas d'un point.
+    const parLEau = this.meteo.crue && this.cycle.phase === "nuit" && this.rivesDeLaCrue.length > 0;
+
     // Les ennemis surgissent au bord d'un front ouvert, jamais autour du
     // joueur : la mer et la montagne ne laissent passer personne (§4.6).
     const front: Front =
@@ -8584,8 +8632,12 @@ export class ArenaScene extends Phaser.Scene {
     // L'archetype module la puissance, il ne la remplace pas : les seuils font
     // que les premieres minutes n'envoient que des fonceurs, puis que la
     // variete s'ouvre a mesure que la vague durcit.
-    const archetype = choisirArchetype(puissance, this.rng.next());
-    const point = pointDApparition(front, this.rng.next());
+    const archetype = parLEau
+      ? beteDEau(this.rng.next())
+      : choisirArchetype(puissance, this.rng.next());
+    const point = parLEau
+      ? this.rng.pick(this.rivesDeLaCrue)
+      : pointDApparition(front, this.rng.next());
     const e = new Ennemi(this, point.x, point.y, puissance, archetype);
     // Une part vient piller : la maison debout la plus proche de la ou il
     // surgit, pas de l'eglise — c'est ce qui etale la menace sur le village.

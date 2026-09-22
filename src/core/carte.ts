@@ -25,6 +25,7 @@
  */
 
 import {
+  CASE,
   GRAINE_CLASSIQUE,
   MONDE,
   distanceALEau as distanceALEauDans,
@@ -279,4 +280,57 @@ export function repartition(fronts: Front[], tirage: number): number {
  */
 export function pointDApparition(front: Front, tirage: number): Point {
   return pointDuBord(courant, front, tirage);
+}
+
+// ------------------------------------------------------------------ les rives
+
+/**
+ * Les rives autour d'un point : la terre ferme qui touche l'eau (§4.21).
+ *
+ * C'est de la que sortent les betes d'eau, la nuit de crue. On ne les fait pas
+ * paraitre **dans** l'eau : rien ne nage dans ce jeu, et un monstre pose sur la
+ * mer serait un monstre qui flotte. Il sort donc **sur la berge**, la ou il
+ * pourrait poser une patte.
+ *
+ * ⚠️ **Le tri se fait par distance, une seule fois, a la nuit tombee** — jamais
+ * par image (regle 5 du §4.17). Et la liste peut revenir **vide** : un village
+ * sans lac ni mer a portee ne voit rien sortir, ce qui est la seule reponse
+ * honnete. Un village loin de l'eau ne craint pas la crue.
+ *
+ * @param centre le point autour duquel chercher (le village)
+ * @param rayon la distance maximale, en pixels
+ * @param combien le nombre de rives voulues, au plus
+ */
+export function rivesAutour(
+  centre: Point,
+  rayon: number,
+  combien: number,
+): Point[] {
+  const trouvees: { point: Point; distance: number }[] = [];
+  // Un pas d'une case et demie : assez fin pour trouver la berge d'un lac,
+  // assez grossier pour que la passe ne coute rien.
+  const pas = CASE * 1.5;
+
+  for (let y = centre.y - rayon; y <= centre.y + rayon; y += pas) {
+    for (let x = centre.x - rayon; x <= centre.x + rayon; x += pas) {
+      if (!estPraticable(x, y)) continue;
+      const distance = Math.hypot(x - centre.x, y - centre.y);
+      if (distance > rayon) continue;
+      // Une berge, c'est de la terre qui **touche** l'eau : on regarde ses
+      // quatre voisines a une case.
+      const auBord =
+        estEau(x + CASE, y) || estEau(x - CASE, y) || estEau(x, y + CASE) || estEau(x, y - CASE);
+      if (!auBord) continue;
+      trouvees.push({ point: { x, y }, distance });
+    }
+  }
+
+  trouvees.sort((a, b) => a.distance - b.distance);
+  return trouvees.slice(0, combien).map((t) => t.point);
+}
+
+/** Vrai si ce point est de l'eau — n'importe laquelle, du haut-fond a l'abysse. */
+function estEau(x: number, y: number): boolean {
+  const sol = terrainEn(x, y);
+  return sol === "haut-fond" || sol === "mer" || sol === "abysse";
 }
