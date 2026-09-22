@@ -11,7 +11,11 @@
 > archives et leur récit assemblé qui ne dit que ce qu'on sait) ; et le **bloc 12**, la vie
 > autonome (§4.27 — la journée sans ordre, trois habitants réveillés par image, les bulles
 > dessinées, les six initiatives testées sur événement). **Le village vivant est complet.**
-> La suite n'est plus un bloc mais un jalon : **le ciel** (§4.21).
+> La suite n'est plus un bloc mais un jalon : **le ciel** (§4.21). Sa première moitié est
+> tranchée le 22 septembre 2026 : **la pluie** (tirée à l'aube, une journée sur trois, elle
+> double la pousse et tombe aussi sur la route) et **la crue** (trois journées pluvieuses
+> d'affilée : champs noyés, bâtiments abîmés qui s'écroulent, douves qui débordent, et des
+> bêtes d'eau qui attaquent depuis l'eau la plus proche).
 >
 > Avant ça, le même soir : **les blocs 8 et 9** — les **ordres pour tous** (§4.4) et le
 > **village armé** (§4.18, §4.1 — la cour d'entraînement, le milicien, les **dons** et le
@@ -116,7 +120,7 @@ Détail complet : [§1 Pitch](design/01-pitch.md).
 | **4.11** | [Direction artistique](design/4.11-direction-artistique.md) |
 | **4.12** | [Défaite, corruption et antagoniste](design/4.12-defaite-corruption-et-antagoniste.md) |
 | **4.17** | [Tenir la fluidité](design/4.17-tenir-la-fluidite.md) |
-| **4.21** | [Le ciel : la météo et les catastrophes](design/4.21-le-ciel-la-meteo-et-les-catastrophes.md) |
+| **4.21** | [Le ciel : la météo et les catastrophes](design/4.21-le-ciel-la-meteo-et-les-catastrophes.md) — **la pluie et la crue sont tranchées** (22 sept. 2026) |
 | **4.28** | [**La sauvegarde et le compte**](design/4.28-la-sauvegarde-et-le-compte.md) |
 | **4.29** | [**Le nouveau départ : le monde qu'on traverse, le village qu'on choisit**](design/4.29-le-nouveau-depart.md) |
 | **4.30** | [**La refonte visuelle : dessinée par le code, puis low-poly Blender (18 sept.)**](design/4.30-la-refonte-visuelle.md) |
