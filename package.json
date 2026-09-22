@@ -13,6 +13,7 @@
     "intro": "tsx scripts/blender/intro.ts",
     "son": "tsx scripts/son/intro.ts",
     "bruits": "tsx scripts/son/bruits.ts",
+    "ciel": "tsx scripts/son/ciel.ts",
     "persos": "tsx scripts/blender/persos.ts"
   },
   "dependencies": {

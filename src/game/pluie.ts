@@ -3,6 +3,7 @@ import type { Meteo } from "../core/meteo";
 import type { Phase } from "../core/cycle";
 import type { Rng } from "../core/rng";
 import { CLE_PLUIE_LOIN, CLE_PLUIE_PRES, COTE_TUILE, cuireLesRideaux } from "./dessin/pluie";
+import { jouer, type Voix } from "./son";
 
 /**
  * Ce qu'on voit quand le ciel tombe (DESIGN.md §4.21).
@@ -42,6 +43,27 @@ const ECLAIR_ALPHA = 0.3;
 /** Secondes pour passer du sec a l'averse pleine, et l'inverse. */
 const FONDU = 2.5;
 
+/** Les deux averses livrees (`npm run ciel`), et leur volume d'ambiance. */
+const AMBIANCE = {
+  pluie: { cle: "bruit-pluie", volume: 0.85 },
+  orage: { cle: "bruit-pluie-forte", volume: 1 },
+} as const;
+
+/**
+ * Le tonnerre, et **le temps qu'il met a arriver**.
+ *
+ * La lumiere est instantanee, le son non : un eclair proche claque presque tout
+ * de suite, un eclair a l'horizon gronde deux ou trois secondes plus tard. Le
+ * delai n'est pas un detail d'ambiance — c'est **ce qui donne une distance a
+ * l'orage**, et donc ce qui fait qu'un eclair proche inquiete.
+ */
+const TONNERRE = {
+  /** La part des eclairs qui tombent loin : la plupart, sinon l'orage est sur nous en permanence. */
+  partLoin: 0.62,
+  proche: { cle: "bruit-tonnerre", delaiMin: 200, delaiMax: 900, volume: 0.9 },
+  loin: { cle: "bruit-tonnerre-loin", delaiMin: 1400, delaiMax: 3400, volume: 0.55 },
+} as const;
+
 export class Pluie {
   private readonly loin: Phaser.GameObjects.TileSprite;
   private readonly pres: Phaser.GameObjects.TileSprite;
@@ -57,6 +79,13 @@ export class Pluie {
 
   /** Le zoom de camera pour lequel les rideaux sont regles en ce moment */
   private zoomRegle = 0;
+
+  /** L'averse qu'on entend, et le temps qu'elle represente (null : le silence) */
+  private voix: Voix | null = null;
+  private voixTemps: "pluie" | "orage" | null = null;
+  /** L'instant ou le tonnerre du dernier eclair doit sonner, ou 0 */
+  private tonnerreA = 0;
+  private tonnerreLoin = false;
 
   constructor(private readonly scene: Phaser.Scene) {
     cuireLesRideaux(scene);
@@ -102,6 +131,10 @@ export class Pluie {
     scene.scale.on(Phaser.Scale.Events.RESIZE, this.redimensionner, this);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       scene.scale.off(Phaser.Scale.Events.RESIZE, this.redimensionner, this);
+      // Une averse ne survit pas a sa partie : sans ca, on quitte vers le menu
+      // et il pleut encore.
+      this.voix?.arreter(0.4);
+      this.voix = null;
     });
   }
 
@@ -154,6 +187,49 @@ export class Pluie {
     this.voile.setAlpha(this.force * VOILE_MAX);
 
     this.majorerLEclair(maintenant, meteo, rng);
+    this.majorerLeSon(maintenant, meteo, phase, part, rng);
+  }
+
+  /**
+   * Ce qu'on entend du ciel (§4.21).
+   *
+   * L'averse est **une seule voix en boucle** sur la piste d'ambiance, qui
+   * monte et redescend en fondu — le meme fondu que le rideau, pour que l'oeil
+   * et l'oreille disent la meme chose. Changer de temps, c'est croiser deux
+   * voix, jamais couper l'une avant l'autre.
+   */
+  private majorerLeSon(
+    maintenant: number,
+    meteo: Meteo,
+    phase: Phase,
+    part: number,
+    rng: Rng,
+  ): void {
+    const temps = meteo.ilPleut(phase, part) ? meteo.temps : "sec";
+    const voulu = temps === "sec" ? null : temps;
+
+    if (voulu !== this.voixTemps) {
+      this.voix?.arreter(FONDU);
+      this.voix = null;
+      this.voixTemps = voulu;
+      if (voulu) {
+        const { cle, volume } = AMBIANCE[voulu];
+        this.voix = jouer(this.scene, cle, "ambiance", { boucle: true, volume, fondu: FONDU });
+      }
+    }
+
+    // Le tonnerre du dernier eclair, quand son temps de trajet est ecoule.
+    if (this.tonnerreA > 0 && maintenant >= this.tonnerreA) {
+      this.tonnerreA = 0;
+      const coup = this.tonnerreLoin ? TONNERRE.loin : TONNERRE.proche;
+      jouer(this.scene, coup.cle, "effets", {
+        volume: coup.volume,
+        // Deux coups identiques s'entendent comme un fichier ; un peu de
+        // hauteur en plus ou en moins suffit a les rendre differents.
+        vitesse: 0.9 + rng.next() * 0.22,
+        pan: (rng.next() * 2 - 1) * 0.5,
+      });
+    }
   }
 
   /**
@@ -165,6 +241,8 @@ export class Pluie {
   private majorerLEclair(maintenant: number, meteo: Meteo, rng: Rng): void {
     if (!meteo.orage || this.force <= 0) {
       if (this.eclair.alpha > 0) this.eclair.setAlpha(0);
+      // Un tonnerre en route reste en route : l'orage a beau finir, le coup
+      // parti doit s'entendre. Seule la fin de la scene le coupe.
       // On repousse l'echeance : sans ca, le premier orage venu declencherait
       // un eclair a la premiere image, avant meme que le rideau soit visible.
       this.prochainEclair = 0;
@@ -179,6 +257,11 @@ export class Pluie {
     if (maintenant >= this.prochainEclair && maintenant >= this.finDuFlash) {
       this.finDuFlash = maintenant + ECLAIR_MS;
       this.prochainEclair = maintenant + meteo.delaiProchainEclair(rng);
+      // Le tonnerre part maintenant, mais il arrivera plus tard : c'est le
+      // trajet du son qui donne sa distance a l'eclair.
+      this.tonnerreLoin = rng.chance(TONNERRE.partLoin);
+      const coup = this.tonnerreLoin ? TONNERRE.loin : TONNERRE.proche;
+      this.tonnerreA = maintenant + rng.range(coup.delaiMin, coup.delaiMax);
     }
 
     if (maintenant < this.finDuFlash) {

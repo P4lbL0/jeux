@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Le ciel — ecoute du 22 septembre 2026</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 40px 24px 64px;
+    background: #14120f; color: #d9c9b0;
+    font: 16px/1.6 "Segoe UI", system-ui, sans-serif;
+  }
+  .dedans { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; letter-spacing: 3px; text-transform: uppercase; margin: 0 0 6px; }
+  .intro { color: #9db3c4; margin: 0 0 32px; }
+  .bloc {
+    border: 1px solid #3b332a; background: #1b1814;
+    padding: 18px 20px; margin-bottom: 18px;
+  }
+  .bloc h2 { font-size: 17px; margin: 0 0 4px; color: #d9c9b0; }
+  .quand { margin: 0 0 2px; color: #9db3c4; font-size: 14px; }
+  .juger { margin: 0 0 12px; color: #b9a98f; font-size: 14px; font-style: italic; }
+  audio { width: 100%; }
+  footer { margin-top: 30px; color: #7d8a99; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="dedans">
+  <h1>Le ciel</h1>
+  <p class="intro">Quatre sons fabriques au code (<code>npm run ciel</code>), comme la cloche et le grondement.
+  Rien n'est telecharge, rien n'est sous licence. Dis-moi ce qui va et ce qui ne va pas.</p>
+  <div class="bloc">
+    <h2>L'averse ordinaire</h2>
+    <p class="quand">Une journee sur trois, de l'aube jusqu'au milieu du jour. En boucle, sur la piste « ambiance ».</p>
+    <p class="juger">Laisse-la tourner une minute : c'est une boucle de douze secondes, et le retour ne doit pas s'entendre.</p>
+    <audio controls loop preload="none" src="../../../src/assets/son/bruit-pluie.mp3"></audio>
+  </div>
+  <div class="bloc">
+    <h2>L'averse d'orage</h2>
+    <p class="quand">Une journee sur douze, et elle ne cesse pas avant la fin de la nuit.</p>
+    <p class="juger">Elle doit s'entendre comme la meme pluie en plus fort, pas comme un autre endroit.</p>
+    <audio controls loop preload="none" src="../../../src/assets/son/bruit-pluie-forte.mp3"></audio>
+  </div>
+  <div class="bloc">
+    <h2>Le tonnerre proche</h2>
+    <p class="quand">Environ quatre eclairs sur dix, entre 0,2 et 0,9 s apres le flash.</p>
+    <p class="juger">Il doit claquer avant de rouler. Le jeu le rejoue un peu plus grave ou plus aigu a chaque fois.</p>
+    <audio controls loop preload="none" src="../../../src/assets/son/bruit-tonnerre.mp3"></audio>
+  </div>
+  <div class="bloc">
+    <h2>Le tonnerre lointain</h2>
+    <p class="quand">Les six autres, entre 1,4 et 3,4 s apres le flash — c'est ce retard qui donne la distance.</p>
+    <p class="juger">Aucun claquement : de loin, l'air mange les aigus. Il ne doit que gronder.</p>
+    <audio controls loop preload="none" src="../../../src/assets/son/bruit-tonnerre-loin.mp3"></audio>
+  </div>
+  <footer>Les deux averses tournent en boucle ici, comme dans le jeu. Les volumes du jeu passent
+  ensuite par les curseurs « ambiance » et « effets » du menu de pause.</footer>
+</div>
+</body>
+</html>

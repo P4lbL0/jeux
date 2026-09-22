@@ -1568,6 +1568,62 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6, morceau 3 — le son du ciel (22 septembre 2026)
+
+Quatre sons, **fabriques et non telecharges** (`npm run ciel`,
+`scripts/son/ciel.ts`) : l'averse ordinaire, l'averse d'orage, le tonnerre proche et le
+tonnerre lointain.
+
+#### Pourquoi on les fabrique
+
+Le 19 septembre, la cloche et le grondement avaient deja pris ce chemin faute de CC0
+utilisable. Ici, trois raisons s'ajoutent, et elles sont meilleures :
+
+1. Une pluie **ne se reconnait pas a son grain** — c'est du bruit filtre. Elle se fabrique
+   donc mieux qu'elle ne se cherche.
+2. Un enregistrement de pluie **ne boucle jamais** proprement : il faudrait couper au bon
+   endroit et croiser. Fabriquee, la boucle est parfaite par construction.
+3. Les banques qui ont de belles averses **interdisent aux robots** de telecharger.
+
+#### Trois choses font la difference entre un souffle et une averse
+
+- **Deux bandes, pas une** : un souffle large et sourd sous 900 Hz (la masse d'eau) et une
+  bande de 1,4 a 7 kHz ou l'on entend les gouttes taper. Un seul filtre donne un sifflement
+  de radio. Au-dela de 7 kHz ce n'est plus de la pluie, c'est du souffle de cassette.
+- **Des gouttes comptees** : 150 a 470 impacts courts par seconde, poses au hasard, places a
+  gauche ou a droite. C'est le **grain** qui manque au bruit pur.
+- **Une respiration** : trois periodes sans rapport entre elles (7,3 s, 3,1 s, 1,7 s) font
+  enfler et retomber l'averse. Une pluie d'intensite constante s'entend comme une machine.
+
+Le bruit de gauche et celui de droite sont **independants** : le meme bruit des deux cotes
+se colle au milieu de la tete et sonne comme un casque casse.
+
+#### Le tonnerre arrive apres l'eclair, et c'est ca qui donne la distance
+
+Un coup est fait de deux gestes : un **craquement** (bande haute, 0,35 s) puis un
+**roulement** (bande grave qui monte vite, retombe et traine). De loin, l'air a mange les
+aigus : le tonnerre lointain **n'a pas de craquement du tout**, il ne fait que gronder.
+
+⚠️ **Et le son ne part pas avec le flash.** La lumiere est instantanee, le son non : le jeu
+tire une distance a chaque eclair — 62 % tombent loin — et le tonnerre sonne **0,2 a 0,9 s
+plus tard** s'il est proche, **1,4 a 3,4 s** s'il est lointain. Ce retard n'est pas une
+finition : c'est lui qui fait qu'un eclair proche inquiete, et un lointain non.
+
+#### Ce que le jeu en fait
+
+L'averse est **une seule voix en boucle** sur la piste d'ambiance, qui monte et redescend
+avec le **meme fondu de 2,5 s que le rideau** — l'oeil et l'oreille disent la meme chose.
+Passer de la pluie a l'orage croise deux voix au lieu d'en couper une. Le tonnerre part sur
+la piste des effets, avec une vitesse et une place tirees a chaque coup : deux coups
+identiques s'entendraient comme un fichier.
+
+⚠️ **Je n'ai pas pu les ecouter** — une page d'ecoute est livree pour ca :
+`captures/son/2026-09-22-ciel/ecoute.html`, un bloc par son, avec ce qu'il faut juger. On
+peut mesurer qu'une averse ne sature pas ; pas qu'elle ressemble a de la pluie.
+
+**Verifie dans le navigateur** : 13 controles sur 13 (deux neufs — les quatre sons sont
+charges, et un eclair arme bien son tonnerre avec un delai entre 200 et 3 400 ms).
+
 ### Le jalon 6, morceau 2 — ce qu'on voit du ciel (22 septembre 2026)
 
 Le rendu de la pluie, de l'orage et des eclairs. **Quatre objets, crees une fois**
