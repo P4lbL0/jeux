@@ -52,7 +52,7 @@ coûte cher ou casse quelque chose.
   l'écran-titre est une cinématique Blender avec sa bande-son. La carte se peint par
   morceaux : une partie s'ouvre en une demi-seconde sur une zone de 3 464 × 2 598.
 
-**Les chiffres** : 930 tests verts, `npm run build` propre, ~50 000 lignes de TypeScript.
+**Les chiffres** : 943 tests verts, `npm run build` propre, ~50 000 lignes de TypeScript.
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
 
@@ -68,7 +68,7 @@ coûte cher ou casse quelque chose.
 
 ## 3. Ce qui reste à coder
 
-### A. Le jalon 6 — le ciel (§4.21) : **il ne reste que le météore** (22 septembre 2026)
+### A. Le jalon 6 — le ciel (§4.21) : **FINI** (22 septembre 2026)
 
 ✅ **Ce qui tourne** : la **pluie** (une journée sur trois, tirée à l'aube et à
 l'installation, pousse ×2, elle tombe aussi sur la route), l'**orage** (une journée sur
@@ -86,14 +86,25 @@ l'extinction (**neuf seaux** ; les habitants y vont seuls le jour depuis six cas
 en 5 s, la pluie compte double). Ce qui brûle hors champ se dit par une **ligne de journal**
 et un **repère au bord**. Les trois crochets ont servi sans qu'une ligne du ciel ne bouge.
 
-⚠️ **Ce qui reste du jalon 6** :
+✅ **Les flammes Blender et le son du feu** (le soir) : `feu-flamme-0/1/2` rendues en
+low-poly, trois matières neuves dans la palette, et `bruit-feu` — une boucle de 8 s fabriquée
+au code, une seule voix, montée et coupée selon la distance.
 
-- le **météore** — c'est ce qu'Angelos a demandé ensuite, pour fermer le jalon ;
-- les **flammes de Blender** : celles du jeu sont encore le dessin au code
-  (`src/game/dessin/feu.ts`, clés `feu-flamme-0/1/2`, un PNG de `src/assets/` les remplace) ;
-- le **son du feu** : rien ne crépite encore (`npm run ciel` fabrique les sons du ciel).
+✅ **Le météore** (le soir) : une nuit sur vingt, une traînée puis **une ombre qui grandit
+douze secondes** au sol (elle bat de plus en plus vite et atteint la taille exacte du
+cratère). Tombe dans un anneau de 5 à 16 cases autour de l'église. **Tout ce qui est dans le
+cratère disparaît sauf l'église** — les maisons laissent une ruine à relever, les monstres
+meurent sans donner ni or ni XP. Deux départs de feu autour. Il laisse une **cicatrice
+permanente** (écrite dans la carte cuite, elle ne bloque rien) et **120 de fer du ciel**, un
+gisement qu'on frappe comme un poste de mine. ⚠️ **La carte n'a pas eu à devenir une grille
+modifiable** comme le §4.21 l'annonçait.
+
+**Il ne reste rien du jalon 6.**
 
 ### B. Les jalons suivants, écrits et pas codés
+
+**Le prochain est le jalon 6.2, la horde** — c'est celui qu'Angelos a placé juste après le
+ciel, et le ciel est fini.
 
 - **Jalon 6.2 — la horde** (§4.33, tranché le 22 septembre 2026) : **vingt mille monstres**.
   Une seule silhouette d'orc — la teinte dit qui c'est, la luminosité dit la vie, le rouge
@@ -181,8 +192,9 @@ Ils reserviront, et ils ont tous coûté une session :
 
 - Les deux dernières frames de la mort du golem et de la brute sortent de cinq pixels sous
   leur cadre (les pattes, pas le corps).
-- **Aucun chiffre de l'incendie n'a été joué** (`REGLAGES_INCENDIE`) : les 9 seaux, les 40 s
-  d'une maison, la chance de propagation.
+- **Aucun chiffre de l'incendie ni du météore n'a été joué** (`REGLAGES_INCENDIE`,
+  `REGLAGES_METEORE`) : les 9 seaux, les 40 s d'une maison, la chance de propagation, la nuit
+  sur vingt, les 12 s d'annonce, les 120 de fer du ciel.
 - **La forêt ne brûle pas** : les arbres n'ont pas de vie dans le code (§4.21).
 - **Presque aucun chiffre des blocs 8 à 12 n'a été joué.** Tous dans des tables de réglages.
 - **Un milicien répond à la cloche ? Non**, et c'est volontaire — à juger en jouant.

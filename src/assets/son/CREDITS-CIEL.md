@@ -11,3 +11,5 @@ grondement de l'ecran-titre. Les refaire, c'est relancer la commande.
 | `bruit-tonnerre` | Le coup proche : un craquement puis un roulement |
 | `bruit-tonnerre-loin` | Le coup lointain : rien que le roulement |
 | `bruit-feu` | L'incendie, boucle de 8 s |
+| `bruit-meteore-chute` | Les douze secondes avant l'impact |
+| `bruit-meteore` | L'impact, et les gravats qui retombent |

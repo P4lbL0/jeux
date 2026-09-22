@@ -253,6 +253,98 @@ function craquement(alea: () => number, gros: boolean): Son {
   return passeBas(passeHaut(s, gros ? 320 : 900), gros ? 2400 : 3400);
 }
 
+// ----------------------------------------------------------------- le meteore
+
+/**
+ * Le sifflement d'une pierre qui tombe (§4.21, le meteore).
+ *
+ * **Douze secondes, la duree exacte de l'annonce**, et le son fait tout le
+ * travail du compte a rebours : une bande etroite qui **monte** en hauteur et
+ * en force, sans jamais claquer. On doit pouvoir lever les yeux avant de
+ * comprendre.
+ */
+function sifflementDeChute(secondes: number, graine: number): Son {
+  const alea = hasard(graine);
+  const n = Math.round(secondes * TAUX);
+  const brut: Son = { g: new Float32Array(n), d: new Float32Array(n) };
+  for (let i = 0; i < n; i++) {
+    brut.g[i] = alea() * 2 - 1;
+    brut.d[i] = alea() * 2 - 1;
+  }
+
+  // Un filtre fixe ne sait pas monter : on empile trois bandes et on les
+  // croise dans le temps, ce qui donne une montee continue sans balayage.
+  const basse = passeBas(passeHaut({ g: brut.g.slice(), d: brut.d.slice() }, 300), 900);
+  const moyenne = passeBas(passeHaut({ g: brut.g.slice(), d: brut.d.slice() }, 900), 2200);
+  const haute = passeBas(passeHaut(brut, 2200), 5200);
+
+  const son = silence(secondes);
+  for (let i = 0; i < n; i++) {
+    const t = i / n;
+    // La force monte lentement puis se precipite : c'est la courbe d'un objet
+    // qui approche, et elle dit le temps qui reste mieux qu'une jauge.
+    const force = 0.1 + 0.9 * t * t;
+    const pb = Math.max(0, 1 - t * 1.6);
+    const pm = 1 - Math.abs(t - 0.55) * 1.8;
+    const ph = Math.max(0, (t - 0.35) * 1.5);
+    const v =
+      (basse.g[i]! * pb + moyenne.g[i]! * Math.max(0, pm) + haute.g[i]! * ph) * force;
+    const w =
+      (basse.d[i]! * pb + moyenne.d[i]! * Math.max(0, pm) + haute.d[i]! * ph) * force;
+    son.g[i] = v;
+    son.d[i] = w;
+  }
+  return son;
+}
+
+/**
+ * L'impact.
+ *
+ * Trois gestes empiles : un **claquement** sec, un **coup grave** qui part
+ * juste apres, et une **trainee** de gravats qui retombent. C'est le son le plus
+ * fort du jeu — le seul evenement qui change la carte pour de bon.
+ */
+function impact(graine: number): Son {
+  const alea = hasard(graine);
+  const secondes = 4.5;
+  const n = Math.round(secondes * TAUX);
+  const brut: Son = { g: new Float32Array(n), d: new Float32Array(n) };
+  for (let i = 0; i < n; i++) {
+    brut.g[i] = alea() * 2 - 1;
+    brut.d[i] = alea() * 2 - 1;
+  }
+
+  const son = silence(secondes);
+
+  // Le coup : la bande la plus grave du jeu, montee en deux centiemes de
+  // seconde et longue a mourir.
+  const grave = passeBas({ g: brut.g.slice(), d: brut.d.slice() }, 130);
+  for (let i = 0; i < n; i++) {
+    const t = i / TAUX;
+    const env = Math.min(1, t / 0.02) * Math.exp(-t * 1.5);
+    son.g[i] += grave.g[i]! * env * 1.5;
+    son.d[i] += grave.d[i]! * env * 1.5;
+  }
+
+  // Le claquement : ce qui se casse a l'instant du choc.
+  const clac = passeHaut({ g: brut.g.slice(0, TAUX / 2), d: brut.d.slice(0, TAUX / 2) }, 1200);
+  for (let i = 0; i < clac.g.length; i++) {
+    const env = Math.exp((-i / clac.g.length) * 14);
+    son.g[i] += clac.g[i]! * env * 0.5;
+    son.d[i] += clac.d[i]! * env * 0.5;
+  }
+
+  // Les gravats : des impacts qui retombent pendant deux secondes, de moins en
+  // moins nombreux. C'est ce qui donne sa **taille** au cratere.
+  for (let k = 0; k < 90; k++) {
+    const a = 0.15 + alea() * alea() * 2.4;
+    const gros = alea() < 0.3;
+    poser(son, craquement(alea, gros), a, (gros ? 0.3 : 0.16) * (0.4 + alea()), alea() * 2 - 1);
+  }
+
+  return son;
+}
+
 // ---------------------------------------------------------------------- livrer
 
 mkdirSync(LIVRAISON, { recursive: true });
@@ -297,6 +389,11 @@ const feu = boucler(
 );
 livrer(feu, "bruit-feu");
 
+// Le meteore : le sifflement dure exactement l'annonce du jeu, l'impact est le
+// son le plus fort qu'on entendra (§4.21).
+livrer(aNiveau(sifflementDeChute(12, 88), -8), "bruit-meteore-chute");
+livrer(aNiveau(adoucir(impact(404), -2), 0.4), "bruit-meteore");
+
 // ---------------------------------------------------------- la page d'ecoute
 
 /**
@@ -334,6 +431,18 @@ const MORCEAUX = [
     fichier: "bruit-feu",
     quand: "Des qu'un incendie brule a portee de regard, en boucle sur la piste « ambiance ». Il se coupe en fondu quand le feu s'eteint ou qu'on s'en eloigne.",
     juger: "Il doit s'entendre comme une maison qui brule, pas comme un feu de camp : du grave dessous, des craquements inegaux dessus, et aucun sifflement.",
+  },
+  {
+    nom: "Le meteore qui tombe",
+    fichier: "bruit-meteore-chute",
+    quand: "Les douze secondes entre la trainee dans le ciel et l'impact. Une nuit sur vingt, au plus.",
+    juger: "Il doit monter sans jamais claquer, et te faire lever les yeux avant que tu comprennes. S'il fait peur des la premiere seconde, il est trop fort.",
+  },
+  {
+    nom: "L'impact",
+    fichier: "bruit-meteore",
+    quand: "Au bout des douze secondes. C'est le son le plus fort du jeu.",
+    juger: "Un claquement, un coup grave, puis des gravats qui retombent pendant deux secondes. C'est la trainee de gravats qui donne sa taille au cratere.",
   },
   {
     nom: "Le tonnerre lointain",
@@ -411,6 +520,8 @@ writeFileSync(
     "| `bruit-tonnerre` | Le coup proche : un craquement puis un roulement |",
     "| `bruit-tonnerre-loin` | Le coup lointain : rien que le roulement |",
     "| `bruit-feu` | L'incendie, boucle de 8 s |",
+    "| `bruit-meteore-chute` | Les douze secondes avant l'impact |",
+    "| `bruit-meteore` | L'impact, et les gravats qui retombent |",
     "",
   ].join("\n"),
 );

@@ -3,7 +3,15 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-09-22, l'après-midi — **l'incendie est codé** (§4.21). Ce qui
+> Dernière mise à jour : 2026-09-22, le soir — **LE JALON 6 EST FINI** (§4.21). Le
+> **météore** est codé, et c'était le dernier morceau du ciel : une nuit sur vingt, une
+> traînée puis une ombre qui grandit douze secondes au sol, et tout ce qui est dans le
+> cratère disparaît sauf l'église. Il laisse une **cicatrice permanente** écrite dans la
+> carte et **du fer du ciel** à extraire. ⚠️ La carte n'a **pas** eu à devenir une grille
+> modifiable comme le §4.21 l'annonçait : le cratère est une écriture dans la texture cuite,
+> et il ne bloque rien. La suite est le **jalon 6.2, la horde** (§4.33).
+>
+> Avant ça, l'après-midi — **l'incendie est codé** (§4.21). Ce qui
 > l'allume (les monstres sous 30 % de vie, le Pyromane, le fou du degré 3, la foudre), ce
 > qui l'éteint (les habitants au seau le jour, un héros à tout moment, la pluie qui compte
 > double), ce qu'il mange (une maison en quarante secondes, un champ en huit) et ce qu'il

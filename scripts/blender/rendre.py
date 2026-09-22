@@ -82,6 +82,8 @@ def sprites():
     s["decor-cache-trappe"] = (lambda a: monde.cache_trappe(a), 32, 24, 21)
     s["decor-cache-charrette"] = (lambda a: monde.cache_charrette(a), 40, 28, 25, 20)
     s["decor-stele"] = (lambda a: monde.stele(a), 26, 44, 40)
+    # Le fer du ciel (§4.21) : taille dans `decor.ts` (METEORITE), pied + 1.
+    s["decor-meteorite"] = (lambda a: monde.meteorite(a), 32, 24, 21)
     # Le feu (§4.21) : tailles dans `dessin/feu.ts` (LARGEUR_FLAMME,
     # HAUTEUR_FLAMME). ⚠️ **Sans sol** — une flamme est posee sur un toit, pas
     # par terre : son ombre portee n'aurait aucun sens.

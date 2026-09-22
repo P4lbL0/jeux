@@ -22,6 +22,7 @@ import type { ClassId, EtatHero, Rang } from "./classes";
 import type { Phase } from "./cycle";
 import type { EtatMeteo } from "./meteo";
 import type { EtatIncendie } from "./incendie";
+import type { EtatMeteore } from "./meteore";
 import type { EtatEglise, NiveauEglise } from "./eglise";
 import type { Matiere, TypeConstruction } from "./constructions";
 import type { Fou } from "./arrivants";
@@ -272,6 +273,15 @@ export interface Sauvegarde {
    * exactement ce que la regle ironman interdit (§4.28).
    */
   incendie?: EtatIncendie;
+  /**
+   * Ce que le ciel a laisse (§4.21, le meteore). **Optionnel**, comme le reste
+   * du ciel.
+   *
+   * ⚠️ Les **crateres** sont la seule chose du jeu qui marque la carte pour de
+   * bon : sans ce champ, recharger effacerait l'evenement le plus rare de la
+   * partie. Ce qui etait **en vol**, lui, ne se garde pas — c'est un instant.
+   */
+  meteore?: EtatMeteore;
   stocks: Stocks;
   kills: number;
   /**

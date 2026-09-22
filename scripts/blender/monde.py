@@ -377,6 +377,31 @@ def flamme(a, variante=0):
     return (0, -0.4)
 
 
+def meteorite(a):
+    """La pierre tombee du ciel (§4.21) : une masse fendue, posee dans son cratere.
+
+    Deux choses la separent d'un rocher : ses **faces planes** — elle a brule en
+    tombant, elle n'a pas roule — et les **fentes de braise** qui la traversent.
+    Sans elles, on ramasserait du fer dans un caillou.
+    """
+    a.boule("fer", 0.68, (0, 0, 0.46), graine=88, bosses=0.22, echelle=(1.05, 0.95, 0.9))
+    a.boule("fer", 0.34, (-0.48, 0.1, 0.26), graine=7, bosses=0.22, echelle=(1, 0.95, 0.9))
+    a.boule("fer", 0.3, (0.52, -0.08, 0.3), graine=21, bosses=0.22, echelle=(1, 0.95, 0.9))
+
+    # Les fentes : deux plaques fines posees dans les creux. Deux, jamais trois —
+    # au-dela, la pierre devient une lanterne.
+    # Elles sont **grosses**, et c'est voulu : a trente-deux pixels, une fente
+    # fine disparait au premier arrondi et il ne reste qu'un caillou gris.
+    a.boite("braise", (1.15, 0.5, 0.26), (-0.05, -0.34, 0.5), rot=(0, 0.42, 0.12))
+    a.boite("coeur_du_feu", (0.8, 0.34, 0.17), (0.02, -0.46, 0.54), rot=(0, 0.42, 0.12))
+    a.boite("braise", (0.5, 0.3, 0.2), (0.3, -0.3, 0.86), rot=(0, -0.5, 0.25))
+
+    # ⚠️ **Aucun sol autour.** Le cratere est deja peint dans la carte
+    # (`abimerLeSol`), et un disque de terre sous la pierre ferait un second
+    # cratere, plus petit, pose de travers sur le premier.
+    return (0, -0.7)
+
+
 def tonneau(a):
     """Un tonneau ventru : deux troncs de cone bout a bout, deux cercles de fer."""
     a.cone("bois", 0.29, 0.4, (0, 0, 0), cotes=8, r_haut=0.36)

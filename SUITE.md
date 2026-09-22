@@ -1568,6 +1568,68 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6, morceau 7 — le meteore, et le ciel est fini (22 septembre 2026, le soir)
+
+Le dernier morceau, et le seul qui **change la carte pour de bon**.
+
+#### Ce qui n'a pas eu lieu : la refonte de la carte
+
+Le §4.21 annoncait depuis des semaines que le meteore imposerait de transformer la carte en
+**grille modifiable**. Il n'en a rien ete, et c'est la bonne nouvelle du chantier : le
+cratere est une **ecriture dans la texture cuite** (`abimerLeSol`), la couche posee au bloc 3
+pour les champs pietines et la terre retournee. Elle savait deja peindre un `"cratere"` —
+rebord clair, fond sombre —, personne ne l'avait jamais appelee.
+
+La raison de fond est une decision d'Angelos : **le cratere ne bloque pas le passage**. Un
+trou infranchissable aurait demande la grille ; une cicatrice n'a besoin que de pixels.
+
+#### Le noyau : une horloge, un point, une liste de cicatrices
+
+`core/meteore.ts` (13 tests) tire a la tombee de la nuit, garde le point, fait grandir
+l'annonce et rend le point d'impact **la seule image ou il touche**. Deux details :
+
+- le point est tire **sur l'aire de l'anneau**, pas sur son rayon (`sqrt(min² + u·(max² -
+  min²))`) : sans ca, plus de la moitie des meteores tombent contre le bord interieur. Un
+  test le verifie sur 4 000 tirages ;
+- **un seul a la fois** : tant qu'un meteore est annonce, la nuit suivante ne tire pas.
+
+#### Deux defauts trouves en jouant, pas en relisant
+
+1. **Le script de controle passait `arene.eglise.x`, qui n'existe pas.** Le centre valait
+   donc `NaN`, le point aussi — et comme `NaN > rayon` est **faux**, le test de distance ne
+   filtrait plus rien : le premier essai a rase **tout le village**, murs compris. Le bug
+   etait dans le banc, pas dans le jeu (la scene passe la constante `EGLISE`), mais il dit
+   quelque chose de vrai : une comparaison de distance est une passoire des qu'un `NaN`
+   entre.
+2. **Les departs de feu ne partaient jamais.** La fenetre entre le bord du cratere (2,5
+   cases) et leur portee (4 cases) etait si etroite qu'aucune maison ne s'y trouvait — trois
+   mondes de suite a zero. Portee passee a **six cases**, verifie sur un quartier bati pour
+   l'occasion : 1 a 2 feux par impact.
+
+⚠️ Et un troisieme, de methode : **un village de test a une a trois maisons debout**. Le
+premier controle « le meteore ne detruit rien » etait donc vide de sens — il tombait dans un
+champ. Il a fallu **batir un quartier de douze maisons** dans le script avant de pouvoir
+mesurer quoi que ce soit.
+
+#### Ce qui se voit et ce qui s'entend
+
+L'**ombre** au sol est la seule chose du jeu qui dise « ici, dans douze secondes » : un
+disque sombre, un anneau laiton, et un battement qui s'accelere. Elle grandit jusqu'a la
+taille **exacte** du cratere — ce qu'on voit est ce qui sera detruit.
+
+La **pierre** qui reste est un objet du monde : elle passe donc par Blender
+(`decor-meteorite`). Premiere version rendue : un caillou gris, impossible a distinguer d'un
+rocher. Les fentes de braise ont ete **multipliees par trois en volume** — a trente-deux
+pixels, une fente fine disparait au premier arrondi.
+
+Le son est fabrique au code comme le reste du ciel : douze secondes qui montent (trois bandes
+croisees dans le temps, jamais un balayage de filtre) et un impact en trois gestes.
+
+**943 tests verts** (+13). **Le jalon 6 est fini.**
+
+**A regarder** : `captures/jeu/2026-09-22-meteore/` — `*-ombre` (l'avertissement),
+`quartier-*-apres` (le cratere dans un village, deux maisons en feu a cote).
+
 ### Le jalon 6, morceau 6 — l'incendie (22 septembre 2026, l'apres-midi)
 
 Les regles etaient ecrites depuis le 20 septembre et **trois crochets attendaient** dans le

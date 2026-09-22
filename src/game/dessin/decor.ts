@@ -1,6 +1,7 @@
 import type Phaser from "phaser";
 import { Toile } from "./pinceau";
 import { bruit } from "./bruit";
+import { TERRE } from "./sol";
 import { ECORCE, FEUILLE, PIERRE, ROCHE, melanger, type Matiere,
   ARDOISE,
   BOIS,
@@ -8,6 +9,7 @@ import { ECORCE, FEUILLE, PIERRE, ROCHE, melanger, type Matiere,
   FER,
   LAITON,
   SABLE,
+  SANG,
   TISSU,
   TOILE,
 } from "./palette";
@@ -67,6 +69,9 @@ const CACHE_COFFRE = { largeur: 30, hauteur: 24, pied: 21 };
 const CACHE_TRAPPE = { largeur: 32, hauteur: 24, pied: 20 };
 const CACHE_CHARRETTE = { largeur: 40, hauteur: 28, pied: 24 };
 const STELE = { largeur: 26, hauteur: 44, pied: 39 };
+// Le fer du ciel (§4.21, 22 septembre 2026) : la pierre tombee, qui reste dans
+// son cratere tant qu'on ne l'a pas entierement extraite.
+const METEORITE = { largeur: 32, hauteur: 24, pied: 20 };
 
 /** Les arbres morts, les vivants, les coniferes, les rochers : leurs cles. */
 export const ARBRES_MORTS = [0, 1, 2, 3].map((i) => `decor-arbre-mort-${i}`);
@@ -85,6 +90,8 @@ export const CLE_CACHE_COFFRE = "decor-cache-coffre";
 export const CLE_CACHE_TRAPPE = "decor-cache-trappe";
 export const CLE_CACHE_CHARRETTE = "decor-cache-charrette";
 export const CLE_STELE = "decor-stele";
+/** La pierre tombee du ciel, et le fer qu'on en tire (§4.21). */
+export const CLE_METEORITE = "decor-meteorite";
 
 /** La cle de decor d'un genre de cache, dans l'ordre de `GENRES_DE_CACHE`. */
 export const CLES_DE_CACHE: Record<string, string> = {
@@ -310,6 +317,7 @@ export const DECORS: readonly Decor[] = [
   decor(CLE_CACHE_TRAPPE, CACHE_TRAPPE),
   decor(CLE_CACHE_CHARRETTE, CACHE_CHARRETTE),
   decor(CLE_STELE, STELE),
+  decor(CLE_METEORITE, METEORITE),
 ];
 
 export function decorParCle(cle: string): Decor {
@@ -335,6 +343,7 @@ export function peindreDecor(cle: string): Toile {
   else if (cle === CLE_CACHE_TRAPPE) peindreTrappe(toile);
   else if (cle === CLE_CACHE_CHARRETTE) peindreCharretteEventree(toile);
   else if (cle === CLE_STELE) peindreStele(toile);
+  else if (cle === CLE_METEORITE) peindreMeteorite(toile);
   else peindreSouche(toile);
   toile.contour();
   return toile;
@@ -494,6 +503,29 @@ function peindreStele(t: Toile): void {
   // les eclats au pied
   t.disque(x - 8, pied - 1, 2, PIERRE.sombre);
   t.disque(x + 8, pied - 1, 1.5, PIERRE.sombre);
+}
+
+/**
+ * La pierre tombee du ciel : une masse sombre, fendue de braise.
+ *
+ * Le secours au code, en attendant la planche Blender. Sa silhouette doit se
+ * lire **dans un cratere**, c'est-a-dire sur un sol deja sombre : d'ou les
+ * fentes claires, qui sont la seule chose qui la detache du fond.
+ */
+function peindreMeteorite(t: Toile): void {
+  const cx = METEORITE.largeur / 2;
+  const pied = METEORITE.pied;
+  // Le corps : trois disques ecrases, du plus gros au plus petit.
+  t.disque(cx, pied - 7, 7, FER.sombre);
+  t.disque(cx - 6, pied - 4, 5, FER.sombre);
+  t.disque(cx + 6, pied - 5, 4.5, FER.corps);
+  t.rect(cx - 10, pied - 4, 20, 4, FER.sombre);
+  // Les fentes : deux traits de braise, jamais plus. Trois en feraient une
+  // lanterne.
+  t.segment(cx - 4, pied - 10, cx + 3, pied - 3, 1.6, SANG.corps);
+  t.segment(cx + 2, pied - 10, cx + 5, pied - 7, 1.4, LAITON.corps);
+  // Le pied : la terre retournee autour.
+  t.rect(cx - 12, pied - 1, 24, 2, TERRE.sombre);
 }
 
 /**
