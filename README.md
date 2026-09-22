@@ -498,6 +498,7 @@ npx tsx scripts/verifier-chemins.ts         # les chemins qui s'usent : pas comp
 npx tsx scripts/capturer-titre.ts apres # l'ecran-titre : film, meteorite, menu, emplacements
 npx tsx scripts/capturer-horde.ts       # une nuit a 800 orcs, vue du joueur et vue du village (§4.33)
 npx tsx scripts/banc-horde.ts 4242 --paliers=1600,2000,3000 [--temoin]  # ou passent les 16 ms, poste par poste, sur la vraie carte graphique
+npx tsx scripts/banc-rendu.ts 4242      # le prix du dessin seul : Sprites Phaser contre une passe instanciee (§4.33 §7)
 npm run intro                          # refait le film d'ouverture (Blender + ffmpeg)
 npm run son                            # refait la bande-son, boucle les musiques, fichiers d'ecoute
 npm run son -- --chercher              # ... en cherchant les raccords des musiques sur tout le morceau

@@ -145,10 +145,11 @@ payés, et chacun a faussé au moins une passe.
 
 Dans l'ordre :
 
-1. **La mesure du rendu en deux branches** (§4.33 §7) : 20 000 `Phaser.GameObjects.Sprite`
-   immobiles, une texture, aucune teinte — contre 20 000 quads par une pipeline WebGL
-   instanciée minimale lisant des `Float32Array`. Les deux chiffres **et** le coût JS par
-   sprite, trois passes sur la vraie carte.
+1. ✅ **La mesure du rendu en deux branches** (§4.33 §7) : faite. Un Sprite Phaser coûte
+   1,2 µs par image (20 000 → 28 images/s rien que pour dessiner), un quad instancié moins
+   de 0,03 µs (20 000 → 53-60 images/s). **Le rendu maison est nécessaire**, et son
+   prototype existe (`scripts/banc-rendu-page.js`). Angelos a ajouté en voyant les captures :
+   **les 20 000 viennent petit à petit** — un flot, jamais un tapis posé d'un coup.
 2. **Le palier 1** : une grille spatiale dans `core/` (pure, testée) pour les contacts, les
    dégâts, « le héros le plus proche » et « combien d'ennemis autour », plus un **niveau de
    détail temporel** (un monstre loin du héros ou hors caméra se décide une image sur

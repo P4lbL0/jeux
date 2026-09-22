@@ -1568,6 +1568,41 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6.2, la mesure du rendu — les Sprites tombent, la passe instanciée tient (22 septembre 2026, tard)
+
+La mesure que le §4.33 §7 exigeait avant de décider du rendu maison, en deux branches et
+rien que le dessin : **(a)** des `Sprite` Phaser immobiles, une texture, aucune teinte ;
+**(b)** des quads dessinés en **une seule passe WebGL instanciée** qui lit un
+`Float32Array`. Trois mondes, vraie carte, deux dispositions (dans le champ de la caméra,
+étalés sur la carte).
+
+| | 5 000 | 10 000 | 20 000 | 50 000 |
+|---|---|---|---|---|
+| (a) Sprites | 60 i/s | 51-55 | **28-30** | — |
+| (b) passe instanciée, dans le champ | 57-58 | 55-57 | **53-54** | 48-49 |
+| (b) passe instanciée, étalés | 58-60 | 59-60 | **59-60** | **60** |
+
+- **Un Sprite coûte 1,0 à 1,27 µs de processeur par image**, du premier au vingt-millième :
+  vingt mille, c'est **25 à 27 ms rien que pour dessiner**, plus qu'une image entière. Le
+  tri de profondeur en prend 4,4 à 5,2, relancé à chaque image par les héros qui bougent.
+- **Un quad instancié coûte moins de 0,03 µs** — dans le bruit. Seule la carte graphique
+  freine, quand vingt mille quads se superposent à l'écran.
+
+**Verdict : (a) tombe, (b) passe.** Le détail et ce que coûte le rendu maison sont au §4.33
+§7. Le prototype de la passe (`Extern`, `ANGLE_instanced_arrays`, Phaser ouvrant du WebGL 1)
+est dans `scripts/banc-rendu-page.js`, que `scripts/banc-rendu.ts` injecte tel quel — un
+fichier à part parce que les shaders ont leurs guillemets et que tsx casse les fonctions
+nommées dans la page.
+
+⚠️ **Deux captures de contrôle** (`captures/jeu/2026-09-22-rendu-20000/`) : sans elles, on
+aurait pu mesurer un dessin invisible. Elles montrent aussi, en vrai, **le piège des bandes
+horizontales** : dessinée d'un seul bloc, la nuée recouvre les maisons, l'église et les
+murs ; les Sprites, eux, passent derrière et devant.
+
+**Décision d'Angelos en regardant les captures** : « pour les 20 000, il faut les faire venir
+petit à petit, c'est tout ». Une horde est un flot qui monte, pas un tapis posé d'un coup —
+les captures du soir remplissaient l'écran en une image, ce n'est pas le jeu. Écrit au §4.33.
+
 ### Le jalon 6.2, palier 0 — la falaise devient une pente (22 septembre 2026, le soir)
 
 Le premier morceau de la horde (§4.33), et il ne ressemble pas à ce que la section annonçait.
@@ -1683,8 +1718,8 @@ au banc, pas en test. `npm run build` propre.
 
 #### Ce qui reste du jalon 6.2
 
-- **la mesure du rendu en deux branches** (§4.33 §7) : 20 000 `Sprite` Phaser contre 20 000
-  quads instanciés, trois passes, coût JS par sprite ;
+- ✅ **la mesure du rendu en deux branches** (§4.33 §7) : faite le soir même, voir la
+  section au-dessus ;
 - **le palier 1** : la grille spatiale dans `core/` et le niveau de détail temporel ;
 - ⚠️ **le palier 2 attend qu'Angelos ait vu ces captures.**
 
