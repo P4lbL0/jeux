@@ -1,4 +1,4 @@
-# Prompt de reprise — ce qui reste à coder (21 septembre 2026, tard)
+# Prompt de reprise — ce qui reste à coder (22 septembre 2026, tard)
 
 > Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
 >
@@ -52,7 +52,7 @@ coûte cher ou casse quelque chose.
   l'écran-titre est une cinématique Blender avec sa bande-son. La carte se peint par
   morceaux : une partie s'ouvre en une demi-seconde sur une zone de 3 464 × 2 598.
 
-**Les chiffres** : 943 tests verts, `npm run build` propre, ~50 000 lignes de TypeScript.
+**Les chiffres** : 944 tests verts, `npm run build` propre, ~50 000 lignes de TypeScript.
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
 
@@ -99,6 +99,14 @@ permanente** (écrite dans la carte cuite, elle ne bloque rien) et **120 de fer 
 gisement qu'on frappe comme un poste de mine. ⚠️ **La carte n'a pas eu à devenir une grille
 modifiable** comme le §4.21 l'annonçait.
 
+✅ **L'incendie se voit** (le soir du 22, après une phrase d'Angelos : « c'est juste une
+petite flamme sur un bâtiment ») : un **panache de fumée** de 150 px, rendu en Blender et
+calculé entièrement du temps ; **cinq flammes** réparties sur l'emprise, chacune sur sa
+phase, dont le nombre suit l'ardeur ; le bâtiment qui **noircit** ; des **braises** ; et la
+lueur **éteinte de jour**. Le cœur de la flamme, enfermé dans le maillage du corps depuis la
+veille, est enfin visible. La chaîne Blender accepte maintenant un drapeau **`contour`**, et
+la fumée est la seule à le refuser.
+
 **Il ne reste rien du jalon 6.**
 
 ### B. Les jalons suivants, écrits et pas codés
@@ -128,14 +136,20 @@ ciel, et le ciel est fini.
 
 ## 4. Par quoi je te demande de commencer
 
-**Jouer**, probablement. Trois blocs viennent d'atterrir le même soir et **presque aucun de
-leurs chiffres n'a été joué** — le coût de la cour, la durée d'un chantier, la fatigue d'un
-héros au travail, le prix du rituel, mais aussi les nouveaux : ce qu'une nuit ensemble
-rapporte en relation, le seuil de rivalité, la fréquence des initiatives, le rayon de
-flânerie. Ils sont tous dans des tables de réglages, faits pour être corrigés une manette en
-main. **Demande-moi si je veux jouer d'abord.**
+**Le jalon 6.2, la horde — palier 1** (la grille spatiale dans `core/`). Tranché par Angelos
+le 22 septembre au soir : c'est le prochain chantier, et le ciel est fini.
 
-Sinon : **le jalon 6, le ciel**.
+Commence par une **passe de profilage** : le §4.33 la demande explicitement, et sans elle on
+ne sait pas où passent vraiment les seize millisecondes. Puis la grille, qui remplace les dix
+passes de collision Arcade (elles sont aux lignes 1563 à 4775 d'`ArenaScene.ts`).
+
+⚠️ **Le plafond d'écran reste à 60 pendant les paliers 1 et 2** — décision d'Angelos, même
+jour. Ces deux paliers ne changent que la fluidité ; le jeu ne change qu'au palier 3, d'un
+coup, et il juge la lisibilité sur image à ce moment-là. Montre-lui un banc qui pousse à
+1 000 pour prouver que ça tient, pas un jeu plus dur.
+
+**Ce qu'il n'a pas voulu faire d'abord** : jouer pour régler les chiffres. Ils attendent —
+voir §7.
 
 Découpe en morceaux courts que je valide un par un, et **montre-moi des captures**.
 
@@ -196,6 +210,10 @@ Ils reserviront, et ils ont tous coûté une session :
   `REGLAGES_METEORE`) : les 9 seaux, les 40 s d'une maison, la chance de propagation, la nuit
   sur vingt, les 12 s d'annonce, les 120 de fer du ciel.
 - **La forêt ne brûle pas** : les arbres n'ont pas de vie dans le code (§4.21).
+- **Le noircissement d'une maison ne se sauvegarde pas** (`Maison.brulee`, §4.21) : une
+  maison qu'on a sauvée du feu revient propre après un rechargement. Celle qui brûle
+  **encore** se renoircit en une seconde, puisque le feu, lui, est enregistré. Un champ de
+  plus dans `EtatMaisonSauve` suffirait.
 - **Presque aucun chiffre des blocs 8 à 12 n'a été joué.** Tous dans des tables de réglages.
 - **Un milicien répond à la cloche ? Non**, et c'est volontaire — à juger en jouant.
 - **La garnison n'existe pas** (§4.15) : au-delà de dix héros dehors, un onzième don ne
@@ -216,7 +234,7 @@ Ils reserviront, et ils ont tous coûté une session :
 ```bash
 npm install
 npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (859)
+npx vitest run   # les tests (944)
 npm run build    # vérifie les types et construit
 
 npx tsx scripts/capturer.ts apres          # les captures du jeu, par Playwright
