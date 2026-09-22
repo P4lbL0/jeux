@@ -3,7 +3,15 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-09-21, tard — **LE JALON 5 EST FINI.** Ses trois derniers
+> Dernière mise à jour : 2026-09-22 — **un jalon neuf, le 6.2 : la horde** (§4.33). On vise
+> **vingt mille monstres** à l'écran, et la **règle n°2 du §4.17 tombe** : elle n'était pas
+> un choix de design, c'était la facture d'une architecture. Une seule silhouette d'orc —
+> la teinte dit qui c'est, la luminosité dit la vie, le rouge dit le coup encaissé, la
+> taille dit le rang — et seuls les gros télégraphent leur attaque. Il passe **après le
+> ciel et avant les builds**, parce que tout ce qui suit tape sur des monstres. Au passage,
+> un chiffre corrigé : le plafond d'ennemis est **60** dans le code, pas 240.
+>
+> Avant ça : 2026-09-21, tard — **LE JALON 5 EST FINI.** Ses trois derniers
 > blocs sont tombés le même soir : le **bloc 10**, le confort (§4.10, §4.11 — la pause Échap
 > et son menu, les 36 touches remappables qui s'échangent au lieu de se disputer, une ligne
 > d'aide qui lit le mappage) ; le **bloc 11**, la mémoire du village (§4.26 — les relations
@@ -126,6 +134,7 @@ Détail complet : [§1 Pitch](design/01-pitch.md).
 | **4.30** | [**La refonte visuelle : dessinée par le code, puis low-poly Blender (18 sept.)**](design/4.30-la-refonte-visuelle.md) |
 | **4.31** | [**Les trouvailles de la route : ce qu'on gagne à ne pas aller tout droit**](design/4.31-les-trouvailles-de-la-route.md) |
 | **4.32** | [**Les portails et le donjon : ce qui s'ouvre sans prévenir**](design/4.32-les-portails-et-le-donjon.md) |
+| **4.33** | [**La horde : vingt mille**](design/4.33-la-horde.md) |
 
 ### Le plan
 

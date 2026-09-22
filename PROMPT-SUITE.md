@@ -82,6 +82,16 @@ modifiée à jamais.
 
 ### B. Les jalons suivants, écrits et pas codés
 
+- **Jalon 6.2 — la horde** (§4.33, tranché le 22 septembre 2026) : **vingt mille monstres**.
+  Une seule silhouette d'orc — la teinte dit qui c'est, la luminosité dit la vie, le rouge
+  dit le coup encaissé, la taille dit le rang ; seuls les gros télégraphent. Quatre paliers :
+  grille spatiale à la place des dix passes de collision Arcade, fin du tri de profondeur
+  par image, piétaille en tableaux typés dessinée en une passe, puis fil d'exécution séparé
+  si besoin. ⚠️ **Il passe avant le 6.5 et le 6.7** : les builds sont des zones et des
+  chaînes qui frappent la horde, le 6.7 des états par monstre — les coder d'abord voudrait
+  dire les coder deux fois. ⚠️ **Les paliers 1 et 2 ne touchent à rien du jeu** et peuvent
+  partir à n'importe quel moment, y compris avant le ciel. **La règle n°2 du §4.17 est
+  annulée par cette section.**
 - **Jalon 6.5** — les builds (§4.25) : tags, 36 compétences neuves, 26 fusions, synergies.
   **C'est le plus gros volume de contenu du projet.**
 - **Jalon 6.7** — le moral devient une arme (§4.23, §4.13, §4.10).

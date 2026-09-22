@@ -80,6 +80,22 @@ Shift At Midnight pour les gens qui arrive a la porte pouvoir avoir une carte d'
 
 ---
 
+## Dépouillé le 22 septembre 2026 — la horde et les défenses
+
+| La note | Où elle vit maintenant |
+|---|---|
+| « Ça serait quoi la solution pour pouvoir rajouter beaucoup plus de monstres ? » | **§4.33** en entier, section neuve — et le **jalon 6.2** au §5. La règle n°2 du §4.17 est **annulée** au passage |
+| Un système d'amélioration des défenses de la ville | **Jalon 7** au §5, en attente de sa section de design. ⚠️ Pas encore écrit : la forme exacte (niveaux linéaires ou arbre à embranchements, et sur quoi — tours, portes, engins) reste à trancher |
+
+### Le texte d'origine, tel quel
+
+ca serais quoi la solution pour pouvoir rajouter bcp plus de monstre ? comme pour le jeux sir we hava a orc probleme ou y a literallement 200 000 entiter qui attaque en mm temps ect ?
+et aussi garde en memoire que les defense de la ville je veux un systeme d'amelioration comme ce jeux sir we have a orc probleme
+
+je pense que ce qu'on vas fiare c avoir 20 000 en faisant tres simple les monstre devienne rouge quand il se font taper comme ca les attaque de zone sont plus visible ensuite on part sur des orc vert qui devienne de plus en plus foncer quand ils ont aps de vie ca donc s une sort de mechant ensuite y a des mechant plsu gros qui sorte du lot et c eux les bosses qui cries et qui efraie tt le monde ensuite y en a des enorme ect mnt c avec la taille qu'on sait si c un boss ou pas donc on a juste besoin de les faire marcher legerement et de tte facon y en aura jamais autant
+
+---
+
 ## Nouvelles notes (pas encore dépouillées)
 
 <!-- écris en dessous -->

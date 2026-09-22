@@ -18,15 +18,42 @@ incertain d'abord. À chaque jalon, le jeu doit être **jouable** — moche, mai
 | **5.5** ✅ | **Le nouveau départ** (§4.29), **fini la nuit du 20 septembre 2026** : un seul héros, le monde tiré, l'écran-titre animé (§4.10), **la marche**, **le refus qui se paie**, **le village déjà peuplé**, **le budget cadeaux/menaces**, **la presqu'île à un front** — puis, dans la nuit : **la carte se peint par morceaux** (le gel de 2,5 s disparaît, une partie s'ouvre en une demi-seconde), **la zone jouable passe à ×3** (et le tirage du monde, qui se disait pur, l'est enfin), et **l'errance continue** (refuser fait traverser un, trois, puis sept mondes muets) | Tomber dans un monde qui existait avant nous change-t-il le jeu ? |
 | **5.6** ✅ | **Les trouvailles de la route** (§4.31), **finies le 21 septembre 2026** : les caches dans les ruines, le survivant à ramener, la stèle qui donne un trait — et les camps de bêtes qui gardent les grosses. Naît du 5.5 : depuis que refuser fait traverser sept mondes vides, il faut une raison de ne pas aller tout droit | Explorer vaut-il le détour, ou l'errance est-elle un couloir ? |
 | **6** | Le ciel : pluie, orages, incendies, météores, carte modifiable (§4.21) | Le monde a une humeur |
+| **6.2** | **La horde** (§4.33) : **vingt mille monstres**. Une seule silhouette d'orc — la teinte dit qui c'est, la luminosité dit la vie, le rouge dit le coup encaissé, la taille dit le rang. Une grille spatiale à la place des dix passes de collision, la fin du tri de profondeur par image, la piétaille en tableaux typés dessinée en une passe. Les boss restent des objets et gardent tout | Une marée est-elle encore le même jeu qu'une escouade ? |
 | **6.5** | **Les builds** (§4.25) : tags, 36 compétences neuves, 26 fusions, synergies, compétences de village et de formation | Deux parties de la même classe sont-elles enfin différentes ? |
 | **6.7** | **Le moral devient une arme** (§4.23, §4.13, §4.10) : les monstres qui **hurlent**, le **Cri** du Chevalier Sacré qui répond, l'**étourdissement** et ses quatre garde-fous, trois traits de naissance de plus (Malchanceux, Alcoolique, Blasphémateur) — et la **lecture** : traits en laiton/sang séché avec leur histoire au survol, dégâts cumulés par compétence | La jauge de stress est-elle enfin quelque chose qu'on joue, et non qu'on regarde ? |
-| **7** | Défenses à placer, de la baliste au canon laser (§4.7) | La tower-defense existe |
+| **7** | Défenses à placer, de la baliste au canon laser (§4.7) — et **des défenses qui montent de niveau** (demande d'Angelos, 22 septembre 2026, pas encore écrite en design) : des paliers payés entre deux nuits qui changent ce que la défense **fait** (cadence, portée, effet), à ne pas confondre avec le passage bois → fer → pierre du §4.20, qui existe déjà et ne touche que les points de vie | La tower-defense existe |
 | **8** | Restauration du village, améliorations cumulables, montée en puissance infinie — et **la banque, les pillards et les bandes armées** (§4.18) | La partie longue existe |
 | **9** | Recrutement, rangs F→SRR++, classes rares dont le **Voidwalker** et le **Bastion** (§4.1), effectif de 10 et garnison (§4.15) | La collection existe |
 | **10** | Prologue, choix de classe, dialogues, narration | Le jeu a un début |
 | **11** | Défaite, corruption, retour du héros en antagoniste | Le jeu a une **suite** |
 | **12** | Leaderboard en ligne | Le score compte pour de vrai |
 | **13** | **Les portails et le donjon** (§4.32) : un portail très rare qui s'ouvre sans prévenir, un labyrinthe tiré au sort, des ennemis, des caches, des stèles de compétence — et, pendant qu'on y est, **un village qui reste seul** | Quitter son village pour du butin est-il une vraie décision ? |
+
+> **Le jalon 6.2 naît le 22 septembre 2026, et il passe APRÈS le ciel mais AVANT les
+> builds.** C'est la même règle de dépendance qui a mis l'église en tête du jalon 5 et le
+> 7z avant le 7a : **le plus coûteux à refaire d'abord.**
+>
+> **Pourquoi pas avant le ciel** : le ciel est déjà tranché et à moitié écrit (§4.21, la
+> pluie et la crue), c'est le chantier en cours et on ne le coupe pas en deux. Et la pluie,
+> les orages et les incendies sont du côté du **monde**, pas du côté des monstres : ils ne
+> touchent presque pas au groupe des ennemis. Le seul recouvrement — l'attaque qui vient de
+> l'eau, à la crue — est une règle d'apparition, portable en cinq minutes.
+>
+> **Pourquoi avant le 6.5 et le 6.7, et pas après** : tout ce qui suit tape sur des
+> monstres. Le 6.5, ce sont **36 compétences neuves et 26 fusions**, c'est-à-dire des zones
+> et des chaînes qui frappent la horde — les coder contre le groupe Phaser puis les porter
+> sur la nuée, c'est les coder deux fois, et la règle n°4 du §4.17 (aucune minuterie par
+> coup encaissé) vient précisément de là. Le 6.7, ce sont **les monstres qui hurlent** et
+> **l'étourdissement**, donc des états par monstre. Et le jalon 7 — les défenses autonomes,
+> de la baliste au canon laser — est une tower-defense : une baliste qui fauche soixante
+> monstres et une baliste qui fauche une marée ne sont pas le même jeu, et son ciblage
+> passera par la grille spatiale du palier 1.
+>
+> ⚠️ **Et il a sa sortie de secours, écrite d'avance comme le §5 l'exige partout.** Les
+> **paliers 1 et 2** (la grille spatiale, la fin du tri de profondeur par image) ne touchent
+> à **rien** du jeu : ce sont de purs gains de fluidité, jugeables seuls, et ils rendent
+> déjà la partie d'aujourd'hui plus douce. Ils peuvent partir à n'importe quel moment,
+> y compris avant le ciel. Si le palier 3 dérape, c'est eux qu'on livre, et on le dit.
 
 > **Le jalon 5.6 et le jalon 13 naissent la nuit du 20 septembre 2026**, à quelques minutes
 > d'écart, tous deux d'une demande d'Angelos faite en regardant l'errance tourner.
