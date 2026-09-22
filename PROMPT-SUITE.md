@@ -150,16 +150,20 @@ Dans l'ordre :
    de 0,03 µs (20 000 → 53-60 images/s). **Le rendu maison est nécessaire**, et son
    prototype existe (`scripts/banc-rendu-page.js`). Angelos a ajouté en voyant les captures :
    **les 20 000 viennent petit à petit** — un flot, jamais un tapis posé d'un coup.
-2. **Le palier 1** : une grille spatiale dans `core/` (pure, testée) pour les contacts, les
-   dégâts, « le héros le plus proche » et « combien d'ennemis autour », plus un **niveau de
-   détail temporel** (un monstre loin du héros ou hors caméra se décide une image sur
-   quatre). Mesure avant/après avec `scripts/banc-horde.ts`, sur le même monde.
+2. ✅ **Le palier 1** : fait. `core/voisinage.ts` (la grille), les onze passes d'Arcade qui
+   touchaient la horde remplacées sans changer la physique, l'arbre dynamique coupé, et le
+   niveau de détail temporel. **La horde qui arrive tient 60 images/s jusqu'à 2 500
+   monstres** (contre ~1 600). Vérifié dans trois parties : rien n'a changé dans le jeu.
+   ⚠️ Un bug trouvé en passant et **laissé tel quel** : trois frappes en ligne touchent toute
+   la droite au lieu du segment (voir « Dettes » de `SUITE.md`) — à faire trancher.
 3. ⚠️ **Le palier 2 ne commence pas avant qu'Angelos ait vu les captures à 800**
    (`captures/jeu/2026-09-22-horde-800/`). Le chiffre qui compte n'est pas celui qui tient à
    60 images par seconde, c'est celui qui reste lisible.
 
 Toute mesure se fait **sur la vraie carte graphique**, sans fenêtre
-(`--use-angle=d3d11`), et **sur le même monde** que son témoin.
+(`--use-angle=d3d11`), et **sur le même monde et le même village** que son témoin : le
+village a sa propre graine, tirée au hasard si on ne la donne pas. Le témoin d'un palier
+s'obtient en remettant l'ancien code (`git stash push -- src/`).
 
 **Ce qu'il n'a pas voulu faire d'abord** : jouer pour régler les chiffres. Ils attendent —
 voir §7.

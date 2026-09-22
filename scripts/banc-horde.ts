@@ -83,6 +83,13 @@ const navigateur = await chromium.launch({
  * tirage du monde ne s'en mele.
  */
 const temoin = process.argv.includes("--temoin");
+/**
+ * `--etales` : les monstres naissent aux fronts et marchent vers le village, au
+ * lieu d'etre poses au contact du heros. C'est le cas reel — la horde vient
+ * petit a petit (§4.33) — et c'est le seul ou le niveau de detail temporel du
+ * palier 1 peut servir : au contact, tout le monde est proche et a l'ecran.
+ */
+const etales = process.argv.includes("--etales");
 const page = await navigateur.newPage({ viewport: { width: 1280, height: 800 } });
 
 const erreurs: string[] = [];
@@ -119,7 +126,10 @@ try {
         classe: "guerrier",
         emplacement: 1,
         sansLaMarche: true,
-        ...(g ? { graineMonde: g } : {}),
+        // ⚠️ **Le village a sa propre graine, tiree au hasard a chaque partie**
+        // si on ne la donne pas : meme monde, autre village — 45 murs une
+        // fois, 90 la suivante. Comparer « sur le meme monde » exige les deux.
+        ...(g ? { graineMonde: g, graineVillage: g } : {}),
       });
       return 0;
     },
@@ -151,6 +161,7 @@ try {
   // ------------------------------------------------- le banc, et ses garde-fous
   await page.evaluate(`
     const TEMOIN = ${temoin};
+    const ETALES = ${etales};
     const arene = window.__jeu.scene.getScene("arena");
     // La fiche d'arrivant met la partie en pause : on repousse l'arrivee.
     arene.prochaineArriveeJournee = 9999;
@@ -196,6 +207,7 @@ try {
         const cx = arene.hero.x;
         const cy = arene.hero.y;
         let i = 0;
+        if (ETALES) { this.immortaliser(); return arene.ennemis.getLength(); }
         for (const o of arene.ennemis.getChildren()) {
           const angle = (i * 2.399963229728653) % (Math.PI * 2);
           const rayon = 48 + Math.sqrt(i / Math.max(1, cible)) * 420;
@@ -287,6 +299,31 @@ try {
     poser(arene.children, "depthSort", "RENDU.depthSort");
     poser(jeu.renderer, "render", "RENDU.render");
 
+    // Chaque passe de collision a son propre compteur : le total des dix ne dit
+    // pas laquelle coute. Le nom vient du groupe, retrouve par reference.
+    const nomsDeGroupes = new Map([
+      [arene.ennemis, "ennemis"], [arene.equipe, "equipe"], [arene.projectiles, "projectiles"],
+      [arene.projectilesEnnemis, "crachats"], [arene.invocations, "invocations"],
+      [arene.village.groupe, "village"], [arene.champs.groupe, "champs"],
+      [arene.constructions.groupe, "constructions"], [arene.maisons.groupe, "maisons"],
+      [arene.eglise.sprite, "eglise"], [arene.survivants.groupe, "survivants"],
+      [arene.obstaclesDEau, "eau"], [arene.obstaclesDeRoche, "roche"],
+    ]);
+    const nomDe = (o) => nomsDeGroupes.get(o) || (o && o.constructor ? o.constructor.name : "?");
+    for (const collider of arene.physics.world.colliders.getActive()) {
+      const cle = "PASSE " + nomDe(collider.object1) + " x " + nomDe(collider.object2) +
+        (collider.overlapOnly ? " (contact)" : " (butee)");
+      if (cumul[cle] !== undefined) continue;
+      poser(collider, "update", cle);
+    }
+    poser(arene.physics.world.tree, "load", "PHYSIQUE.arbre-dynamique");
+    window.__tailles = {
+      eau: arene.obstaclesDEau.getLength(),
+      roche: arene.obstaclesDeRoche.getLength(),
+      maisons: arene.maisons.groupe.getLength(),
+      constructions: arene.constructions.groupe.getLength(),
+    };
+
     // ⚠️ **Les etages de la scene sont branches par evenement, et l'emetteur
     // garde la fonction**, pas la propriete : remplacer world.update ou
     // updateList.update apres coup ne mesure rien. On va donc changer la
@@ -344,6 +381,7 @@ try {
     void 0;
   `);
 
+  console.log(`groupes statiques : ${JSON.stringify(await page.evaluate("window.__tailles"))}${etales ? "   (etales)" : "   (au contact)"}`);
   const manquantes = await page.evaluate(
     "window.__manquantes",
   ) as string[];
@@ -359,7 +397,9 @@ try {
   const releves: Releve[] = [];
   for (const cible of PALIERS) {
     const poses = await page.evaluate(`window.__banc.remplir(${cible})`) as number;
-    await page.waitForTimeout(1200); // le temps que la meute se mette en route
+    // Etales, ils partent des fronts : on les laisse s'etirer sur leur chemin
+    // avant de mesurer, sinon on mesure une meute encore groupee au bord.
+    await page.waitForTimeout(etales ? 8000 : 1200);
     await page.evaluate("window.__mesure.remettreAZero(); void 0;");
     const debut = Date.now();
     await page.waitForTimeout(DUREE);

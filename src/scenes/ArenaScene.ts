@@ -3,6 +3,7 @@ import { Noyade, REGLAGES_EAU, profondeurDe } from "../core/eau";
 import { Chemins } from "../core/chemins";
 import { CoucheDesChemins, RAYON_VOISINAGE } from "../game/dessin/chemins";
 import { Rng } from "../core/rng";
+import { Emprises, Voisinage } from "../core/voisinage";
 import { CLASSES, ORDRE_CLASSES, type ClassId } from "../core/classes";
 import {
   competenceParId,
@@ -793,6 +794,44 @@ export class ArenaScene extends Phaser.Scene {
   private textesActifs = 0;
   /** Heros ciblables, recalcules une fois par image et non par ennemi */
   private ciblesPossibles: Hero[] = [];
+  /**
+   * Le voisinage de la horde (DESIGN.md §4.33, palier 1) : tous les monstres
+   * ranges par cellule, **une fois par pas de physique**. C'est lui qui repond
+   * a « le plus proche », a « ceux dans ce rayon » et aux contacts, au lieu de
+   * parcourir toute la horde a chaque question.
+   */
+  private voisinage!: Voisinage;
+  /** Les monstres dans l'ordre ou le voisinage les a ranges : ses index pointent ici. */
+  private horde: Ennemi[] = [];
+  private hordeX = new Float32Array(256);
+  private hordeY = new Float32Array(256);
+  /**
+   * Jusqu'ou le corps d'un monstre deborde de la position de son sprite, pas de
+   * physique compris : une recherche elargie d'autant ne peut manquer aucun
+   * contact.
+   */
+  private margeDeContact = 0;
+  /** Les trouvailles d'une recherche, copiees : on peut rappeler ensuite du code qui interroge a son tour. */
+  private trouvailles: number[] = [];
+  /** Le decor qui arrete les monstres, range par cellule pour les butees (§4.33, palier 1). */
+  private emprises!: Emprises;
+  /** Ce que chaque emprise est : 0 construction, 1 maison, 2 eglise, 3 eau ou roche. */
+  private sortesFixes = new Uint8Array(64);
+  /**
+   * Les corps du decor, vus comme des corps : les types de Phaser declarent que
+   * `World.separate` ne prend que des corps dynamiques, alors qu'Arcade lui passe
+   * lui-meme des corps statiques a chaque butee.
+   */
+  private corpsFixes: Phaser.Physics.Arcade.Body[] = [];
+  private objetsFixes: Phaser.GameObjects.GameObject[] = [];
+  private fixesX0 = new Float32Array(64);
+  private fixesY0 = new Float32Array(64);
+  private fixesX1 = new Float32Array(64);
+  private fixesY1 = new Float32Array(64);
+  /** Le numero de l'image, qui distribue les tours de decision (§4.33, palier 1). */
+  private numeroDImage = 0;
+  /** Le filtre de toutes les recherches : un monstre tue pendant l'image est encore range. */
+  private readonly monstreDebout = (i: number): boolean => this.horde[i]!.active;
   /** Cadavres en train de tomber : plafonnes, une mort en masse coute cher */
   private cadavres = 0;
   /** Archetypes deja croises, pour n'annoncer chacun qu'une fois */
@@ -1563,18 +1602,22 @@ export class ArenaScene extends Phaser.Scene {
     this.configurerTouches();
     this.configurerSouris();
 
-    this.physics.add.overlap(this.equipe, this.ennemis, (h, e) =>
-      this.contactEnnemi(h as Hero, e as Ennemi),
-    );
-    this.physics.add.overlap(this.projectiles, this.ennemis, (p, e) =>
-      this.impactProjectile(p as Phaser.Physics.Arcade.Image, e as Ennemi),
-    );
+    // ⚠️ **La horde ne passe plus par les passes d'Arcade** (DESIGN.md §4.33,
+    // palier 1). Les dix passes qui testaient les monstres — contre l'equipe,
+    // les projectiles, les invocations, les habitants, les champs, les
+    // survivants, les murs, les maisons, l'eglise, l'eau et la roche — sont
+    // remplacees par `pasDeLaHorde`, branche sur le pas de physique. Seuls les
+    // crachats restent ici : ils ne touchent que l'equipe.
     this.physics.add.overlap(this.projectilesEnnemis, this.equipe, (p, h) =>
       this.impactCrachat(p as Phaser.Physics.Arcade.Image, h as Hero),
     );
-    this.physics.add.overlap(this.invocations, this.ennemis, (m, e) =>
-      this.melee(m as Invocation, e as Ennemi),
-    );
+    this.voisinage = new Voisinage(MONDE.largeur, MONDE.hauteur);
+    this.emprises = new Emprises(MONDE.largeur, MONDE.hauteur);
+    // ⚠️ **Pas de debranchement a l'arret** : le monde de physique meurt avec la
+    // scene et emporte ses ecouteurs, et le plugin l'a deja mis a `null` quand
+    // notre propre ecouteur d'arret passerait — le debrancher planterait chaque
+    // nouvelle partie.
+    this.physics.world.on(Phaser.Physics.Arcade.Events.WORLD_STEP, this.pasDeLaHorde, this);
 
     this.construireVillageVivant();
     this.demelerLesPrenoms();
@@ -1879,19 +1922,14 @@ export class ArenaScene extends Phaser.Scene {
 
     // Un monstre qui rattrape un habitant le tue : c'est la seule fenetre ou on
     // peut le perdre, et elle ne s'ouvre que si ce flanc a ete laisse sans
-    // personne (DESIGN.md §4.18).
-    this.physics.add.overlap(this.village.groupe, this.ennemis, (v, e) =>
-      this.rattraperHabitant(v as Villageois, e as Ennemi),
-    );
+    // personne (DESIGN.md §4.18). Le contact se cherche dans `toucherLaHorde`.
 
     // Les murs et les tours. Ils arretent les corps : la collision suffit, on
     // n'a rien a calculer par image.
     this.constructions = new Constructions(this, this.grille);
     this.champs = new Champs(this, this.grille);
-    // Un champ ne bloque personne : on le traverse — et le traverser le ruine.
-    this.physics.add.overlap(this.ennemis, this.champs.groupe, (_e, c) =>
-      this.pietinerChamp(c as Champ),
-    );
+    // Un champ ne bloque personne : on le traverse — et le traverser le ruine
+    // (`toucherLaHorde`).
     // ⚠️ **Une porte ouverte ne cogne personne** (§4.20) : le test de passage
     // laisse traverser tout le monde, monstres compris. On ne suppose pas
     // l'ordre des deux arguments, Phaser le decide selon les operandes.
@@ -1899,22 +1937,13 @@ export class ArenaScene extends Phaser.Scene {
       const construction = (a instanceof Construction ? a : b) as Construction;
       return !construction.laissePasser;
     };
-    this.physics.add.collider(
-      this.ennemis,
-      this.constructions.groupe,
-      (e, c) => this.cognerConstruction(e as Ennemi, c as Construction),
-      barre,
-    );
+    // Les monstres butent sur les murs dans `buterContreLeDecor`, avec la meme
+    // regle : une porte ouverte les laisse passer.
     this.physics.add.collider(this.equipe, this.constructions.groupe, undefined, barre);
     this.physics.add.collider(this.village.groupe, this.constructions.groupe, undefined, barre);
-    // Les maisons arretent les corps et se font piller (§4.24). Une ruine n'a
-    // plus de corps : on marche dans les decombres. L'ordre des deux arguments
-    // n'est pas suppose, Phaser le decide selon les operandes.
-    this.physics.add.collider(this.ennemis, this.maisons.groupe, (a, b) => {
-      const maison = (a instanceof Maison ? a : b) as Maison;
-      const monstre = (a instanceof Maison ? b : a) as Ennemi;
-      this.cognerMaison(monstre, maison);
-    });
+    // Les maisons arretent les corps et se font piller (§4.24) — les monstres
+    // dans `buterContreLeDecor`. Une ruine n'a plus de corps : on marche dans
+    // les decombres.
     this.physics.add.collider(this.equipe, this.maisons.groupe);
     this.physics.add.collider(this.village.groupe, this.maisons.groupe);
     // Les habitants ne traversent ni l'eau profonde ni la roche (§4.29).
@@ -1927,26 +1956,12 @@ export class ArenaScene extends Phaser.Scene {
     this.recalculerLeParcours();
 
     // Les monstres butent sur l'eglise et la frappent : c'est leur cap, c'est ce
-    // qu'ils viennent detruire (§4.22).
-    //
-    // ⚠️ On ne suppose **pas** l'ordre des deux arguments. Phaser le decide
-    // selon la nature des operandes — groupe contre objet unique, il donne
-    // l'objet en premier — et le supposer coutait une exception par contact,
-    // trouvee en jouant et invisible a la compilation.
-    this.physics.add.collider(this.ennemis, this.eglise.sprite, (a, b) => {
-      const monstre = a === this.eglise.sprite ? b : a;
-      this.cognerEglise(monstre as Ennemi);
-    });
+    // qu'ils viennent detruire (§4.22). Ca se regle dans `buterContreLeDecor`.
     this.physics.add.collider(this.equipe, this.eglise.sprite);
 
     // Un survivant ne se defend pas et n'encaisse presque rien (§4.18) : le
-    // danger est le trajet du retour. On ne pose pas de collider permanent —
-    // il n'y a au plus qu'un survivant, et il n'existe pas la plupart du temps.
-    this.physics.add.overlap(this.ennemis, this.survivants.groupe, (a, b) => {
-      const sprite = (a instanceof Ennemi ? b : a) as SpriteSurvivant;
-      const ennemi = (a instanceof Ennemi ? a : b) as Ennemi;
-      this.survivants.blesser(sprite, ennemi.degats);
-    });
+    // danger est le trajet du retour. Le contact se cherche dans
+    // `toucherLaHorde`.
 
     this.fantome = this.add
       .image(0, 0, textureDe(CONSTRUCTIONS.palissade))
@@ -4454,11 +4469,16 @@ export class ArenaScene extends Phaser.Scene {
     for (const objet of this.ennemis.getChildren()) {
       const e = objet as Ennemi;
       if (e.attirePar && !e.attirePar.active) e.attirePar = null;
-      if (e.attirePar) continue;
-      const proche = provocateurs.find(
-        (i) => Phaser.Math.Distance.Between(e.x, e.y, i.x, i.y) <= 200,
-      );
-      if (proche) e.attirePar = proche;
+    }
+    // Chaque provocateur, dans l'ordre, attire ceux qui ne le sont pas encore :
+    // le premier de la liste gagne, comme quand chaque monstre cherchait le sien
+    // parmi tous — mais on ne regarde plus que ceux qui sont a portee (§4.33).
+    for (const provocateur of provocateurs) {
+      const n = this.voisinage.autour(provocateur.x, provocateur.y, 200, this.monstreDebout);
+      for (let k = 0; k < n; k++) {
+        const e = this.horde[this.voisinage.trouve(k)]!;
+        if (!e.attirePar) e.attirePar = provocateur;
+      }
     }
   }
 
@@ -4773,9 +4793,8 @@ export class ArenaScene extends Phaser.Scene {
       return !hero.estIncarne;
     };
     this.physics.add.collider(this.equipe, this.obstaclesDEau, undefined, saufLeHerosIncarne);
-    this.physics.add.collider(this.ennemis, this.obstaclesDEau);
     this.physics.add.collider(this.equipe, this.obstaclesDeRoche);
-    this.physics.add.collider(this.ennemis, this.obstaclesDeRoche);
+    // Les monstres, eux, butent sur l'eau et la roche dans `buterContreLeDecor`.
     // Les habitants sont branches plus tard, avec les autres collisions du
     // village : il n'existe pas encore ici.
   }
@@ -4965,6 +4984,279 @@ export class ArenaScene extends Phaser.Scene {
    * ici plutot que dans des minuteries : le coup arme qui arrive a echeance,
    * l'engagement du cracheur qui n'attend pas le contact, et la teinte.
    */
+  // ------------------------------------------- le voisinage de la horde (§4.33)
+
+  /**
+   * Un pas de physique vient d'avancer tous les corps : on range la horde, puis
+   * on regle ce que reglaient les dix passes d'Arcade (DESIGN.md §4.33, palier 1).
+   *
+   * ⚠️ **Ca se passe dans le pas de physique, pas dans `update`** — a l'endroit
+   * exact ou Arcade faisait ses passes : les corps ont bouge, et `postUpdate`
+   * n'a pas encore recopie leur position dans les sprites. Une butee reglee
+   * plus tard laisserait le sprite une image dans le mur.
+   */
+  private pasDeLaHorde(): void {
+    this.rangerLaHorde();
+    this.toucherLaHorde();
+    this.buterContreLeDecor();
+  }
+
+  /**
+   * Range tous les monstres par cellule.
+   *
+   * On range la position des **sprites**, celle que tout le reste du code lit
+   * pendant l'image (`e.x`, `e.y`) et que `postUpdate` ne touchera qu'apres
+   * `update`. Les corps, eux, ont deja avance : de combien ils debordent de leur
+   * sprite, c'est `margeDeContact`, mesuree ici plutot que supposee.
+   */
+  private rangerLaHorde(): void {
+    const enfants = this.ennemis.getChildren();
+    const n = enfants.length;
+    if (this.hordeX.length < n) {
+      let taille = this.hordeX.length;
+      while (taille < n) taille *= 2;
+      this.hordeX = new Float32Array(taille);
+      this.hordeY = new Float32Array(taille);
+    }
+    this.horde.length = n;
+    let marge = 0;
+    for (let i = 0; i < n; i++) {
+      const e = enfants[i] as Ennemi;
+      this.horde[i] = e;
+      this.hordeX[i] = e.x;
+      this.hordeY[i] = e.y;
+      const corps = e.body as Phaser.Physics.Arcade.Body | null;
+      if (!corps) continue;
+      const mx = Math.abs(corps.position.x + corps.halfWidth - e.x) + corps.halfWidth;
+      const my = Math.abs(corps.position.y + corps.halfHeight - e.y) + corps.halfHeight;
+      if (mx > marge) marge = mx;
+      if (my > marge) marge = my;
+    }
+    this.margeDeContact = marge + 1;
+    this.voisinage.ranger(n, this.hordeX, this.hordeY);
+  }
+
+  /**
+   * Les monstres dont le corps peut recouper celui-ci, dans l'ordre de la liste,
+   * **copies** dans `trouvailles` : on peut rappeler n'importe quoi ensuite.
+   */
+  private monstresPresDe(corps: Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody): number {
+    const m = this.margeDeContact;
+    const n = this.voisinage.rechercher(corps.left - m, corps.top - m, corps.right + m, corps.bottom + m);
+    this.trouvailles.length = n;
+    for (let k = 0; k < n; k++) this.trouvailles[k] = this.voisinage.trouve(k);
+    return n;
+  }
+
+  /**
+   * Les contacts avec la horde : ce que faisaient les six passes « overlap ».
+   *
+   * Chaque paire est jugee par `World.separate` en mode contact, la fonction
+   * meme qu'Arcade appelait, **dans l'ordre ou les passes etaient branchees** et
+   * avec les corps dans le meme ordre. Seule change la facon de trouver les
+   * paires : le voisinage au lieu de l'arbre de tous les corps.
+   */
+  private toucherLaHorde(): void {
+    const monde = this.physics.world;
+    const horde = this.horde;
+    const trouves = this.trouvailles;
+
+    for (const objet of this.equipe.getChildren()) {
+      const hero = objet as Hero;
+      const corps = hero.body as Phaser.Physics.Arcade.Body | null;
+      if (!corps?.enable) continue;
+      const n = this.monstresPresDe(corps);
+      for (let k = 0; k < n; k++) {
+        const e = horde[trouves[k]!]!;
+        if (e.active && monde.separate(corps, e.body as Phaser.Physics.Arcade.Body, undefined, undefined, true)) {
+          this.contactEnnemi(hero, e);
+        }
+      }
+    }
+
+    for (const objet of this.projectiles.getChildren()) {
+      const p = objet as Phaser.Physics.Arcade.Image;
+      const corps = p.body as Phaser.Physics.Arcade.Body | null;
+      if (!p.active || !corps?.enable) continue;
+      const n = this.monstresPresDe(corps);
+      for (let k = 0; k < n; k++) {
+        const e = horde[trouves[k]!]!;
+        if (e.active && monde.separate(corps, e.body as Phaser.Physics.Arcade.Body, undefined, undefined, true)) {
+          this.impactProjectile(p, e);
+        }
+        // Un projectile qui s'est arrete dans un monstre ne touche plus rien.
+        if (!p.active || !corps.enable) break;
+      }
+    }
+
+    for (const objet of this.invocations.getChildren()) {
+      const m = objet as Invocation;
+      const corps = m.body as Phaser.Physics.Arcade.Body | null;
+      if (!m.active || !corps?.enable) continue;
+      const n = this.monstresPresDe(corps);
+      for (let k = 0; k < n; k++) {
+        const e = horde[trouves[k]!]!;
+        if (e.active && monde.separate(corps, e.body as Phaser.Physics.Arcade.Body, undefined, undefined, true)) {
+          this.melee(m, e);
+        }
+        if (!m.active) break;
+      }
+    }
+
+    for (const objet of this.village.groupe.getChildren()) {
+      const v = objet as Villageois;
+      const corps = v.body as Phaser.Physics.Arcade.Body | null;
+      if (!v.active || !corps?.enable) continue;
+      const n = this.monstresPresDe(corps);
+      for (let k = 0; k < n; k++) {
+        const e = horde[trouves[k]!]!;
+        if (e.active && monde.separate(corps, e.body as Phaser.Physics.Arcade.Body, undefined, undefined, true)) {
+          this.rattraperHabitant(v, e);
+        }
+        if (!v.active) break;
+      }
+    }
+
+    // Les champs et les survivants etaient le second operande de leur passe :
+    // le monstre passe en premier, comme Arcade le faisait.
+    for (const objet of this.champs.groupe.getChildren()) {
+      const c = objet as Champ;
+      // Statique ou non, `separate` le prend comme un corps (voir `corpsFixes`).
+      const corps = c.body as Phaser.Physics.Arcade.Body | null;
+      if (!c.active || !corps?.enable) continue;
+      const n = this.monstresPresDe(corps);
+      for (let k = 0; k < n; k++) {
+        const e = horde[trouves[k]!]!;
+        if (e.active && monde.separate(e.body as Phaser.Physics.Arcade.Body, corps, undefined, undefined, true)) {
+          this.pietinerChamp(c);
+        }
+      }
+    }
+
+    for (const objet of this.survivants.groupe.getChildren()) {
+      const sprite = objet as SpriteSurvivant;
+      const corps = sprite.body as Phaser.Physics.Arcade.Body | null;
+      if (!sprite.active || !corps?.enable) continue;
+      const n = this.monstresPresDe(corps);
+      for (let k = 0; k < n; k++) {
+        const e = horde[trouves[k]!]!;
+        if (e.active && monde.separate(e.body as Phaser.Physics.Arcade.Body, corps, undefined, undefined, true)) {
+          this.survivants.blesser(sprite, e.degats);
+        }
+        if (!sprite.active) break;
+      }
+    }
+  }
+
+  /**
+   * Range le decor qui arrete les monstres, dans l'ordre ou leurs passes etaient
+   * branchees : les murs, les maisons, l'eglise, l'eau, la roche. Refait a chaque
+   * pas : quelques centaines de rectangles, et plus aucun moyen d'oublier un mur
+   * pose ou une maison tombee.
+   *
+   * @returns combien d'emprises
+   */
+  private rangerLeDecor(): number {
+    let n = 0;
+    const ajouter = (objet: Phaser.GameObjects.GameObject, sorte: number) => {
+      const corps = objet.body as Phaser.Physics.Arcade.StaticBody | null;
+      // Une ruine n'a plus de corps actif : on marche dans les decombres.
+      if (!corps?.enable) return;
+      if (n >= this.sortesFixes.length) {
+        const taille = this.sortesFixes.length * 2;
+        const agrandi = <T extends Float32Array | Uint8Array>(t: T): T => {
+          const neuf = new (t.constructor as new (n: number) => T)(taille);
+          neuf.set(t);
+          return neuf;
+        };
+        this.sortesFixes = agrandi(this.sortesFixes);
+        this.fixesX0 = agrandi(this.fixesX0);
+        this.fixesY0 = agrandi(this.fixesY0);
+        this.fixesX1 = agrandi(this.fixesX1);
+        this.fixesY1 = agrandi(this.fixesY1);
+      }
+      this.sortesFixes[n] = sorte;
+      this.corpsFixes[n] = corps as unknown as Phaser.Physics.Arcade.Body;
+      this.objetsFixes[n] = objet;
+      this.fixesX0[n] = corps.left;
+      this.fixesY0[n] = corps.top;
+      this.fixesX1[n] = corps.right;
+      this.fixesY1[n] = corps.bottom;
+      n += 1;
+    };
+    for (const c of this.constructions.groupe.getChildren()) ajouter(c, 0);
+    for (const m of this.maisons.groupe.getChildren()) ajouter(m, 1);
+    ajouter(this.eglise.sprite, 2);
+    for (const z of this.obstaclesDEau.getChildren()) ajouter(z, 3);
+    for (const z of this.obstaclesDeRoche.getChildren()) ajouter(z, 3);
+    this.emprises.ranger(n, this.fixesX0, this.fixesY0, this.fixesX1, this.fixesY1);
+    return n;
+  }
+
+  /**
+   * Les butees contre le decor : ce que faisaient les cinq passes « collider ».
+   *
+   * **La physique ne change pas d'un pixel** : chaque paire est reglee par
+   * `World.separate`, la fonction meme qu'Arcade appelait, le monstre en
+   * premier, et le decor dans l'ordre des anciennes passes. Ce qui change, c'est
+   * comment on trouve les paires : Arcade cherchait, pour chaque monstre et
+   * **pour chaque passe**, dans l'arbre de tout le decor — puis verifiait
+   * l'appartenance au groupe en le parcourant en entier.
+   */
+  private buterContreLeDecor(): void {
+    if (this.rangerLeDecor() === 0) return;
+    const monde = this.physics.world;
+    for (const e of this.horde) {
+      if (!e.active) continue;
+      const corps = e.body as Phaser.Physics.Arcade.Body | null;
+      if (!corps?.enable) continue;
+      const n = this.emprises.rechercher(corps.left, corps.top, corps.right, corps.bottom);
+      for (let k = 0; k < n; k++) {
+        const j = this.emprises.trouve(k);
+        const fixe = this.corpsFixes[j]!;
+        switch (this.sortesFixes[j]) {
+          case 0: {
+            const construction = this.objetsFixes[j] as Construction;
+            // ⚠️ **Une porte ouverte ne cogne personne** (§4.20) : c'etait la
+            // regle de passage de l'ancienne passe, elle reste la meme.
+            if (construction.laissePasser) break;
+            if (monde.separate(corps, fixe, undefined, undefined, false)) this.cognerConstruction(e, construction);
+            break;
+          }
+          case 1:
+            if (monde.separate(corps, fixe, undefined, undefined, false)) {
+              this.cognerMaison(e, this.objetsFixes[j] as Maison);
+            }
+            break;
+          case 2:
+            if (monde.separate(corps, fixe, undefined, undefined, false)) this.cognerEglise(e);
+            break;
+          default:
+            monde.separate(corps, fixe, undefined, undefined, false);
+        }
+        // Une maison qui riposte, un kamikaze qui s'ouvre : il peut ne plus etre la.
+        if (!e.active) break;
+      }
+    }
+  }
+
+  /**
+   * Le niveau de detail temporel (DESIGN.md §4.33, palier 1) : les alentours des
+   * heros, marques une fois par image.
+   *
+   * Un monstre a plus de `RAYON_DE_VUE` de tout heros ne voit personne : il
+   * marche sur son cap. Le decider a chaque image ne change rien a ce qu'il
+   * fait — seulement a ce qu'il coute. La marque deborde d'une cellule, parce
+   * qu'un heros peut s'approcher pendant les trois images ou l'on ne regarde pas.
+   */
+  private marquerLesAlentoursDesHeros(): void {
+    this.voisinage.effacerLesMarques();
+    for (const hero of this.heros) {
+      if (hero.etat === "mort") continue;
+      this.voisinage.marquer(hero.x, hero.y, RAYON_DE_VUE + this.voisinage.cote);
+    }
+  }
+
   private deplacerEnnemis(): void {
     // Calcule une seule fois par image : c'etait refait pour chaque ennemi.
     this.ciblesPossibles = this.heros.filter((h) => h.estAuCombat && !h.estInvisible);
@@ -4972,6 +5264,20 @@ export class ArenaScene extends Phaser.Scene {
     // Le champ des humains suit le heros, par battements : c'est lui qui fait
     // sortir par la porte ceux qui nous courent apres (§4.29).
     this.suivreLeHeroDesHumains();
+
+    // ⚠️ **Loin de tout heros ou hors de l'ecran, un monstre ne se decide
+    // qu'une image sur quatre** (§4.33, palier 1). Entre deux, il garde son
+    // elan : Arcade continue de le faire avancer. Ce qui tourne a chaque image
+    // quoi qu'il arrive : le coup arme qui part (il blesse), les domes (ils
+    // sont autour des heros), et la teinte de ce qui est a l'ecran.
+    this.numeroDImage += 1;
+    this.marquerLesAlentoursDesHeros();
+    const vue = this.cameras.main.worldView;
+    const marge = this.voisinage.cote;
+    const gauche = vue.x - marge;
+    const droite = vue.right + marge;
+    const haut = vue.y - marge;
+    const bas = vue.bottom + marge;
 
     // Copie de la liste : un kamikaze qui s'ouvre, ou une riposte qui tue le
     // frappeur, retire un element du groupe **pendant** le parcours. C'est la
@@ -4984,18 +5290,23 @@ export class ArenaScene extends Phaser.Scene {
       if (e.enArmement && maintenant >= e.instantFrappe) this.resoudreFrappe(e);
       if (!e.active) continue;
 
-      // Le cracheur n'attend pas le contact : il engage des qu'il vous voit.
-      if (
-        !e.enArmement &&
-        e.archetype.comportement === "cracheur" &&
-        e.peutFrapper(maintenant)
-      ) {
-        const proie = this.heroLePlusProche(e.x, e.y, e.archetype.portee);
-        if (proie) this.armerEnnemi(e, proie);
+      const aLEcran = e.x >= gauche && e.x <= droite && e.y >= haut && e.y <= bas;
+      const pleinRegime = aLEcran && this.voisinage.estMarque(e.x, e.y);
+      if (pleinRegime || ((this.numeroDImage + e.tourDeDecision) & 3) === 0) {
+        // Le cracheur n'attend pas le contact : il engage des qu'il vous voit.
+        if (
+          !e.enArmement &&
+          e.archetype.comportement === "cracheur" &&
+          e.peutFrapper(maintenant)
+        ) {
+          const proie = this.heroLePlusProche(e.x, e.y, e.archetype.portee);
+          if (proie) this.armerEnnemi(e, proie);
+        }
+        this.avancerEnnemi(e, maintenant, pleinRegime);
       }
-
-      this.avancerEnnemi(e, maintenant);
-      this.teinterEnnemi(e, maintenant);
+      // Hors de l'ecran, une teinte ne se voit pas : elle sera juste des la
+      // premiere image ou il y entre.
+      if (aLEcran) this.teinterEnnemi(e, maintenant);
       this.bloquerParLesDomes(e);
     }
   }
@@ -5008,7 +5319,11 @@ export class ArenaScene extends Phaser.Scene {
    * ne peut pas echapper ne telegraphie rien — et le cracheur garde ses
    * distances au lieu de venir au contact.
    */
-  private avancerEnnemi(e: Ennemi, maintenant: number): void {
+  /**
+   * @param chaqueImage faux quand il ne se decide qu'une image sur quatre : ce
+   * qui doit durer jusqu'a sa prochaine decision dure d'autant
+   */
+  private avancerEnnemi(e: Ennemi, maintenant: number, chaqueImage = true): void {
     // Repousse : son impulsion a la priorite sur sa volonte.
     if (maintenant < e.reculJusqua) return;
 
@@ -5066,7 +5381,9 @@ export class ArenaScene extends Phaser.Scene {
     orienter(e, Math.cos(angle), SEUIL_REGARD_PIXELS);
     // Une douve seche sous lui : il la franchit lentement, a decouvert.
     const fosse = this.constructions.ralentissement(e.x, e.y);
-    if (fosse < 1) e.ralentir(120, fosse);
+    // Ralenti d'une image a l'autre : decide une image sur quatre, il doit tenir
+    // jusqu'a la prochaine, sinon la douve seche le lacherait entre deux.
+    if (fosse < 1) e.ralentir(chaqueImage ? 120 : 120 + 3 * this.game.loop.delta, fosse);
 
     // Il se cabre : il n'avance quasiment plus, on a le temps de s'ecarter.
     const vitesse = e.vitesseEffective * (e.enArmement ? 0.25 : 1);
@@ -6575,19 +6892,16 @@ export class ArenaScene extends Phaser.Scene {
     this.flotter(e.x, e.y - 20, `+${bourse.pieces}`, "#c99a3a");
   }
 
+  /**
+   * Le monstre debout le plus proche, strictement a moins de `portee`.
+   *
+   * ⚠️ **Il lit le voisinage** (§4.33, palier 1) : les positions du dernier pas
+   * de physique, qui sont celles des sprites pendant toute l'image. Un monstre
+   * ne pendant l'image n'y est qu'au pas suivant — seize millisecondes.
+   */
   private ennemiLePlusProche(x: number, y: number, portee: number): Ennemi | null {
-    let meilleur: Ennemi | null = null;
-    let meilleureDistance = portee;
-    for (const objet of this.ennemis.getChildren()) {
-      const e = objet as Ennemi;
-      if (!e.active) continue;
-      const d = Phaser.Math.Distance.Between(x, y, e.x, e.y);
-      if (d < meilleureDistance) {
-        meilleureDistance = d;
-        meilleur = e;
-      }
-    }
-    return meilleur;
+    const i = this.voisinage.laPlusProche(x, y, portee, this.monstreDebout);
+    return i < 0 ? null : this.horde[i]!;
   }
 
   private blesserEnnemi(e: Ennemi, degats: number, auteur: Hero, volDeVieSup = 0): void {
@@ -7726,12 +8040,11 @@ export class ArenaScene extends Phaser.Scene {
     return new Phaser.Math.Vector2(px, py);
   }
 
+  /** Les monstres debout a `rayon` au plus, dans l'ordre de la horde — par le voisinage (§4.33). */
   private ennemisDansRayon(x: number, y: number, rayon: number): Ennemi[] {
-    const trouves: Ennemi[] = [];
-    for (const objet of this.ennemis.getChildren()) {
-      const e = objet as Ennemi;
-      if (e.active && Phaser.Math.Distance.Between(x, y, e.x, e.y) <= rayon) trouves.push(e);
-    }
+    const n = this.voisinage.autour(x, y, rayon, this.monstreDebout);
+    const trouves = new Array<Ennemi>(n);
+    for (let k = 0; k < n; k++) trouves[k] = this.horde[this.voisinage.trouve(k)]!;
     return trouves;
   }
 

@@ -79,7 +79,14 @@ const config: Phaser.Types.Core.GameConfig = {
   fps: { min: 20 },
   physics: {
     default: "arcade",
-    arcade: { debug: false, fixedStep: false },
+    /**
+     * `useTree: false` (§4.33, palier 1) : Arcade reconstruisait a chaque pas un
+     * arbre de **tous** les corps pour servir les passes qui testaient la horde.
+     * Elles passent desormais par le voisinage de la scene ; les passes qui
+     * restent opposent quelques corps a l'equipe, ou au decor, qui a son propre
+     * arbre. Mesure : 2,4 ms par image a 3 500 monstres, pour rien.
+     */
+    arcade: { debug: false, fixedStep: false, useTree: false },
   },
   // BootScene charge les PNG avant tout le monde : les textures Phaser etant
   // globales, les scenes suivantes les trouvent deja la.

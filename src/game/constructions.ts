@@ -282,13 +282,13 @@ export class Constructions {
   readonly groupe: Phaser.Physics.Arcade.StaticGroup;
   private readonly liste: Construction[] = [];
   /** La construction de chaque case, par `colonne,ligne`. */
-  private readonly parCase = new Map<string, Construction>();
+  private readonly parCase = new Map<number, Construction>();
   /**
    * La derniere reponse de la regle « pas de mur sans porte », par case : la
    * propagation ne tourne qu'une fois par case visee, jamais par image — le
    * fantome de pose interroge la regle a chaque image (§4.17).
    */
-  private fermetureMemo: { cle: string; version: number; enferme: boolean } | null = null;
+  private fermetureMemo: { cle: number; version: number; enferme: boolean } | null = null;
   /** Monte a chaque ecriture dans la grille : ce qui perime le memo. */
   private version = 0;
   /** Le dernier battement de la consigne de nuit (§4.17 regle 5). */
@@ -314,8 +314,17 @@ export class Constructions {
     return this.liste.filter((c) => c.battant !== null);
   }
 
-  private cleDe(x: number, y: number): string {
-    return `${this.grille.colonneDe(x)},${this.grille.ligneDe(y)}`;
+  /**
+   * L'identite d'une case, en un nombre.
+   *
+   * ⚠️ **Un nombre, pas une chaine** (§4.33, palier 1) : `ralentissement` et
+   * `contournement` la demandent pour chaque monstre a chaque image, et
+   * `"12,7"` fabriquait deux ou trois chaines jetees par monstre et par image —
+   * des milliers a la seconde des que la horde grossit. Decalee de 32 768 pour
+   * qu'une case hors de la carte ait aussi la sienne.
+   */
+  private cleDe(x: number, y: number): number {
+    return (this.grille.ligneDe(y) + 32768) * 65536 + (this.grille.colonneDe(x) + 32768);
   }
 
   /** Ce qui est bati sur la case de ce point, s'il y a quelque chose. */

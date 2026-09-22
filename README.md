@@ -407,6 +407,8 @@ src/
                      rendent, ce qui les garde, et ce que dit une stele (testee)
     parcours.ts      le champ de directions : contourner l'eau et la roche,
                      et sortir par la porte (testee)
+    voisinage.ts     la grille de la horde : qui est pres de qui, et ce qui
+                     arrete les corps, en une passe par image (testee, §4.33)
     cycle.ts         le jour, la nuit, les effectifs et les hordes (testee)
     habitants.ts     metiers, cadence, progression et faim (testee)
     arrivants.ts     la porte : indices, questions, degres de folie,

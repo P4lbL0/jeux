@@ -796,6 +796,17 @@ export interface ApparenceHumaine {
 }
 
 export class Ennemi extends Phaser.Physics.Arcade.Sprite {
+  /** Le compteur qui distribue les tours de decision. */
+  private static prochainTour = 0;
+
+  /**
+   * Son tour de decision, de 0 a 3 (DESIGN.md §4.33, palier 1).
+   *
+   * Loin de tout heros ou hors de l'ecran, un monstre ne se decide qu'une image
+   * sur quatre : il garde son elan entre deux. Les quatre quarts de la horde se
+   * relaient, pour que la charge ne tombe jamais sur la meme image.
+   */
+  readonly tourDeDecision = Ennemi.prochainTour++ & 3;
   pv: number;
   pvMax: number;
   vitesse: number;

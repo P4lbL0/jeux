@@ -3,7 +3,15 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-09-22, tard — **le §4.33 est corrigé par la mesure**, et sur
+> Dernière mise à jour : 2026-09-22, dans la nuit — **le palier 1 de la horde est posé**
+> (§4.33) : une grille spatiale, les onze passes d'Arcade qui touchaient les monstres
+> remplacées sans changer la physique, et un niveau de détail temporel. La horde qui arrive
+> tient **60 images/s jusqu'à 2 500 monstres**, contre ~1 600. Et la mesure du rendu a
+> tranché : un Sprite Phaser coûte 1,2 µs par image, un quad instancié rien — **le rendu
+> maison est nécessaire** pour les vingt mille. Angelos, en voyant les captures : **les
+> 20 000 viennent petit à petit**.
+>
+> Avant ça : 2026-09-22, tard — **le §4.33 est corrigé par la mesure**, et sur
 > deux points. Le plafond de 60 monstres est un **choix de lisibilité**, pas une facture de
 > fluidité : le moteur tient déjà **1 200 orcs à 60 images par seconde** et le mur est vers
 > **1 600**. Et le jeu ne ralentit pas, **il tombe d'un coup** — Phaser rejoue les pas de

@@ -1568,6 +1568,92 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6.2, palier 1 — la grille et le niveau de détail (22 septembre 2026, tard)
+
+Le palier que le §4.33 annonçait « l'IA et la physique ensemble ». **La horde qui arrive
+tient maintenant soixante images par seconde jusqu'à 2 500 monstres**, contre ~1 600 ; à
+3 500, 36 à 45 au lieu de 20 à 26. En mêlée, 1 600 monstres passent de 41-44 à 52-54.
+
+#### Ce qui a été fait
+
+- **`core/voisinage.ts`**, pur et testé (13 tests) : `Voisinage` range des points par
+  cellules de 64 px, par un tri par comptage, sans allocation ; `Emprises` range des
+  rectangles dans chaque cellule qu'ils touchent, et ne rend chacun qu'une fois. Les
+  résultats sortent **dans l'ordre de la liste** — c'est ce qui rend les recherches
+  exactement équivalentes aux parcours qu'elles remplacent, départage compris.
+- **Les onze passes d'Arcade qui touchaient la horde quittent `create`** : six contacts
+  (héros, projectiles, invocations, habitants, champs, survivants), cinq butées (murs,
+  maisons, église, eau, roche). Elles vivent dans `pasDeLaHorde`, branché sur
+  l'événement `worldstep` — **dans** le pas de physique, là où Arcade les faisait : les
+  corps ont avancé, `postUpdate` ne les a pas encore recopiés dans les sprites. Chaque
+  paire est réglée par `World.separate`, la fonction même d'Arcade, dans l'ordre des
+  anciennes passes, avec les corps dans le même ordre.
+- **`ennemiLePlusProche` et `ennemisDansRayon` lisent la grille.** Aucun appelant n'a
+  bougé — l'IA des héros, la menace autour de chaque habitant, les épées qui orbitent, les
+  explosions en profitent d'un coup.
+- **`useTree: false`** : l'arbre dynamique d'Arcade ne servait plus personne.
+- **Le niveau de détail temporel** : `Ennemi.tourDeDecision` (0 à 3) ; au-delà de 340 px
+  de tout héros (sa portée de vue, marquée par cellules une fois par image) ou hors de
+  l'écran, `avancerEnnemi` ne tourne qu'une image sur quatre. Le coup armé part toujours à
+  l'heure, les dômes restent vérifiés, la teinte tourne pour tout ce qui est à l'écran.
+- **`Constructions.cleDe` rend un nombre** au lieu de `"12,7"` : le contournement des
+  douves et le ralentissement la demandent pour chaque monstre à chaque image.
+
+#### Quatre choix qui ne se devinent pas
+
+1. **On range la position des sprites, pas celle des corps** : c'est celle que tout le code
+   lit pendant l'image. De combien les corps débordent — décalage et pas de physique
+   compris — est **mesuré** à chaque rangement (`margeDeContact`), et les recherches de
+   contact s'élargissent d'autant : aucune paire ne peut manquer.
+2. **Le décor se range à chaque pas**, quelques centaines de rectangles : plus aucun moyen
+   d'oublier un mur posé, une maison tombée ou une porte ouverte.
+3. **On ne débranche pas `worldstep` à l'arrêt de la scène** : le plugin de physique met
+   son monde à `null` avant que notre écouteur d'arrêt ne passe, et le monde emporte ses
+   écouteurs en mourant. Le débrancher plantait chaque nouvelle partie.
+4. **Les frappes en ligne n'ont pas été touchées** (Fauchage, Flèche du Jugement, Ombre) :
+   elles parcourent la horde une fois par lancer, pas par image — et elles cachent un bug,
+   voir les dettes.
+
+#### Deux pièges de plus, payés
+
+9. **Le village a sa propre graine, tirée au hasard** si on ne la donne pas : même monde,
+   45 murs une fois, 90 la suivante, et huit images par seconde d'écart au même effectif.
+   Les passes du palier 0 n'avaient fixé que le terrain — ses gains tiennent (le
+   rattrapage est structurel), la note est dans le §4.33. Le banc fixe maintenant
+   `graineMonde` **et** `graineVillage`, et le témoin s'obtient en remettant l'ancien code
+   (`git stash push -- src/`).
+10. **Les types de Phaser déclarent que `World.separate` ne prend que des corps
+    dynamiques**, alors qu'Arcade lui passe lui-même des corps statiques : la conversion
+    est faite une fois, au rangement du décor, avec la raison écrite.
+
+Et une limite du banc : **la disposition étalée n'est pas stationnaire** — la horde marche,
+et chaque palier se mesure plus tard que le précédent. Une passe sur trois est sortie à 40
+au lieu de 60 ; les chiffres donnés sont des médianes de trois passes quand elles
+divergeaient.
+
+#### Rien n'a changé dans le jeu
+
+`.tmp/verifier-palier1.ts`, trois parties (guerrier, mage, nécromancien), **34 contrôles
+sur 38**. Posés contre un mur fermé, les monstres le frappent sans jamais y entrer ; contre
+une maison, ils la pillent ; contre l'église, ils la frappent ; les projectiles et un
+mort-vivant au contact frappent ; un habitant est rattrapé ; les deux recherches rendent
+**200 fois sur 200** ce que rend un parcours brut, au même instant de l'image ; les
+lointains se décident exactement au quart (100 décisions par image pour 400 monstres).
+
+Les quatre ratés sont **identiques avec l'ancien code, au monstre près** : des corps posés
+au cœur d'un lac ou d'un massif n'en ressortent pas tous (1, 6 et 6 sur 40 dans l'eau, 6 sur
+40 dans la roche). C'est Arcade qui ne sait pas sortir un corps de plusieurs rangées d'eau à
+la fois ; ça n'arrive pas en jeu, où les monstres naissent sur la terre ferme.
+
+**957 tests verts** (+13). `npm run build` propre.
+
+#### Ce qui reste
+
+À 3 500 en mêlée, **le rendu** (~13 ms avec le tri et les animations) et **l'IA au contact**
+(~10 ms, à plein régime puisque tout le monde voit le héros) se partagent l'image ; la
+physique résiduelle (7,6 ms) est le corps Arcade de chaque monstre, qui ne partira qu'avec
+la nuée. ⚠️ **Le palier 2 attend qu'Angelos ait jugé les captures à 800.**
+
 ### Le jalon 6.2, la mesure du rendu — les Sprites tombent, la passe instanciée tient (22 septembre 2026, tard)
 
 La mesure que le §4.33 §7 exigeait avant de décider du rendu maison, en deux branches et
@@ -1718,9 +1804,9 @@ au banc, pas en test. `npm run build` propre.
 
 #### Ce qui reste du jalon 6.2
 
-- ✅ **la mesure du rendu en deux branches** (§4.33 §7) : faite le soir même, voir la
-  section au-dessus ;
-- **le palier 1** : la grille spatiale dans `core/` et le niveau de détail temporel ;
+- ✅ **la mesure du rendu en deux branches** (§4.33 §7) : faite le soir même ;
+- ✅ **le palier 1** : la grille spatiale et le niveau de détail temporel, faits le soir
+  même — voir les sections au-dessus ;
 - ⚠️ **le palier 2 attend qu'Angelos ait vu ces captures.**
 
 ### L'incendie se voit enfin — la fumee, et cinq flammes (22 septembre 2026, tard)
@@ -3898,6 +3984,13 @@ brancher.
   (§4.28) refuse le rechargement silencieux. Une sortie de secours, si elle arrive un
   jour, sera un export **explicite** — le joueur qui triche le fait sciemment, il ne
   trébuche pas dessus.
+- **Trois frappes en ligne touchent toute la droite, pas le segment** (trouvé au palier 1
+  de la horde, 22 septembre 2026, non corrigé). Le Fauchage (`faucherLeLong`), la Flèche du
+  Jugement et l'Ombre testent la distance au point le plus proche que rend
+  `Phaser.Geom.Line.GetNearestPoint` — qui projette sur la **droite infinie**, sans borner.
+  Elles frappent donc aussi derrière le héros, et au-delà de leur bout, à travers toute la
+  carte. Laissé tel quel parce que le palier 1 ne devait rien changer au jeu : à trancher
+  par Angelos, la correction tient en une ligne.
 - **Le kamikaze ne blesse que les héros**, pas les invocations. Choix de simplicité, à
   revoir si ça se voit.
 - **Le martyre (Chevalier Sacré) ne déclenche pas `tomber()`** si le martyr incarné
