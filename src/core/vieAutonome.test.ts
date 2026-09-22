@@ -31,6 +31,7 @@ function calme(personne: Personne, dessus: Partial<EtatAutonome> = {}): EtatAuto
     rassasie: true,
     nuit: false,
     chantier: false,
+    feu: false,
     voisin: false,
     menace: false,
     ...dessus,
@@ -49,6 +50,20 @@ const paisible: SituationExtreme = {
 describe("la journee de celui qu'on laisse tranquille", () => {
   it("flane quand tout va bien", () => {
     expect(choisirOccupation(calme(quelquUn()))).toBe("flaner");
+  });
+
+  it("court au feu avant d'aller manger, mais rentre si un monstre parait", () => {
+    expect(choisirOccupation(calme(quelquUn(), { feu: true }))).toBe("eteindre");
+    expect(choisirOccupation(calme(quelquUn(), { feu: true, rassasie: false }))).toBe("eteindre");
+    // La nuit, les habitants sont a l'abri : c'est au heros d'y aller (§4.21).
+    expect(choisirOccupation(calme(quelquUn(), { feu: true, nuit: true }))).toBe("dormir");
+    expect(choisirOccupation(calme(quelquUn(), { feu: true, menace: true }))).toBe("dormir");
+  });
+
+  it("ne fait pas porter de seau a celui qui a craque : c'est souvent lui qui a allume", () => {
+    const casse = quelquUn();
+    casse.rupture = "rage";
+    expect(choisirOccupation(calme(casse, { feu: true }))).toBe("flaner");
   });
 
   it("rentre des qu'un monstre est en vue : on ne flane pas sous les crocs", () => {

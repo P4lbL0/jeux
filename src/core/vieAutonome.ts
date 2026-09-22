@@ -40,6 +40,8 @@ import { idTrait } from "./traits";
 export type Occupation =
   /** Il est a l'abri, dans l'eglise : la nuit, ou parce qu'on l'a rappele */
   | "dormir"
+  /** Ca brule pres de chez lui : il court au puits, puis au feu (§4.21) */
+  | "eteindre"
   /** Il a faim, il va vers les reserves */
   | "manger"
   /** Il va au puits */
@@ -53,6 +55,7 @@ export type Occupation =
 
 export const NOMS_OCCUPATION: Record<Occupation, string> = {
   dormir: "dort",
+  eteindre: "eteint le feu",
   manger: "mange",
   boire: "boit",
   reparer: "repare",
@@ -69,6 +72,8 @@ export interface EtatAutonome {
   nuit: boolean;
   /** Y a-t-il un chantier ouvert a portee ? */
   chantier: boolean;
+  /** Ca brule-t-il a portee de course ? (§4.21, six cases) */
+  feu: boolean;
   /** Quelqu'un d'autre est-il assez pres pour qu'on lui parle ? */
   voisin: boolean;
   /** Un monstre est-il en vue ? Alors tout redevient fonctionnel (§4.23) */
@@ -120,6 +125,13 @@ export const REGLAGES_VIE = {
  */
 export function choisirOccupation(etat: EtatAutonome): Occupation {
   if (etat.nuit || etat.menace) return "dormir";
+
+  // ⚠️ **Le feu passe avant la faim, et apres l'abri.** Un village qui brule,
+  // on y va ; mais la nuit les habitants sont a l'abri et c'est au heros de
+  // choisir entre le feu et les monstres (§4.21). Celui qui a craque, lui, ne
+  // porte pas de seau — c'est souvent lui qui a allume.
+  if (etat.feu && etat.personne.rupture === null) return "eteindre";
+
   if (!etat.rassasie) return "manger";
 
   const { personne } = etat;

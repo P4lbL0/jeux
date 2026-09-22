@@ -177,6 +177,14 @@ import {
 } from "../core/cycle";
 import { Meteo, annonceDuMatin } from "../core/meteo";
 import { Pluie } from "../game/pluie";
+import {
+  Incendie,
+  REGLAGES_INCENDIE,
+  unCoupAllumeLeFeu,
+  type Combustible,
+  type SorteDeFeu,
+} from "../core/incendie";
+import { Feux } from "../game/feux";
 import { Village, type Villageois } from "../game/village";
 import { CASE, COLONNES, Grille, IMPOSENT_UNE_DISTANCE, LIGNES, type Case } from "../core/grille";
 import { cleCase, genererVillage, graineDeVillage, placesOuSeTenir, type PlanVillage,
@@ -327,6 +335,37 @@ const MAX_ENNEMIS = REGLAGES_CYCLE.plafondEcran;
  * aucune touche ne s'ajoute (§4.18).
  */
 const RAYON_RECOLTE = 46;
+
+/**
+ * Rayon dans lequel on eteint un feu, heros comme habitant (§4.21).
+ *
+ * Le meme que la recolte, a quelques pixels pres : on se met **contre** le feu,
+ * on ne l'arrose pas de l'autre bout de la place. C'est ce qui fait qu'eteindre
+ * coute une position, et donc qu'eteindre la nuit soit un choix.
+ */
+const RAYON_DU_SEAU = 54;
+
+/**
+ * Jusqu'ou un habitant court pour eteindre : six cases (§4.21).
+ *
+ * C'est le chiffre de la section, et il dit quelque chose du village : un feu
+ * de l'autre bout ne mobilise personne, et un village etale se defend moins
+ * bien de ses propres flammes qu'un village serre.
+ */
+const PORTEE_DE_LA_COURSE = 6 * CASE;
+
+/**
+ * L'identite d'une chose qui brule (§4.21).
+ *
+ * Elle tient a sa **case**, pas a l'objet : une maison ne se deplace qu'en mode
+ * d'amenagement, et un champ pas du tout. La cle survit donc a une sauvegarde,
+ * ce qu'une reference d'objet ne sait pas faire.
+ */
+function cleDuFeu(objet: Maison | Champ): string {
+  return objet instanceof Maison
+    ? `m${objet.colonne}:${objet.ligne}`
+    : `c${Math.round(objet.x)}:${Math.round(objet.y)}`;
+}
 
 /**
  * Ce qu'une minute de travail coute a un heros, en points de stress
@@ -896,6 +935,18 @@ export class ArenaScene extends Phaser.Scene {
   private meteo = new Meteo();
   /** Ce qu'on voit du ciel : les rideaux, l'assombrissement, les eclairs (§4.21) */
   private pluie!: Pluie;
+  /**
+   * Les incendies (§4.21, l'incendie).
+   *
+   * Le noyau dit ou ca brule et ce que ca ronge ; `feux` ne fait que le
+   * montrer ; `cibles` retient a quoi chaque foyer est accroche, pour ne pas
+   * avoir a rechercher une maison par sa position a chaque passage.
+   */
+  private incendie = new Incendie();
+  private feux!: Feux;
+  private cibles = new Map<string, Maison | Champ>();
+  /** Ou l'on remplit son seau (§4.21, §4.24). Null tant qu'aucun puits n'est pose */
+  private puits: Point | null = null;
   /** Vrai tant que la crue dure : c'est lui qui dit quand les douves se remettent a barrer */
   private crueEnCours = false;
   /** L'instant du prochain rongement des batiments par l'eau */
@@ -1584,6 +1635,7 @@ export class ArenaScene extends Phaser.Scene {
       chemins: this.chemins,
       memoire: this.memoire,
       meteo: this.meteo,
+      incendie: this.incendie,
     };
   }
 
@@ -1629,6 +1681,10 @@ export class ArenaScene extends Phaser.Scene {
       this.fronts = frontsDeLaVague(this.cycle.nuit, this.rng.next());
       this.partPremierFront = repartition(this.fronts, this.rng.next());
     }
+
+    // Les feux repris n'ont que des cles : on leur rend leurs maisons et leurs
+    // champs, et ce qui ne se retrouve plus s'eteint (§4.21).
+    this.raccrocherLesFeux();
 
     // ⚠️ **Une partie enregistree pendant une crue reprend en crue** (§4.21) :
     // les douves doivent redeborder, sinon recharger serait une facon de faire
@@ -1766,6 +1822,16 @@ export class ArenaScene extends Phaser.Scene {
       placesDeVie: () => this.placesDeVie,
       // Le poste du charpentier : ce qu on vient de poser (bloc 8).
       chantierLePlusProche: (x, y) => this.constructions.chantierLePlusProche(x, y),
+      // Le feu, et le seau qui va avec (§4.21, l'incendie).
+      feuAPortee: (x, y) => this.incendie.leProcheDe(x, y, PORTEE_DE_LA_COURSE) !== null,
+      butDuSeau: (x, y, seauPlein) => {
+        const foyer = this.incendie.leProcheDe(x, y, PORTEE_DE_LA_COURSE);
+        if (!foyer) return null;
+        // Vide, il va le remplir ; plein, il va le jeter. Sans puits — un
+        // village qui n'en a pas encore pose — il va au feu directement, et
+        // c'est tout ce que ca change.
+        return seauPlein || this.puits === null ? { x: foyer.x, y: foyer.y } : this.puits;
+      },
       // La cour, et si quelqu'un y attend un instructeur (bloc 9).
       // Deux habitants se croisent : une bulle dit ce qu'ils sont l'un pour
       // l'autre, et le joueur invente le reste (§4.27).
@@ -1903,6 +1969,9 @@ export class ArenaScene extends Phaser.Scene {
     // La pluie se pose autour du voile de nuit : son assombrissement dessous,
     // ses gouttes et ses eclairs dessus (§4.21).
     this.pluie = new Pluie(this);
+    // Le feu se pose de part et d'autre du meme voile : la flamme dans le
+    // monde, la lueur par-dessus la nuit (§4.21).
+    this.feux = new Feux(this);
 
     // « Quand on n'est pas sur l'ecran, ca met pause et tout s'arrete » : une
     // journee dure 30 minutes reelles, aller chercher un cafe couterait un
@@ -3032,6 +3101,8 @@ export class ArenaScene extends Phaser.Scene {
       const c = Grille.centreCase(plan.centre.colonne + dc, plan.centre.ligne + dl);
       if (!libre(c.x, c.y)) continue;
       poser(c.x, c.y + 6, CLE_PUITS, false);
+      // On retient ou il est : c'est la que les seaux se remplissent (§4.21).
+      this.puits = { x: c.x, y: c.y + 6 };
       break;
     }
 
@@ -4020,6 +4091,9 @@ export class ArenaScene extends Phaser.Scene {
       this.village.stocks,
       this.meteo.pousse(this.cycle.phase, this.cycle.part),
     );
+    // Le feu ronge, se repand et s'eteint (§4.21). Il sort tout de suite tant
+    // que rien ne brule.
+    this.majIncendie();
     // Tant qu'on marche, les nuits n'ont pas commence : on ne defend pas encore
     // ce village, et il n'est pas attaque pour nous faire une demonstration
     // (§4.29). C'est l'installation qui lance le compte a rebours.
@@ -6152,7 +6226,15 @@ export class ArenaScene extends Phaser.Scene {
     const centre = maison.centre;
     eclatImpact(this, centre.x, centre.y, 0xbfae8a);
 
-    if (!this.maisons.blesser(maison, e.degats, this.time.now)) return;
+    if (!this.maisons.blesser(maison, e.degats, this.time.now)) {
+      // Sous 30 % de vie, une fois sur deux, ce qu'ils cognent prend feu
+      // (§4.21). La regle vit dans `core/incendie.ts` : ici on ne fait que
+      // l'interroger apres le coup.
+      if (unCoupAllumeLeFeu(maison.ratioPv, this.rng)) {
+        this.mettreLeFeu(maison, `Une ${maison.nom.toLowerCase()} prend feu sous leurs coups`);
+      }
+      return;
+    }
 
     poufMort(this, centre.x, centre.y, 0xbfae8a);
     secousse(this, "fort");
@@ -7688,6 +7770,9 @@ export class ArenaScene extends Phaser.Scene {
       this.cycle.part,
       this.rng,
     );
+    // L'eclair qui vient de tomber met-il le feu ? (§4.21) Un sur vingt, et
+    // seulement la ou il y a quelque chose a bruler.
+    if (!this.enMarche) this.regarderLaFoudre();
     this.majCrue();
   }
 
@@ -7792,6 +7877,245 @@ export class ArenaScene extends Phaser.Scene {
         : "L'eau emporte une maison deja fendue",
       "guet",
     );
+  }
+
+  // ------------------------------------------------------------ l'incendie
+
+  /**
+   * Ce que le feu ronge, gagne et perd (§4.21, l'incendie).
+   *
+   * Appelee a chaque image et **elle sort tout de suite** tant que rien ne
+   * brule : une comparaison, c'est tout ce que coute un village qui ne brule
+   * pas. Le vrai travail est dans le noyau, une fois par seconde.
+   */
+  private majIncendie(): void {
+    if (!this.incendie.actif) return;
+    if (this.enPause) return;
+
+    const passage = this.incendie.avancer(
+      this.time.now,
+      this.meteo.extinction(this.cycle.phase, this.cycle.part),
+      this.combustibles(),
+      this.rng,
+    );
+
+    if (passage) {
+      for (const degat of passage.degats) this.rongerParLeFeu(degat.cible, degat.sorte, degat.degats);
+      for (const foyer of passage.eteints) this.cibles.delete(foyer.cible);
+      if (passage.departs.length > 0) {
+        this.events.emit("annonce", "Le feu prend a cote — il se repand", "guet");
+      }
+      this.eteindreAvecLesHeros();
+    }
+
+    this.servirLesSeaux();
+
+    this.feux.majorer(this.incendie.foyers, this.time.now);
+  }
+
+  /**
+   * Ou regarder quand ca brule hors de l'ecran (§4.21, l'alerte).
+   *
+   * Choix d'Angelos, 22 septembre 2026 : **une ligne de journal et un repere au
+   * bord**, plutot que la cloche (qui ne voudrait plus dire « a l'abri ») ou
+   * rien du tout. On est prevenu sans etre interrompu.
+   *
+   * ⚠️ Rend l'angle du feu **le plus proche qui ne se voit pas**, et `null`
+   * quand tout ce qui brule est deja a l'ecran : un repere qui doublerait une
+   * flamme visible ne dirait rien de plus.
+   */
+  get repereDuFeu(): number | null {
+    if (!this.incendie.actif) return null;
+
+    const vue = this.cameras.main.worldView;
+    let angle: number | null = null;
+    let meilleure = Infinity;
+    for (const foyer of this.incendie.foyers) {
+      if (vue.contains(foyer.x, foyer.y)) continue;
+      const dx = foyer.x - vue.centerX;
+      const dy = foyer.y - vue.centerY;
+      const carre = dx * dx + dy * dy;
+      if (carre >= meilleure) continue;
+      meilleure = carre;
+      angle = Math.atan2(dy, dx);
+    }
+    return angle;
+  }
+
+  /**
+   * Rendre a chaque feu repris la chose qu'il brule (§4.21, §4.28).
+   *
+   * Une sauvegarde ne garde que des **cles de case** : une reference d'objet ne
+   * traverse pas un rechargement. On les retrouve ici, une fois, et un feu dont
+   * la maison a disparu entre-temps s'eteint au lieu de bruler dans le vide.
+   */
+  private raccrocherLesFeux(): void {
+    this.cibles.clear();
+    for (const foyer of [...this.incendie.foyers]) {
+      const objet =
+        this.maisons.debout.find((m) => cleDuFeu(m) === foyer.cible) ??
+        this.champs.tous.find((c) => cleDuFeu(c) === foyer.cible) ??
+        null;
+      if (objet) this.cibles.set(foyer.cible, objet);
+      else this.incendie.eteindre(foyer.cible);
+    }
+  }
+
+  /**
+   * Tout ce qui peut prendre feu, a cet instant (§4.21).
+   *
+   * Construit **seulement quand quelque chose brule**, et une fois par seconde
+   * au plus : une trentaine d'elements, ce qui reste loin du parcours par image
+   * que le §4.17 interdit.
+   */
+  private combustibles(): Combustible[] {
+    const liste: Combustible[] = [];
+    for (const maison of this.maisons.debout) {
+      const centre = maison.centre;
+      liste.push({ id: cleDuFeu(maison), x: centre.x, y: centre.y, sorte: "maison" });
+    }
+    for (const champ of this.champs.tous) {
+      liste.push({ id: cleDuFeu(champ), x: champ.x, y: champ.y, sorte: "champ" });
+    }
+    return liste;
+  }
+
+  /**
+   * Ce qu'une seconde de feu coute a ce qui brule.
+   *
+   * Une maison perd des points de vie et tombe **en ruine**, comme sous les
+   * coups des monstres (choix d'Angelos, 22 septembre 2026) : les gens sortent,
+   * ils sont sans abri, et on releve au plein prix. Un champ perd sa maturite,
+   * et quand le feu l'a mange en entier il n'en reste rien du tout.
+   */
+  private rongerParLeFeu(cible: string, sorte: SorteDeFeu, degats: number): void {
+    const objet = this.cibles.get(cible);
+    if (!objet) return this.incendie.eteindre(cible);
+
+    if (sorte === "maison") {
+      const maison = objet as Maison;
+      if (!this.maisons.blesser(maison, degats, this.time.now)) return;
+      this.cibles.delete(cible);
+      this.incendie.eteindre(cible);
+      const centre = maison.centre;
+      abimerLeSol(this.carte, centre.x, centre.y, "brule", 30);
+      this.events.emit("annonce", `Une ${maison.nom.toLowerCase()} a brule — L pour la relever`, "guet");
+      return;
+    }
+
+    const champ = objet as Champ;
+    champ.maturite = Math.max(0, champ.maturite - degats);
+    const foyer = this.incendie.foyerDe(cible);
+    if (!foyer || foyer.ronge < 1) return;
+
+    // Le champ a brule en entier : il ne reste pas un carre de terre a demi
+    // noirci, il ne reste rien (§4.21). Le sol garde la marque.
+    this.cibles.delete(cible);
+    this.incendie.eteindre(cible);
+    abimerLeSol(this.carte, champ.x, champ.y, "brule", 24);
+    this.champs.pietiner(champ);
+    this.events.emit("annonce", "Un champ est parti en fumee", "guet");
+  }
+
+  /**
+   * Les heros eteignent en restant contre le feu (§4.21).
+   *
+   * Pas de touche, pas d'ordre : on se met devant et ca s'eteint. C'est la
+   * seule facon d'arreter un feu la nuit, quand les habitants sont a l'abri —
+   * et le prix a payer est de ne pas etre sur le front pendant ce temps-la.
+   */
+  private eteindreAvecLesHeros(): void {
+    const ciel = this.meteo.extinction(this.cycle.phase, this.cycle.part);
+    for (const foyer of [...this.incendie.foyers]) {
+      let bras = 0;
+      for (const hero of this.heros) {
+        if (!hero.estVivant) continue;
+        if (Phaser.Math.Distance.Between(hero.x, hero.y, foyer.x, foyer.y) > RAYON_DU_SEAU) continue;
+        bras += 1;
+      }
+      if (bras === 0) continue;
+      if (this.incendie.arroser(foyer.cible, bras * REGLAGES_INCENDIE.pointsHerosParSeconde, ciel)) {
+        this.cibles.delete(foyer.cible);
+        this.events.emit("annonce", "Le feu est eteint", "toi");
+      }
+    }
+  }
+
+  /**
+   * Les habitants au seau (§4.21).
+   *
+   * Ils y vont **le jour et tout seuls** : personne ne donne l'ordre, c'est la
+   * vie autonome qui les envoie (§4.27, occupation « eteindre »). Ici on ne
+   * fait que constater deux arrivees — au puits, on remplit ; au feu, on jette.
+   *
+   * ⚠️ Parcourt les habitants a chaque image, mais **seulement quand quelque
+   * chose brule** : `majIncendie` sort avant s'il n'y a pas de feu, et un
+   * village en feu a d'autres choses a compter que trente comparaisons.
+   */
+  private servirLesSeaux(): void {
+    const ciel = this.meteo.extinction(this.cycle.phase, this.cycle.part);
+    for (const villageois of this.village.vivants) {
+      if (villageois.occupation !== "eteindre") continue;
+
+      if (!villageois.seauPlein) {
+        if (this.puits === null) villageois.seauPlein = true;
+        else if (Phaser.Math.Distance.Between(villageois.x, villageois.y, this.puits.x, this.puits.y) <= RAYON_DU_SEAU) {
+          villageois.seauPlein = true;
+        }
+        continue;
+      }
+
+      const foyer = this.incendie.leProcheDe(villageois.x, villageois.y, RAYON_DU_SEAU);
+      if (!foyer) continue;
+      villageois.seauPlein = false;
+      if (this.incendie.arroser(foyer.cible, REGLAGES_INCENDIE.pointsParSeau, ciel)) {
+        this.cibles.delete(foyer.cible);
+        this.events.emit("annonce", "Le feu est noye — ils y sont arrives", "village");
+      }
+    }
+  }
+
+  /**
+   * Un depart de feu, d'ou qu'il vienne (§4.21).
+   *
+   * Toutes les sources passent par ici — le monstre qui cogne, le Pyromane,
+   * l'eclair, le fou du degre 3 —, ce qui garantit qu'un feu se voit, s'annonce
+   * et se retrouve toujours de la meme facon.
+   *
+   * @returns vrai si un feu vient vraiment de prendre
+   */
+  private mettreLeFeu(objet: Maison | Champ, raison: string): boolean {
+    const cle = cleDuFeu(objet);
+    const maison = objet instanceof Maison ? objet : null;
+    if (maison && !maison.debout) return false;
+
+    const centre = maison ? maison.centre : { x: objet.x, y: objet.y };
+    const foyer = this.incendie.allumer(
+      { id: cle, x: centre.x, y: centre.y, sorte: maison ? "maison" : "champ" },
+      this.time.now,
+    );
+    if (!foyer) return false;
+
+    this.cibles.set(cle, objet);
+    this.events.emit("annonce", raison, "guet");
+    return true;
+  }
+
+  /**
+   * L'eclair qui met le feu (§4.21).
+   *
+   * Un eclair sur vingt, et la regle vit dans `Meteo` depuis le premier morceau
+   * du ciel : ici on ne fait que lui donner quelque chose a bruler. Il frappe
+   * **ce qui est debout**, au hasard — la foudre ne choisit pas la maison la
+   * plus utile.
+   */
+  private regarderLaFoudre(): void {
+    if (!this.pluie.eclaire) return;
+    if (!this.meteo.unEclairAllumeUnFeu(this.rng)) return;
+
+    const debout = this.maisons.debout;
+    if (debout.length === 0) return;
+    this.mettreLeFeu(this.rng.pick(debout), "La foudre est tombee sur une maison — elle brule");
   }
 
   private tomberLaNuit(): void {
@@ -8179,7 +8503,7 @@ export class ArenaScene extends Phaser.Scene {
   private reglerLaNuitDesFous(journee: number): void {
     if (journee < 1) return;
 
-    const actes = actesDeLaNuit(this.fous, journee);
+    const actes = actesDeLaNuit(this.fous, journee, this.rng);
     if (actes.length === 0) return;
 
     if (actes.length >= REGLAGES_ARRIVEES.taillePourUnGroupe) {
@@ -8198,8 +8522,35 @@ export class ArenaScene extends Phaser.Scene {
     if (acte === "vol") return this.acteDeVol(fou);
     if (acte === "breche") return this.acteDeSabotage();
     if (acte === "meurtre") return this.acteDeMeurtre(fou);
-    // L'incendie appartient au degre 3 mais attend les incendies du jalon 6
-    // (§4.21) : rien ne le tire encore, et ce retour le dit au lieu de le taire.
+    if (acte === "incendie") return this.acteDIncendie(fou);
+  }
+
+  /**
+   * Le degre 3 qui brule au lieu de tuer (§4.18, §4.21).
+   *
+   * Le meme homme, la meme nuit, un autre geste : il pose le feu chez son
+   * voisin. C'est moins definitif qu'un meurtre — une maison se releve — et
+   * bien plus visible, ce qui en fait l'acte qu'on remarque le matin.
+   */
+  private acteDIncendie(fou: Fou): void {
+    const lui = this.village.parId(fou.id);
+    const depart = lui ?? this.village.vivants[0] ?? null;
+    if (depart === null) return;
+    if (!this.brulerLaPlusProche(depart.x, depart.y)) {
+      this.events.emit("annonce", "Une odeur de brule, au matin, sans rien trouver", "guet");
+    }
+  }
+
+  /**
+   * La maison debout la plus proche prend feu.
+   *
+   * Partagee par le Pyromane (§4.27) et le fou du degre 3 (§4.18) : les deux
+   * font exactement le meme geste, pour deux raisons differentes.
+   */
+  private brulerLaPlusProche(x: number, y: number): boolean {
+    const maison = this.maisons.laPlusProcheDebout(x, y);
+    if (!maison) return false;
+    return this.mettreLeFeu(maison, `Le feu a ete mis a une ${maison.nom.toLowerCase()}`);
   }
 
   private acteDeVol(fou: Fou): void {
@@ -9135,9 +9486,11 @@ export class ArenaScene extends Phaser.Scene {
         this.village.rassembler(3);
         break;
       case "mettre-le-feu":
-        // ⚠️ **Le feu est au jalon 6** (§4.21). En attendant il abime, il ne
-        // brule pas : la maison la plus proche encaisse, et c'est annonce.
-        this.maisons.abimerLaPlusProche(villageois.x, villageois.y);
+        // Le Pyromane allume vraiment, depuis le jalon 6 (§4.21, §4.27) : la
+        // maison debout la plus proche de lui prend feu. Rien d'autre n'a
+        // change — c'est bien cette initiative-la qui portait le drapeau
+        // `feuEnCraquant` depuis le bloc 12.
+        this.brulerLaPlusProche(villageois.x, villageois.y);
         break;
       case "tenir-un-discours":
         // Il parle, et le stress redescend. C'est la seule initiative qui

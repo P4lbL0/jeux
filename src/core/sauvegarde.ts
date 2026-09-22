@@ -21,6 +21,7 @@
 import type { ClassId, EtatHero, Rang } from "./classes";
 import type { Phase } from "./cycle";
 import type { EtatMeteo } from "./meteo";
+import type { EtatIncendie } from "./incendie";
 import type { EtatEglise, NiveauEglise } from "./eglise";
 import type { Matiere, TypeConstruction } from "./constructions";
 import type { Fou } from "./arrivants";
@@ -261,6 +262,16 @@ export interface Sauvegarde {
    * journee, pas un acquis qu'on perdrait.
    */
   meteo?: EtatMeteo;
+  /**
+   * Les feux en cours (§4.21, l'incendie). **Optionnel**, comme le ciel : une
+   * sauvegarde d'avant les incendies n'en a pas, et reprend sans rien qui
+   * brule.
+   *
+   * ⚠️ Un feu **se sauve**, contrairement au navire ou au survivant : ce n'est
+   * pas un instant mais un etat du village, et recharger pour l'eteindre serait
+   * exactement ce que la regle ironman interdit (§4.28).
+   */
+  incendie?: EtatIncendie;
   stocks: Stocks;
   kills: number;
   /**

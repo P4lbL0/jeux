@@ -3,7 +3,15 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-09-22 — **un jalon neuf, le 6.2 : la horde** (§4.33). On vise
+> Dernière mise à jour : 2026-09-22, l'après-midi — **l'incendie est codé** (§4.21). Ce qui
+> l'allume (les monstres sous 30 % de vie, le Pyromane, le fou du degré 3, la foudre), ce
+> qui l'éteint (les habitants au seau le jour, un héros à tout moment, la pluie qui compte
+> double), ce qu'il mange (une maison en quarante secondes, un champ en huit) et ce qu'il
+> laisse (une ruine à relever). Trois décisions d'Angelos ce jour-là : **une ruine, pas un
+> mort** ; **une ligne de journal et un repère au bord**, pas la cloche ; et **le météore
+> juste après**, pour fermer le jalon 6. Il ne reste du ciel que **le météore**.
+>
+> Avant ça : 2026-09-22 — **un jalon neuf, le 6.2 : la horde** (§4.33). On vise
 > **vingt mille monstres** à l'écran, et la **règle n°2 du §4.17 tombe** : elle n'était pas
 > un choix de design, c'était la facture d'une architecture. Une seule silhouette d'orc —
 > la teinte dit qui c'est, la luminosité dit la vie, le rouge dit le coup encaissé, la

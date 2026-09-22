@@ -52,7 +52,7 @@ coûte cher ou casse quelque chose.
   l'écran-titre est une cinématique Blender avec sa bande-son. La carte se peint par
   morceaux : une partie s'ouvre en une demi-seconde sur une zone de 3 464 × 2 598.
 
-**Les chiffres** : 859 tests verts, `npm run build` propre, ~50 000 lignes de TypeScript.
+**Les chiffres** : 930 tests verts, `npm run build` propre, ~50 000 lignes de TypeScript.
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
 
@@ -68,7 +68,7 @@ coûte cher ou casse quelque chose.
 
 ## 3. Ce qui reste à coder
 
-### A. Le jalon 6 — le ciel (§4.21) : **la moitié est codée** (22 septembre 2026)
+### A. Le jalon 6 — le ciel (§4.21) : **il ne reste que le météore** (22 septembre 2026)
 
 ✅ **Ce qui tourne** : la **pluie** (une journée sur trois, tirée à l'aube et à
 l'installation, pousse ×2, elle tombe aussi sur la route), l'**orage** (une journée sur
@@ -78,17 +78,20 @@ cèdent, douves qui débordent), les **bêtes d'eau** (Écumeur et Engloutisseur
 des berges la nuit de crue), et le **son** (deux averses, deux tonnerres, fabriqués au code,
 le tonnerre arrivant après la lumière).
 
-⚠️ **Ce qui reste** : l'**incendie** et le **météore**.
+✅ **L'incendie** (l'après-midi du 22) : ce qui allume (monstre sous 30 % de vie une fois
+sur deux, Pyromane, fou du degré 3 une nuit sur deux, foudre), ce que ça mange (une maison
+en 40 s puis une **ruine à relever**, un champ en 8 s et il n'en reste rien), la propagation
+(un voisin toutes les 4 s, à quatre cases entre milieux, deux fois moins sous la pluie), et
+l'extinction (**neuf seaux** ; les habitants y vont seuls le jour depuis six cases, un héros
+en 5 s, la pluie compte double). Ce qui brûle hors champ se dit par une **ligne de journal**
+et un **repère au bord**. Les trois crochets ont servi sans qu'une ligne du ciel ne bouge.
 
-⚠️ **Trois crochets l'attendent déjà**, et ils sont écrits dans le code :
+⚠️ **Ce qui reste du jalon 6** :
 
-- `Maisons.abimerLaPlusProche` est ce qu'un **Pyromane** fait quand il craque (§4.27). Elle
-  abîme faute de pouvoir brûler ; le jour où l'incendie existera, c'est elle qui l'allumera
-  et rien d'autre ne changera.
-- Le trait **Pyromane** porte déjà un drapeau `feuEnCraquant` que rien ne lit.
-- `Meteo.extinction()` (un feu s'éteint deux fois plus vite sous la pluie) et
-  `Meteo.unEclairAllumeUnFeu()` (un éclair sur vingt) : les deux règles sont écrites et
-  testées, rien ne les lit encore.
+- le **météore** — c'est ce qu'Angelos a demandé ensuite, pour fermer le jalon ;
+- les **flammes de Blender** : celles du jeu sont encore le dessin au code
+  (`src/game/dessin/feu.ts`, clés `feu-flamme-0/1/2`, un PNG de `src/assets/` les remplace) ;
+- le **son du feu** : rien ne crépite encore (`npm run ciel` fabrique les sons du ciel).
 
 ### B. Les jalons suivants, écrits et pas codés
 
@@ -178,6 +181,9 @@ Ils reserviront, et ils ont tous coûté une session :
 
 - Les deux dernières frames de la mort du golem et de la brute sortent de cinq pixels sous
   leur cadre (les pattes, pas le corps).
+- **Aucun chiffre de l'incendie n'a été joué** (`REGLAGES_INCENDIE`) : les 9 seaux, les 40 s
+  d'une maison, la chance de propagation.
+- **La forêt ne brûle pas** : les arbres n'ont pas de vie dans le code (§4.21).
 - **Presque aucun chiffre des blocs 8 à 12 n'a été joué.** Tous dans des tables de réglages.
 - **Un milicien répond à la cloche ? Non**, et c'est volontaire — à juger en jouant.
 - **La garnison n'existe pas** (§4.15) : au-delà de dix héros dehors, un onzième don ne

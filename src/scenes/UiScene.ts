@@ -22,6 +22,7 @@ import { MenuPause } from "../game/menuPause";
 import { PanneauSon } from "../game/panneauSon";
 import { PanneauTouches } from "../game/panneauTouches";
 import { Clavier } from "../game/touches";
+import { CLE_REPERE, CLE_REPERE_POINTE, COTE_REPERE, cuireLeFeu } from "../game/dessin/feu";
 
 /**
  * Toute l'interface vit dans cette scene, separee de l'arene.
@@ -52,6 +53,10 @@ export class UiScene extends Phaser.Scene {
   /** Ce qu'on porte tant qu'on marche (§4.31) : il prend la place du compteur */
   private route!: PanneauRoute;
   private boiteJournal!: BoiteJournal;
+  /** Le repere qui pointe un incendie sorti de l'ecran (§4.21) */
+  private repereFeu!: Phaser.GameObjects.Image;
+  /** Sa pointe, le seul des deux qui tourne */
+  private repereFeuPointe!: Phaser.GameObjects.Image;
   private rencontre!: PanneauRencontre;
   /**
    * La pause et ses deux panneaux (§4.10, bloc 10).
@@ -131,6 +136,23 @@ export class UiScene extends Phaser.Scene {
     // La rencontre a la porte (§4.29) : le seul panneau ou c'est quelqu'un
     // d'autre qui pose la question, et nous qui repondons.
     this.rencontre = new PanneauRencontre(this);
+
+    // Les textures sont partagees par tout le jeu, mais l'ordre de demarrage
+    // des scenes ne l'est pas : on cuit ici aussi, et l'appel ne refait rien
+    // si l'arene est passee avant.
+    cuireLeFeu(this);
+    // Le repere d'incendie : une seule image, cachee tant que rien ne brule
+    // hors champ (§4.21). Sous les panneaux, au-dessus du jeu.
+    this.repereFeuPointe = this.add
+      .image(0, 0, CLE_REPERE_POINTE)
+      .setDepth(990)
+      .setVisible(false)
+      .setScrollFactor(0);
+    this.repereFeu = this.add
+      .image(0, 0, CLE_REPERE)
+      .setDepth(991)
+      .setVisible(false)
+      .setScrollFactor(0);
 
     this.construireLaPause();
 
@@ -401,5 +423,37 @@ export class UiScene extends Phaser.Scene {
     }
 
     this.boiteJournal.rafraichir(this.arene.journal);
+    this.placerLeRepereDuFeu();
+  }
+
+  /**
+   * Le repere d'incendie, pose sur le bord de l'ecran (§4.21).
+   *
+   * Il glisse sur une **ellipse** inscrite dans l'ecran plutot que sur le
+   * rectangle : un repere qui saute d'un cote a l'autre dans les coins se lit
+   * moins bien qu'un repere qui tourne. La marge le garde a l'interieur, loin
+   * des panneaux colles aux bords.
+   */
+  private placerLeRepereDuFeu(): void {
+    const angle = this.arene.repereDuFeu;
+    if (angle === null) {
+      this.repereFeu.setVisible(false);
+      this.repereFeuPointe.setVisible(false);
+      return;
+    }
+
+    const marge = COTE_REPERE;
+    const demiLargeur = largeurEcran(this) / 2 - marge;
+    const demiHauteur = hauteurEcran(this) / 2 - marge;
+    const x = largeurEcran(this) / 2 + Math.cos(angle) * demiLargeur;
+    const y = hauteurEcran(this) / 2 + Math.sin(angle) * demiHauteur;
+
+    // La pastille reste droite, la pointe tourne autour d'elle et depasse d'un
+    // demi-cote vers le feu.
+    this.repereFeu.setPosition(x, y).setVisible(true);
+    this.repereFeuPointe
+      .setPosition(x + Math.cos(angle) * COTE_REPERE * 0.5, y + Math.sin(angle) * COTE_REPERE * 0.5)
+      .setRotation(angle)
+      .setVisible(true);
   }
 }

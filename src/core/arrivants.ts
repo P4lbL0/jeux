@@ -433,13 +433,14 @@ export const ACTE_PAR_DEGRE: Record<1 | 2 | 3, Acte> = {
 };
 
 /**
- * ⚠️ **L'incendie n'a pas de degre**, et c'est voulu : il appartient au degre 3,
- * mais il exige les incendies du jalon 6 (§4.21). Le jour ou ils existeront, un
- * meurtrier pourra bruler au lieu de tuer — il n'y aura qu'a le tirer ici. C'est
- * le meme traitement que l'argent au bloc 4 : la place est ecrite, le
- * branchement attend son systeme.
+ * La part des nuits ou le degre 3 **brule au lieu de tuer** (§4.18, §4.21).
+ *
+ * Une sur deux, depuis que les incendies existent (22 septembre 2026) : le
+ * meme homme, la meme nuit, un autre geste. Le meurtre est definitif et muet,
+ * l'incendie se voit de loin et se repare — deux nuits d'apres-coup
+ * differentes, pour le meme degre de folie.
  */
-export const ACTES_DU_JALON_6: Acte[] = ["incendie"];
+export const PART_DE_L_INCENDIE = 0.5;
 
 export const NOMS_ACTE: Record<Acte, string> = {
   vol: "les stocks ont ete vides",
@@ -737,6 +738,7 @@ export function accueillir(arrivant: Arrivant, id: number, journee: number, rng:
 export function actesDeLaNuit(
   fous: readonly Fou[],
   journee: number,
+  rng: Rng,
 ): { fou: Fou; acte: Acte }[] {
   // Celui qui vient d'entrer ne fait rien : le §4.18 lui laisse le temps de
   // prendre un poste, un nom et un visage qu'on reconnait.
@@ -746,7 +748,19 @@ export function actesDeLaNuit(
 
   const enGroupe = installes.length >= REGLAGES_ARRIVEES.taillePourUnGroupe;
   const agissants = enGroupe ? installes : dus;
-  return agissants.map((fou) => ({ fou, acte: ACTE_PAR_DEGRE[fou.degre] }));
+  return agissants.map((fou) => ({ fou, acte: acteDe(fou, rng) }));
+}
+
+/**
+ * L'acte de cette nuit-la.
+ *
+ * Deux degres sur trois n'ont qu'un geste ; le troisieme tire entre tuer et
+ * bruler (§4.21). Le tirage est ici et pas dans la scene pour que « une nuit
+ * sur deux » se teste sans lancer de partie.
+ */
+function acteDe(fou: Fou, rng: Rng): Acte {
+  if (fou.degre === 3 && rng.chance(PART_DE_L_INCENDIE)) return "incendie";
+  return ACTE_PAR_DEGRE[fou.degre];
 }
 
 /**

@@ -1568,6 +1568,71 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6, morceau 6 — l'incendie (22 septembre 2026, l'apres-midi)
+
+Les regles etaient ecrites depuis le 20 septembre et **trois crochets attendaient** dans le
+code (`Meteo.extinction`, `Meteo.unEclairAllumeUnFeu`, `Maisons.abimerLaPlusProche`, plus le
+drapeau `feuEnCraquant` du Pyromane). Le chantier a consiste a leur donner quelque chose a
+bruler, sans toucher au ciel.
+
+#### Le noyau ne connait pas le jeu
+
+`core/incendie.ts` ne voit ni maison ni champ : on lui nomme des **combustibles**
+(`{ id, x, y, sorte }`), il rend un **passage** (`degats`, `departs`, `eteints`) et la scene
+applique. C'est ce qui permet de tester une propagation complete, une extinction a neuf
+seaux et une reprise de sauvegarde **sans lancer de partie** — 24 tests.
+
+Le foyer porte une **ardeur** (100 au depart) et un compteur `ronge`. L'ardeur ne baisse que
+par les seaux, les heros et l'epuisement ; `ronge` sert au champ, dont la maturite ne mesure
+pas ce qu'il a encaisse (un champ tout juste seme est deja a zero).
+
+⚠️ **Un piege de flottant, paye tout de suite** : 0,4 soustrait 250 fois ne fait pas zero
+mais 1,4 × 10⁻¹⁴. Un feu restait allume avec une ardeur d'un milliardieme. D'ou la constante
+`ETEINT = 1e-6`, et le reglage du champ passe de 0,12 a **0,125** — un huitieme est exact en
+binaire, et huit secondes tombent juste.
+
+#### La portee de propagation, mesuree et corrigee
+
+Le §4.21 dit « ses voisins a deux cases ». Code tel quel (`2 * CASE`, de centre a centre),
+**rien ne se propageait** : mesure en jeu, la voisine la plus proche est a **64, 91 ou 96
+pixels** selon le village, et une maison occupe deja deux cases de cote. La portee est passee
+a **quatre cases entre milieux**, ce qui est la meme regle lue de bord a bord.
+
+Deuxieme controle apres correction : le feu saute d'une maison a l'autre en six secondes.
+
+#### Ce que la scene fait par-dessus
+
+- `majIncendie()` **sort a la premiere ligne** tant que rien ne brule : une comparaison, et
+  le §4.17 est tenu. Ce n'est que quand un feu existe que la liste des combustibles se
+  construit (une trentaine d'elements, une fois par seconde).
+- Une `Map<cle, Maison | Champ>` tient la correspondance : la cle est **la case**
+  (`m<colonne>:<ligne>`, `c<x>:<y>`), ce qui traverse une sauvegarde — une reference d'objet,
+  non.
+- Les habitants vont au seau par la **vie autonome** (§4.27) : une occupation « eteindre » de
+  plus, prioritaire sur la faim, jamais la nuit, jamais pour celui qui a craque. Le village
+  demande deux choses a la scene (`feuAPortee`, `butDuSeau`) et ne connait toujours pas les
+  incendies.
+- Le repere de bord d'ecran est **deux images** : la pastille ne tourne pas, la pointe si.
+  Premiere version a une seule image : la flamme tournait avec la pointe et se retrouvait la
+  tete en bas. Juge sur capture, corrige.
+
+#### Verifie dans le navigateur (`.tmp/feu.ts`, trois mondes)
+
+Le feu prend, ronge (200 → 95 points de vie en vingt secondes), fait tomber la maison en
+ruine, saute chez la voisine, se voit de nuit par sa lueur **au-dessus du voile**, se signale
+au bord de l'ecran quand on regarde ailleurs, s'eteint en cinq secondes sous un heros — et,
+laisse aux habitants, **quatre porteurs de seau l'ont noye tout seuls**.
+
+⚠️ **Deux pieges de capture, payes ici** : forcer `voile.setAlpha()` ne donne pas une nuit
+(`teinterLeCiel` la recalcule a l'image suivante — il faut pousser le **cycle**), et
+`setZoom` sur la camera de l'arene est repris par le calage d'ecran.
+
+**930 tests verts** (+28). Reste du ciel : le **meteore**, les flammes **Blender** et le
+**son** du feu.
+
+**A regarder** : `captures/jeu/2026-09-22/` — `feu-*-jour`, `feu-*-nuit` (la lueur),
+`feu-*-repere` (le bord d'ecran), `feu-*-seaux`.
+
 ### Le jalon 6, morceau 5 — les betes d'eau (22 septembre 2026)
 
 Le dernier morceau du ciel, et le plus cher : deux creatures modelisees pour ca, et une

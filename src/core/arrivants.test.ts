@@ -22,6 +22,24 @@ import { idTrait } from "./traits";
 import { PRENOMS } from "./personne";
 import { Rng } from "./rng";
 
+/**
+ * Un tirage impose : `jamais` ne tire jamais l'incendie du degre 3, `toujours`
+ * le tire a tous les coups (§4.21). Les deux servent a fixer l'acte d'une nuit
+ * sans dependre d'une graine.
+ */
+class RngFixe extends Rng {
+  constructor(private readonly valeur: number) {
+    super(0);
+  }
+
+  override next(): number {
+    return this.valeur;
+  }
+}
+
+const jamais = () => new RngFixe(0.99);
+const toujours = () => new RngFixe(0);
+
 /** Un echantillon d'arrivants, pour tout ce qui ne se juge que sur le nombre. */
 function echantillon(combien: number, graine = 1): Arrivant[] {
   const rng = new Rng(graine);
@@ -261,29 +279,29 @@ describe("Les fous", () => {
 
   it("ne frappe jamais le jour de son arrivee", () => {
     // Meme avec une echeance absurde, celui qui vient d'entrer ne fait rien.
-    expect(actesDeLaNuit([fou(3, 4, 4)], 4)).toEqual([]);
+    expect(actesDeLaNuit([fou(3, 4, 4)], 4, jamais())).toEqual([]);
   });
 
   it("frappe quand son echeance arrive, avec l'acte de son degre", () => {
     const seul = fou(2, 1, 3);
-    const actes = actesDeLaNuit([seul], 3);
+    const actes = actesDeLaNuit([seul], 3, jamais());
     expect(actes).toHaveLength(1);
     expect(actes[0]!.acte).toBe(ACTE_PAR_DEGRE[2]);
   });
 
   it("ne fait rien tant qu'aucune echeance n'est venue", () => {
-    expect(actesDeLaNuit([fou(1, 1, 8), fou(2, 1, 9)], 5)).toEqual([]);
+    expect(actesDeLaNuit([fou(1, 1, 8), fou(2, 1, 9)], 5, jamais())).toEqual([]);
   });
 
   it("a deux, chacun frappe son tour", () => {
-    const actes = actesDeLaNuit([fou(1, 1, 5), fou(2, 1, 12)], 5);
+    const actes = actesDeLaNuit([fou(1, 1, 5), fou(2, 1, 12)], 5, jamais());
     expect(actes).toHaveLength(1);
     expect(actes[0]!.fou.degre).toBe(1);
   });
 
   it("a trois, ils frappent tous la meme nuit, chacun son acte", () => {
     const groupe = [fou(1, 1, 5), fou(2, 1, 12), fou(3, 2, 20)];
-    const actes = actesDeLaNuit(groupe, 5);
+    const actes = actesDeLaNuit(groupe, 5, jamais());
     expect(actes).toHaveLength(3);
     expect(actes.map((a) => a.acte).sort()).toEqual(["breche", "meurtre", "vol"]);
   });
@@ -292,9 +310,20 @@ describe("Les fous", () => {
     // Trois installes : le groupe frappe. Le quatrieme est entre ce matin, et
     // le §4.18 lui laisse sa journee quoi qu'il arrive autour de lui.
     const nouveau = fou(1, 5, 6);
-    const actes = actesDeLaNuit([fou(1, 1, 5), fou(2, 1, 12), fou(3, 2, 20), nouveau], 5);
+    const actes = actesDeLaNuit([fou(1, 1, 5), fou(2, 1, 12), fou(3, 2, 20), nouveau], 5, jamais());
     expect(actes).toHaveLength(3);
     expect(actes.map((a) => a.fou)).not.toContain(nouveau);
+  });
+
+  it("fait bruler le degre 3 au lieu de tuer, une nuit sur deux", () => {
+    const seul = fou(3, 1, 3);
+    expect(actesDeLaNuit([seul], 3, toujours())[0]!.acte).toBe("incendie");
+    expect(actesDeLaNuit([seul], 3, jamais())[0]!.acte).toBe("meurtre");
+  });
+
+  it("ne fait jamais bruler les degres 1 et 2, meme quand le tirage le voudrait", () => {
+    expect(actesDeLaNuit([fou(1, 1, 3)], 3, toujours())[0]!.acte).toBe("vol");
+    expect(actesDeLaNuit([fou(2, 1, 3)], 3, toujours())[0]!.acte).toBe("breche");
   });
 
   it("fait partir le voleur et rester les autres", () => {

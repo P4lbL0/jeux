@@ -124,6 +124,18 @@ export interface ContexteVillage {
    */
   chantierLePlusProche: (x: number, y: number) => Point | null;
   /**
+   * Ca brule-t-il assez pres pour qu'on y coure ? (§4.21)
+   *
+   * Ce fichier ne connait pas les incendies, et il ne doit pas : il demande, la
+   * scene repond.
+   */
+  feuAPortee: (x: number, y: number) => boolean;
+  /**
+   * Ou va celui qui porte un seau : **le puits s'il l'a vide, le feu s'il l'a
+   * plein** (§4.21). `null` quand il n'y a plus rien a eteindre.
+   */
+  butDuSeau: (x: number, y: number, seauPlein: boolean) => Point | null;
+  /**
    * La cour d'entrainement, et si quelqu'un y attend un instructeur
    * (§4.18, bloc 9). `null` tant qu'elle n'est pas batie.
    */
@@ -331,6 +343,8 @@ export class Villageois extends Phaser.Physics.Arcade.Sprite {
    * (§4.27, bloc 12). `null` tant qu'on ne l'a pas encore reveille.
    */
   occupation: Occupation | null = null;
+  /** Vrai quand il revient du puits, les mains pleines (§4.21) */
+  seauPlein = false;
   /**
    * Ou il se rend en flanant.
    *
@@ -1384,6 +1398,7 @@ export class Village {
       rassasie: villageois.regles.rassasie,
       nuit: this.nuit,
       chantier: this.contexte.chantierLePlusProche(villageois.x, villageois.y) !== null,
+      feu: this.contexte.feuAPortee(villageois.x, villageois.y),
       // ⚠️ **Un voisin ne suffit pas : il faut aussi avoir envie de parler.**
       // Sans ce repos, huit habitants serres autour de l'eglise discutent en
       // boucle et le village se fige — vu en jouant.
@@ -1424,6 +1439,11 @@ export class Village {
     }
     if (occupation === "reparer") {
       return this.contexte.chantierLePlusProche(villageois.x, villageois.y) ?? chezLui;
+    }
+    if (occupation === "eteindre") {
+      // Le puits, puis le feu, puis le puits : le va-et-vient **est** la scene
+      // qu'on regarde, et c'est pour ca qu'un seul habitant ne suffit pas.
+      return this.contexte.butDuSeau(villageois.x, villageois.y, villageois.seauPlein) ?? chezLui;
     }
     if (occupation === "flaner") {
       // Un petit rayon autour de chez lui, qui change a chaque reveil : c'est
