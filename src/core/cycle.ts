@@ -69,10 +69,20 @@ export const REGLAGES_CYCLE = {
   /**
    * Plafond de monstres vivants a l'ecran.
    *
-   * Il valait 240. Le §4.17 en fait une regle de fluidite, mais c'est aussi une
-   * regle de lisibilite : a 240 on ne voit plus le terrain qu'on defend.
+   * Il valait 240, puis 60 : a 240 on ne voyait plus le terrain qu'on defend.
+   *
+   * ⚠️ **800 depuis le 22 septembre 2026 au soir, decision d'Angelos**, une fois
+   * pose le garde-fou contre la falaise (§4.33, palier 0 : `main.ts`). La
+   * mesure a montre que 60 n'etait pas une facture de fluidite — le moteur
+   * tient 1 200 orcs a soixante images par seconde — mais un choix de
+   * lisibilite. Ce chiffre est la pour qu'on **voie** une horde de nuit et
+   * qu'on juge sur image ce qui reste lisible ; ce n'est pas encore un reglage.
+   *
+   * Il ne change pas l'effectif d'une nuit (30 + 12 par nuit), seulement ce qui
+   * peut etre debout en meme temps : des la nuit 4, un joueur deborde voit
+   * tout l'excedent a la fois au lieu de le voir arriver par paquets de 60.
    */
-  plafondEcran: 60,
+  plafondEcran: 800,
 
   /**
    * Ecart entre deux hordes de jour, en millisecondes (tire entre les deux).

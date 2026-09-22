@@ -55,9 +55,31 @@ const config: Phaser.Types.Core.GameConfig = {
     height: depart.hauteur,
     zoom: 1 / RATIO,
   },
+  /**
+   * Le garde-fou contre la falaise (DESIGN.md §4.33, palier 0).
+   *
+   * ⚠️ **Le jeu ne ralentissait pas, il tombait d'un coup** : 1 600 monstres a
+   * 52 images par seconde, 2 000 a 26. Mesure a l'appui, la cause n'est pas le
+   * nombre de monstres mais **le rattrapage de Phaser** — quand une image a
+   * traine, le moteur rejoue les pas de physique manques pour que l'horloge du
+   * jeu reste juste. Chaque pas rejoue refait tout le travail de collision, ce
+   * qui allonge l'image suivante, qui en redemande davantage. Mesure : 0,50 ms
+   * de rattrapage a 1 600 monstres, **14,05 ms a 2 000**.
+   *
+   * Deux reglages coupent la spirale, et ils ne coutent rien :
+   *
+   * - `fixedStep: false` : **un seul pas de physique par image**, jamais deux.
+   *   La simulation avance du temps reellement ecoule au lieu de rattraper un
+   *   retard qu'elle creuse elle-meme. Sans risque de traverser un mur : a
+   *   120 px/s et 50 ms, un corps avance de 6 px, contre 32 px de cote.
+   * - `fps.min: 20` : **le delta est plafonne a 50 ms**. En dessous de vingt
+   *   images par seconde, le jeu passe **au ralenti** plutot que de teleporter
+   *   tout le monde d'un demi-pas. Une chute doit rester jouable, donc lisible.
+   */
+  fps: { min: 20 },
   physics: {
     default: "arcade",
-    arcade: { debug: false },
+    arcade: { debug: false, fixedStep: false },
   },
   // BootScene charge les PNG avant tout le monde : les textures Phaser etant
   // globales, les scenes suivantes les trouvent deja la.

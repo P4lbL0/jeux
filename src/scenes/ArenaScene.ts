@@ -8518,10 +8518,10 @@ export class ArenaScene extends Phaser.Scene {
   /**
    * La meute, lachee autour de lui **au moment ou on le voit** (§4.18).
    *
-   * ⚠️ **Le plafond de l'ecran passe avant le tirage** (§4.17 regle 1) : une
-   * meute de 40 mange les deux tiers de la reserve de 60, et rien d'autre ne
-   * doit pouvoir paraitre pendant qu'elle est debout. Si l'ecran est deja
-   * charge, la meute est plus petite — jamais l'inverse.
+   * ⚠️ **Le plafond de l'ecran passe avant le tirage** (§4.17 regle 1) : si
+   * l'ecran est deja charge, la meute est plus petite — jamais l'inverse. Avec
+   * le plafond a 60, une meute de 40 en mangeait les deux tiers ; a 800
+   * (§4.33), elle ne bute plus dessus qu'au plus fort d'une nuit.
    */
   private lacherLaMeute(x: number, y: number, combien: number, camp = false): void {
     const puissance = this.puissanceIci(this.cycle.jour);

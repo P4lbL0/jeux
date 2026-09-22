@@ -3,7 +3,16 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-09-22, le soir — **LE JALON 6 EST FINI** (§4.21). Le
+> Dernière mise à jour : 2026-09-22, tard — **le §4.33 est corrigé par la mesure**, et sur
+> deux points. Le plafond de 60 monstres est un **choix de lisibilité**, pas une facture de
+> fluidité : le moteur tient déjà **1 200 orcs à 60 images par seconde** et le mur est vers
+> **1 600**. Et le jeu ne ralentit pas, **il tombe d'un coup** — Phaser rejoue les pas de
+> physique manqués et s'enfonce tout seul (1 600 → 52 i/s, 2 000 → 26). Les paliers sont
+> refaits en conséquence : d'abord le **garde-fou** contre cette falaise, puis **l'IA et la
+> physique ensemble** (75 % du coût), puis **le rendu** (24 %). Le cap des vingt mille ne
+> bouge pas.
+>
+> Avant ça : 2026-09-22, le soir — **LE JALON 6 EST FINI** (§4.21). Le
 > **météore** est codé, et c'était le dernier morceau du ciel : une nuit sur vingt, une
 > traînée puis une ombre qui grandit douze secondes au sol, et tout ce qui est dans le
 > cratère disparaît sauf l'église. Il laisse une **cicatrice permanente** écrite dans la

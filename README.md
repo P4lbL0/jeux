@@ -496,6 +496,8 @@ npx tsx scripts/capturer-villages.ts 1,7,42 # trois villages tires au sort, deux
 npx tsx scripts/capturer-details.ts 1,7,42  # les details de vie : village entier, la plage (filets), les maisons de pres (linge)
 npx tsx scripts/verifier-chemins.ts         # les chemins qui s'usent : pas comptes, chemins forces, palis, effaces ; trois captures
 npx tsx scripts/capturer-titre.ts apres # l'ecran-titre : film, meteorite, menu, emplacements
+npx tsx scripts/capturer-horde.ts       # une nuit a 800 orcs, vue du joueur et vue du village (§4.33)
+npx tsx scripts/banc-horde.ts 4242 --paliers=1600,2000,3000 [--temoin]  # ou passent les 16 ms, poste par poste, sur la vraie carte graphique
 npm run intro                          # refait le film d'ouverture (Blender + ffmpeg)
 npm run son                            # refait la bande-son, boucle les musiques, fichiers d'ecoute
 npm run son -- --chercher              # ... en cherchant les raccords des musiques sur tout le morceau

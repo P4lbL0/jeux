@@ -1568,6 +1568,126 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6.2, palier 0 — la falaise devient une pente (22 septembre 2026, le soir)
+
+Le premier morceau de la horde (§4.33), et il ne ressemble pas à ce que la section annonçait.
+Une passe de profilage l'a d'abord **démentie sur deux points**, puis un réglage de deux
+lignes a retiré le pire du problème. Le cap des vingt mille ne bouge pas ; l'ordre du
+chantier, lui, a entièrement changé.
+
+#### La mesure a démenti le design
+
+Le §4.33 expliquait que le moteur plafonnait à soixante monstres. **C'était faux**, et
+Angelos a demandé que son erreur soit écrite dans la section telle quelle. Mesuré sur la
+vraie carte graphique, monstres posés au contact :
+
+| monstres | images/s | logique de scène | physique Arcade | rendu et tri |
+|---|---|---|---|---|
+| 1 000 | 59,4 | 4,91 ms | 5,21 ms | 3,86 ms |
+| 1 200 | **60,1** | 5,12 | 5,00 | 3,75 |
+| 1 600 *(le mur)* | 52,8 | 6,99 | 6,74 | 4,28 |
+
+- **le plafond de 60 était un choix de lisibilité**, pas une facture de fluidité : le moteur
+  tient 1 200 orcs à soixante images par seconde sans qu'on ait touché à rien ;
+- **au mur, le budget se partage en trois** : logique 39 % (dont l'IA seule, 30 %), physique
+  37 %, rendu 24 %. L'ancien tableau rangeait la collision en tête ; l'IA coûte davantage.
+
+Le §4.33 est réécrit, le tableau des paliers refait (0, 1, 2, 3), le §4.17 corrigé.
+
+#### La falaise, et ses deux lignes
+
+Le jeu ne ralentissait pas, il tombait : quand une image traîne, **Phaser rejoue les pas de
+physique manqués** (la boucle `while` de `World.update`) pour garder l'horloge juste. Chaque
+pas rejoué refait toute la collision, l'image suivante s'allonge, et en redemande. Sur trois
+mondes, le rattrapage coûtait **1,5 à 14 ms à 2 000 monstres, 42 à 80 ms à 3 500**.
+
+Deux réglages dans `main.ts`, déclarés jusque-là sans rien (`arcade: { debug: false }`) :
+
+- `fixedStep: false` — un seul pas de physique par image. Aucun corps ne traverse un mur :
+  à 120 px/s et 50 ms, il avance de 6 px contre 32 de côté ;
+- `fps: { min: 20 }` — le delta est plafonné à 50 ms. Sous vingt images par seconde, le jeu
+  passe **au ralenti** plutôt que de téléporter tout le monde.
+
+| Monde | Monstres | Sans | Avec |
+|---|---|---|---|
+| 4242 | 2 000 / 3 000 / 3 500 | 45,3 / 23,7 / **7,7** i/s | 49,0 / 26,5 / **15,6** |
+| 777 | 2 000 / 3 000 / 3 500 | 28,8 / 16,3 / 12,1 | 40,2 / 28,6 / 23,8 |
+| 31337 | 2 000 / 3 000 / 3 500 | 21,6 / **10,3** / 9,5 | 36,1 / **29,3** / 24,0 |
+
+Trois fois plus d'images à 3 000 monstres sur le monde le plus lourd ; presque rien là où le
+jeu tenait déjà. C'était tout l'objet.
+
+#### Huit pièges de mesure, payés un par un
+
+Ils resserviront à chaque palier, et chacun a faussé au moins une passe :
+
+1. **Phaser mémorise `update` au démarrage** (`Systems.init` le copie dans
+   `sys.sceneUpdate`) : enrober le prototype après coup ne mesure rien. On remplace
+   `arene.sys.sceneUpdate`.
+2. **Les étages de la scène sont branchés par événement, et l'émetteur garde la fonction** :
+   remplacer `world.update` ne l'atteint pas. On change `fn` dans `arene.sys.events._events`.
+3. **Le village éteint termine la partie** : à 500 monstres au contact, les habitants
+   tombent, `update` sort dès sa première ligne, tout se mesure à zéro.
+4. **`pvMax` est un calcul sur `Hero`, pas un champ** : l'écrire ne fait rien, et la première
+   régénération rabat la vie à ~100. `Object.defineProperty` sur l'instance. Et **le cœur
+   lâche** quelle que soit la vie : la rupture du §4.23 fait tomber un héros sous 800 orcs
+   en trente secondes (`verifierLaRuptureDuHero`).
+5. **Les monstres naissent au bord d'un front**, à des milliers de pixels : mesurés là, ils
+   ne touchent rien et la collision ne coûte rien. On les repose en couronne autour du héros.
+6. **Cuire toute la carte gèle trois secondes**, et Phaser en sort avec un rattrapage énorme :
+   le premier palier mesurait la résorption. On attend quatre secondes.
+7. **Sans carte graphique, le rendu ment, et une fenêtre se fait brider.** SwiftShader coûte
+   46 à 66 ms à vide et gonfle la physique par cascade ; une vraie fenêtre, dès que le
+   terminal repasse devant, tombe à **une image par seconde pile** (1 011 ms). La sortie :
+   **sans fenêtre, mais sur la vraie carte**, par `--use-angle=d3d11 --enable-gpu
+   --disable-gpu-sandbox`. Le banc affiche la carte utilisée et refuse SwiftShader.
+8. **Le témoin se rejoue depuis la page**, pas d'un tirage à l'autre : la falaise varie du
+   simple au double selon le monde. `world.fixedStep = true` et `loop._min = 100` remettent
+   l'avant-palier-0 dans la même passe.
+
+Le banc et la capture quittent `.tmp/` pour `scripts/` (`banc-horde.ts`,
+`capturer-horde.ts`) : chaque palier suivant se mesure avec eux.
+
+#### Le plafond passe à 800
+
+Décision d'Angelos, une fois le garde-fou posé : il veut **voir** mille orcs avant de décider
+si vingt mille valent une réécriture. Rien d'autre n'était dimensionné sur 60 — les textes
+flottants, les voix (huit), les cadavres (24) et les effets ont chacun leur plafond.
+
+⚠️ **Une nuit ordinaire ne l'atteint jamais** : l'effectif est de 30 + 12 par nuit, et les
+apparitions sont plafonnées à cinq par seconde. Ce qui change, c'est l'excédent d'un joueur
+débordé : dès la nuit 4, il voit tout l'effectif restant à la fois, au lieu de le voir
+arriver par paquets de soixante.
+
+#### Ce que montrent les captures
+
+`captures/jeu/2026-09-22-horde-800/`, à la densité 1,25 de l'écran d'Angelos : deux mondes,
+une nuit 12 remplie d'un coup à 800 aux fronts, quatre instants, deux vues (le joueur au
+zoom d'entrée, le village au dézoom maximal). **59 images par seconde** tout du long.
+
+- **`4242-35s-village`** : la marée arrive **en colonnes parallèles** — le champ de
+  directions (§4.29) aligne les monstres en files, et ça se lit comme un mouvement de masse ;
+- **`777-35s-joueur`** : le héros dans son aura, au milieu d'une centaine d'orcs qui
+  déferlent dans le village. **La masse se lit comme une masse, mais on ne distingue ni les
+  types, ni la vie, ni qui vient d'être touché** : c'est exactement ce que le langage visuel
+  du §4.33 doit régler ;
+- **`777-50s-village`** : le village envahi par l'ouest, 266 orcs tombés, les files qui
+  continuent d'arriver. Le héros y finit noyé — poussé dans la mer par la mêlée.
+
+⚠️ À 800 orcs contre un village de début de partie, **l'église tombe en trente secondes**.
+Ce n'est pas un réglage, c'est un constat : sans défenses qui tirent (jalon 7), le plafond
+fait la difficulté à lui seul.
+
+**944 tests verts** (inchangé) : le palier 0 est une configuration du moteur, il se vérifie
+au banc, pas en test. `npm run build` propre.
+
+#### Ce qui reste du jalon 6.2
+
+- **la mesure du rendu en deux branches** (§4.33 §7) : 20 000 `Sprite` Phaser contre 20 000
+  quads instanciés, trois passes, coût JS par sprite ;
+- **le palier 1** : la grille spatiale dans `core/` et le niveau de détail temporel ;
+- ⚠️ **le palier 2 attend qu'Angelos ait vu ces captures.**
+
 ### L'incendie se voit enfin — la fumee, et cinq flammes (22 septembre 2026, tard)
 
 Angelos, en une phrase : « les flammes de l'incendie c'est deja moche, c'est juste une petite

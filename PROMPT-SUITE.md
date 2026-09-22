@@ -116,14 +116,16 @@ ciel, et le ciel est fini.
 
 - **Jalon 6.2 — la horde** (§4.33, tranché le 22 septembre 2026) : **vingt mille monstres**.
   Une seule silhouette d'orc — la teinte dit qui c'est, la luminosité dit la vie, le rouge
-  dit le coup encaissé, la taille dit le rang ; seuls les gros télégraphent. Quatre paliers :
-  grille spatiale à la place des dix passes de collision Arcade, fin du tri de profondeur
-  par image, piétaille en tableaux typés dessinée en une passe, puis fil d'exécution séparé
-  si besoin. ⚠️ **Il passe avant le 6.5 et le 6.7** : les builds sont des zones et des
-  chaînes qui frappent la horde, le 6.7 des états par monstre — les coder d'abord voudrait
-  dire les coder deux fois. ⚠️ **Les paliers 1 et 2 ne touchent à rien du jeu** et peuvent
-  partir à n'importe quel moment, y compris avant le ciel. **La règle n°2 du §4.17 est
-  annulée par cette section.**
+  dit le coup encaissé, la taille dit le rang ; seuls les gros télégraphent. ⚠️ **Les
+  paliers ont été refaits le soir même, après mesure** : le moteur tient déjà 1 200 orcs à
+  60 images/s (le plafond de 60 était un choix de lisibilité), le mur est vers 1 600, et au
+  mur le budget se partage en logique 39 % / physique 37 % / rendu 24 %. **Palier 0** ✅ le
+  garde-fou contre la falaise (un pas de physique par image, delta plafonné à 50 ms) — le
+  plafond est passé à **800** dans la foulée. **Palier 1** la grille spatiale et le niveau
+  de détail temporel. **Palier 2** le rendu, et la question du rendu maison. ⚠️ **Il passe
+  avant le 6.5 et le 6.7** : les builds sont des zones et des chaînes qui frappent la horde,
+  le 6.7 des états par monstre — les coder d'abord voudrait dire les coder deux fois.
+  **La règle n°2 du §4.17 est annulée par cette section.**
 - **Jalon 6.5** — les builds (§4.25) : tags, 36 compétences neuves, 26 fusions, synergies.
   **C'est le plus gros volume de contenu du projet.**
 - **Jalon 6.7** — le moral devient une arme (§4.23, §4.13, §4.10).
@@ -136,17 +138,27 @@ ciel, et le ciel est fini.
 
 ## 4. Par quoi je te demande de commencer
 
-**Le jalon 6.2, la horde — palier 1** (la grille spatiale dans `core/`). Tranché par Angelos
-le 22 septembre au soir : c'est le prochain chantier, et le ciel est fini.
+**La suite du jalon 6.2, la horde.** Le profilage est fait, le §4.33 est réécrit avec ses
+chiffres, et le **palier 0** est posé (22 septembre au soir) — lis la section « Le jalon
+6.2, palier 0 » de `SUITE.md` avant tout : elle contient les **huit pièges de mesure** déjà
+payés, et chacun a faussé au moins une passe.
 
-Commence par une **passe de profilage** : le §4.33 la demande explicitement, et sans elle on
-ne sait pas où passent vraiment les seize millisecondes. Puis la grille, qui remplace les dix
-passes de collision Arcade (elles sont aux lignes 1563 à 4775 d'`ArenaScene.ts`).
+Dans l'ordre :
 
-⚠️ **Le plafond d'écran reste à 60 pendant les paliers 1 et 2** — décision d'Angelos, même
-jour. Ces deux paliers ne changent que la fluidité ; le jeu ne change qu'au palier 3, d'un
-coup, et il juge la lisibilité sur image à ce moment-là. Montre-lui un banc qui pousse à
-1 000 pour prouver que ça tient, pas un jeu plus dur.
+1. **La mesure du rendu en deux branches** (§4.33 §7) : 20 000 `Phaser.GameObjects.Sprite`
+   immobiles, une texture, aucune teinte — contre 20 000 quads par une pipeline WebGL
+   instanciée minimale lisant des `Float32Array`. Les deux chiffres **et** le coût JS par
+   sprite, trois passes sur la vraie carte.
+2. **Le palier 1** : une grille spatiale dans `core/` (pure, testée) pour les contacts, les
+   dégâts, « le héros le plus proche » et « combien d'ennemis autour », plus un **niveau de
+   détail temporel** (un monstre loin du héros ou hors caméra se décide une image sur
+   quatre). Mesure avant/après avec `scripts/banc-horde.ts`, sur le même monde.
+3. ⚠️ **Le palier 2 ne commence pas avant qu'Angelos ait vu les captures à 800**
+   (`captures/jeu/2026-09-22-horde-800/`). Le chiffre qui compte n'est pas celui qui tient à
+   60 images par seconde, c'est celui qui reste lisible.
+
+Toute mesure se fait **sur la vraie carte graphique**, sans fenêtre
+(`--use-angle=d3d11`), et **sur le même monde** que son témoin.
 
 **Ce qu'il n'a pas voulu faire d'abord** : jouer pour régler les chiffres. Ils attendent —
 voir §7.
