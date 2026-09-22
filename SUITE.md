@@ -1610,9 +1610,10 @@ tient maintenant soixante images par seconde jusqu'à 2 500 monstres**, contre ~
 3. **On ne débranche pas `worldstep` à l'arrêt de la scène** : le plugin de physique met
    son monde à `null` avant que notre écouteur d'arrêt ne passe, et le monde emporte ses
    écouteurs en mourant. Le débrancher plantait chaque nouvelle partie.
-4. **Les frappes en ligne n'ont pas été touchées** (Fauchage, Flèche du Jugement, Ombre) :
-   elles parcourent la horde une fois par lancer, pas par image — et elles cachent un bug,
-   voir les dettes.
+4. **Les frappes en ligne n'ont pas été touchées par le palier** (Fauchage, Flèche du
+   Jugement, Ombre) : elles parcourent la horde une fois par lancer, pas par image. Elles
+   cachaient un bug — elles frappaient toute la droite —, corrigé juste après sur décision
+   d'Angelos (voir les dettes).
 
 #### Deux pièges de plus, payés
 
@@ -3984,13 +3985,14 @@ brancher.
   (§4.28) refuse le rechargement silencieux. Une sortie de secours, si elle arrive un
   jour, sera un export **explicite** — le joueur qui triche le fait sciemment, il ne
   trébuche pas dessus.
-- **Trois frappes en ligne touchent toute la droite, pas le segment** (trouvé au palier 1
-  de la horde, 22 septembre 2026, non corrigé). Le Fauchage (`faucherLeLong`), la Flèche du
-  Jugement et l'Ombre testent la distance au point le plus proche que rend
-  `Phaser.Geom.Line.GetNearestPoint` — qui projette sur la **droite infinie**, sans borner.
-  Elles frappent donc aussi derrière le héros, et au-delà de leur bout, à travers toute la
-  carte. Laissé tel quel parce que le palier 1 ne devait rien changer au jeu : à trancher
-  par Angelos, la correction tient en une ligne.
+- ✅ **Trois frappes en ligne touchaient toute la droite, pas le segment** (trouvé au
+  palier 1 de la horde, corrigé le 22 septembre 2026 sur décision d'Angelos : « c'est juste
+  devant »). Le Fauchage (`faucherLeLong`), la Flèche du Jugement et l'Ombre testaient la
+  distance au point que rend `Phaser.Geom.Line.GetNearestPoint` — qui projette sur la
+  **droite infinie**. Elles frappaient derrière le héros et à travers toute la carte ; elles
+  lisent maintenant `distanceAuSegment` (`core/voisinage.ts`, testée). **Elles sont donc
+  nettement moins fortes qu'avant**, et c'est voulu. La même décision a fait entrer la
+  **pénétration** au design (§4.25), sans chiffres.
 - **Le kamikaze ne blesse que les héros**, pas les invocations. Choix de simplicité, à
   revoir si ça se voit.
 - **Le martyre (Chevalier Sacré) ne déclenche pas `tomber()`** si le martyr incarné

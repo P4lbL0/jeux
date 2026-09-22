@@ -154,11 +154,12 @@ Dans l'ordre :
    touchaient la horde remplacées sans changer la physique, l'arbre dynamique coupé, et le
    niveau de détail temporel. **La horde qui arrive tient 60 images/s jusqu'à 2 500
    monstres** (contre ~1 600). Vérifié dans trois parties : rien n'a changé dans le jeu.
-   ⚠️ Un bug trouvé en passant et **laissé tel quel** : trois frappes en ligne touchent toute
-   la droite au lieu du segment (voir « Dettes » de `SUITE.md`) — à faire trancher.
-3. ⚠️ **Le palier 2 ne commence pas avant qu'Angelos ait vu les captures à 800**
-   (`captures/jeu/2026-09-22-horde-800/`). Le chiffre qui compte n'est pas celui qui tient à
-   60 images par seconde, c'est celui qui reste lisible.
+   Un bug trouvé en passant, corrigé sur décision d'Angelos : trois frappes en ligne
+   touchaient toute la droite au lieu de leur trait. La même décision a fait entrer la
+   **pénétration** au design des builds (§4.25), sans chiffres.
+3. **Le palier 2 — le rendu maison** : Angelos a vu les captures à 800 et a donné son go,
+   le 22 septembre au soir. Le chiffre qui compte n'est pas celui qui tient à 60 images par
+   seconde, c'est celui qui reste lisible.
 
 Toute mesure se fait **sur la vraie carte graphique**, sans fenêtre
 (`--use-angle=d3d11`), et **sur le même monde et le même village** que son témoin : le

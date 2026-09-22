@@ -3,7 +3,7 @@ import { Noyade, REGLAGES_EAU, profondeurDe } from "../core/eau";
 import { Chemins } from "../core/chemins";
 import { CoucheDesChemins, RAYON_VOISINAGE } from "../game/dessin/chemins";
 import { Rng } from "../core/rng";
-import { Emprises, Voisinage } from "../core/voisinage";
+import { distanceAuSegment, Emprises, Voisinage } from "../core/voisinage";
 import { CLASSES, ORDRE_CLASSES, type ClassId } from "../core/classes";
 import {
   competenceParId,
@@ -7419,11 +7419,10 @@ export class ArenaScene extends Phaser.Scene {
     arrivee: Phaser.Math.Vector2,
     degats: number,
   ): void {
-    const segment = new Phaser.Geom.Line(depart.x, depart.y, arrivee.x, arrivee.y);
     for (const e of [...this.ennemis.getChildren()] as Ennemi[]) {
       if (!e.active) continue;
-      const proche = Phaser.Geom.Line.GetNearestPoint(segment, e, new Phaser.Geom.Point());
-      if (Phaser.Math.Distance.Between(proche.x, proche.y, e.x, e.y) > 48) continue;
+      // Le long du trait, juste devant — pas sur toute la droite (`distanceAuSegment`).
+      if (distanceAuSegment(e.x, e.y, depart.x, depart.y, arrivee.x, arrivee.y) > 48) continue;
       this.repousser(e, depart.x, depart.y, 260);
       this.blesserEnnemi(e, degats, hero);
     }
@@ -7620,11 +7619,10 @@ export class ArenaScene extends Phaser.Scene {
     this.trainee(hero.x, hero.y, arrivee.x, arrivee.y, 0xfff0a0);
     this.cameras.main.shake(220, 0.008);
 
-    const segment = new Phaser.Geom.Line(hero.x, hero.y, arrivee.x, arrivee.y);
     for (const e of [...this.ennemis.getChildren()] as Ennemi[]) {
       if (!e.active) continue;
-      const proche = Phaser.Geom.Line.GetNearestPoint(segment, e, new Phaser.Geom.Point());
-      if (Phaser.Math.Distance.Between(proche.x, proche.y, e.x, e.y) > 56) continue;
+      // Le long du trait, juste devant — pas sur toute la droite (`distanceAuSegment`).
+      if (distanceAuSegment(e.x, e.y, hero.x, hero.y, arrivee.x, arrivee.y) > 56) continue;
       if (e.pv / e.pvMax <= seuil) {
         this.flotter(e.x, e.y - 16, "JUGE", "#fff0a0");
         this.blesserEnnemi(e, e.pv, hero);
@@ -7839,11 +7837,10 @@ export class ArenaScene extends Phaser.Scene {
     hero.rendreInvulnerable(500);
     this.trainee(hero.x, hero.y, arrivee.x, arrivee.y, 0x7ee0a0);
 
-    const segment = new Phaser.Geom.Line(hero.x, hero.y, arrivee.x, arrivee.y);
     for (const e of [...this.ennemis.getChildren()] as Ennemi[]) {
       if (!e.active) continue;
-      const proche = Phaser.Geom.Line.GetNearestPoint(segment, e, new Phaser.Geom.Point());
-      if (Phaser.Math.Distance.Between(proche.x, proche.y, e.x, e.y) <= 44) {
+      // Le long du trait, juste devant — pas sur toute la droite (`distanceAuSegment`).
+      if (distanceAuSegment(e.x, e.y, hero.x, hero.y, arrivee.x, arrivee.y) <= 44) {
         this.blesserEnnemi(e, hero.degats * 5, hero);
       }
     }

@@ -65,6 +65,26 @@ class Decoupage {
   }
 }
 
+/**
+ * La distance d'un point au **segment** [a, b] — pas a la droite.
+ *
+ * ⚠️ C'est la difference qui comptait (22 septembre 2026) : les frappes en ligne
+ * mesuraient avec `Phaser.Geom.Line.GetNearestPoint`, qui projette sur la
+ * **droite infinie**. Le Fauchage, la Fleche du Jugement et l'Ombre frappaient
+ * donc aussi derriere le heros et au-dela de leur bout, a travers toute la
+ * carte. Decision d'Angelos : « c'est juste devant ».
+ */
+export function distanceAuSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const longueur2 = dx * dx + dy * dy;
+  if (longueur2 === 0) return Math.hypot(px - ax, py - ay);
+  // La projection bornee au segment : avant le depart, c'est le depart ; apres
+  // le bout, c'est le bout.
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / longueur2));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
 /** Double un tampon trop court, en gardant ce qu'il contenait. */
 function agrandir<T extends Int32Array | Float32Array>(tampon: T, minimum: number): T {
   if (tampon.length >= minimum) return tampon;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Rng } from "./rng";
-import { COTE_VOISINAGE, Emprises, Voisinage } from "./voisinage";
+import { COTE_VOISINAGE, distanceAuSegment, Emprises, Voisinage } from "./voisinage";
 
 /**
  * Le voisinage de la horde (§4.33, palier 1).
@@ -227,5 +227,25 @@ describe("Les emprises — des rectangles", () => {
     e.ranger(1, [300], [100], [332], [132]);
     expect(lire(e, e.rechercher(90, 90, 340, 140))).toEqual([0]);
     expect(e.taille).toBe(1);
+  });
+});
+
+describe("Les frappes en ligne — juste devant", () => {
+  it("mesure au trait : sur le segment, a cote, et au bout", () => {
+    // Un trait de (0, 0) a (100, 0).
+    expect(distanceAuSegment(50, 0, 0, 0, 100, 0)).toBe(0);
+    expect(distanceAuSegment(50, 30, 0, 0, 100, 0)).toBe(30);
+    expect(distanceAuSegment(130, 40, 0, 0, 100, 0)).toBe(50);
+  });
+
+  it("ne touche plus derriere le heros ni au-dela du bout, meme sur la droite", () => {
+    // Le bug : sur la droite du trait mais derriere son depart, la droite
+    // infinie disait zero ; le segment dit la distance au depart.
+    expect(distanceAuSegment(-300, 0, 0, 0, 100, 0)).toBe(300);
+    expect(distanceAuSegment(2000, 0, 0, 0, 100, 0)).toBe(1900);
+  });
+
+  it("tient un trait de longueur nulle : c'est la distance au point", () => {
+    expect(distanceAuSegment(3, 4, 0, 0, 0, 0)).toBe(5);
   });
 });
