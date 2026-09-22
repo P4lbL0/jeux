@@ -58,8 +58,8 @@ coûte cher ou casse quelque chose.
 
 1. `DESIGN.md` (le sommaire) puis, dans `design/` : **§5** (l'ordre de construction), **§6**
    (les questions tranchées), **§4.17** (tenir la fluidité : ses cinq règles ne se négocient
-   pas), et **§4.21** (le ciel, le prochain jalon). Les **§4.26** et **§4.27** viennent
-   d'être codées : leur fin dit ce que le code fait vraiment.
+   pas), et **§4.33** (la horde, le prochain jalon). Le **§4.21** (le ciel) vient d'être
+   codé de bout en bout : sa fin dit ce que le code fait vraiment.
 2. `SUITE.md` — le journal de bord technique, chantier par chantier, avec les pièges déjà
    rencontrés. **Lis au moins les cinq dernières sections.**
 3. `README.md` — comment lancer, la structure du code, ce que fait chaque fichier du noyau.
@@ -103,8 +103,8 @@ modifiable** comme le §4.21 l'annonçait.
 petite flamme sur un bâtiment ») : un **panache de fumée** de 150 px, rendu en Blender et
 calculé entièrement du temps ; **cinq flammes** réparties sur l'emprise, chacune sur sa
 phase, dont le nombre suit l'ardeur ; le bâtiment qui **noircit** ; des **braises** ; et la
-lueur **éteinte de jour**. Le cœur de la flamme, enfermé dans le maillage du corps depuis la
-veille, est enfin visible. La chaîne Blender accepte maintenant un drapeau **`contour`**, et
+lueur **éteinte de jour**. Le cœur de la flamme, enfermé dans le maillage du corps depuis son
+premier rendu quelques heures plus tôt, est enfin visible. La chaîne Blender accepte maintenant un drapeau **`contour`**, et
 la fumée est la seule à le refuser.
 
 **Il ne reste rien du jalon 6.**
