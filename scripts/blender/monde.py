@@ -686,3 +686,41 @@ def stele(a):
     a.boule("pierre", 0.17, (-0.66, -0.3, 0.1), 5, bosses=0.3)
     a.boule("pierre", 0.12, (0.62, -0.4, 0.08), 9, bosses=0.3)
     return (0, -Ep / 2 - 0.15)
+
+
+# ------------------------------------------------ les bases elementaires (§4.13)
+
+def racines(a, variante=0):
+    """Les racines de la Nature (§4.13, 23 septembre 2026) : des crocs de bois
+    tordu qui sortent du sol autour des pieds d'un monstre, et la motte qu'ils
+    ont retournee.
+
+    Posees une par monstre tenu, sur la ligne de ses pieds. Elles ne prennent que
+    **les jambes** : un orc tenu doit rester un orc qu'on reconnait.
+
+    ⚠️ Premier jet, juge sur planche : cinq crocs hauts qui se rejoignaient au
+    sommet faisaient une cage — un bulbe qui cachait l'orc entier. Ils sont
+    maintenant courts, ecartes sur les cotes et derriere, et leur pointe se
+    recourbe vers les jambes sans jamais rejoindre les autres.
+    """
+    rnd = random.Random(variante + 700)
+    # La motte : basse et large, la terre qui a cede.
+    a.boule("sous_bois", 0.55, (0, 0.05, -0.16), variante + 11, bosses=0.3, echelle=(1.5, 0.9, 0.4))
+    # Les angles des crocs : deux sur chaque cote, un derriere (y > 0 : loin de
+    # la camera), jamais plein devant — c'est la qu'on regarde l'orc.
+    angles = [0.15, 0.95, 1.6, 2.25, 3.0]
+    if variante == 1:
+        angles = [0.35, 1.3, 1.9, 2.8]
+    if variante == 2:
+        angles = [-0.2, 0.7, 1.55, 2.45, 3.35]
+    for t in angles:
+        t += rnd.uniform(-0.15, 0.15)
+        r0 = rnd.uniform(0.6, 0.75)
+        x0, y0 = math.cos(t) * r0, math.sin(t) * r0 * 0.7
+        haut = rnd.uniform(0.6, 0.85)
+        # Elle monte en s'ecartant, puis sa pointe revient vers les jambes.
+        milieu = (x0 * 1.15, y0 * 1.15, haut * 0.6)
+        pointe = (x0 * 0.62, y0 * 0.62, haut)
+        a.branche("ecorce", (x0, y0, 0), milieu, 0.1)
+        a.branche("ecorce", milieu, pointe, 0.06)
+    return (0, 0)

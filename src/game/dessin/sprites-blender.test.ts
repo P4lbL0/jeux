@@ -5,6 +5,7 @@ import { cleEglise, cleMaison, CLE_FERME, CLE_MAISON_RUINE, VARIANTES_MAISON } f
 import { DECORS } from "./decor";
 import { CLES_FLAMME, CLES_FUMEE, HAUTEUR_FUMEE, LARGEUR_FUMEE } from "./feu";
 import { CLE_ORC, TAILLE_ORC } from "./orc";
+import { CLES_RACINES, HAUTEUR_RACINES, LARGEUR_RACINES } from "./elements";
 import { ORDRE_CLASSES } from "../../core/classes";
 import { familleDeHero } from "./heros";
 import { familleDeMonstre } from "./monstres";
@@ -40,6 +41,9 @@ const CLES_CONNUES = new Set<string>([
   // avec une particularite : elles sont les seules du dossier **sans contour de
   // fer**, parce qu'une fumee n'a pas de bord (`rendre.py`).
   ...CLES_FUMEE,
+  // Les racines de la Nature (§4.13, 23 septembre 2026) : une touffe par
+  // monstre tenu, posee a ses pieds.
+  ...CLES_RACINES,
   // L'orc de la horde (§4.33, palier 2) : une image, celle que la nuee teinte.
   CLE_ORC,
   ...Array.from({ length: VARIANTES_MAISON }, (_, v) => cleMaison(v)),
@@ -80,6 +84,14 @@ describe("Sprites Blender — src/assets", () => {
         largeur: LARGEUR_FUMEE,
         hauteur: HAUTEUR_FUMEE,
       });
+    }
+  });
+
+  it("les racines ont la taille de dessin/elements.ts, sinon elles tiennent l'air", () => {
+    for (const cle of CLES_RACINES) {
+      const fichier = `${cle}.png`;
+      if (!pngs.includes(fichier)) continue;
+      expect(taillePng(resolve(DOSSIER, fichier)), cle).toEqual({ largeur: LARGEUR_RACINES, hauteur: HAUTEUR_RACINES });
     }
   });
 

@@ -1,5 +1,6 @@
 import type { ClassId, Rang } from "./classes";
 import { COULEURS_RANG, ORDRE_RANGS } from "./classes";
+import { BASES } from "./elements";
 import type { CleTrait } from "./traits";
 
 /**
@@ -69,7 +70,13 @@ export type EffetCapacite =
   | "appel-des-morts"
   // Communes de haut rang
   | "orage-final"
-  | "heure-sombre";
+  | "heure-sombre"
+  // Les bases elementaires (§4.13) : les quatre premieres partent toutes seules
+  | "boule-de-feu"
+  | "vent"
+  | "eau"
+  | "nature"
+  | "teleportation";
 
 export type TypeCompetence = "passive" | "active" | "auto";
 
@@ -136,9 +143,12 @@ export function nomsDesTags(masque: number): NomDeTag[] {
   return ORDRE_DES_TAGS.filter((nom) => (masque & TAGS[nom]) !== 0);
 }
 
+/** Ce qui separe deux tags sur une carte : c'est la que la ligne peut se couper. */
+export const SEPARATEUR_DES_TAGS = "  ·  ";
+
 /** Ce qu'une carte affiche : « FEU · ZONE ». Vide pour une competence sans tag. */
 export function texteDesTags(masque: number): string {
-  return nomsDesTags(masque).join("  ·  ");
+  return nomsDesTags(masque).join(SEPARATEUR_DES_TAGS);
 }
 
 /** Les bonus accumules par un heros. Toujours partir de bonusVierge(). */
@@ -223,6 +233,12 @@ export interface Bonus {
   /** Fleches supplementaires dans la volee du Rodeur */
   flechesSupplementaires: number;
 
+  // --- Le Bouclier, base elementaire (§4.13, 23 septembre 2026) ---
+  /** Ce que l'ecran absorbe plein, en part de la vie maximale ; 0 = aucun ecran */
+  bouclier: number;
+  /** Brise, il revient au bout de... (ms) */
+  bouclierRetour: number;
+
   // --- Regles de partie ---
   /** Chance qu'un ennemi tue laisse un soin */
   charognard: number;
@@ -305,6 +321,8 @@ export function bonusVierge(): Bonus {
     xp: 1,
     or: 1,
     flechesSupplementaires: 0,
+    bouclier: 0,
+    bouclierRetour: 0,
     charognard: 0,
     echo: 0,
     sermentProtecteur: 0,
@@ -632,7 +650,7 @@ export const COMPETENCES: CompetenceDef[] = [
     rang: "E",
     type: "passive",
     tags: TAGS.PROJECTILE,
-    description: "Un projectile de plus a chaque tir, et a chaque salve d'eclats.",
+    description: "Un projectile de plus a chaque tir, a chaque salve d'eclats, a chaque boule de feu.",
     paliers: [
       { texte: "+1 projectile", appliquer: (b) => void (b.projectiles += 1) },
       { texte: "+1 projectile", appliquer: (b) => void (b.projectiles += 1) },
@@ -677,6 +695,125 @@ export const COMPETENCES: CompetenceDef[] = [
       { texte: "+10% d'or", appliquer: (b) => void (b.or += 0.1) },
       { texte: "+10% d'or", appliquer: (b) => void (b.or += 0.1) },
       { texte: "+15% d'or", appliquer: (b) => void (b.or += 0.15) },
+    ],
+  },
+
+  // ================= Les six bases elementaires (§4.13) =================
+  // Sans elles, dix des vingt-six fusions du §4.25 etaient incodables. Tranche
+  // le 23 septembre 2026 par Angelos : les quatre premieres partent TOUTES
+  // SEULES — sans touche, sans emplacement. Ce sont des ingredients : un Vent
+  // qui couterait une des quatre touches ne serait jamais pris. Vent, Eau et
+  // Nature sont faibles seules, et c'est voulu. Leurs chiffres sont dans
+  // `elements.ts`, tranches par le code.
+  {
+    id: "boule-de-feu",
+    nom: "Boule de feu",
+    rang: "F",
+    type: "auto",
+    // Les tags de l'exemple du §4.25, repris tels quels.
+    tags: TAGS.FEU | TAGS.PROJECTILE | TAGS.ZONE | TAGS.MAGIE | TAGS.EXPLOSION,
+    description: "Toute seule, elle lance une boule de feu sur le monstre le plus proche. Elle eclate au premier contact.",
+    icone: "cap-boule-de-feu",
+    effet: "boule-de-feu",
+    paliers: [
+      { texte: "Une boule toutes les 3 s", rechargement: 3000 },
+      { texte: "Toutes les 2,6 s, explosion plus large", rechargement: 2600 },
+      { texte: "Toutes les 2,2 s, explosion devastatrice", rechargement: 2200 },
+    ],
+  },
+  {
+    id: "vent",
+    nom: "Vent",
+    rang: "E",
+    type: "auto",
+    tags: TAGS.VENT | TAGS.ZONE,
+    description:
+      "Tout seul, une bourrasque part vers le groupe le plus serre. Elle repousse les monstres, et emporte ce qui traine au sol.",
+    icone: "cap-vent",
+    effet: "vent",
+    paliers: [
+      { texte: "Une bourrasque toutes les 5 s", rechargement: 5000 },
+      { texte: "Toutes les 4,2 s, elle porte plus loin", rechargement: 4200 },
+      { texte: "Toutes les 3,5 s, elle souffle plus fort", rechargement: 3500 },
+    ],
+  },
+  {
+    id: "eau",
+    nom: "Eau",
+    rang: "E",
+    type: "auto",
+    tags: TAGS.EAU | TAGS.ZONE | TAGS.SOL,
+    description:
+      "Toute seule, elle pose une flaque sous le groupe le plus serre. Ce qui la traverse est ralenti, et en ressort mouille.",
+    icone: "cap-eau",
+    effet: "eau",
+    paliers: [
+      { texte: "Une flaque toutes les 6 s, qui tient 6 s", rechargement: 6000 },
+      { texte: "Plus large, elle tient 8 s", rechargement: 5500 },
+      { texte: "Plus large encore, elle tient 10 s", rechargement: 5000 },
+    ],
+  },
+  {
+    id: "nature",
+    nom: "Nature",
+    rang: "D",
+    type: "auto",
+    tags: TAGS.NATURE | TAGS.ZONE | TAGS.ENTRAVE,
+    description:
+      "Toute seule, elle fait jaillir des racines sous le groupe le plus serre : ils restent sur place. Les geants, eux, ne sont que ralentis.",
+    icone: "cap-nature",
+    effet: "nature",
+    paliers: [
+      { texte: "Retient 1,5 s, toutes les 7 s", rechargement: 7000 },
+      { texte: "Retient 2 s, zone plus large", rechargement: 6500 },
+      { texte: "Retient 2,5 s, zone plus large encore", rechargement: 6000 },
+    ],
+  },
+  {
+    id: "bouclier",
+    nom: "Bouclier",
+    rang: "D",
+    type: "passive",
+    tags: TAGS.BOUCLIER | TAGS.DEFENSE,
+    description:
+      "Un ecran l'entoure et encaisse a sa place. Il se referme quand on le laisse souffler — et quand il se brise, tout le monde l'entend.",
+    paliers: [
+      {
+        texte: "Absorbe 20% de la vie max, revient 10 s apres s'etre brise",
+        appliquer: (b) => {
+          b.bouclier += BASES.bouclier.part[0];
+          b.bouclierRetour = BASES.bouclier.retour[0];
+        },
+      },
+      {
+        texte: "Absorbe 30%, revient en 8 s",
+        appliquer: (b) => {
+          b.bouclier += BASES.bouclier.part[1];
+          b.bouclierRetour = BASES.bouclier.retour[1];
+        },
+      },
+      {
+        texte: "Absorbe 40%, revient en 6 s",
+        appliquer: (b) => {
+          b.bouclier += BASES.bouclier.part[2];
+          b.bouclierRetour = BASES.bouclier.retour[2];
+        },
+      },
+    ],
+  },
+  {
+    id: "teleportation",
+    nom: "Teleportation",
+    rang: "C",
+    type: "active",
+    tags: TAGS.MOBILITE | TAGS.OMBRE,
+    description: "Un saut court et instantane, la ou tu vises. Aucun degat : juste etre ailleurs.",
+    icone: "cap-teleportation",
+    effet: "teleportation",
+    paliers: [
+      { texte: "Saut de 160 pixels", rechargement: 6000 },
+      { texte: "Saut de 200 pixels", rechargement: 5000 },
+      { texte: "Saut de 240 pixels", rechargement: 4000 },
     ],
   },
 

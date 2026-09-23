@@ -84,6 +84,10 @@ import { C as COULEURS } from "../game/ui/couleurs";
 import { POLICE } from "../game/ui/chrome";
 import { Survivants, type SpriteSurvivant } from "../game/survivants";
 import { Caches } from "../game/caches";
+import { Elements } from "../game/elements";
+import { auPalier, BASES } from "../core/elements";
+import { COULEUR_MOUILLE } from "../game/dessin/elements";
+import { melanger } from "../game/dessin/palette";
 import {
   REGLAGES_CACHES,
   paroleDeLaStele,
@@ -930,6 +934,8 @@ export class ArenaScene extends Phaser.Scene {
    * pour la meme chose seraient un de trop.
    */
   private caches!: Caches;
+  /** Les six bases elementaires (§4.13) : la boule, le vent, la flaque, les racines, l'ecran. */
+  private elements!: Elements;
   /**
    * Ce que la route a rendu en matiere, et qui deviendra les reserves du jour
    * ou l'on s'installe (§4.31).
@@ -1911,6 +1917,18 @@ export class ArenaScene extends Phaser.Scene {
       rayonDeVue: RAYON_DE_VUE,
     });
 
+    // Les bases elementaires (§4.13) : elles cherchent la horde par le
+    // voisinage, et blessent par le meme point que tout le reste.
+    this.elements = new Elements(this, {
+      ennemisDansRayon: (x, y, rayon) => this.ennemisDansRayon(x, y, rayon),
+      ennemiLePlusProche: (x, y, portee) => this.ennemiLePlusProche(x, y, portee),
+      blesser: (e, degats, auteur) => this.blesserEnnemi(e, degats, auteur),
+      cercle: (x, y, rayon, couleur) => this.effetCercle(x, y, rayon, couleur),
+      bruit: (evenement, x, y) => this.bruits.jouer(evenement, x, y),
+      flotter: (x, y, texte, couleur) => this.flotter(x, y, texte, couleur),
+      heros: () => this.heros,
+    });
+
     this.village = new Village(this, {
       menaceAutour: (x, y, rayon) => this.ennemiLePlusProche(x, y, rayon),
       annoncer: (message) => this.events.emit("annonce", message, "village"),
@@ -2177,6 +2195,7 @@ export class ArenaScene extends Phaser.Scene {
   private decalerLeTemps(pause: number): void {
     for (const hero of this.heros) hero.decalerRechargements(pause);
     for (const objet of this.ennemis.getChildren()) (objet as Ennemi).decaler(pause);
+    this.elements.decaler(pause);
     this.constructions.decaler(pause);
     this.prochaineApparition += pause;
     this.prochaineHorde += pause;
@@ -4120,6 +4139,7 @@ export class ArenaScene extends Phaser.Scene {
     this.majProvocation();
     this.majOrbiteurs();
     this.majAuras();
+    this.elements.majorer(delta, this.time.now);
     this.majInvocations();
     this.majProvocationInvocations();
     this.deplacerHeroIncarne();
@@ -5317,7 +5337,14 @@ export class ArenaScene extends Phaser.Scene {
         e.y,
         e.archetype.echelle * RANGS[e.rang].taille,
         e.flipX ? -1 : 1,
-        coup ? COULEURS.sangFrais : eclat ? COULEURS.os : teinteDeNuee(e.archetype),
+        coup
+          ? COULEURS.sangFrais
+          : eclat
+            ? COULEURS.os
+            : // Mouille (§4.13) : ca ne fait rien seul, ca se voit — il ruisselle.
+              maintenant < e.mouilleJusqua
+              ? melanger(teinteDeNuee(e.archetype), COULEUR_MOUILLE, 0.72)
+              : teinteDeNuee(e.archetype),
         // Il fonce en mourant, jusqu'a un tiers de sa lumiere : plus sombre, il
         // disparaitrait dans la nuit (vu sur planche, a 25 %).
         coup || eclat ? 1 : 0.35 + 0.65 * vie,
@@ -5412,6 +5439,12 @@ export class ArenaScene extends Phaser.Scene {
    * qui doit durer jusqu'a sa prochaine decision dure d'autant
    */
   private avancerEnnemi(e: Ennemi, maintenant: number, chaqueImage = true): void {
+    // Tenu par les racines de la Nature (§4.13) : ni sa marche, ni un souffle ne
+    // le deplacent. Il frappe encore ce qui vient a son contact.
+    if (maintenant < e.enracineJusqua) {
+      e.setVelocity(0, 0);
+      return;
+    }
     // Repousse : son impulsion a la priorite sur sa volonte.
     if (maintenant < e.reculJusqua) return;
 
@@ -5520,6 +5553,10 @@ export class ArenaScene extends Phaser.Scene {
     }
     if (maintenant < e.ralentiJusqua) {
       e.setTint(0x8ed6ff);
+      return;
+    }
+    if (maintenant < e.mouilleJusqua) {
+      e.setTint(COULEUR_MOUILLE);
       return;
     }
     e.setTint(e.teinte ?? 0xffffff);
@@ -7304,6 +7341,8 @@ export class ArenaScene extends Phaser.Scene {
       if (hero.etat === "mort" || hero.estImmobilise) continue;
       for (const capacite of hero.capacites) {
         if (!capacite.automatique || !hero.peutLancer(capacite)) continue;
+        // Une base elementaire ne part pas dans le vide : elle garde sa charge.
+        if (!this.elements.aUneCible(hero, capacite.effet)) continue;
         this.lancerCapacite(hero, capacite);
       }
     }
@@ -7312,6 +7351,12 @@ export class ArenaScene extends Phaser.Scene {
   private lancerCapacite(hero: Hero, capacite: Capacite): void {
     // Echo : la capacite peut ne pas partir en rechargement du tout.
     hero.marquerCapacite(capacite, this.rng.next());
+    // Les bases elementaires qui partent toutes seules le font sans le dire :
+    // une boule toutes les trois secondes ne s'annonce pas a chaque fois.
+    if (this.elements.estDiscrete(capacite.effet)) {
+      this.elements.lancer(hero, capacite.effet);
+      return;
+    }
     this.flotter(hero.x, hero.y - 28, capacite.nom.toUpperCase(), "#f0c419");
     // Il se cabre en arriere : plus ample et plus lent qu'un coup, pour qu'on
     // distingue au premier regard une capacite d'une attaque ordinaire.
@@ -7416,6 +7461,9 @@ export class ArenaScene extends Phaser.Scene {
         break;
       case "contrat":
         this.effetContrat(hero);
+        break;
+      case "teleportation":
+        this.effetTeleportation(hero);
         break;
     }
   }
@@ -7622,6 +7670,36 @@ export class ArenaScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * Teleportation (§4.13, base elementaire) : le Clignement sans la
+   * deflagration. Un saut court et instantane vers ou l'on vise, ouvert a toutes
+   * les classes — et rien d'autre que d'etre ailleurs.
+   */
+  private effetTeleportation(hero: Hero): void {
+    const palier = Math.max(1, hero.palierDe("teleportation"));
+    const depart = new Phaser.Math.Vector2(hero.x, hero.y);
+    const vise = hero.estIncarne
+      ? this.cameras.main.getWorldPoint(this.input.activePointer.x, this.input.activePointer.y)
+      : this.pointDevant(hero, 200);
+    const portee = auPalier(BASES.teleportation.distance, palier);
+    const direction = new Phaser.Math.Vector2(vise.x - hero.x, vise.y - hero.y);
+    if (direction.length() > portee) direction.setLength(portee);
+
+    const arrivee = this.ramenerSurTerre(depart.x + direction.x, depart.y + direction.y);
+    // Son ombre reste un instant la ou il etait : on voit d'ou il est parti.
+    const ombre = this.add
+      .image(depart.x, depart.y, hero.texture.key, hero.frame.name)
+      .setFlipX(hero.flipX)
+      .setTintFill(0x3a2f4a)
+      .setAlpha(0.6)
+      .setDepth(depart.y);
+    this.tweens.add({ targets: ombre, alpha: 0, duration: 320, onComplete: () => ombre.destroy() });
+    this.effetCercle(depart.x, depart.y, 22, 0x6b5a8a);
+    hero.setPosition(arrivee.x, arrivee.y);
+    hero.rendreInvulnerable(BASES.teleportation.invulnerable);
+    this.effetCercle(arrivee.x, arrivee.y, 22, 0x6b5a8a);
+  }
+
   // --- Assassin : Croc-en-jambe, Doppelganger, Contrat ---
 
   private effetCrocEnJambe(hero: Hero): void {
@@ -7637,6 +7715,8 @@ export class ArenaScene extends Phaser.Scene {
       .setAlpha(0.3)
       .setScale((rayon * 2) / 16)
       .setDepth(point.y - 4);
+    // Des lames semees au sol : le Vent peut les emporter (§4.13).
+    this.elements.poserAuSol({ point, image: tapis });
 
     this.time.addEvent({
       delay: 500,
@@ -7722,6 +7802,8 @@ export class ArenaScene extends Phaser.Scene {
       .setAlpha(0.6)
       .setScale(2.4)
       .setDepth(point.y - 4);
+    // Un piege pose au sol : le Vent peut l'emporter (§4.13).
+    this.elements.poserAuSol({ point, image });
 
     const surveiller = this.time.addEvent({
       delay: 120,
@@ -9839,9 +9921,16 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
 
-    const esquive = hero.subirDegats(degats, this.rng.next());
-    if (esquive) {
+    const issue = hero.subirDegats(degats, this.rng.next());
+    if (issue === "esquive") {
       if (hero.estIncarne) this.flotter(hero.x, hero.y - 18, "Esquive", "#7ee0a0");
+      return;
+    }
+    // Le Bouclier a tout pris (§4.13) : le coup sonne sur l'ecran, pas sur lui.
+    // Ni recul, ni stress, ni plaie — c'est ce qu'un bouclier veut dire.
+    if (issue === "bouclier") {
+      this.elements.ecranTouche(hero, sourceX, sourceY);
+      if (hero.estIncarne) this.flotter(hero.x, hero.y - 18, `-${degats}`, "#9db3c4");
       return;
     }
 

@@ -172,8 +172,13 @@ Dans l'ordre :
    ✅ **Morceau 1, le socle** (23 septembre) : tags, pénétration, pioche pondérée, recul des
    géants. ✅ **Les décisions sont prises** et écrites (§4.25, §4.13, §4.23). ✅ **Morceau
    2a** : les neuf statistiques, *Touche-à-tout* (touches 8, 9, 0), les compétences de classe
-   ouvertes. **La suite : 2b, les six bases élémentaires** — découpage dans le §4.25, « Où
-   ça se code ».
+   ouvertes. ✅ **Morceau 2b** : les six bases élémentaires (§4.13) — la Boule de feu, le
+   Vent, l'Eau et la Nature partent toutes seules (décision d'Angelos), le Bouclier est
+   permanent, la Téléportation sur une touche ; « mouillé » ne fait rien seul, ça se voit.
+   **La suite : le morceau 3, les fusions** — l'écran (en quatrième carte au choix de niveau,
+   et sur « plus de place »), les neuf sur compétences existantes, les trois qui coûtent
+   cher. Découpage dans le §4.25, « Où ça se code » ; les règles d'une fusion sont écrites
+   au §4.25 (palier 1, jamais moins forte que ses deux ingrédients, double prix par palier).
 
 Toute mesure se fait **sur la vraie carte graphique**, sans fenêtre
 (`--use-angle=d3d11`), et **sur le même monde et le même village** que son témoin : le
@@ -217,7 +222,7 @@ d'un coup les décisions qui te manquent.
 - À la fin de chaque morceau : typecheck, tests, commit poussé (un seul par chantier, sans
   trailer d'outil), `SUITE.md` et la section du design à jour, et le journal de portfolio.
 
-## 6. Six pièges du navigateur, déjà payés
+## 6. Sept pièges du navigateur, déjà payés
 
 Ils reserviront, et ils ont tous coûté une session :
 
@@ -233,6 +238,11 @@ Ils reserviront, et ils ont tous coûté une session :
 6. **`page.evaluate` renvoie la dernière expression.** Un `cameras.main.centerOn(...)` en fin
    de bloc renvoie la caméra entière, Playwright essaie de la sérialiser, et Node tombe sur
    `Cannot create a string longer than 0x1fffffe8 characters`. Finis tes blocs par `void 0;`.
+   Pareil pour `scene.pause()` : il renvoie le greffon de scène, et le script se fige.
+7. **Ne touche jamais à `src/` pendant qu'un script tourne** : Vite recharge la page en
+   pleine mesure (« Execution context was destroyed »). Et un monstre qu'on vient de poser
+   n'est dans le voisinage qu'au pas de physique suivant : attends une image avant de
+   lancer une base à la main.
 
 ## 7. Les dettes connues, petites
 

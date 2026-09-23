@@ -19,6 +19,7 @@ import type { Ordre, Point } from "../core/ordres";
 import type { Metier } from "../core/habitants";
 import { creerPersonne, prenomLibre, type Personne } from "../core/personne";
 import { Rng } from "../core/rng";
+import { absorber, bouclierNeuf, decalerBouclier } from "../core/elements";
 import { nouvellePose } from "./poses";
 import { ARCHETYPE_DEFAUT, estDeLaNuee, type Archetype } from "./ennemis";
 import { RANGS, type Rang } from "../core/rangs";
@@ -189,6 +190,16 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   tags = 0;
   /** Les emplacements d'actives : quatre, puis ceux qu'on achete (§4.13). */
   emplacements = EMPLACEMENTS_ACTIFS;
+  /**
+   * L'ecran du Bouclier (§4.13, base elementaire) : ce qu'il peut encore
+   * encaisser, et quand il revient. Vide tant qu'il n'a pas la competence.
+   */
+  readonly bouclier = bouclierNeuf();
+
+  /** Ce que l'ecran absorbe plein : une part de sa vie maximale. */
+  get bouclierMax(): number {
+    return Math.round(this.pvMax * this.bonus.bouclier);
+  }
 
   /** Ceux que lui donne son trait, gratuits : Touche-a-tout (§4.23). */
   get emplacementsEnPlus(): number {
@@ -607,19 +618,32 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.setTint(0x4a4152);
   }
 
-  /** Renvoie true si les degats ont ete esquives */
-  subirDegats(degats: number, tirageEsquive: number): boolean {
-    if (this.estInvulnerable) return true;
-    if (tirageEsquive < this.esquive) return true;
+  /**
+   * Ce que devient un coup : esquive (ou invulnerable), pris tout entier par
+   * l'ecran du Bouclier, ou encaisse — en tout ou en partie.
+   */
+  subirDegats(degats: number, tirageEsquive: number): "esquive" | "bouclier" | "touche" {
+    if (this.estInvulnerable) return "esquive";
+    if (tirageEsquive < this.esquive) return "esquive";
 
-    // Pendant l'Exil, le moindre contact tue : la resistance ne joue plus.
-    const recus = this.estCondamne ? this.pv : Math.max(1, degats - this.resistance);
+    // Pendant l'Exil, le moindre contact tue : la resistance ne joue plus, et
+    // l'ecran non plus — c'est un prix, pas un coup a parer.
+    if (this.estCondamne) {
+      this.pv = 0;
+      return "touche";
+    }
+    let recus = Math.max(1, degats - this.resistance);
+    // Le Bouclier encaisse d'abord ce qui a passe l'armure (§4.13).
+    if (this.bonus.bouclier > 0) {
+      recus = absorber(this.bouclier, recus, this.scene.time.now, this.bonus.bouclierRetour);
+      if (recus <= 0) return "bouclier";
+    }
 
     // Garantie du design : un heros joue par l'IA ne meurt jamais
     // (DESIGN.md §4.3). Il lui reste toujours un souffle pour decrocher.
-    const plancher = this.estIncarne || this.estCondamne ? 0 : 1;
+    const plancher = this.estIncarne ? 0 : 1;
     this.pv = Math.max(plancher, this.pv - recus);
-    return false;
+    return "touche";
   }
 
   // ------------------------------------------------------------- capacites
@@ -714,6 +738,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.invisibleJusqua += millisecondes;
     this.immobiliseJusqua += millisecondes;
     this.condamneJusqua += millisecondes;
+    decalerBouclier(this.bouclier, millisecondes);
     for (const cle of Object.keys(this.prochaines)) {
       this.prochaines[cle] = (this.prochaines[cle] ?? 0) + millisecondes;
     }
@@ -878,6 +903,17 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
   /** Jusqu'ou il s'ecarte de son camp avant d'y retourner */
   rayonDuCamp = 0;
   ralentiJusqua = 0;
+  /**
+   * Passe dans une flaque de l'Eau (§4.13). **Ca ne fait rien seul**, et c'est
+   * une decision d'Angelos : ca se voit, et ce sont l'Orage conducteur, le
+   * Maitre de l'orage et la synergie Tempete qui s'en serviront (§4.25).
+   */
+  mouilleJusqua = 0;
+  /**
+   * Tenu par les racines de la Nature (§4.13) : il ne bouge plus — mais il
+   * frappe encore ce qui est a son contact. Les racines tiennent les pieds.
+   */
+  enracineJusqua = 0;
   /** Eclair blanc au moment d'encaisser, gere sans minuterie */
   flashJusqua = 0;
   /** Teinte de fond : celle de son archetype */
@@ -1000,6 +1036,14 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
       : this.vitesse;
   }
 
+  get estMouille(): boolean {
+    return this.scene.time.now < this.mouilleJusqua;
+  }
+
+  get estEnracine(): boolean {
+    return this.scene.time.now < this.enracineJusqua;
+  }
+
   /** @param facteur part de vitesse conservee : 0,25 = ralenti de 75% */
   ralentir(duree: number, facteur = 0.5): void {
     const maintenant = this.scene.time.now;
@@ -1056,6 +1100,8 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
     this.prochainCoup += millisecondes;
     this.instantFrappe += millisecondes;
     this.ralentiJusqua += millisecondes;
+    this.mouilleJusqua += millisecondes;
+    this.enracineJusqua += millisecondes;
     this.flashJusqua += millisecondes;
     this.reculJusqua += millisecondes;
   }

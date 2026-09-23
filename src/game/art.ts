@@ -389,6 +389,59 @@ function creerIconesCapacites(scene: Phaser.Scene): void {
     }
   });
 
+  // --- Les bases elementaires (§4.13, 23 septembre 2026) ---
+
+  // Boule de feu : une boule, et sa queue de flamme en arriere.
+  dessiner("cap-boule-de-feu", (g) => {
+    g.fillCircle(20, 20, 8);
+    g.fillTriangle(14, 14, 4, 6, 18, 12);
+    g.fillTriangle(13, 19, 2, 16, 15, 15);
+    g.fillTriangle(18, 13, 14, 2, 21, 12);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(21, 21, 3);
+  });
+
+  // Vent : trois traits d'air qui s'enroulent au bout.
+  dessiner("cap-vent", (g) => {
+    g.lineStyle(3, 0xffffff, 1);
+    for (const [y, long] of [
+      [9, 20],
+      [16, 26],
+      [23, 16],
+    ] as [number, number][]) {
+      g.lineBetween(3, y, 3 + long, y);
+      g.beginPath();
+      g.arc(3 + long, y - 3, 3, Math.PI / 2, -Math.PI / 2, true);
+      g.strokePath();
+    }
+  });
+
+  // Eau : une goutte qui tombe dans sa flaque.
+  dessiner("cap-eau", (g) => {
+    g.fillCircle(16, 15, 7);
+    g.fillTriangle(9, 13, 23, 13, 16, 2);
+    g.fillEllipse(16, 27, 26, 6);
+    g.fillStyle(0x000000, 1);
+    g.fillEllipse(16, 27, 16, 2);
+  });
+
+  // Nature : trois racines qui sortent de terre et se referment.
+  dessiner("cap-nature", (g) => {
+    g.fillRect(2, 26, 28, 3);
+    g.fillTriangle(5, 26, 10, 26, 13, 8);
+    g.fillTriangle(13, 26, 19, 26, 16, 3);
+    g.fillTriangle(22, 26, 27, 26, 19, 9);
+  });
+
+  // Teleportation : la ou il etait (un cercle vide), la ou il est.
+  dessiner("cap-teleportation", (g) => {
+    g.lineStyle(2, 0xffffff, 0.7);
+    g.strokeCircle(8, 16, 6);
+    for (let i = 0; i < 3; i++) g.fillRect(14 + i * 3, 15, 2, 2);
+    g.fillCircle(25, 9, 4);
+    g.fillRect(21, 13, 8, 14);
+  });
+
   // Generique : une etoile, pour toute capacite sans icone dediee.
   dessiner("cap-generique", (g) => {
     for (let i = 0; i < 4; i++) {

@@ -95,6 +95,10 @@ def sprites():
     # le trait noir en faisait un caillou gris qui flotte au-dessus du toit.
     for v in range(3):
         s[f"feu-fumee-{v}"] = (lambda a, v=v: monde.fumee(a, v), 46, 40, 38, 23, False, False)
+    # Les racines de la Nature (§4.13, 23 septembre 2026) : taille dans
+    # `dessin/elements.ts` (LARGEUR_RACINES, HAUTEUR_RACINES, PIED_RACINES).
+    for v in range(3):
+        s[f"element-racines-{v}"] = (lambda a, v=v: monde.racines(a, v), 24, 20, 16)
     return s
 
 

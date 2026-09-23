@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import type { Proposition } from "../core/competences";
+import { SEPARATEUR_DES_TAGS, type Proposition } from "../core/competences";
 import {
   affuter, C, POLICE, T, cadre, espacer, type Plaque } from "./ui/chrome";
 import { largeurEcran, hauteurEcran } from "./ui/ecran";
@@ -133,11 +133,25 @@ export class ChoixCompetence {
     // Les tags, en pied de carte (§4.25) : ce que la competence **est**, pour
     // que le joueur apprenne a lire son build. Un filet les separe du texte.
     if (proposition.tags) {
+      // ⚠️ **Les tags passent a la ligne entre deux tags, jamais dans un mot.**
+      // Les lettres sont espacees une a une : le retour a la ligne de Phaser
+      // coupait n'importe ou (« EXPLO / SION », vu sur la Boule de feu, la
+      // premiere a en porter cinq), et la seconde ligne sortait de la carte.
+      // La derniere ligne reste ou elle etait ; s'il en faut une de plus, le
+      // filet remonte d'autant.
+      const texte = this.ajouterTexte(x + 14, 0, "", 9, T.acier);
+      const lignes: string[] = [];
+      for (const tag of proposition.tags.split(SEPARATEUR_DES_TAGS)) {
+        const derniere = lignes[lignes.length - 1];
+        const allongee = derniere === undefined ? tag : `${derniere}${SEPARATEUR_DES_TAGS}${tag}`;
+        if (derniere !== undefined && texte.setText(espacer(allongee)).width > largeur - 28) lignes.push(tag);
+        else if (derniere === undefined) lignes.push(tag);
+        else lignes[lignes.length - 1] = allongee;
+      }
+      texte.setText(lignes.map(espacer).join("\n")).setY(y + hauteur - 10 - lignes.length * 12);
+      const filet = y + hauteur - 18 - lignes.length * 12;
       fond.lineStyle(1, C.sangSeche, 0.9);
-      fond.lineBetween(x + 14, y + hauteur - 30, x + largeur - 14, y + hauteur - 30);
-      this.ajouterTexte(x + 14, y + hauteur - 22, espacer(proposition.tags), 9, T.acier).setWordWrapWidth(
-        largeur - 28,
-      );
+      fond.lineBetween(x + 14, filet, x + largeur - 14, filet);
     }
 
     const zone = this.scene.add

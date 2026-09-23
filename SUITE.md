@@ -1568,6 +1568,67 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6.5, morceau 2b — les six bases élémentaires (23 septembre 2026)
+
+**Deux décisions d'Angelos, posées avant de coder** : la Boule de feu, le Vent, l'Eau et la
+Nature **partent toutes seules** (des automatiques, sans touche ni emplacement — un
+ingrédient qui coûterait une touche ne serait jamais pris) ; **« mouillé » ne fait rien
+seul**, ça se voit. Le reste est tranché par le code, et dit au §4.13.
+
+- **`core/elements.ts`**, pur et testé : les chiffres des six bases, l'**écran du
+  Bouclier** (`absorber`, `reformer` — entamé il se referme après 4 s sans coup, brisé il
+  revient à son heure) et le **couloir du Vent** (`dansLeSouffle`).
+- **`game/elements.ts`** joue les quatre automatiques et tient la bulle, derrière un
+  contexte de six fonctions (le voisinage, `blesserEnnemi`, l'onde, le bruit, le texte
+  flottant, les héros) : aucune ligne de plus dans la scène pour une base, sauf la
+  Téléportation, jouée à côté du Clignement. Rien n'y est minuté : tout avance dans
+  `majorer`, et ce qui est daté se décale avec les menus.
+- **Elles ne partent jamais dans le vide** (`aUneCible`) : sans monstre à portée, elles
+  gardent leur charge. Et elles partent **sans le dire** — ni nom qui flotte, ni geste
+  d'incantation à chaque boule.
+- **Deux états neufs sur `Ennemi`** : `mouilleJusqua` (la nuée mélange sa teinte au ciel
+  sale, les sprites passent au ciel sale) et `enracineJusqua` (`avancerEnnemi` le fige
+  **avant** le recul : les racines tiennent aussi contre le vent). Les géants ne sont
+  jamais pris, seulement ralentis.
+- **Le Vent emporte ce qui traîne au sol** : les flaques, et désormais les lames du
+  *Croc-en-jambe* et les pièges, qui s'inscrivent au passage (`poserAuSol`). Leur logique
+  relit leur point à chaque battement : le déplacer suffit.
+- **Le Bouclier encaisse après l'armure**, dans `Hero.subirDegats`, qui rend désormais
+  `"esquive" | "bouclier" | "touche"` : un coup pris tout entier par l'écran ne fait ni
+  recul, ni stress, ni plaie.
+- **Les racines passent par Blender** (`monde.racines`, trois variantes, 24 × 20) ; la
+  boule reprend la flamme de l'incendie, couchée dans le sens du vol, avec un cœur clair ;
+  la flaque, la bulle et le souffle restent au code (ni face ni bord, comme la fumée).
+- **Cinq icônes** au panneau des capacités.
+
+**Vérifié dans trois parties** (`.tmp/verifier-2b.ts`) : **66 contrôles sur 66**. Les quatre
+automatiques ne demandent aucune place et la Téléportation si ; la boule éclate sur le
+premier et prend ses deux voisins, pas le troisième à 110 px, à ×1,5 ; le vent pousse le
+groupe de 55 px et emporte la flaque de 79 ; les mouillés sont ralentis à 60 % et le
+restent 4 s après ; la piétaille prise ne bouge plus d'un pixel et repart après, le boss
+n'est que ralenti ; l'écran de 40 % prend un coup entier, se brise sur le suivant en ne
+laissant passer que le surplus, sonne, et revient à 6 s ; le saut fait 160 px vers la
+souris.
+
+**À regarder** : `captures/jeu/2026-09-23-bases-elementaires/` — les quatre cartes, la boule
+en vol et son explosion, le vent qui emporte la flaque, les mouillés, les racines, la bulle
+et l'écran brisé, l'ombre de la Téléportation, et une mêlée au zoom de jeu.
+
+⚠️ **Trois choses trouvées en chemin** :
+
+1. **Un bug ancien, corrigé à part** (`7b3746a`) : le facteur de ralenti d'un monstre ne
+   faisait que descendre — passé une fois sous le Sablier, il restait ralenti de 75 % à
+   chaque piège, pour toujours, et aucun ralenti plus doux que la moitié n'existait. La
+   flaque (60 %) l'aurait montré à chaque fois.
+2. **Les tags d'une carte se coupaient au milieu d'un mot** (« EXPLO / SION ») : les
+   lettres sont espacées une à une, et la Boule de feu est la première à en porter cinq.
+   Ils passent maintenant à la ligne entre deux tags, et le filet remonte.
+3. **Pour les scripts** : un monstre posé n'est dans le voisinage qu'au pas de physique
+   suivant (attendre une image avant de lancer une base à la main), et **ne jamais
+   modifier `src/` pendant qu'un script tourne** — Vite recharge la page en pleine mesure.
+
+**1019 tests verts** (+17).
+
 ### Le jalon 6.5, morceau 2a — les statistiques, Touche-à-tout, les classes ouvertes (23 septembre 2026)
 
 **Les décisions du questionnaire sont prises** (onze réponses, puis deux précisions : les

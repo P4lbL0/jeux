@@ -419,6 +419,81 @@ describe("Les statistiques (§4.13, 23 septembre 2026)", () => {
   });
 });
 
+describe("Les six bases elementaires (§4.13, 23 septembre 2026)", () => {
+  const BASES_ELEMENTAIRES = ["boule-de-feu", "vent", "eau", "nature", "bouclier", "teleportation"];
+
+  it("les ecrit aux rangs et avec les tags du design, ouvertes a toutes les classes", () => {
+    const attendus: Record<string, [string, number]> = {
+      "boule-de-feu": ["F", TAGS.FEU | TAGS.PROJECTILE | TAGS.ZONE],
+      vent: ["E", TAGS.VENT | TAGS.ZONE],
+      eau: ["E", TAGS.EAU | TAGS.ZONE | TAGS.SOL],
+      nature: ["D", TAGS.NATURE | TAGS.ZONE | TAGS.ENTRAVE],
+      bouclier: ["D", TAGS.BOUCLIER | TAGS.DEFENSE],
+      teleportation: ["C", TAGS.MOBILITE | TAGS.OMBRE],
+    };
+    for (const id of BASES_ELEMENTAIRES) {
+      const c = def(id);
+      const [rang, tags] = attendus[id]!;
+      expect(c.rang, id).toBe(rang);
+      expect(c.tags & tags, id).toBe(tags);
+      expect(c.classes, id).toBeUndefined();
+    }
+    // L'exemple du §4.25, repris tel quel.
+    expect(def("boule-de-feu").tags & (TAGS.MAGIE | TAGS.EXPLOSION)).toBe(TAGS.MAGIE | TAGS.EXPLOSION);
+  });
+
+  it("fait partir toutes seules les quatre qui frappent ; le bouclier est permanent, le saut sur une touche", () => {
+    // Tranche par Angelos : un ingredient ne prend ni touche, ni emplacement.
+    for (const id of ["boule-de-feu", "vent", "eau", "nature"]) {
+      expect(def(id).type, id).toBe("auto");
+      expect(def(id).effet, id).toBe(id);
+    }
+    expect(def("bouclier").type).toBe("passive");
+    expect(def("teleportation").type).toBe("active");
+    // Une automatique ne demande jamais de place, meme quand les quatre sont prises.
+    const quatre = { moulinet: 1, charge: 1, "cri-de-guerre": 1, sablier: 1 };
+    for (const id of ["boule-de-feu", "vent", "eau", "nature"]) {
+      expect(demandeUnePlace(def(id), quatre, EMPLACEMENTS_ACTIFS), id).toBe(false);
+    }
+    expect(demandeUnePlace(def("teleportation"), quatre, EMPLACEMENTS_ACTIFS)).toBe(true);
+  });
+
+  it("porte enfin l'EAU, le VENT et la NATURE — le POISON attend le Nuage toxique", () => {
+    const portes = COMPETENCES.reduce((m, c) => m | c.tags, 0);
+    expect(portes & TAGS.EAU).toBe(TAGS.EAU);
+    expect(portes & TAGS.VENT).toBe(TAGS.VENT);
+    expect(portes & TAGS.NATURE).toBe(TAGS.NATURE);
+    expect(portes & TAGS.POISON).toBe(0);
+  });
+
+  it("donne au Bouclier 20, 30 puis 40 % de la vie max, et un retour de plus en plus court", () => {
+    const bonus = bonusVierge();
+    expect([bonus.bouclier, bonus.bouclierRetour]).toEqual([0, 0]);
+    const paliers = def("bouclier").paliers;
+    const vus: [number, number][] = [];
+    paliers.forEach((p, i) => {
+      p.appliquer?.(bonus, i + 1);
+      vus.push([Math.round(bonus.bouclier * 100), bonus.bouclierRetour]);
+    });
+    expect(vus).toEqual([
+      [20, 10000],
+      [30, 8000],
+      [40, 6000],
+    ]);
+  });
+
+  it("fait voir les quatre elements au Mage trois fois plus, pas la Teleportation", () => {
+    for (const id of ["boule-de-feu", "vent", "eau", "nature"]) {
+      expect(penchantPour(def(id), "mage"), id).toBe(3);
+      expect(penchantPour(def(id), "guerrier"), id).toBe(1);
+    }
+    expect(penchantPour(def("boule-de-feu"), "mage", ["pyromane"])).toBe(9);
+    // La Teleportation est de l'OMBRE : l'assassin la voit deux fois plus.
+    expect(penchantPour(def("teleportation"), "assassin")).toBe(2);
+    expect(penchantPour(def("bouclier"), "chevalier")).toBe(2);
+  });
+});
+
 describe("Les emplacements de Touche-a-tout (§4.23, 23 septembre 2026)", () => {
   it("ecrit les touches des actives de 2 a 9, puis 0", () => {
     expect(toucheDeLActive(2)).toBe("2");
