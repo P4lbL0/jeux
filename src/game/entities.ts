@@ -1002,8 +1002,14 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
 
   /** @param facteur part de vitesse conservee : 0,25 = ralenti de 75% */
   ralentir(duree: number, facteur = 0.5): void {
-    this.ralentiJusqua = Math.max(this.ralentiJusqua, this.scene.time.now + duree);
-    this.facteurRalenti = Math.min(this.facteurRalenti, facteur);
+    const maintenant = this.scene.time.now;
+    // ⚠️ **Un ralenti fini ne pese plus sur le suivant.** Le facteur ne faisait
+    // que descendre : un monstre passe une fois sous le Sablier (0,25) restait
+    // ralenti de 75 % a chaque piege, chaque douve seche, pour toute sa vie —
+    // et aucun ralenti plus doux que 0,5 ne pouvait exister. Deux ralentis qui
+    // se chevauchent gardent le plus fort, le temps qu'ils durent.
+    this.facteurRalenti = maintenant < this.ralentiJusqua ? Math.min(this.facteurRalenti, facteur) : facteur;
+    this.ralentiJusqua = Math.max(this.ralentiJusqua, maintenant + duree);
   }
 
   peutFrapper(maintenant: number): boolean {
