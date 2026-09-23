@@ -103,6 +103,8 @@ export interface PartieEnCours {
   incendie: Incendie;
   /** Les crateres et le fer du ciel (§4.21). Repris **sur place** */
   meteore: Meteore;
+  /** Les bannis de l'Exil des morts qui attendent la nuit (§4.25). Relu par la scene */
+  bannis: number;
 }
 
 /** La memoire des morts qu'on garde : au-dela, la satisfaction ne la lit plus. */
@@ -148,6 +150,7 @@ export function capturer(partie: PartieEnCours, maintenant: number): Sauvegarde 
       .map((fou) => ({ ...fou })),
     prochaineArrivee: partie.prochaineArrivee,
     argent: partie.argent,
+    bannis: partie.bannis,
     port: {
       etat: partie.port.regles.etat,
       avancement: partie.port.regles.chantier,
@@ -225,6 +228,9 @@ function capturerHeros(hero: Hero, maintenant: number): EtatHeros {
     competences: { ...hero.competences },
     emplacements: hero.emplacements,
     evolutions,
+    fondues: { ...hero.fondues },
+    usure: hero.usure,
+    revenu: hero.revenu,
     posture: hero.ordre.posture,
     ancre: hero.ordre.ancre ? { x: hero.ordre.ancre.x, y: hero.ordre.ancre.y } : null,
     travail: hero.travail,
@@ -296,6 +302,7 @@ export function appliquer(
   partie.prochaineArrivee = sauvegarde.prochaineArrivee ?? null;
 
   partie.argent = sauvegarde.argent ?? 0;
+  partie.bannis = sauvegarde.bannis ?? 0;
   // Une partie d'avant le bloc 6b n'a pas de port : il repart en ruine, cours
   // neutres. C'est exactement ce qu'elle avait.
   const port = sauvegarde.port;
@@ -387,6 +394,11 @@ function reprendreLesHeros(
       const evolution = def?.evolutions?.options.find((o) => o.id === evolutionId);
       if (evolution) hero.appliquerEvolution(competenceId, evolution);
     }
+    // Les ingredients fondus (§4.25) ont ete rejoues comme les autres : il ne
+    // reste qu'a leur retirer leur touche.
+    Object.assign(hero.fondues, etat.fondues ?? {});
+    hero.usure = etat.usure ?? 0;
+    hero.revenu = etat.revenu ?? false;
 
     // Apres les competences : `apprendre` touche aux points de vie et au compte
     // de choix en attente, c'est donc l'etat enregistre qui doit avoir le

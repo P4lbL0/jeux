@@ -3,7 +3,14 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-09-23, après-midi — **les statistiques sont dans le jeu**
+> Dernière mise à jour : 2026-09-23, fin d'après-midi — **les fusions sont dans le jeu**
+> (§4.25, jalon 6.5, morceau 3) : une quatrième carte quand deux ingrédients sont au
+> maximum, le double prix, les douze fusions du morceau — dont le *Néant* à 60 s à
+> découvert et le *Revenant* qui revient avec une séquelle, seconde porte vers les séquelles
+> (§4.23 réécrit). Tout le catalogue se règle désormais dans le **Grimoire**
+> (https://claude.ai/artifact/MMgy33ybsQJQGEWQpzj2yV).
+>
+> Avant ça : 2026-09-23, après-midi — **les statistiques sont dans le jeu**
 > (§4.13, jalon 6.5, morceau 2a) : neuf cartes neuves, *Touche-à-tout* et ses touches 8, 9
 > et 0, les compétences de classe ouvertes aux autres en rare. La suite : les six bases
 > élémentaires.

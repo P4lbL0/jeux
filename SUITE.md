@@ -1568,6 +1568,84 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6.5, morceau 3 — les fusions (23 septembre 2026, fin d'après-midi)
+
+**Deux décisions d'Angelos, posées avant de coder** : le *Revenant* revient avec **une
+séquelle tirée au sort**, et le *Néant* double le coût de l'Exil en **60 s à découvert**.
+Pour les chiffres, il a préféré les régler lui-même : **le Grimoire**
+(https://claude.ai/artifact/MMgy33ybsQJQGEWQpzj2yV) montre les 86 compétences, les 7 ultimes
+et les 26 fusions, tout se modifie en place et s'enregistre dans la base de la page. Deux
+réponses y attendent (le coût du *Berserker terminal*, ce que gagne l'*Exil des morts*) :
+elles sont codées sur la recommandation en attendant.
+
+- **Un ingrédient fondu reste tenu, à son maximum** (`Hero.fondues`, sauvegardé). C'est tout
+  le mécanisme : ses bonus restent, la sauvegarde le rejoue, ses tags restent dans le build,
+  il ne ressort jamais de la pioche (il est au bout de ses paliers) — il perd seulement sa
+  touche et sa capacité (`ordreDesCompetences`). La fusion n'a donc qu'à **ajouter** son
+  comportement, jamais à recopier celui de ses ingrédients.
+- **`core/fusions.ts`**, pur et testé : quand une fusion se propose (`fusionsPossibles` —
+  ingrédients au maximum, pas déjà fondus, évolution exigée), ce que sa carte montre
+  (`propositionFusion`, avec la ligne « FOND »), celles qui libèrent une touche, les
+  réglages des douze (`REGLAGES_FUSIONS`), et trois règles des chères (combien de bannis
+  reviennent, l'usure du Berserker, la séquelle du Revenant).
+- **Les douze sont du contenu** dans `competences.ts`, avec un champ `fusion`. Elles ne sortent
+  jamais de la pioche avant d'être prises (`estDisponible`), puis y reviennent pour monter.
+- **Le double prix** (`enDoublePrix`) glisse une **moitié** entre deux vrais paliers : une
+  prise reste une prise, la pioche, la sauvegarde et les capacités lisent une fusion sans le
+  savoir ; `palierAtteint` compte les vrais, et la carte dit « 1 sur 2 », « 2 sur 2 ».
+- **La carte** : un filet de laiton double le cadre, le nom est en laiton, et « FOND » dit ce
+  qu'elle consomme au-dessus des tags. Toute la rangée grandit d'autant.
+- **« Plus de place »** propose les fusions qui libèrent une touche ; fusionner fait la place
+  à la compétence qui attendait. Une fusion active reprend la touche de son premier
+  ingrédient qui en avait une.
+- **Les comportements** sont branchés là où agissent déjà leurs ingrédients : les
+  orbiteurs (Soleil, Moulin, Satellites), l'aura, la chaîne d'éclairs, le Moulinet, la
+  Charge et le Dôme (qui peut désormais avoir une fin), le Sablier, les invocations, la
+  chute d'un héros, l'aube, la nuit. Le Moulin fait voler ses épées sans minuterie (tout se
+  lit dans le temps écoulé, une pause les fige). Tout ce qui frappe passe par le voisinage.
+- **Cinq icônes** pour les fusions actives, **trois champs sauvegardés** de plus (`fondues`,
+  `usure`, `revenu` sur le héros ; `bannis` sur la partie).
+- **Le §4.23 est réécrit** : le Revenant est la seconde porte vers une séquelle, après le
+  soin d'un mourant.
+
+**Vérifié dans trois parties** (`.tmp/verifier-fusions.ts`) : **87 contrôles sur 87**. La
+carte en quatrième position prise **au clavier** ; les ingrédients fondus, la touche gardée,
+le double prix (une prise ne donne rien, la seconde le palier 2), la sauvegarde ; deux
+fusions qui se disputent l'épée, l'une prise efface l'autre ; puis chaque fusion par ce
+qu'elle fait — l'aura qui brûle à 100 px et pas à 130, huit rebonds d'épées sur huit monstres
+hors de la ronde, le courant qui revient « 2121212121 » entre deux monstres, l'éclair d'un
+satellite jusqu'au voisin, le Tourbillon à 110 px et ×1,3, la Forteresse par « plus de
+place » et son dôme de 180 PV qui tombe à 6 s, −5 100 ms au Sablier pour trois morts dans la
+zone (dont 700 de la Danse), les morts-vivants qui suivent le familier doré, le Néant qui
+fige puis bannit et laisse 59 s à 1 PV, six bannis qui reviennent six revenants la nuit
+suivante, 182 → 167 PV à l'aube, et le Revenant qui se relève avant la Résurrection de
+l'équipe.
+
+**À regarder** : `captures/jeu/2026-09-23-fusions/` — la carte de fusion, « plus de place »,
+les épées du Moulin en vol, le Tourbillon et ses flammes, le dôme de la Forteresse, le Temps
+fracturé, le Néant (les monstres figés, gris), le Revenant.
+
+⚠️ **Un bug ancien, trouvé en regardant les captures** : la teinte grise de l'**Heure
+sombre** était posée une fois, puis écrasée à l'image suivante par la teinte de chaque monstre
+(et la nuée ne l'avait jamais lue). Le gel ne se voyait plus. Il se pose maintenant à chaque
+image, sur les sprites comme dans la nuée — l'Heure sombre et le Néant en profitent.
+
+⚠️ **Ce qui reste imparfait, et pourquoi c'est acceptable** :
+
+1. **Oublier une fusion** (sur « plus de place ») oublie aussi ses ingrédients ; leurs bonus
+   passifs restent jusqu'au rechargement, comme pour toute compétence oubliée depuis le
+   19 septembre.
+2. **Les revenants de l'Exil des morts** qui ne sont pas encore sortis quand on recharge en
+   pleine nuit sont perdus (les bannis, eux, sont sauvegardés jusqu'à la tombée de la nuit).
+3. Le *Tourbillon infernal* et l'*Invisibilité* se partagent `multiplicateurVitesse` : le
+   premier qui finit remet la vitesse à 1.
+
+**Pour les scripts** : un monstre posé n'est dans le voisinage qu'au pas de physique suivant
+— une chaîne d'éclairs lancée à la main dans la même image ne trouve personne. Le piège était
+connu, il a coûté trois faux échecs.
+
+**1042 tests verts** (+23).
+
 ### Le jalon 6.5, morceau 2b — les six bases élémentaires (23 septembre 2026)
 
 **Deux décisions d'Angelos, posées avant de coder** : la Boule de feu, le Vent, l'Eau et la

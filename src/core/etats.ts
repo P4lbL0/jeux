@@ -10,9 +10,10 @@
  * donc largement le temps de reagir, et la mort reste un arbitrage — « je n'ai
  * pas monte l'eglise, tant pis pour lui ».
  *
- * ⚠️ **Le stade Mourant est le seul endroit du jeu qui produise une sequelle.**
+ * ⚠️ **Le stade Mourant est l'une des deux seules portes vers une sequelle.**
  * Soigner quelqu'un a ce stade le sauve *et* l'abime pour toujours. C'est le
- * meilleur dilemme du document, et il tient dans `soigner()`.
+ * meilleur dilemme du document, et il tient dans `soigner()`. L'autre porte est
+ * le retour du Revenant (§4.25, 23 septembre 2026), qui paie ainsi sa seconde vie.
  *
  * Ce fichier ne connait ni Phaser ni le temps reel : il compte en **journees**.
  */

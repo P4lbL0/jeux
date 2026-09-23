@@ -442,6 +442,69 @@ function creerIconesCapacites(scene: Phaser.Scene): void {
     g.fillRect(21, 13, 8, 14);
   });
 
+  // --- Les fusions actives (§4.25) ---
+
+  // Tourbillon infernal : la fleche du Moulinet, et des flammes qui en jaillissent.
+  dessiner("cap-tourbillon-infernal", (g) => {
+    g.fillCircle(16, 18, 11);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(16, 18, 6);
+    g.fillRect(16, 5, 14, 13);
+    g.fillStyle(0xffffff, 1);
+    g.fillTriangle(18, 6, 27, 10, 18, 14);
+    g.fillTriangle(4, 10, 8, 1, 10, 11);
+    g.fillTriangle(9, 7, 13, 0, 14, 8);
+  });
+
+  // Forteresse mobile : une fleche de charge qui bute sur un dome.
+  dessiner("cap-forteresse-mobile", (g) => {
+    g.fillCircle(21, 21, 10);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(21, 21, 6);
+    g.fillRect(0, 22, 32, 10);
+    g.fillStyle(0xffffff, 1);
+    g.fillRect(9, 22, 22, 3);
+    g.fillRect(1, 13, 9, 3);
+    g.fillTriangle(9, 9, 15, 14, 9, 19);
+  });
+
+  // Temps fracture : un sablier fendu en travers.
+  dessiner("cap-temps-fracture", (g) => {
+    g.fillRect(7, 3, 18, 3);
+    g.fillRect(7, 26, 18, 3);
+    g.fillTriangle(8, 6, 24, 6, 16, 16);
+    g.fillTriangle(8, 26, 24, 26, 16, 16);
+    g.fillStyle(0x000000, 1);
+    for (let i = 0; i < 6; i++) g.fillRect(4 + i * 4, 12 + (i % 2) * 5, 5, 3);
+  });
+
+  // Neant : le portail de l'Exil, et le sablier de l'Heure sombre en son coeur.
+  dessiner("cap-neant", (g) => {
+    g.fillCircle(16, 16, 14);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(16, 16, 11);
+    g.fillStyle(0xffffff, 1);
+    g.fillRect(11, 8, 10, 2);
+    g.fillRect(11, 22, 10, 2);
+    g.fillTriangle(12, 10, 20, 10, 16, 16);
+    g.fillTriangle(12, 22, 20, 22, 16, 16);
+  });
+
+  // Exil des morts : le portail de l'Exil, et un crane dedans.
+  dessiner("cap-exil-des-morts", (g) => {
+    g.fillCircle(16, 16, 14);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(16, 16, 11);
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(16, 14, 6);
+    g.fillRect(12, 18, 8, 5);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(13, 14, 2);
+    g.fillCircle(19, 14, 2);
+    g.fillRect(14, 20, 1, 3);
+    g.fillRect(17, 20, 1, 3);
+  });
+
   // Generique : une etoile, pour toute capacite sans icone dediee.
   dessiner("cap-generique", (g) => {
     for (let i = 0; i < 4; i++) {

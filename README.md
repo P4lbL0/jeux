@@ -393,7 +393,10 @@ src/
     rng.ts           aleatoire seede (une graine = une partie rejouable)
     classes.ts       donnees des 7 classes — c'est ici qu'on equilibre
     competences.ts   ameliorations et leurs raretes, leurs tags (un bit
-                     chacun), la penetration et la pioche ponderee (§4.25)
+                     chacun), la penetration et la pioche ponderee (§4.25),
+                     et les douze fusions (du contenu, au double prix)
+    fusions.ts       quand une fusion se propose, ce que sa carte montre,
+                     les touches qu'elle libere, et ses reglages (testee, §4.25)
     ia.ts            decisions des heros joues par l'IA (fonction pure, testee)
     ordres.ts        postures, formations et postes (fonction pure, testee)
     affinites.ts     experience de groupe par paire de heros (testee)

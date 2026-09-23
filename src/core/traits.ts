@@ -718,7 +718,8 @@ export interface SequelleDef {
  * devenu un fardeau. Tu le gardes, ou tu l'envoies mourir heroiquement ?*
  *
  * Le garde-fou est ailleurs : on n'en obtient **jamais** au hasard, et
- * **jamais** hors du stade Mourant (`etats.ts`).
+ * seulement au stade Mourant (`etats.ts`) — ou en revenant d'entre les morts
+ * sous le Revenant (§4.25), qui le sait en prenant la fusion.
  */
 export const SEQUELLES: SequelleDef[] = [
   {

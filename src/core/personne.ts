@@ -487,7 +487,10 @@ export function gagnerTrait(personne: Personne, cle: CleTrait): boolean {
   return true;
 }
 
-/** Il gagne une sequelle. Il n'y a **aucune** autre porte d'entree que le soin. */
+/**
+ * Il gagne une sequelle. Deux portes seulement : le soin d'un mourant, et le
+ * retour du Revenant (§4.25, decision d'Angelos du 23 septembre 2026).
+ */
 export function poserSequelle(personne: Personne, id: number): void {
   if (personne.sequelles.includes(id)) return;
   personne.sequelles.push(id);

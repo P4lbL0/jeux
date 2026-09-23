@@ -13,8 +13,12 @@ import {
   type EvolutionDef,
   EMPLACEMENTS_ACTIFS,
   activesPossedees,
+  ordreDesCompetences,
+  palierAtteint,
   tagsDuBuild,
+  type CompetencesFondues,
 } from "../core/competences";
+import { auPalier, facteurDUsure, ingredientsDe, REGLAGES_FUSIONS } from "../core/fusions";
 import type { Ordre, Point } from "../core/ordres";
 import type { Metier } from "../core/habitants";
 import { creerPersonne, prenomLibre, type Personne } from "../core/personne";
@@ -182,6 +186,20 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   readonly competences: CompetencesPossedees = {};
   /** Evolution choisie pour une competence, par identifiant de competence */
   readonly evolutions: Record<string, EvolutionDef> = {};
+  /**
+   * Les ingredients fondus dans une fusion (§4.25), et la fusion de chacun.
+   * Ils restent dans `competences`, a leur maximum, et continuent d'agir ; ils
+   * perdent seulement leur touche et leur capacite.
+   */
+  readonly fondues: CompetencesFondues = {};
+  /**
+   * Les aubes passees sous le Berserker terminal (§4.25) : chacune lui a pris
+   * une part de sa vie maximale, pour toujours. Enregistree : la fusion se
+   * rejoue a la reprise, pas les aubes.
+   */
+  usure = 0;
+  /** Le Revenant s'est-il deja releve ? Une fois, une seule (§4.25). Enregistre. */
+  revenu = false;
   /**
    * Les tags de son build (§4.25), agreges une fois a chaque competence gagnee,
    * changee ou oubliee : « ce build contient-il FEU et VENT ? » est un `&` sur
@@ -378,7 +396,9 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
           this.bonus.multiplicateurGlobal *
           this.bonus.multiplicateurPv *
           // Un poumon perce coute 30 % de vie maximale, definitivement (§4.23).
-          this.personne.mods.pvMax,
+          this.personne.mods.pvMax *
+          // Le Berserker terminal se consume a chaque aube (§4.25).
+          facteurDUsure(this.usure),
       ),
     );
   }
@@ -664,7 +684,10 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       icone: `ultime-${u.effet}`,
     }));
 
-    for (const [id, palier] of Object.entries(this.competences)) {
+    // Dans l'ordre des touches : une fusion reprend celle de son premier
+    // ingredient, et un ingredient fondu n'en a plus (§4.25).
+    for (const id of ordreDesCompetences(this.competences, this.fondues)) {
+      const palier = this.competences[id] ?? 0;
       const def = competenceParId(id);
       if (!def || def.type === "passive" || !def.effet) continue;
       const infos = def.paliers[palier - 1];
@@ -701,6 +724,13 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   marquerCapacite(capacite: Capacite, tirageEcho = 1): void {
     if (tirageEcho < this.bonus.echo) return;
     this.prochaines[capacite.id] = this.scene.time.now + capacite.rechargement;
+  }
+
+  /** Temps fracture (§4.25) : une seule capacite revient plus tot. */
+  avancerRechargement(id: string, millisecondes: number): void {
+    const pret = this.prochaines[id];
+    if (pret === undefined) return;
+    this.prochaines[id] = Math.max(this.scene.time.now, pret - millisecondes);
   }
 
   /** Danse des ombres : chaque mort raccourcit tous les rechargements. */
@@ -775,6 +805,15 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   }
 
   /**
+   * Le vrai palier d'une competence : pour une fusion, les moities du double
+   * prix ne comptent pas (§4.25). 0 s'il ne la tient pas.
+   */
+  palierReel(id: string): number {
+    const def = competenceParId(id);
+    return def ? palierAtteint(def, this.palierDe(id)) : 0;
+  }
+
+  /**
    * Apprend une competence, ou la renforce d'un palier si elle est deja
    * connue. Renvoie l'evolution a proposer si ce palier en ouvre une.
    */
@@ -813,7 +852,22 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   /** Les actives apprises, dans l'ordre des touches (§4.13). */
   get actives(): CompetenceDef[] {
-    return activesPossedees(this.competences);
+    return activesPossedees(this.competences, this.fondues);
+  }
+
+  /**
+   * Fusionne (§4.25) : les ingredients sont fondus, la fusion arrive au
+   * palier 1. Ils restent tenus — c'est ce qui la rend jamais moins forte
+   * qu'eux.
+   *
+   * @param consommeUnChoix faux quand elle vient de l'ecran « plus de place » :
+   *        le choix, c'est la competence qui attendait sa place.
+   */
+  fusionner(fusion: CompetenceDef, consommeUnChoix: boolean): void {
+    for (const ingredient of ingredientsDe(fusion)) this.fondues[ingredient] = fusion.id;
+    const choix = this.choixEnAttente;
+    this.apprendre(fusion);
+    if (!consommeUnChoix) this.choixEnAttente = choix;
   }
 
   /**
@@ -823,6 +877,13 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
    * la teinte de son evolution s'efface.
    */
   oublier(id: string): void {
+    // Oublier une fusion, c'est oublier ce qu'elle avait fondu : ses
+    // ingredients ne reviennent pas tout seuls.
+    for (const [ingredient, fusion] of Object.entries(this.fondues)) {
+      if (fusion !== id) continue;
+      delete this.fondues[ingredient];
+      this.oublier(ingredient);
+    }
     delete this.competences[id];
     const evolution = this.evolutions[id];
     delete this.evolutions[id];
@@ -1218,7 +1279,21 @@ export class Familier extends Invocation {
     // Le golem est une masse : une fois et demie les autres dans le monde, et
     // **cuit** une fois et demie plus grand a l'ecran — jamais agrandi.
     if (golem) calerCorps(this, 8 * GROSSEUR_GOLEM, 9 * GROSSEUR_GOLEM);
+    // General des morts (§4.25) : il mene les morts-vivants. Il se voit au
+    // laiton, et au dernier palier il tient deux fois plus.
+    const general = maitre.palierReel("general-des-morts");
+    if (general > 0) {
+      this.pvMax = Math.round(this.pvMax * auPalier(REGLAGES_FUSIONS.generalDesMorts.vie, general));
+      this.pv = this.pvMax;
+      marquerLeGeneral(this);
+    }
   }
+}
+
+/** La teinte du familier d'un General des morts : le laiton, ce qui mene. */
+export function marquerLeGeneral(familier: Invocation): void {
+  familier.teinte = 0xe2bb62;
+  familier.setTint(0xe2bb62);
 }
 
 /** Le double de l'Assassin : immobile, il attire tout, puis il explose. */
@@ -1250,4 +1325,6 @@ export interface Dome {
   rayon: number;
   pv: number;
   pvMax: number;
+  /** Instant ou il tombe de lui-meme : les domes de la Forteresse mobile (§4.25). Absent : jamais. */
+  finDeVie?: number;
 }

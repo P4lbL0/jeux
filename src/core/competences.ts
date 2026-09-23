@@ -76,7 +76,13 @@ export type EffetCapacite =
   | "vent"
   | "eau"
   | "nature"
-  | "teleportation";
+  | "teleportation"
+  // Les fusions actives (§4.25, jalon 6.5, morceau 3)
+  | "tourbillon-infernal"
+  | "forteresse-mobile"
+  | "temps-fracture"
+  | "neant"
+  | "exil-des-morts";
 
 export type TypeCompetence = "passive" | "active" | "auto";
 
@@ -361,6 +367,18 @@ export interface PalierDef {
   /** Rechargement en millisecondes, pour les capacites */
   rechargement?: number;
   appliquer?(bonus: Bonus, palier: number): void;
+  /**
+   * La premiere moitie d'un palier de fusion (§4.25) : on l'a choisie une
+   * fois, il faut la choisir encore pour gagner le palier. Rien ne change.
+   */
+  demi?: boolean;
+}
+
+/** Ce qu'une fusion consomme : une competence a son palier maximum, et parfois une evolution precise. */
+export interface IngredientDef {
+  competence: string;
+  /** Absente : n'importe laquelle de ses evolutions, ou aucune. */
+  evolution?: string;
 }
 
 export interface CompetenceDef {
@@ -387,6 +405,47 @@ export interface CompetenceDef {
   paliers: PalierDef[];
   /** Choix qui s'ouvre en atteignant ce palier */
   evolutions?: { auPalier: number; options: EvolutionDef[] };
+  /**
+   * Une fusion (§4.25) : elle ne sort jamais de la pioche avant d'etre prise.
+   * Elle se propose en carte a part quand tous ses ingredients sont a leur
+   * maximum, et les consomme.
+   */
+  fusion?: { ingredients: IngredientDef[] };
+}
+
+/**
+ * **Le double prix d'une fusion** (§4.25, tranche le 23 septembre 2026 par
+ * Angelos) : « puisque c'est deux competences fusionnees », il faut la choisir
+ * deux fois pour gagner un palier. Entre deux vrais paliers se glisse une
+ * moitie, qui ne change rien et reprend le rechargement d'avant.
+ *
+ * Un palier reste une prise : la pioche, la sauvegarde et les capacites lisent
+ * une fusion comme n'importe quelle competence, sans le savoir.
+ */
+export function enDoublePrix(paliers: PalierDef[]): PalierDef[] {
+  const tous: PalierDef[] = [];
+  paliers.forEach((palier, i) => {
+    if (i > 0) {
+      const avant = paliers[i - 1];
+      tous.push({ texte: palier.texte, rechargement: avant?.rechargement, demi: true });
+    }
+    tous.push(palier);
+  });
+  return tous;
+}
+
+/** Le vrai palier atteint apres tant de prises : les moities ne comptent pas. */
+export function palierAtteint(competence: CompetenceDef, prises: number): number {
+  let n = 0;
+  for (let i = 0; i < Math.min(prises, competence.paliers.length); i++) {
+    if (!competence.paliers[i]?.demi) n++;
+  }
+  return n;
+}
+
+/** Combien de vrais paliers elle a en tout. */
+export function paliersReels(competence: CompetenceDef): number {
+  return palierAtteint(competence, competence.paliers.length);
 }
 
 // ---------------------------------------------------------------- le contenu
@@ -1896,6 +1955,206 @@ export const COMPETENCES: CompetenceDef[] = [
       { texte: "Mort certaine en 7 s", rechargement: 45000 },
     ],
   },
+
+  // ======================= Les fusions (§4.25) =======================
+  // Jalon 6.5, morceau 3. Elles ne sortent jamais de la pioche avant d'etre
+  // prises : elles se proposent en carte a part quand tous leurs ingredients
+  // sont a leur maximum (`fusions.ts`). Elles gardent ce que faisaient leurs
+  // ingredients — ceux-ci restent tenus, « fondus », et continuent d'agir — et
+  // y ajoutent leur comportement. Chaque palier apres le premier se choisit
+  // deux fois (`enDoublePrix`).
+  //
+  // ⚠️ Rangs, tags et chiffres **tranches par le code**, soumis a Angelos dans
+  // le Grimoire (https://claude.ai/artifact/MMgy33ybsQJQGEWQpzj2yV).
+  {
+    id: "soleil-d-acier",
+    nom: "Soleil d'acier",
+    rang: "B",
+    type: "passive",
+    tags: TAGS.LAME | TAGS.FEU | TAGS.ZONE,
+    fusion: { ingredients: [{ competence: "epee-tournoyante" }, { competence: "aura-de-flammes" }] },
+    description:
+      "Les lames chauffent a blanc et leur ronde devient l'aura : tout ce qui entre dans le cercle des epees brule.",
+    paliers: enDoublePrix([
+      { texte: "Epees incandescentes, l'aura s'etend jusqu'au cercle des epees" },
+      { texte: "L'aura brule 50% plus fort" },
+      { texte: "Une epee de plus, l'aura brule deux fois plus fort", appliquer: (b) => void (b.epees += 1) },
+    ]),
+  },
+  {
+    id: "moulin-a-lames",
+    nom: "Moulin a lames",
+    rang: "C",
+    type: "passive",
+    tags: TAGS.LAME | TAGS.PROJECTILE | TAGS.CHAINE,
+    fusion: { ingredients: [{ competence: "epee-tournoyante" }, { competence: "ricochet" }] },
+    description: "Regulierement, chaque epee quitte sa ronde, rebondit d'ennemi en ennemi, puis revient.",
+    paliers: enDoublePrix([
+      { texte: "3 rebonds par epee, toutes les 3 s" },
+      { texte: "4 rebonds, toutes les 2,5 s" },
+      { texte: "5 rebonds, toutes les 2 s" },
+    ]),
+  },
+  {
+    id: "reseau-electrique",
+    nom: "Reseau electrique",
+    rang: "B",
+    type: "passive",
+    tags: TAGS.FOUDRE | TAGS.CHAINE | TAGS.MAGIE,
+    fusion: { ingredients: [{ competence: "chaine-eclairs" }, { competence: "ricochet" }] },
+    description:
+      "Les eclairs peuvent revenir sur un ennemi deja frappe : dans une foule serree, le courant tourne en boucle.",
+    paliers: enDoublePrix([
+      { texte: "+2 rebonds, qui peuvent revenir sur une cible deja frappee" },
+      { texte: "+3 rebonds, un saut porte plus loin" },
+      { texte: "+4 rebonds, qui ne faiblissent plus" },
+    ]),
+  },
+  {
+    id: "satellites-conducteurs",
+    nom: "Satellites conducteurs",
+    rang: "B",
+    type: "passive",
+    tags: TAGS.FOUDRE | TAGS.CHAINE | TAGS.MAGIE,
+    fusion: { ingredients: [{ competence: "satellite" }, { competence: "chaine-eclairs" }] },
+    description: "Chaque satellite qui touche un ennemi fait partir un eclair qui saute a ses voisins.",
+    paliers: enDoublePrix([
+      { texte: "Un eclair par contact, une fois par seconde et par satellite" },
+      { texte: "Un satellite de plus", appliquer: (b) => void (b.satellites += 1) },
+      { texte: "Eclairs 50% plus forts, deux fois par seconde" },
+    ]),
+  },
+  {
+    id: "tourbillon-infernal",
+    nom: "Tourbillon infernal",
+    rang: "C",
+    type: "active",
+    tags: TAGS.LAME | TAGS.FEU | TAGS.ZONE | TAGS.MELEE,
+    fusion: { ingredients: [{ competence: "moulinet" }, { competence: "aura-de-flammes" }] },
+    description:
+      "Le moulinet s'embrase : il tourne plus large et plus longtemps, tout ce qu'il frole brule, et il court plus vite pendant.",
+    icone: "cap-tourbillon-infernal",
+    effet: "tourbillon-infernal",
+    paliers: enDoublePrix([
+      { texte: "Tourne 4 s, plus large, l'aura brule deux fois plus fort pendant", rechargement: 8000 },
+      { texte: "Tourne 5 s", rechargement: 8000 },
+      { texte: "Tourne 5 s, plus large encore", rechargement: 7000 },
+    ]),
+  },
+  {
+    id: "forteresse-mobile",
+    nom: "Forteresse mobile",
+    rang: "C",
+    type: "active",
+    tags: TAGS.MELEE | TAGS.MOBILITE | TAGS.ZONE | TAGS.SOL | TAGS.DEFENSE | TAGS.BOUCLIER,
+    fusion: { ingredients: [{ competence: "charge", evolution: "charge-sismique" }, { competence: "dome" }] },
+    description:
+      "A chaque charge, un dome se dresse la ou il s'arrete. Il tient quelques secondes, ou jusqu'a ce qu'on le brise.",
+    icone: "cap-forteresse-mobile",
+    effet: "forteresse-mobile",
+    paliers: enDoublePrix([
+      { texte: "Un dome de 180 PV a l'arrivee, qui tient 6 s", rechargement: 7000 },
+      { texte: "Dome de 260 PV, qui tient 8 s", rechargement: 7000 },
+      { texte: "Dome de 360 PV, 10 s, le souffle porte plus loin", rechargement: 6000 },
+    ]),
+  },
+  {
+    id: "temps-fracture",
+    nom: "Temps fracture",
+    rang: "A",
+    type: "active",
+    tags: TAGS.MAGIE | TAGS.ENTRAVE | TAGS.ZONE | TAGS.OMBRE,
+    fusion: { ingredients: [{ competence: "sablier" }, { competence: "danse-des-ombres" }] },
+    description:
+      "Chaque monstre tue dans le ralenti rend du temps au Sablier lui-meme : une bonne vague, et il revient presque aussitot.",
+    icone: "cap-temps-fracture",
+    effet: "temps-fracture",
+    paliers: enDoublePrix([
+      { texte: "-1 s au Sablier par mort dans sa zone", rechargement: 21000 },
+      { texte: "-1,5 s par mort, zone plus large", rechargement: 21000 },
+      { texte: "-2 s par mort, le ralenti dure 9 s", rechargement: 21000 },
+    ]),
+  },
+  {
+    id: "general-des-morts",
+    nom: "General des morts",
+    rang: "S",
+    type: "passive",
+    tags: TAGS.MORT | TAGS.OMBRE | TAGS.INVOCATION | TAGS.MAGIE,
+    fusion: { ingredients: [{ competence: "familier" }, { competence: "armee-des-ombres" }] },
+    description:
+      "Le familier prend la tete des morts-vivants : ils le suivent, et frappent plus fort autour de lui. Le necromancien ne quitte pas la cite — son armee, si.",
+    paliers: enDoublePrix([
+      { texte: "Les morts-vivants suivent le familier, +30% de degats pres de lui" },
+      { texte: "+50%, et le familier revient deux fois plus vite" },
+      { texte: "+80%, et le familier a deux fois plus de vie" },
+    ]),
+  },
+  {
+    id: "neant",
+    nom: "Neant",
+    rang: "SSR",
+    type: "active",
+    tags: TAGS.MAGIE,
+    fusion: { ingredients: [{ competence: "exil" }, { competence: "heure-sombre" }] },
+    description:
+      "Le monde s'arrete, et toi seul bouges. Quand le temps repart, tout ce qui est hostile est banni. Tu restes ensuite une minute a 1 PV, immobile.",
+    icone: "cap-neant",
+    effet: "neant",
+    paliers: enDoublePrix([
+      { texte: "Fige 4,5 s, puis bannit tout", rechargement: 120000 },
+      { texte: "Fige 6 s", rechargement: 100000 },
+    ]),
+  },
+  {
+    id: "berserker-terminal",
+    nom: "Berserker terminal",
+    rang: "SSR",
+    type: "passive",
+    tags: TAGS.RAGE,
+    fusion: { ingredients: [{ competence: "apotheose" }, { competence: "fardeau" }] },
+    description: "Une puissance enorme — et elle le consume. Chaque aube, il perd 8% de sa vie maximale, pour toujours.",
+    paliers: enDoublePrix([
+      {
+        texte: "+50% de degats, il frappe 25% plus vite",
+        appliquer: (b) => {
+          b.multiplicateurDegats *= 1.5;
+          b.cadence *= 0.8;
+        },
+      },
+      { texte: "+100% de degats", appliquer: (b) => void (b.multiplicateurDegats *= 4 / 3) },
+    ]),
+  },
+  {
+    id: "revenant",
+    nom: "Revenant",
+    rang: "SSR",
+    type: "passive",
+    tags: TAGS.SANG | TAGS.RAGE | TAGS.MORT,
+    fusion: { ingredients: [{ competence: "sang-pour-sang" }, { competence: "resurrection" }] },
+    description:
+      "Il peut mourir une fois : il se releve a pleine vie, mais avec une sequelle tiree au sort. La Resurrection de l'equipe tient toujours.",
+    paliers: enDoublePrix([
+      { texte: "Se releve une fois, a pleine vie" },
+      { texte: "En se relevant, il souffle tout ce qui l'entoure et reste 5 s invulnerable" },
+    ]),
+  },
+  {
+    id: "exil-des-morts",
+    nom: "Exil des morts",
+    rang: "SSR",
+    type: "active",
+    tags: TAGS.MAGIE | TAGS.MORT | TAGS.OMBRE | TAGS.INVOCATION,
+    fusion: { ingredients: [{ competence: "armee-des-ombres" }, { competence: "exil" }] },
+    description:
+      "Il bannit tout sans rien payer de sa vie. Mais les bannis reviennent la nuit suivante, en revenants, en plus de la horde.",
+    icone: "cap-exil-des-morts",
+    effet: "exil-des-morts",
+    paliers: enDoublePrix([
+      { texte: "Bannit tout, sans y laisser sa vie", rechargement: 120000 },
+      { texte: "Recharge plus courte", rechargement: 90000 },
+    ]),
+  },
 ];
 
 // ------------------------------------------------------------- le tirage
@@ -1924,6 +2183,18 @@ export interface SourceAleatoire {
 /** Palier atteint pour chaque competence possedee, par identifiant */
 export type CompetencesPossedees = Record<string, number>;
 
+/**
+ * Les ingredients fondus (§4.25) : l'identifiant de chacun, et celui de la
+ * fusion qui l'a consomme.
+ *
+ * ⚠️ **Un ingredient fondu reste tenu, a son maximum.** C'est ce qui fait
+ * qu'une fusion « garde ce que les deux faisaient » sans une ligne de plus :
+ * ses bonus restent, la sauvegarde le rejoue, ses tags restent dans le build,
+ * et il ne ressort jamais de la pioche puisqu'il est au bout de ses paliers.
+ * Il perd seulement sa touche et sa capacite : c'est la fusion qui agit.
+ */
+export type CompetencesFondues = Record<string, string>;
+
 export function competenceParId(id: string): CompetenceDef | undefined {
   return COMPETENCES.find((c) => c.id === id);
 }
@@ -1946,7 +2217,11 @@ export function estDisponible(
 ): boolean {
   // Les competences de classe s'ouvrent aux autres, en rare, sauf les fermees.
   if (horsDeSaClasse(competence, classe) && competence.fermee) return false;
-  return (possedees[competence.id] ?? 0) < competence.paliers.length;
+  const prises = possedees[competence.id] ?? 0;
+  // Une fusion ne sort jamais de la pioche avant d'etre prise : elle se propose
+  // a part (§4.25). Prise, elle revient comme les autres, pour monter.
+  if (competence.fusion && prises === 0) return false;
+  return prises < competence.paliers.length;
 }
 
 /**
@@ -2135,6 +2410,12 @@ export interface Proposition {
   couleur: number;
   /** Ses tags, en clair (« FEU  ·  ZONE ») : absent quand la carte n'est pas une competence */
   tags?: string;
+  /**
+   * Une carte de fusion (§4.25) : ce qu'elle consomme, en clair
+   * (« Epee tournoyante 5 + Aura de flammes 3 »). La carte le montre a part :
+   * c'est le prix du choix.
+   */
+  fusionne?: string;
 }
 
 // ------------------------------------------------- les emplacements d'actives
@@ -2167,11 +2448,60 @@ export const PRIX_DES_EMPLACEMENTS = [150, 400];
 /** L'identifiant de la carte « un emplacement de plus » sur l'ecran de remplacement. */
 export const ID_EMPLACEMENT = "emplacement";
 
-/** Les actives possedees, dans l'ordre ou elles ont ete apprises — celui des touches. */
-export function activesPossedees(possedees: CompetencesPossedees): CompetenceDef[] {
-  return Object.keys(possedees)
+/**
+ * Ses competences dans l'ordre ou il les tient — celui des touches — sans les
+ * ingredients fondus.
+ *
+ * Une fusion **reprend la place de son premier ingredient qui avait une
+ * touche** : le Moulinet devenu Tourbillon infernal reste sur la touche 3, il
+ * ne file pas en derniere position (§4.25). Une fusion de passives prend sa
+ * place d'apprentissage.
+ */
+export function ordreDesCompetences(
+  possedees: CompetencesPossedees,
+  fondues: Readonly<CompetencesFondues> = {},
+): string[] {
+  const ordre: string[] = [];
+  const placees = new Set<string>();
+  for (const id of Object.keys(possedees)) {
+    const fusion = fondues[id];
+    if (fusion !== undefined) {
+      const avaitUneTouche = competenceParId(id)?.type === "active";
+      if (avaitUneTouche && !placees.has(fusion) && (possedees[fusion] ?? 0) > 0) {
+        ordre.push(fusion);
+        placees.add(fusion);
+      }
+      continue;
+    }
+    if (placees.has(id)) continue;
+    ordre.push(id);
+    placees.add(id);
+  }
+  return ordre;
+}
+
+/** Les actives possedees, dans l'ordre des touches, sans les ingredients fondus. */
+export function activesPossedees(
+  possedees: CompetencesPossedees,
+  fondues: Readonly<CompetencesFondues> = {},
+): CompetenceDef[] {
+  return ordreDesCompetences(possedees, fondues)
     .map((id) => competenceParId(id))
     .filter((c): c is CompetenceDef => c !== undefined && c.type === "active");
+}
+
+/** Combien de ses ingredients avaient une touche. */
+function ingredientsActifs(fusion: CompetenceDef): number {
+  return (fusion.fusion?.ingredients ?? []).filter((i) => competenceParId(i.competence)?.type === "active").length;
+}
+
+/**
+ * Combien de touches une fusion libere : ses ingredients actifs, moins la
+ * sienne si elle en prend une. La Forteresse mobile (Charge et Dome, une seule
+ * touche) en libere une ; le Tourbillon infernal (Moulinet et Aura) aucune.
+ */
+export function touchesLiberees(fusion: CompetenceDef): number {
+  return ingredientsActifs(fusion) - (fusion.type === "active" ? 1 : 0);
 }
 
 /**
@@ -2183,10 +2513,14 @@ export function demandeUnePlace(
   competence: CompetenceDef,
   possedees: CompetencesPossedees,
   emplacements: number,
+  fondues: Readonly<CompetencesFondues> = {},
 ): boolean {
   if (competence.type !== "active") return false;
   if ((possedees[competence.id] ?? 0) > 0) return false;
-  return activesPossedees(possedees).length >= emplacements;
+  // Une fusion active reprend la touche d'un ingredient : elle ne demande une
+  // place que si aucun n'en avait.
+  if (competence.fusion && touchesLiberees(competence) >= 0) return false;
+  return activesPossedees(possedees, fondues).length >= emplacements;
 }
 
 /** Le prix de l'emplacement suivant, ou null quand on est au maximum. */
@@ -2196,26 +2530,31 @@ export function prixDuProchainEmplacement(emplacements: number): number | null {
 }
 
 /**
- * Les cartes de l'ecran « laquelle oublier ? » : les actives tenues, puis
- * l'emplacement a acheter quand on a de quoi. Oublier perd les paliers.
+ * Les cartes de l'ecran « laquelle oublier ? » : les actives tenues, les
+ * fusions qui liberent une touche (§4.25), puis l'emplacement a acheter quand
+ * on a de quoi. Oublier perd les paliers.
  *
  * @param emplacements quatre, plus ceux qu'il a achetes — c'est ce qui fixe le prix
  * @param enPlus ceux que lui donne son trait (Touche-a-tout), gratuits
+ * @param fusions les cartes des fusions possibles qui liberent une touche
  */
 export function propositionsDeRemplacement(
   possedees: CompetencesPossedees,
   emplacements: number,
   argent: number,
   enPlus = 0,
+  fondues: Readonly<CompetencesFondues> = {},
+  fusions: Proposition[] = [],
 ): Proposition[] {
-  const cartes: Proposition[] = activesPossedees(possedees).map((c) => ({
+  const cartes: Proposition[] = activesPossedees(possedees, fondues).map((c) => ({
     id: c.id,
-    nom: `${c.nom} ${possedees[c.id] ?? 1}`,
+    nom: `${c.nom} ${palierAtteint(c, possedees[c.id] ?? 1)}`,
     description: `Oubliee, paliers perdus. ${c.description}`,
     etiquette: `${c.rang}  ·  OUBLIER`,
     couleur: COULEURS_RANG[c.rang],
     tags: texteDesTags(c.tags),
   }));
+  cartes.push(...fusions);
   const prix = prixDuProchainEmplacement(emplacements);
   if (prix !== null && argent >= prix) {
     cartes.push({
@@ -2236,11 +2575,21 @@ export function propositionCompetence(
   const palierActuel = possedees[competence.id] ?? 0;
   const palier = competence.paliers[palierActuel];
   const nouvelle = palierActuel === 0;
+  // Le palier vise, et ou on en est : une fusion se choisit deux fois par
+  // palier (§4.25), et la carte dit laquelle des deux fois c'est.
+  const vise = palierAtteint(competence, palierActuel) + 1;
+  const description = nouvelle
+    ? competence.description
+    : palier?.demi
+      ? `1 sur 2 : a reprendre une fois pour gagner ce palier. ${palier.texte}`
+      : competence.paliers[palierActuel - 1]?.demi
+        ? `2 sur 2. ${palier?.texte ?? ""}`
+        : (palier?.texte ?? "");
 
   return {
     id: competence.id,
-    nom: nouvelle ? competence.nom : `${competence.nom} ${palierActuel + 1}`,
-    description: nouvelle ? competence.description : (palier?.texte ?? ""),
+    nom: nouvelle ? competence.nom : `${competence.nom} ${vise}`,
+    description,
     etiquette: `${competence.rang}  ·  ${etiquetteType(competence.type)}`,
     couleur: COULEURS_RANG[competence.rang],
     tags: texteDesTags(competence.tags),

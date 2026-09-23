@@ -175,10 +175,16 @@ Dans l'ordre :
    ouvertes. ✅ **Morceau 2b** : les six bases élémentaires (§4.13) — la Boule de feu, le
    Vent, l'Eau et la Nature partent toutes seules (décision d'Angelos), le Bouclier est
    permanent, la Téléportation sur une touche ; « mouillé » ne fait rien seul, ça se voit.
-   **La suite : le morceau 3, les fusions** — l'écran (en quatrième carte au choix de niveau,
-   et sur « plus de place »), les neuf sur compétences existantes, les trois qui coûtent
-   cher. Découpage dans le §4.25, « Où ça se code » ; les règles d'une fusion sont écrites
-   au §4.25 (palier 1, jamais moins forte que ses deux ingrédients, double prix par palier).
+   ✅ **Morceau 3** : les fusions — la quatrième carte, « plus de place », le double prix, les
+   ingrédients fondus (tenus, sans touche), les douze fusions et leurs réglages
+   (`REGLAGES_FUSIONS`). ⚠️ **Le Grimoire** (https://claude.ai/artifact/MMgy33ybsQJQGEWQpzj2yV) :
+   Angelos y règle lui-même tout le catalogue (compétences, ultimes, fusions). **Avant de
+   coder un morceau de contenu, relis ses changements** (`ArtifactData list` avec `out_dir`,
+   puis `python .tmp/lire-grimoire.py <dossier>`) et applique-les ; deux réponses y étaient
+   attendues (le coût du *Berserker terminal*, ce que gagne l'*Exil des morts*), codées sur
+   la recommandation en attendant.
+   **La suite : le morceau 4, les intermédiaires**, dont le *Nuage toxique* — le seul porteur
+   du POISON. Découpage dans le §4.25, « Où ça se code ».
 
 Toute mesure se fait **sur la vraie carte graphique**, sans fenêtre
 (`--use-angle=d3d11`), et **sur le même monde et le même village** que son témoin : le

@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { COULEURS_RANG } from "../core/classes";
-import { competenceParId } from "../core/competences";
+import { competenceParId, palierAtteint } from "../core/competences";
 import { ETATS, lireEtat } from "../core/etats";
 import {
   NOMS_METIER,
@@ -756,7 +756,7 @@ export class FichePersonne {
     x: number,
     y: number,
   ): number {
-    const entrees = Object.entries(hero.competences);
+    const entrees = competencesAffichees(hero);
     this.texte(x + 20, y, espacer("COMPETENCES"), 10, COULEURS.discret);
     if (entrees.length === 0) {
       this.texte(x + 20, y + 20, "Aucune pour l'instant.", 11, COULEURS.discret);
@@ -771,9 +771,11 @@ export class FichePersonne {
       cadre.fillStyle(couleur, 0.16);
       cadre.fillRoundedRect(x + 20, cy, LARGEUR - 40, 16, 4);
       this.texte(x + 28, cy + 3, def.rang, 9, teinte(couleur));
-      this.texte(x + 58, cy + 3, `${def.nom} ${palier}`, 10, COULEURS.texte);
+      // Une fusion montre son vrai palier : les moities du double prix ne se comptent pas (§4.25).
+      this.texte(x + 58, cy + 3, `${def.nom} ${palierAtteint(def, palier)}`, 10, COULEURS.texte);
       const evolution = hero.evolutions[id];
-      if (evolution) this.texte(x + LARGEUR - 28, cy + 3, evolution.nom, 9, "#f0c419").setOrigin(1, 0);
+      const aDroite = def.fusion ? "fusion" : evolution?.nom;
+      if (aDroite) this.texte(x + LARGEUR - 28, cy + 3, aDroite, 9, "#f0c419").setOrigin(1, 0);
     });
 
     return y + 20 + entrees.length * 18 + 10;
@@ -1004,7 +1006,7 @@ export class FichePersonne {
     if (sujet.genre === "hero") {
       h += 20 + 4 * 19 + 10; // combat
       h += 20 + Math.ceil(sujet.groupe.liens.length / 2) * 17 + 10;
-      h += 20 + Math.max(1, Object.keys(sujet.hero.competences).length) * 18 + 10;
+      h += 20 + Math.max(1, competencesAffichees(sujet.hero).length) * 18 + 10;
     } else {
       h += 20 + 3 * 19 + 10; // metier
     }
@@ -1202,4 +1204,12 @@ function couleurDeStat(valeur: number): number {
 
 function teinte(couleur: number): string {
   return `#${couleur.toString(16).padStart(6, "0")}`;
+}
+
+/**
+ * Ce que la fiche montre de ses competences : tout, sauf les ingredients
+ * fondus dans une fusion (§4.25) — c'est la fusion qui les porte maintenant.
+ */
+function competencesAffichees(hero: Hero): [string, number][] {
+  return Object.entries(hero.competences).filter(([id]) => hero.fondues[id] === undefined);
 }

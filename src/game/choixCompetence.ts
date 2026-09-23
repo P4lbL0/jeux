@@ -60,7 +60,9 @@ export class ChoixCompetence {
     const parRangee = Math.min(n, CARTES_PAR_RANGEE);
     const largeur = Math.min(226, Math.floor((l - 48 - (parRangee - 1) * espace) / parRangee));
     // Assez haute pour la description et, en pied, la ligne des tags (§4.25).
-    const hauteur = 188;
+    // Une carte de fusion dit en plus ce qu'elle consomme : toute la rangee
+    // grandit d'autant, pour que les cartes restent alignees.
+    const hauteur = propositions.some((p) => p.fusionne) ? 236 : 188;
     const y = h * (n > CARTES_PAR_RANGEE ? 0.27 : 0.35);
 
     propositions.forEach((proposition, i) => {
@@ -118,12 +120,19 @@ export class ChoixCompetence {
     const plaque: Plaque = { x, y, largeur, hauteur };
     cadre(fond, plaque, true);
     this.objets.push(fond);
+    // Une fusion (§4.25) se reconnait avant qu'on la lise : un filet de laiton
+    // double le cadre. Aucune n'a jamais ete montree avant ce moment.
+    const fusion = proposition.fusionne !== undefined;
+    if (fusion) {
+      fond.lineStyle(1, C.laiton, 0.9);
+      fond.strokeRect(x + 3.5, y + 3.5, largeur - 7, hauteur - 7);
+    }
 
     // Le numero de touche est en laiton, comme partout ailleurs : c'est ce
     // qu'on appuie (§4.10). La rarete de la competence, elle, garde sa couleur
     // — c'est une information de contenu, pas de chrome.
     this.ajouterTexte(x + 14, y + 15, numero === 10 ? "0" : `${numero}`, 15, T.laiton);
-    this.ajouterTexte(x + 34, y + 12, proposition.nom, 15, T.os).setWordWrapWidth(largeur - 50);
+    this.ajouterTexte(x + 34, y + 12, proposition.nom, 15, fusion ? T.laiton : T.os).setWordWrapWidth(largeur - 50);
     this.ajouterTexte(x + 34, y + 36, espacer(proposition.etiquette.toUpperCase()), 9, T.osMat);
 
     this.ajouterTexte(x + 14, y + 66, proposition.description, 11, T.os).setWordWrapWidth(
@@ -132,6 +141,7 @@ export class ChoixCompetence {
 
     // Les tags, en pied de carte (§4.25) : ce que la competence **est**, pour
     // que le joueur apprenne a lire son build. Un filet les separe du texte.
+    let pied = y + hauteur - 10;
     if (proposition.tags) {
       // ⚠️ **Les tags passent a la ligne entre deux tags, jamais dans un mot.**
       // Les lettres sont espacees une a une : le retour a la ligne de Phaser
@@ -152,6 +162,15 @@ export class ChoixCompetence {
       const filet = y + hauteur - 18 - lignes.length * 12;
       fond.lineStyle(1, C.sangSeche, 0.9);
       fond.lineBetween(x + 14, filet, x + largeur - 14, filet);
+      pied = filet;
+    }
+
+    // Ce que la fusion consomme, juste au-dessus des tags : c'est le prix du
+    // choix — « je les perds toutes les deux » (§4.25).
+    if (proposition.fusionne) {
+      const texte = this.ajouterTexte(x + 14, 0, proposition.fusionne, 11, T.os).setWordWrapWidth(largeur - 28);
+      texte.setY(pied - 8 - texte.height);
+      this.ajouterTexte(x + 14, texte.y - 16, espacer("FOND"), 9, T.osMat);
     }
 
     const zone = this.scene.add

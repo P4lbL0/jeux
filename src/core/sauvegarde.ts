@@ -154,6 +154,16 @@ export interface EtatHeros {
   emplacements?: number;
   /** L'evolution choisie, par identifiant de competence. On garde l'id, pas la definition */
   evolutions: Record<string, string>;
+  /**
+   * Les ingredients fondus, et la fusion de chacun (§4.25). Ils sont aussi
+   * dans `competences` : c'est en les rejouant que la fusion garde ce qu'ils
+   * faisaient. Absent d'une sauvegarde d'avant le 23 septembre 2026 : aucun.
+   */
+  fondues?: Record<string, string>;
+  /** Les aubes passees sous le Berserker terminal (§4.25). Absent : aucune. */
+  usure?: number;
+  /** Le Revenant s'est deja releve (§4.25). Absent : non. */
+  revenu?: boolean;
   posture: Posture;
   ancre: { x: number; y: number } | null;
   /**
@@ -325,6 +335,11 @@ export interface Sauvegarde {
    * produisait.
    */
   argent?: number;
+  /**
+   * Les bannis de l'Exil des morts qui reviendront a la prochaine nuit
+   * (§4.25). Absent d'une sauvegarde d'avant le 23 septembre 2026 : aucun.
+   */
+  bannis?: number;
   /**
    * Le port : son etat, son chantier, et le cours de chaque ressource.
    *

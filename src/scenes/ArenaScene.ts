@@ -19,6 +19,16 @@ import {
   PENETRATION,
   penetrationDe,
 } from "../core/competences";
+import {
+  bannisQuiReviennent,
+  fusionsPossibles,
+  fusionsQuiLiberent,
+  ingredientsDe,
+  propositionFusion,
+  REGLAGES_FUSIONS,
+  sequelleDuRevenant,
+} from "../core/fusions";
+import { CLES_FLAMME } from "../game/dessin/feu";
 import { creerTexturesPlaceholder } from "../game/art";
 import {
   ARBRES_MORTS,
@@ -70,6 +80,7 @@ import {
   Hero,
   Invocation,
   MortVivant,
+  marquerLeGeneral,
   orienter,
   rafraichirTeinte,
   SEUIL_REGARD,
@@ -77,7 +88,7 @@ import {
   type Capacite,
   type Dome,
 } from "../game/entities";
-import { ARCHETYPE_HUMAIN, archetypeParId, beteDEau, choisirArchetype, teinteDeNuee } from "../game/ennemis";
+import { ARCHETYPE_HUMAIN, archetypeParId, beteDEau, choisirArchetype, teinteDeNuee, type Archetype } from "../game/ennemis";
 import { NON_PROMUS, PROMU_A_LEUR_PLACE, RANGS, rendezvousDeLaNuit, type Rang, type Rendezvous } from "../core/rangs";
 import { Nuee } from "../game/nuee";
 import { C as COULEURS } from "../game/ui/couleurs";
@@ -241,6 +252,7 @@ import {
   verifierRupture,
   prenomLibre,
   gagnerTrait,
+  poserSequelle,
   type Personne,
 } from "../core/personne";
 import { MemoireDuVillage, type GensDuJour } from "../game/memoire";
@@ -257,7 +269,7 @@ import { estPositive, NOMS_RELATION, RESUMES_RELATION } from "../core/relations"
 import { raconter, titreDe, type Evenement } from "../core/memoire";
 import type { VieSociale } from "../game/fichePersonne";
 
-import { PART_DE_COUPS_REFUSES, traitParId } from "../core/traits";
+import { PART_DE_COUPS_REFUSES, SEQUELLES, traitParId } from "../core/traits";
 import type { Habitant, PostureCivile, Ressource, Stocks } from "../core/habitants";
 import {
   accueillir as suivreSiFou,
@@ -501,6 +513,9 @@ function competenceALeguer(hero: Hero): string | null {
     if (atteint <= palier) continue;
     // On ne legue pas un emplacement achete : ce n'est pas un savoir-faire.
     if (id === ID_EMPLACEMENT) continue;
+    // Ni une fusion, qui ne tient que par ce qu'elle a fondu, ni ce qu'elle a
+    // fondu (§4.25) : son heritier la decouvrira, ou pas.
+    if (hero.fondues[id] !== undefined || competenceParId(id)?.fusion) continue;
     meilleure = id;
     palier = atteint;
   }
@@ -720,6 +735,31 @@ function lireBlocages(manque: BlocageMontee[], niveauVise: 2 | 3 | 4): string {
   return mots.join(", ");
 }
 
+/** Ce que l'Heure sombre fait d'un monstre : le temps ne passe plus pour lui. */
+const TEINTE_FIGEE = 0x6b6478;
+
+/** Une epee du Moulin a lames partie rebondir (§4.25). */
+interface VolDEpee {
+  hero: Hero;
+  debut: number;
+  /** D'ou elle part, puis chaque ennemi a frapper, dans l'ordre */
+  depart: { x: number; y: number };
+  cibles: Ennemi[];
+  /** Ceux qu'elle a deja frappes */
+  frappes: number;
+  degats: number;
+}
+
+/** Un ralenti du Temps fracture : chaque mort dedans rend du temps a son Sablier. */
+interface ZoneFracturee {
+  hero: Hero;
+  x: number;
+  y: number;
+  rayon: number;
+  fin: number;
+  rendu: number;
+}
+
 export class ArenaScene extends Phaser.Scene {
   private rng!: Rng;
   private heros: Hero[] = [];
@@ -804,6 +844,23 @@ export class ArenaScene extends Phaser.Scene {
   private resurrectionUtilisee = false;
   /** Instant de fin de l'Heure sombre : tout est fige jusque-la */
   private figeJusqua = 0;
+
+  // --- Les fusions (§4.25, jalon 6.5, morceau 3) ---
+  /** Moulin a lames : les epees parties rebondir, et quand chaque heros relance les siennes */
+  private volsDEpees = new Map<Phaser.GameObjects.Image, VolDEpee>();
+  private prochainMoulin = new Map<Hero, number>();
+  /** Satellites conducteurs : quand chaque satellite peut relancer un eclair */
+  private prochainEclairDeSatellite = new Map<Phaser.GameObjects.Image, number>();
+  /** Tourbillon infernal : jusqu'a quand l'aura de chaque heros brule double */
+  private tourbillons = new Map<Hero, number>();
+  /** Temps fracture : les ralentis en cours, qui rendent du temps a leur Sablier */
+  private zonesFracturees: ZoneFracturee[] = [];
+  /**
+   * Exil des morts : les bannis qui reviendront a la prochaine nuit, puis ceux
+   * de la nuit en cours qui ne sont pas encore sortis. Enregistres.
+   */
+  private bannis = 0;
+  private revenantsAttendus = 0;
   /** Reserve de textes flottants, recycles au lieu d'etre recrees */
   private textesLibres: Phaser.GameObjects.Text[] = [];
   private textesActifs = 0;
@@ -1370,6 +1427,13 @@ export class ArenaScene extends Phaser.Scene {
     this.martyr = null;
     this.resurrectionUtilisee = false;
     this.figeJusqua = 0;
+    this.volsDEpees = new Map();
+    this.prochainMoulin = new Map();
+    this.prochainEclairDeSatellite = new Map();
+    this.tourbillons = new Map();
+    this.zonesFracturees = [];
+    this.bannis = 0;
+    this.revenantsAttendus = 0;
     // Une nouvelle partie, une nouvelle equipe : les liens ne se transmettent
     // pas. Ils le feront le jour ou les heros survivront a une partie (§4.12).
     this.affinites = new Affinites();
@@ -1741,6 +1805,7 @@ export class ArenaScene extends Phaser.Scene {
       meteo: this.meteo,
       incendie: this.incendie,
       meteore: this.cielQuiTombe,
+      bannis: this.bannis,
     };
   }
 
@@ -1768,6 +1833,7 @@ export class ArenaScene extends Phaser.Scene {
     // offrirait un survivant a chaque fois (§4.28, regle ironman).
     this.planifierLeProchainSurvivant();
     this.argent = monde.argent;
+    this.bannis = monde.bannis;
     this.dureeJouee = sauvegarde.dureeJouee;
     this.debut = this.time.now;
 
@@ -2200,6 +2266,13 @@ export class ArenaScene extends Phaser.Scene {
     this.prochaineApparition += pause;
     this.prochaineHorde += pause;
     if (this.hordeAuDepart > 0) this.hordeAuDepart += pause;
+    // Les fusions datent ce qu'elles font : un choix de competence ne doit ni
+    // les finir ni les recharger (§4.25).
+    for (const dome of this.domes) if (dome.finDeVie !== undefined) dome.finDeVie += pause;
+    for (const zone of this.zonesFracturees) zone.fin += pause;
+    for (const vol of this.volsDEpees.values()) vol.debut += pause;
+    for (const [hero, t] of this.prochainMoulin) this.prochainMoulin.set(hero, t + pause);
+    for (const [hero, t] of this.tourbillons) this.tourbillons.set(hero, t + pause);
   }
 
   /**
@@ -4139,6 +4212,7 @@ export class ArenaScene extends Phaser.Scene {
     this.majProvocation();
     this.majOrbiteurs();
     this.majAuras();
+    this.majDomes();
     this.elements.majorer(delta, this.time.now);
     this.majInvocations();
     this.majProvocationInvocations();
@@ -4156,6 +4230,9 @@ export class ArenaScene extends Phaser.Scene {
         // d'autant. Sinon le degel ferait tomber d'un coup tous les coups
         // armes pendant l'Heure sombre — l'ultime punirait celui qui le lance.
         e.decaler(delta);
+        // Le deplacement, qui les teinte d'ordinaire, ne tourne pas : on les
+        // teinte ici, figes. La nuee, elle, les teinte au dessin.
+        if (!e.dansLaNuee) this.teinterEnnemi(e, this.time.now);
       }
     }
 
@@ -4395,10 +4472,16 @@ export class ArenaScene extends Phaser.Scene {
       this.prochainTickAuras = this.time.now + 500;
       for (const hero of this.heros) {
         if (hero.bonus.auraFeu <= 0 || !hero.estAuCombat) continue;
-        const rayon = this.rayonDeZone(hero, 72);
-        this.aura(hero.x, hero.y, rayon / 8, 0xff8a3d, 400);
+        // Soleil d'acier (§4.25) : l'aura va jusqu'au cercle des epees, et
+        // brule plus fort. Le Tourbillon infernal la double tant qu'il tourne.
+        const soleil = hero.palierReel("soleil-d-acier");
+        const reglage = REGLAGES_FUSIONS.soleilDAcier;
+        const rayon = this.rayonDeZone(hero, soleil > 0 ? reglage.rayonAura : 72);
+        let feu = soleil > 0 ? auPalier(reglage.feu, soleil) : 1;
+        if (this.time.now < (this.tourbillons.get(hero) ?? 0)) feu *= REGLAGES_FUSIONS.tourbillonInfernal.feu;
+        this.aura(hero.x, hero.y, rayon / 8, soleil > 0 ? 0xffb35a : 0xff8a3d, 400);
         for (const e of this.ennemisDansRayon(hero.x, hero.y, rayon)) {
-          this.blesserEnnemi(e, Math.max(1, Math.round(hero.bonus.auraFeu / 2)), hero);
+          this.blesserEnnemi(e, Math.max(1, Math.round((hero.bonus.auraFeu / 2) * feu)), hero);
         }
       }
     }
@@ -4436,6 +4519,9 @@ export class ArenaScene extends Phaser.Scene {
       this.invocations.add(new Familier(this, hero.x + 24, hero.y, hero));
     }
 
+    // General des morts (§4.25) : chaque maitre qui l'a, et son familier debout.
+    const generaux = this.generauxDesMorts();
+
     for (const objet of [...this.invocations.getChildren()] as Invocation[]) {
       if (!objet.active) continue;
       if (this.time.now > objet.finDeVie) {
@@ -4450,7 +4536,10 @@ export class ArenaScene extends Phaser.Scene {
 
       // Sans ancre, il tient la position de son maitre : le meme systeme
       // d'ordres que les heros IA (DESIGN.md §4.4 et §4.14).
-      const ancre: Point = objet.ordre.ancre ?? { x: objet.maitre.x, y: objet.maitre.y };
+      // Sous un General des morts, les morts-vivants suivent le familier.
+      const general = generaux.get(objet.maitre);
+      const chef = general && objet instanceof MortVivant ? general : null;
+      const ancre: Point = objet.ordre.ancre ?? (chef ? { x: chef.x, y: chef.y } : { x: objet.maitre.x, y: objet.maitre.y });
       const reglage = REGLAGES[objet.ordre.posture];
       const distanceAncre = Phaser.Math.Distance.Between(objet.x, objet.y, ancre.x, ancre.y);
 
@@ -4464,8 +4553,10 @@ export class ArenaScene extends Phaser.Scene {
                 )
               : null) ?? this.ennemiLePlusProche(objet.x, objet.y, 900));
 
-      // Rien a poursuivre, ou trop loin de sa position : il y retourne.
-      if (!cible || distanceAncre > reglage.laisse) {
+      // Rien a poursuivre, ou trop loin de sa position : il y retourne. Le
+      // familier d'un General des morts, lui, n'a pas de laisse : il mene.
+      const mene = general !== undefined && objet === general;
+      if (!cible || (distanceAncre > reglage.laisse && !mene)) {
         if (distanceAncre <= TOLERANCE_ANCRE) {
           objet.setVelocity(0, 0);
           continue;
@@ -4491,7 +4582,7 @@ export class ArenaScene extends Phaser.Scene {
     if (invoque.degats > 0) {
       // Le spectre execute ce qui est deja a l'agonie.
       const acheve = invoque.seuilExecution > 0 && e.pv / e.pvMax <= invoque.seuilExecution;
-      this.blesserEnnemi(e, acheve ? e.pv : invoque.degats, invoque.maitre);
+      this.blesserEnnemi(e, acheve ? e.pv : Math.round(invoque.degats * this.elanDuGeneral(invoque)), invoque.maitre);
       if (acheve) this.flotter(e.x, e.y - 16, "ACHEVE", "#9fd8ff");
     }
 
@@ -4512,9 +4603,12 @@ export class ArenaScene extends Phaser.Scene {
         this.blesserEnnemi(e, Math.max(invoque.degats * 2, invoque.maitre.degats * 2), invoque.maitre);
       }
     }
-    // Le familier revient au bout d'un moment : il est permanent.
+    // Le familier revient au bout d'un moment : il est permanent. Celui d'un
+    // General des morts revient plus vite (§4.25).
     if (invoque instanceof Familier) {
-      this.retourFamilier.set(invoque.maitre, this.time.now + 12000);
+      const general = invoque.maitre.palierReel("general-des-morts");
+      const retour = general > 0 ? auPalier(REGLAGES_FUSIONS.generalDesMorts.retour, general) : 12000;
+      this.retourFamilier.set(invoque.maitre, this.time.now + retour);
     }
     for (const objet of this.ennemis.getChildren()) {
       const e = objet as Ennemi;
@@ -4758,20 +4852,33 @@ export class ArenaScene extends Phaser.Scene {
       while (liste.length > voulu) liste.pop()?.destroy();
       this.orbiteurs.set(hero, liste);
 
+      // Les fusions qui touchent aux orbiteurs (§4.25).
+      const soleil = hero.palierReel("soleil-d-acier") > 0;
+      const conducteurs = hero.palierReel("satellites-conducteurs") > 0;
       liste.forEach((objet, i) => {
         const estEpee = i >= satellites;
-        const rayon = estEpee ? 62 : 48;
+        // Moulin a lames : une epee partie rebondir suit sa route, pas la ronde.
+        const vol = estEpee ? this.volsDEpees.get(objet) : undefined;
+        if (vol) {
+          this.faireVolerLEpee(objet, vol);
+          return;
+        }
+        const rayon = estEpee ? (soleil ? REGLAGES_FUSIONS.soleilDAcier.orbiteEpees : 62) : 48;
         const vitesse = estEpee ? 380 : 520;
         const angle = this.time.now / vitesse + (i / Math.max(1, voulu)) * Math.PI * 2;
         const teinte = estEpee
-          ? hero.bonus.epeeArdente
-            ? 0xff8a3d
-            : 0xd5dbe3
-          : hero.bonus.satelliteFeu
-            ? 0xff8a3d
-            : hero.bonus.satelliteGlace
-              ? 0x8ed6ff
-              : 0xd06bff;
+          ? soleil
+            ? 0xffd27a
+            : hero.bonus.epeeArdente
+              ? 0xff8a3d
+              : 0xd5dbe3
+          : conducteurs
+            ? 0xbfe8ff
+            : hero.bonus.satelliteFeu
+              ? 0xff8a3d
+              : hero.bonus.satelliteGlace
+                ? 0x8ed6ff
+                : 0xd06bff;
 
         objet
           .setPosition(hero.x + Math.cos(angle) * rayon, hero.y + Math.sin(angle) * rayon)
@@ -4787,16 +4894,23 @@ export class ArenaScene extends Phaser.Scene {
     for (const [hero, liste] of this.orbiteurs) {
       if (hero.etat === "mort" || liste.length === 0) continue;
       const satellites = hero.bonus.satellites;
+      // Soleil d'acier : les epees sont incandescentes, comme les Lames ardentes.
+      const ardentes = hero.bonus.epeeArdente || hero.palierReel("soleil-d-acier") > 0;
+      const conducteurs = hero.palierReel("satellites-conducteurs");
       liste.forEach((objet, i) => {
         const estEpee = i >= satellites;
+        if (this.volsDEpees.has(objet)) return;
         const degats = estEpee
-          ? Math.round(hero.degats * (hero.bonus.epeeArdente ? 1.2 : 0.6))
+          ? Math.round(hero.degats * (ardentes ? 1.2 : 0.6))
           : Math.round(hero.degats * (hero.bonus.satelliteFeu ? 0.8 : 0.4));
         for (const e of this.ennemisDansRayon(objet.x, objet.y, estEpee ? 24 : 18)) {
           if (!estEpee && hero.bonus.satelliteGlace) e.ralentir(1200);
           this.blesserEnnemi(e, degats, hero);
+          // Satellites conducteurs (§4.25) : le contact fait partir un eclair.
+          if (!estEpee && conducteurs > 0 && e.active) this.conduire(hero, objet, e, degats, conducteurs);
         }
       });
+      this.lancerLeMoulin(hero, liste.slice(satellites));
     }
   }
 
@@ -5341,10 +5455,13 @@ export class ArenaScene extends Phaser.Scene {
           ? COULEURS.sangFrais
           : eclat
             ? COULEURS.os
-            : // Mouille (§4.13) : ca ne fait rien seul, ca se voit — il ruisselle.
-              maintenant < e.mouilleJusqua
-              ? melanger(teinteDeNuee(e.archetype), COULEUR_MOUILLE, 0.72)
-              : teinteDeNuee(e.archetype),
+            : // Fige par l'Heure sombre ou le Neant : le temps ne passe plus pour lui.
+              maintenant < this.figeJusqua
+              ? melanger(teinteDeNuee(e.archetype), TEINTE_FIGEE, 0.8)
+              : // Mouille (§4.13) : ca ne fait rien seul, ca se voit — il ruisselle.
+                maintenant < e.mouilleJusqua
+                ? melanger(teinteDeNuee(e.archetype), COULEUR_MOUILLE, 0.72)
+                : teinteDeNuee(e.archetype),
         // Il fonce en mourant, jusqu'a un tiers de sa lumiere : plus sombre, il
         // disparaitrait dans la nuit (vu sur planche, a 25 %).
         coup || eclat ? 1 : 0.35 + 0.65 * vie,
@@ -5539,6 +5656,13 @@ export class ArenaScene extends Phaser.Scene {
     // Un ennemi sous contrat reste marque en rouge jusqu'a la fin.
     if (e.souscontrat) {
       e.setTint(0xff3b30);
+      return;
+    }
+    // L'Heure sombre, et le Neant qui la contient (§4.25) : le temps est arrete,
+    // et ca se voit. Avant, la teinte etait posee une fois et cette fonction
+    // l'ecrasait a l'image suivante.
+    if (maintenant < this.figeJusqua) {
+      e.setTint(TEINTE_FIGEE);
       return;
     }
     if (e.enArmement) {
@@ -6963,23 +7087,34 @@ export class ArenaScene extends Phaser.Scene {
   ): void {
     if (auteur.bonus.chaineEclairs <= 0) return;
 
-    const sauts = auteur.bonus.chaineDiffuse
-      ? 8
-      : auteur.bonus.chaineFulgurante
-        ? 2
-        : auteur.bonus.chaineEclairs;
+    // Reseau electrique (§4.25) : plus de sauts, plus loin, et un eclair peut
+    // revenir sur une cible deja frappee — dans une foule serree, le courant
+    // tourne en boucle au lieu de s'eteindre.
+    const reseau = auteur.palierReel("reseau-electrique");
+    const reglage = REGLAGES_FUSIONS.reseauElectrique;
+    const sauts =
+      (auteur.bonus.chaineDiffuse ? 8 : auteur.bonus.chaineFulgurante ? 2 : auteur.bonus.chaineEclairs) +
+      (reseau > 0 ? auPalier(reglage.sautsEnPlus, reseau) : 0);
+    const portee = reseau > 0 ? auPalier(reglage.portee, reseau) : 130;
+    const sansAffaiblissement = reseau > 0 && auPalier(reglage.sansAffaiblissement, reseau);
     const touches = new Set<Ennemi>([origine]);
     let depuis = { x, y };
+    let ici: Ennemi = origine;
     let force = degats;
 
     for (let i = 0; i < sauts; i++) {
-      force *= auteur.bonus.chaineDiffuse ? 0.55 : auteur.bonus.chaineFulgurante ? 1.6 : 0.8;
-      const suivant = this.ennemisDansRayon(depuis.x, depuis.y, 130).find((e) => !touches.has(e));
+      if (!sansAffaiblissement) {
+        force *= auteur.bonus.chaineDiffuse ? 0.55 : auteur.bonus.chaineFulgurante ? 1.6 : 0.8;
+      }
+      const autour = this.ennemisDansRayon(depuis.x, depuis.y, portee);
+      const suivant =
+        autour.find((e) => !touches.has(e)) ?? (reseau > 0 ? autour.find((e) => e !== ici && e.active) : undefined);
       if (!suivant) return;
 
       touches.add(suivant);
-      this.trainee(depuis.x, depuis.y, suivant.x, suivant.y, 0x8ed6ff);
+      this.trainee(depuis.x, depuis.y, suivant.x, suivant.y, reseau > 0 ? 0xbfe8ff : 0x8ed6ff);
       depuis = { x: suivant.x, y: suivant.y };
+      ici = suivant;
       this.blesserEnnemi(suivant, Math.max(1, Math.round(force)), auteur);
     }
   }
@@ -7084,6 +7219,8 @@ export class ArenaScene extends Phaser.Scene {
     }
     // Danse des ombres : chaque mort raccourcit tous ses rechargements.
     if (auteur.bonus.danseDesOmbres > 0) auteur.reduireRechargements(auteur.bonus.danseDesOmbres);
+    // Temps fracture (§4.25) : une mort dans le ralenti rend du temps au Sablier.
+    if (this.zonesFracturees.length > 0) this.fracturerLeTemps(e.x, e.y);
 
     // Provocation : chaque mort a ses pieds remet le Chevalier Sacre debout.
     for (const hero of this.heros) {
@@ -7203,6 +7340,14 @@ export class ArenaScene extends Phaser.Scene {
       }
     }
 
+    // ⚠️ **La fusion se propose, elle ne se donne pas** (§4.25, tranche le
+    // 23 septembre 2026) : une carte de plus, a cote des trois tirees, comme
+    // l'heritage. Refusee, elle revient au choix d'apres, puisque ses
+    // ingredients sont toujours la.
+    for (const fusion of fusionsPossibles(hero.competences, hero.evolutions, hero.fondues)) {
+      propositions.push(propositionFusion(fusion));
+    }
+
     this.events.emit(
       "choix",
       `NIVEAU ${hero.niveau}`,
@@ -7234,10 +7379,15 @@ export class ArenaScene extends Phaser.Scene {
         this.terminerChoix();
         return;
       }
+      const fusion = competenceParId(id);
       if (id === ID_EMPLACEMENT) {
         this.argent -= prixDuProchainEmplacement(hero.emplacements) ?? 0;
         hero.emplacements += 1;
         this.flotter(hero.x, hero.y - 30, `EMPLACEMENT ${hero.emplacementsTotal}`, "#f0c419");
+      } else if (fusion?.fusion && hero.palierDe(fusion.id) === 0) {
+        // Fusionner libere une touche (§4.25) : la competence qui attendait
+        // la prend. Le choix du niveau, c'etait elle — pas la fusion.
+        this.fusionner(hero, fusion, false);
       } else {
         const oubliee = competenceParId(id);
         hero.oublier(id);
@@ -7258,14 +7408,26 @@ export class ArenaScene extends Phaser.Scene {
     // Quatre actives au plus (§4.13) : une cinquieme demande une place. On
     // achete un emplacement, ou on en oublie une ; la fusion (§4.25) viendra
     // avec les builds.
-    if (demandeUnePlace(def, hero.competences, hero.emplacementsTotal)) {
+    if (demandeUnePlace(def, hero.competences, hero.emplacementsTotal, hero.fondues)) {
       this.modeChoix = "remplacement";
       this.competenceEnAttente = def;
+      // Les fusions qui liberent une touche repondent aussi (§4.25) — sauf
+      // celle qui attend sa place, s'il s'agit d'une fusion.
+      const fusions = fusionsQuiLiberent(fusionsPossibles(hero.competences, hero.evolutions, hero.fondues))
+        .filter((f) => f.id !== def.id)
+        .map(propositionFusion);
       this.events.emit(
         "choix",
         "PLUS DE PLACE",
         `${def.nom} demande un emplacement — laquelle oublier ?`,
-        propositionsDeRemplacement(hero.competences, hero.emplacements, this.argent, hero.emplacementsEnPlus),
+        propositionsDeRemplacement(
+          hero.competences,
+          hero.emplacements,
+          this.argent,
+          hero.emplacementsEnPlus,
+          hero.fondues,
+          fusions,
+        ),
       );
       return;
     }
@@ -7273,8 +7435,37 @@ export class ArenaScene extends Phaser.Scene {
     this.apprendreEtContinuer(hero, def);
   }
 
+  /**
+   * Fusionne (§4.25) : les ingredients disparaissent des touches, la fusion
+   * arrive au palier 1. Ca se voit, ca s'entend, et le journal le retient.
+   */
+  private fusionner(hero: Hero, fusion: CompetenceDef, consommeUnChoix: boolean): void {
+    // Le journal parle comme lui, et comme quand il oublie : a la premiere personne.
+    const noms = ingredientsDe(fusion).map((id) => competenceParId(id)?.nom ?? id);
+    hero.fusionner(fusion, consommeUnChoix);
+    // Le familier deja debout prend la tete tout de suite : il n'attend pas de retomber.
+    if (fusion.id === "general-des-morts") {
+      for (const objet of this.invocations.getChildren() as Invocation[]) {
+        if (objet.active && objet instanceof Familier && objet.maitre === hero) marquerLeGeneral(objet);
+      }
+    }
+    this.effetCercle(hero.x, hero.y, 90, 0xc99a3a);
+    this.effetCercle(hero.x, hero.y, 50, 0xe0402a);
+    if (hero.estIncarne) this.cameras.main.flash(220, 201, 154, 58);
+    this.flotter(hero.x, hero.y - 34, fusion.nom.toUpperCase(), "#e2bb62");
+    this.events.emit("annonce", `je fonds ${noms.join(" et ")} en ${fusion.nom}`, "heros", hero.personne.nom);
+  }
+
   /** Apprend la competence, offre le niveau du Veteran, et ouvre l'evolution s'il y en a une. */
   private apprendreEtContinuer(hero: Hero, def: CompetenceDef): void {
+    // Une fusion qu'on prend pour la premiere fois ne s'apprend pas : elle fond
+    // ses ingredients (§4.25). Ensuite, elle monte comme les autres.
+    if (def.fusion && hero.palierDe(def.id) === 0) {
+      this.fusionner(hero, def, true);
+      this.terminerChoix();
+      return;
+    }
+
     // C'etait l'heritage : il le prend, donc il porte le trait et le souvenir
     // du mort (§4.26). Le legs est consomme — on n'herite qu'une fois.
     const legs = this.memoire.legsDe(hero.personne.identite);
@@ -7465,6 +7656,21 @@ export class ArenaScene extends Phaser.Scene {
       case "teleportation":
         this.effetTeleportation(hero);
         break;
+      case "tourbillon-infernal":
+        this.effetTourbillonInfernal(hero);
+        break;
+      case "forteresse-mobile":
+        this.effetForteresseMobile(hero);
+        break;
+      case "temps-fracture":
+        this.effetTempsFracture(hero);
+        break;
+      case "neant":
+        this.effetNeant(hero);
+        break;
+      case "exil-des-morts":
+        this.effetExilDesMorts(hero);
+        break;
     }
   }
 
@@ -7556,7 +7762,7 @@ export class ArenaScene extends Phaser.Scene {
 
   // --- Guerrier : Charge et Cri de guerre ---
 
-  private effetCharge(hero: Hero, variante: string): void {
+  private effetCharge(hero: Hero, variante: string, souffle = 1): void {
     const palier = Math.max(1, hero.palierDe("charge"));
     const distance = 220 + palier * 40;
     const depart = new Phaser.Math.Vector2(hero.x, hero.y);
@@ -7571,7 +7777,7 @@ export class ArenaScene extends Phaser.Scene {
     hero.setPosition(arrivee.x, arrivee.y);
 
     if (variante === "charge-sismique") {
-      const rayon = this.rayonDeZone(hero, 120);
+      const rayon = this.rayonDeZone(hero, 120 * souffle);
       this.effetCercle(arrivee.x, arrivee.y, rayon, 0xc9a06b);
       this.cameras.main.shake(220, 0.008);
       for (const e of this.ennemisDansRayon(arrivee.x, arrivee.y, rayon)) {
@@ -7652,11 +7858,11 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
-  private effetSablier(hero: Hero): void {
+  private effetSablier(hero: Hero, fracture?: { duree: number; rayon: number }): void {
     const palier = Math.max(1, hero.palierDe("sablier"));
-    const duree = this.dureeDeLEffet(hero, 3000 + palier * 2000);
+    const duree = fracture?.duree ?? this.dureeDeLEffet(hero, 3000 + palier * 2000);
     const facteur = palier >= 2 ? 0.25 : 0.4;
-    const rayon = this.rayonDeZone(hero, 240);
+    const rayon = fracture?.rayon ?? this.rayonDeZone(hero, 240);
 
     this.aura(hero.x, hero.y, rayon / 8, 0x8ed6ff, duree);
     const x = hero.x;
@@ -7984,13 +8190,14 @@ export class ArenaScene extends Phaser.Scene {
   /** Heure sombre : le temps s'arrete pour tout le monde sauf le joueur. */
   private effetHeureSombre(hero: Hero): void {
     const palier = Math.max(1, hero.palierDe("heure-sombre"));
-    const duree = this.dureeDeLEffet(hero, 1500 + palier * 1500);
+    this.figerLeMonde(this.dureeDeLEffet(hero, 1500 + palier * 1500));
+  }
+
+  /** Tout s'arrete, sauf les heros : l'Heure sombre, et le debut du Neant. */
+  private figerLeMonde(duree: number): void {
     this.figeJusqua = this.time.now + duree;
     this.cameras.main.flash(200, 40, 20, 60);
-    for (const objet of this.ennemis.getChildren()) (objet as Ennemi).setTint(0x6b6478);
-    this.time.delayedCall(duree, () => {
-      for (const objet of this.ennemis.getChildren()) (objet as Ennemi).clearTint();
-    });
+    // La teinte des figes se pose a chaque image (`teinterEnnemi`, la nuee).
   }
 
   private groupeLePlusDense(hero: Hero, portee: number, rayon: number): Ennemi | null {
@@ -8100,10 +8307,14 @@ export class ArenaScene extends Phaser.Scene {
 
   // --- Guerrier ---
 
-  private effetMoulinet(hero: Hero, variante: string): void {
+  private effetMoulinet(
+    hero: Hero,
+    variante: string,
+    embrase?: { duree: number; rayon: number; brule: number },
+  ): void {
     const palier = Math.max(1, hero.palierDe("moulinet"));
-    const duree = this.dureeDeLEffet(hero, 2000 + palier * 500);
-    const rayon = this.rayonDeZone(hero, 90);
+    const duree = embrase?.duree ?? this.dureeDeLEffet(hero, 2000 + palier * 500);
+    const rayon = embrase?.rayon ?? this.rayonDeZone(hero, 90);
     const ticks = Math.floor(duree / 200);
 
     this.time.addEvent({
@@ -8115,12 +8326,15 @@ export class ArenaScene extends Phaser.Scene {
           if (variante === "moulinet-aspirant") this.repousser(e, hero.x, hero.y, -220);
           this.blesserEnnemi(
             e,
-            Math.round(hero.degats * 0.55),
+            Math.round(hero.degats * 0.55 + (embrase?.brule ?? 0)),
             hero,
             variante === "moulinet-sanglant" ? 1 : 0,
           );
         }
-        this.effetCercle(hero.x, hero.y, rayon, 0xffc27a);
+        this.effetCercle(hero.x, hero.y, rayon, embrase ? 0xff8a3d : 0xffc27a);
+        // Le Tourbillon infernal se voit : des flammes naissent sur le cercle
+        // et s'eteignent aussitot, deux par tour.
+        if (embrase) this.flammesSurLeCercle(hero.x, hero.y, rayon, 2);
       },
     });
   }
@@ -8137,14 +8351,19 @@ export class ArenaScene extends Phaser.Scene {
       ? this.cameras.main.getWorldPoint(this.input.activePointer.x, this.input.activePointer.y)
       : this.pointDevant(hero, 90);
 
+    this.poserDome(point.x, point.y, rayon, pv);
+  }
+
+  /** Un dome au sol. La Forteresse mobile en pose qui ne durent que quelques secondes. */
+  private poserDome(x: number, y: number, rayon: number, pv: number, finDeVie?: number): void {
     const image = this.add
-      .image(point.x, point.y, "impact")
+      .image(x, y, "impact")
       .setTint(0x8ed6ff)
       .setAlpha(0.45)
       .setScale((rayon * 2) / 16)
-      .setDepth(point.y - 3);
+      .setDepth(y - 3);
 
-    this.domes.push({ image, x: point.x, y: point.y, rayon, pv, pvMax: pv });
+    this.domes.push({ image, x, y, rayon, pv, pvMax: pv, finDeVie });
   }
 
   /**
@@ -8153,20 +8372,294 @@ export class ArenaScene extends Phaser.Scene {
    * vie, immobile, insoignable, condamne au moindre contact.
    */
   private effetExil(hero: Hero): void {
+    this.bannirTout();
+    this.payerLExil(hero, 30000);
+  }
+
+  /** Toutes les creatures hostiles bannies, sans experience. Rend combien il y en avait. */
+  private bannirTout(): number {
     this.cameras.main.shake(600, 0.014);
     this.cameras.main.flash(400, 200, 120, 255);
 
+    let bannis = 0;
     for (const objet of [...this.ennemis.getChildren()] as Ennemi[]) {
       if (!objet.active) continue;
       this.effetCercle(objet.x, objet.y, 30, 0xd06bff);
       objet.destroy(); // banni : personne ne gagne d'experience
+      bannis += 1;
     }
+    return bannis;
+  }
 
+  /** Le prix de l'Exil : un point de vie, immobile, insoignable, tue au moindre contact. */
+  private payerLExil(hero: Hero, duree: number): void {
     hero.pv = Math.max(1, Math.round(hero.pvMax * 0.01));
-    hero.immobiliser(30000);
-    hero.condamner(30000);
-    this.aura(hero.x, hero.y, 4, 0xd06bff, 30000);
-    this.flotter(hero.x, hero.y - 40, "30 s a decouvert", "#ff8a7a");
+    hero.immobiliser(duree);
+    hero.condamner(duree);
+    this.aura(hero.x, hero.y, 4, 0xd06bff, duree);
+    this.flotter(hero.x, hero.y - 40, `${Math.round(duree / 1000)} s a decouvert`, "#ff8a7a");
+  }
+
+  // --- Les fusions (§4.25, jalon 6.5, morceau 3) ---
+  //
+  // Chacune garde ce que faisaient ses ingredients — ils restent tenus, fondus,
+  // et leur code tourne comme avant — et y ajoute ce qui suit. Les chiffres
+  // vivent dans `REGLAGES_FUSIONS`. Tout ce qui frappe passe par le voisinage.
+
+  /** Moulin a lames : quand c'est l'heure, chaque epee au repos part rebondir. */
+  private lancerLeMoulin(hero: Hero, epees: Phaser.GameObjects.Image[]): void {
+    const palier = hero.palierReel("moulin-a-lames");
+    if (palier === 0 || epees.length === 0 || !hero.estAuCombat) return;
+    const maintenant = this.time.now;
+    if (maintenant < (this.prochainMoulin.get(hero) ?? 0)) return;
+    const reglage = REGLAGES_FUSIONS.moulinALames;
+    this.prochainMoulin.set(hero, maintenant + auPalier(reglage.periode, palier));
+    const rebonds = auPalier(reglage.rebonds, palier);
+    const degats = Math.round(hero.degats * 0.6 * reglage.degats);
+    const prises = new Set<Ennemi>();
+    for (const epee of epees) {
+      if (this.volsDEpees.has(epee)) continue;
+      // D'ennemi en ennemi, chaque fois le plus proche qu'aucune epee n'a pris.
+      const cibles: Ennemi[] = [];
+      let depuis = { x: epee.x, y: epee.y };
+      for (let i = 0; i < rebonds; i++) {
+        let suivant: Ennemi | null = null;
+        let meilleure = Infinity;
+        for (const e of this.ennemisDansRayon(depuis.x, depuis.y, reglage.portee)) {
+          if (prises.has(e)) continue;
+          const d = Phaser.Math.Distance.Squared(depuis.x, depuis.y, e.x, e.y);
+          if (d < meilleure) {
+            meilleure = d;
+            suivant = e;
+          }
+        }
+        if (!suivant) break;
+        prises.add(suivant);
+        cibles.push(suivant);
+        depuis = { x: suivant.x, y: suivant.y };
+      }
+      if (cibles.length === 0) continue;
+      this.volsDEpees.set(epee, { hero, debut: maintenant, depart: { x: epee.x, y: epee.y }, cibles, frappes: 0, degats });
+    }
+  }
+
+  /**
+   * Une epee du Moulin en vol : elle file d'une cible a l'autre, frappe chacune
+   * en y arrivant, puis rentre dans la ronde. Tout se lit dans le temps
+   * ecoule, sans minuterie : une pause la fige avec le reste.
+   */
+  private faireVolerLEpee(epee: Phaser.GameObjects.Image, vol: VolDEpee): void {
+    const parRebond = REGLAGES_FUSIONS.moulinALames.parRebond;
+    const ecoule = this.time.now - vol.debut;
+    while (vol.frappes < vol.cibles.length && ecoule >= (vol.frappes + 1) * parRebond) {
+      const cible = vol.cibles[vol.frappes]!;
+      if (cible.active) {
+        this.blesserEnnemi(cible, vol.degats, vol.hero);
+        eclatImpact(this, cible.x, cible.y - 4, 0xd5dbe3, 3);
+      }
+      vol.frappes += 1;
+    }
+    // Les etapes : le depart, chaque cible, puis le heros — le retour dans la ronde.
+    const etapes = [vol.depart, ...vol.cibles.map((c) => ({ x: c.x, y: c.y })), { x: vol.hero.x, y: vol.hero.y }];
+    const segment = Math.floor(ecoule / parRebond);
+    if (segment >= etapes.length - 1 || vol.hero.etat === "mort") {
+      this.volsDEpees.delete(epee);
+      return;
+    }
+    const a = etapes[segment]!;
+    const b = etapes[segment + 1]!;
+    const t = (ecoule - segment * parRebond) / parRebond;
+    epee
+      .setPosition(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
+      .setRotation(Math.atan2(b.y - a.y, b.x - a.x))
+      .setScale(1.8)
+      .setTint(0xeef3f8)
+      .setDepth(epee.y + 2);
+  }
+
+  /** Satellites conducteurs : un satellite qui touche fait partir un eclair, pas plus souvent que son reglage. */
+  private conduire(hero: Hero, satellite: Phaser.GameObjects.Image, e: Ennemi, degats: number, palier: number): void {
+    const reglage = REGLAGES_FUSIONS.satellitesConducteurs;
+    const maintenant = this.time.now;
+    if (maintenant < (this.prochainEclairDeSatellite.get(satellite) ?? 0)) return;
+    this.prochainEclairDeSatellite.set(satellite, maintenant + auPalier(reglage.intervalle, palier));
+    this.trainee(satellite.x, satellite.y, e.x, e.y, 0xbfe8ff);
+    this.propagerEclairs(hero, e.x, e.y, e, Math.round(degats * auPalier(reglage.force, palier)));
+  }
+
+  /** Des flammes qui naissent sur un cercle et s'eteignent aussitot (le Tourbillon infernal). */
+  private flammesSurLeCercle(x: number, y: number, rayon: number, combien: number): void {
+    for (let i = 0; i < combien; i++) {
+      const angle = this.rng.range(0, Math.PI * 2);
+      const fx = x + Math.cos(angle) * rayon;
+      const fy = y + Math.sin(angle) * rayon;
+      const cle = CLES_FLAMME[i % CLES_FLAMME.length]!;
+      if (!this.textures.exists(cle)) return;
+      const flamme = this.add.image(fx, fy, cle).setOrigin(0.5, 0.9).setDepth(fy + 1).setScale(0.8);
+      this.tweens.add({
+        targets: flamme,
+        alpha: 0,
+        scaleY: 1.2,
+        duration: 320,
+        onComplete: () => flamme.destroy(),
+      });
+    }
+  }
+
+  /** Tourbillon infernal : le Moulinet embrase, plus large, plus long, et il court. */
+  private effetTourbillonInfernal(hero: Hero): void {
+    const palier = Math.max(1, hero.palierReel("tourbillon-infernal"));
+    const reglage = REGLAGES_FUSIONS.tourbillonInfernal;
+    const duree = this.dureeDeLEffet(hero, auPalier(reglage.duree, palier));
+    const rayon = this.rayonDeZone(hero, auPalier(reglage.rayon, palier));
+    // Tout ce qu'il frole brule : l'aura, doublee, comptee a chaque tour.
+    const brule = (hero.bonus.auraFeu * reglage.feu) / 5;
+    this.tourbillons.set(hero, this.time.now + duree);
+    hero.multiplicateurVitesse = reglage.vitesse;
+    this.time.delayedCall(duree, () => void (hero.multiplicateurVitesse = 1));
+    // L'evolution du Moulinet tient toujours : il aspire, ou il boit.
+    const variante = hero.evolutions["moulinet"]?.effet ?? "moulinet";
+    this.effetMoulinet(hero, variante, { duree, rayon, brule });
+  }
+
+  /** Forteresse mobile : la Charge sismique, et un dome la ou elle s'arrete. */
+  private effetForteresseMobile(hero: Hero): void {
+    const palier = Math.max(1, hero.palierReel("forteresse-mobile"));
+    const reglage = REGLAGES_FUSIONS.forteresseMobile;
+    this.effetCharge(hero, "charge-sismique", auPalier(reglage.souffle, palier));
+    const duree = this.dureeDeLEffet(hero, auPalier(reglage.duree, palier));
+    this.poserDome(hero.x, hero.y, reglage.rayonDome, auPalier(reglage.pv, palier), this.time.now + duree);
+  }
+
+  /** Un dome de la Forteresse mobile tient quelques secondes, puis tombe. */
+  private majDomes(): void {
+    if (this.domes.length === 0) return;
+    const maintenant = this.time.now;
+    for (const dome of [...this.domes]) {
+      if (dome.finDeVie !== undefined && maintenant >= dome.finDeVie) this.detruireDome(dome);
+    }
+  }
+
+  /** Temps fracture : le Sablier, et chaque mort dans sa zone lui rend du temps. */
+  private effetTempsFracture(hero: Hero): void {
+    const palier = Math.max(1, hero.palierReel("temps-fracture"));
+    const reglage = REGLAGES_FUSIONS.tempsFracture;
+    const duree = this.dureeDeLEffet(hero, auPalier(reglage.duree, palier));
+    const rayon = this.rayonDeZone(hero, 240 * auPalier(reglage.rayon, palier));
+    this.effetSablier(hero, { duree, rayon });
+    this.zonesFracturees.push({
+      hero,
+      x: hero.x,
+      y: hero.y,
+      rayon,
+      fin: this.time.now + duree,
+      rendu: auPalier(reglage.rendu, palier),
+    });
+  }
+
+  /** Une mort la ou le temps est fracture : le Sablier de cette zone revient plus tot. */
+  private fracturerLeTemps(x: number, y: number): void {
+    const maintenant = this.time.now;
+    this.zonesFracturees = this.zonesFracturees.filter((z) => z.fin > maintenant && z.hero.etat !== "mort");
+    for (const zone of this.zonesFracturees) {
+      if (Phaser.Math.Distance.Between(x, y, zone.x, zone.y) > zone.rayon) continue;
+      zone.hero.avancerRechargement("temps-fracture", zone.rendu);
+      // La fracture se voit : un eclat bleu file de la mort vers le coeur du sablier.
+      this.trainee(x, y, zone.x, zone.y, 0x8ed6ff);
+    }
+  }
+
+  /** Les maitres qui ont un General des morts, et leur familier quand il est debout. */
+  private generauxDesMorts(): Map<Hero, Familier> {
+    const generaux = new Map<Hero, Familier>();
+    for (const objet of this.invocations.getChildren() as Invocation[]) {
+      if (!objet.active || !(objet instanceof Familier)) continue;
+      if (objet.maitre.palierReel("general-des-morts") > 0) generaux.set(objet.maitre, objet);
+    }
+    return generaux;
+  }
+
+  /** General des morts : un mort-vivant qui frappe pres du familier frappe plus fort. */
+  private elanDuGeneral(invoque: Invocation): number {
+    if (!(invoque instanceof MortVivant)) return 1;
+    const palier = invoque.maitre.palierReel("general-des-morts");
+    if (palier === 0) return 1;
+    const reglage = REGLAGES_FUSIONS.generalDesMorts;
+    for (const objet of this.invocations.getChildren() as Invocation[]) {
+      if (!objet.active || !(objet instanceof Familier) || objet.maitre !== invoque.maitre) continue;
+      if (Phaser.Math.Distance.Between(objet.x, objet.y, invoque.x, invoque.y) <= reglage.rayon) {
+        return 1 + auPalier(reglage.degats, palier);
+      }
+    }
+    return 1;
+  }
+
+  /** Neant : le monde s'arrete, et quand il repart, tout ce qui est hostile est banni. */
+  private effetNeant(hero: Hero): void {
+    const palier = Math.max(1, hero.palierReel("neant"));
+    const reglage = REGLAGES_FUSIONS.neant;
+    const duree = this.dureeDeLEffet(hero, auPalier(reglage.fige, palier));
+    this.figerLeMonde(duree);
+    this.flotter(hero.x, hero.y - 40, `${(duree / 1000).toFixed(1).replace(".", ",")} s`, "#d9c9b0");
+    this.time.delayedCall(duree, () => {
+      if (hero.etat === "mort") return;
+      this.bannirTout();
+      // Le cout de l'Exil, double (tranche le 23 septembre 2026).
+      this.payerLExil(hero, reglage.decouvert);
+    });
+  }
+
+  /** Exil des morts : il bannit sans payer de sa vie — les bannis reviendront la nuit suivante. */
+  private effetExilDesMorts(hero: Hero): void {
+    const bannis = this.bannirTout();
+    this.bannis += bannis;
+    this.aura(hero.x, hero.y, 4, 0x8e1c12, 1200);
+    if (bannis > 0) {
+      this.events.emit("annonce", `${bannis} bannis reviendront a la prochaine nuit`, "guet");
+    }
+  }
+
+  /** Revenant : il se releve a pleine vie, une fois, mais avec une sequelle tiree au sort. */
+  private releverLeRevenant(hero: Hero): void {
+    const palier = Math.max(1, hero.palierReel("revenant"));
+    const reglage = REGLAGES_FUSIONS.revenant;
+    hero.revenu = true;
+    const sequelle = sequelleDuRevenant(this.rng.next(), hero.personne.sequelles, SEQUELLES.length);
+    if (sequelle !== null) poserSequelle(hero.personne, sequelle);
+    // Apres la sequelle : un poumon perce baisse la vie maximale qu'il retrouve.
+    hero.soignerForce(hero.pvMax);
+    hero.rendreInvulnerable(auPalier(reglage.invulnerable, palier));
+    if (auPalier(reglage.souffle, palier)) {
+      const rayon = this.rayonDeZone(hero, reglage.rayonSouffle);
+      for (const e of this.ennemisDansRayon(hero.x, hero.y, rayon)) {
+        this.repousser(e, hero.x, hero.y, 420);
+        this.blesserEnnemi(e, hero.degats * 3, hero);
+      }
+      this.effetCercle(hero.x, hero.y, rayon, 0xe0402a);
+    }
+    this.effetCercle(hero.x, hero.y, 120, 0x8e1c12);
+    this.cameras.main.flash(400, 140, 28, 18);
+    secousse(this, "fort");
+    const nom = sequelle !== null ? SEQUELLES[sequelle]?.nom : undefined;
+    this.flotter(hero.x, hero.y - 34, "REVENANT", "#e0402a");
+    this.events.emit(
+      "annonce",
+      nom ? `je reviens — mais pas entier : ${nom.toLowerCase()}` : "je reviens",
+      "heros",
+      hero.personne.nom,
+    );
+    // La regle ironman (§4.28) : la seconde vie est prise, on l'enregistre.
+    this.enregistrer();
+  }
+
+  /** Berserker terminal : chaque aube lui prend une part de sa vie maximale, pour toujours. */
+  private consumerLesBerserkers(): void {
+    for (const hero of this.heros) {
+      if (hero.etat === "mort" || hero.palierReel("berserker-terminal") === 0) continue;
+      hero.usure += 1;
+      hero.pv = Math.min(hero.pv, hero.pvMax);
+      this.events.emit("annonce", `chaque aube me prend un peu plus — ${hero.pvMax} PV, pas un de plus`, "heros", hero.personne.nom);
+    }
   }
 
   // --- Assassin ---
@@ -8903,6 +9396,13 @@ export class ArenaScene extends Phaser.Scene {
 
     const nuit = this.cycle.nuit;
     this.resteDeLaNuit = this.effectifDeLaNuitIci(nuit);
+    // Exil des morts (§4.25) : les bannis de la veille reviennent, en plus.
+    this.revenantsAttendus = bannisQuiReviennent(this.bannis, this.resteDeLaNuit);
+    this.bannis = 0;
+    if (this.revenantsAttendus > 0) {
+      this.resteDeLaNuit += this.revenantsAttendus;
+      this.events.emit("annonce", `Les bannis reviennent : ${this.revenantsAttendus} revenants de plus cette nuit`, "guet");
+    }
     this.poserLesRendezvous(nuit);
     this.village.tomberLaNuit();
 
@@ -8965,6 +9465,7 @@ export class ArenaScene extends Phaser.Scene {
     this.chemins.seLever(this.cycle.jour);
     this.coucheChemins.toutRedessiner(this.chemins.visibles, this.cycle.jour);
     this.passerLaJourneeDesHeros();
+    this.consumerLesBerserkers();
     this.passerLaJourneeDeLaCour();
     this.passerLaJourneeDeLaMemoire();
     this.programmerHorde();
@@ -9699,7 +10200,17 @@ export class ArenaScene extends Phaser.Scene {
       const partie = this.effectifDeDepart > 0 ? 1 - (this.resteDeLaNuit - 1) / this.effectifDeDepart : 1;
       const prochain = this.rendezvous[0];
       const rang: Rang = prochain && partie >= prochain.part ? this.rendezvous.shift()!.rang : "pietaille";
-      this.faireApparaitreEnnemi(this.puissanceIci(this.cycle.nuit), rang);
+      // Les bannis de l'Exil des morts sortent melees a la horde, en revenants.
+      const revenant =
+        rang === "pietaille" &&
+        this.revenantsAttendus > 0 &&
+        this.rng.next() < this.revenantsAttendus / Math.max(1, this.resteDeLaNuit);
+      if (revenant) this.revenantsAttendus -= 1;
+      this.faireApparaitreEnnemi(
+        this.puissanceIci(this.cycle.nuit),
+        rang,
+        revenant ? archetypeParId("revenant") : undefined,
+      );
       this.resteDeLaNuit -= 1;
     }
 
@@ -9766,7 +10277,7 @@ export class ArenaScene extends Phaser.Scene {
     this.hordeAuDepart = 0;
   }
 
-  private faireApparaitreEnnemi(puissance: number, rang: Rang = "pietaille"): void {
+  private faireApparaitreEnnemi(puissance: number, rang: Rang = "pietaille", impose?: Archetype): void {
     // ⚠️ **La nuit de crue passe devant tout le reste** (§4.21) : ce qui sort de
     // l'eau ne vient pas d'un front, et ce n'est pas un monstre de la table des
     // vagues. Le reste de la nuit — l'effectif, la puissance, le pillage — ne
@@ -9783,9 +10294,8 @@ export class ArenaScene extends Phaser.Scene {
     // L'archetype module la puissance, il ne la remplace pas : les seuils font
     // que les premieres minutes n'envoient que des fonceurs, puis que la
     // variete s'ouvre a mesure que la vague durcit.
-    let archetype = parLEau
-      ? beteDEau(this.rng.next())
-      : choisirArchetype(puissance, this.rng.next());
+    let archetype =
+      impose ?? (parLEau ? beteDEau(this.rng.next()) : choisirArchetype(puissance, this.rng.next()));
     // Un rang ne promeut ni l'essaim ni le kamikaze : ils deviennent une brute (§4.33).
     if (rang !== "pietaille" && NON_PROMUS.has(archetype.id)) {
       archetype = archetypeParId(PROMU_A_LEUR_PLACE) ?? archetype;
@@ -10018,6 +10528,12 @@ export class ArenaScene extends Phaser.Scene {
 
   /** La mort est definitive. Elle ne peut arriver qu'au heros incarne. */
   private tomber(hero: Hero): void {
+    // Le Revenant (§4.25) se releve d'abord lui-meme : la Resurrection de
+    // l'equipe reste pour un autre.
+    if (hero.palierReel("revenant") > 0 && !hero.revenu) {
+      this.releverLeRevenant(hero);
+      return;
+    }
     // Resurrection de l'Oracle : une fois, une seule, dans toute la partie.
     const oracle = this.heros.find((h) => h.bonus.resurrection && h.etat !== "mort");
     if (oracle && !this.resurrectionUtilisee) {
