@@ -3,7 +3,15 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-09-23, fin de matinée — **le socle des builds est posé**
+> Dernière mise à jour : 2026-09-23, midi — **les builds sont entièrement tranchés**
+> (§4.25) : une fusion se propose en quatrième carte, arrive au palier 1 sans jamais être
+> moins forte que ses deux ingrédients, puis se monte au double du prix ; entre éléments ;
+> les compétences de classe s'ouvrent aux autres en rare ; aucune fusion ne s'affiche avant
+> de se proposer. Les communes sont les statistiques, plus la Pénétration, l'expérience et
+> l'or ; un trait *Touche-à-tout* donne +1 à +3 actives (9 au plus) ; l'église ouvre les
+> compétences du village, une fois par nuit chacune.
+>
+> Avant ça : 2026-09-23, fin de matinée — **le socle des builds est posé**
 > (§4.25, jalon 6.5, morceau 1) : les 71 compétences portent leurs **tags** (vingt-sept, un
 > bit chacun), affichés en pied de carte ; la **pénétration** borne les projectiles et les
 > frappes en ligne ; la pioche est **pondérée par la classe et par les traits** ; les géants
