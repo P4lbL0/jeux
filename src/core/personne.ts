@@ -434,10 +434,20 @@ export function creerPersonne(nom: string, rng: Rng): Personne {
 }
 
 function tirerTraitDeNaissance(personne: Personne, rng: Rng): void {
-  const possibles = TRAITS_DE_NAISSANCE.filter((id) => !personne.traits.includes(id));
+  // Un trait en plusieurs degres (Touche-a-tout) ne se porte qu'une fois : qui
+  // tient un degre ne peut plus en tirer un autre.
+  const familles = new Set(personne.traits.map((id) => traitParId(id)?.famille).filter((f) => f !== undefined));
+  const possibles = TRAITS_DE_NAISSANCE.filter((id) => {
+    if (personne.traits.includes(id)) return false;
+    const famille = traitParId(id)!.famille;
+    return famille === undefined || !familles.has(famille);
+  });
   if (possibles.length === 0) return;
 
-  const poids = possibles.map((id) => POIDS_HUMEUR[traitParId(id)!.humeur]);
+  const poids = possibles.map((id) => {
+    const trait = traitParId(id)!;
+    return POIDS_HUMEUR[trait.humeur] * (trait.rarete ?? 1);
+  });
   const total = poids.reduce((a, b) => a + b, 0);
   let tirage = rng.next() * total;
   for (let i = 0; i < possibles.length; i++) {

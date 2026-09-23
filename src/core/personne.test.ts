@@ -313,3 +313,23 @@ describe("Les prenoms — la liste d'abord, les syllabes ensuite", () => {
     }
   });
 });
+
+describe("Touche-a-tout a la naissance (§4.23)", () => {
+  it("ne se porte qu'en un degre, et le III est bien plus rare que le I", () => {
+    const ids = [idTrait("touche-a-tout-1"), idTrait("touche-a-tout-2"), idTrait("touche-a-tout-3")];
+    const comptes = [0, 0, 0];
+    for (let graine = 1; graine <= 6000; graine++) {
+      const p = creerPersonne("Gaston", new Rng(graine));
+      const portes = ids.filter((id) => p.traits.includes(id));
+      // Jamais deux degres a la fois.
+      expect(portes.length).toBeLessThanOrEqual(1);
+      ids.forEach((id, k) => {
+        if (p.traits.includes(id)) comptes[k]! += 1;
+      });
+    }
+    expect(comptes[0]!).toBeGreaterThan(comptes[1]!);
+    expect(comptes[1]!).toBeGreaterThan(comptes[2]!);
+    // Le III existe : il n'est pas qu'une ligne de table.
+    expect(comptes[2]!).toBeGreaterThan(0);
+  });
+});

@@ -110,6 +110,10 @@ export interface Modificateurs {
    * l'annonce : un heros qui s'arrete sans prevenir serait vecu comme un bug.
    */
   refuseDeFrapperUnHumain: boolean;
+
+  // ---- ce qui regarde les competences (§4.13, §4.23)
+  /** Emplacements d'actives en plus, gratuits : Touche-a-tout */
+  emplacements: number;
 }
 
 /** Un agregat neutre : personne ne modifie rien. */
@@ -142,6 +146,7 @@ export function modificateursVierges(): Modificateurs {
     vole: false,
     degatsContreHumain: 1,
     refuseDeFrapperUnHumain: false,
+    emplacements: 0,
   };
 }
 
@@ -200,7 +205,11 @@ export type CleTrait =
   // ceux qui viennent d'un mort (§4.26, bloc 11)
   | "heritier"
   | "endeuille"
-  | "aguerri";
+  | "aguerri"
+  // Touche-a-tout, en trois degres (§4.23, 23 septembre 2026)
+  | "touche-a-tout-1"
+  | "touche-a-tout-2"
+  | "touche-a-tout-3";
 
 export interface TraitDef {
   cle: CleTrait;
@@ -224,6 +233,16 @@ export interface TraitDef {
    * dans la table plutot que dans un `if` perdu ailleurs.
    */
   duree?: number;
+  /**
+   * Sa famille, quand il existe en plusieurs degres : on n'en porte qu'un.
+   * Touche-a-tout I, II et III sont de la meme famille.
+   */
+  famille?: string;
+  /**
+   * Combien il sort a la naissance, par rapport aux autres de son humeur (1 par
+   * defaut). Le Touche-a-tout III est bien plus rare que le I.
+   */
+  rarete?: number;
 }
 
 /**
@@ -590,6 +609,41 @@ export const TRAITS: TraitDef[] = [
     origine: "deuil",
     humeur: "bon",
     effets: { monteeStress: 0.85, stressParMort: 0.8, degats: 1.03 },
+  },
+  // ------------------------------------------------ Touche-a-tout (§4.23)
+  // Demande par Angelos le 23 septembre 2026, avec les builds : « un trait ou
+  // le heros peut avoir plus de competences — le moins rare +1, le plus rare
+  // plus ». Borne a +3 par le clavier (4 + 3 + 2 achetees = 9 actives, touches
+  // 2 a 0). ⚠️ Nom et raretes tranches par le code.
+  {
+    cle: "touche-a-tout-1",
+    nom: "Touche-a-tout",
+    resume: "Tient une competence active de plus",
+    origine: "naissance",
+    humeur: "bon",
+    effets: { emplacements: 1 },
+    famille: "touche-a-tout",
+    rarete: 1,
+  },
+  {
+    cle: "touche-a-tout-2",
+    nom: "Touche-a-tout II",
+    resume: "Tient deux competences actives de plus",
+    origine: "naissance",
+    humeur: "bon",
+    effets: { emplacements: 2 },
+    famille: "touche-a-tout",
+    rarete: 0.4,
+  },
+  {
+    cle: "touche-a-tout-3",
+    nom: "Touche-a-tout III",
+    resume: "Tient trois competences actives de plus",
+    origine: "naissance",
+    humeur: "bon",
+    effets: { emplacements: 3 },
+    famille: "touche-a-tout",
+    rarete: 0.12,
   },
 ];
 

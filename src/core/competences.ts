@@ -204,6 +204,22 @@ export interface Bonus {
   penetration: number;
   /** Monstres traverses en plus par les seuls projectiles : Ricochet, Fleche perforante. */
   penetrationProjectiles: number;
+
+  // --- Les statistiques du §4.13 (tranche le 23 septembre 2026) ---
+  /** Multiplicateur de la duree des effets des competences : Concentration */
+  dureeEffets: number;
+  /** Multiplicateur du rayon des competences ZONE : Expansion */
+  tailleZones: number;
+  /** Part de la vie maximale rendue chaque seconde : Regeneration */
+  regeneration: number;
+  /** Multiplicateur de la duree de vie des invocations : Persistance */
+  dureeInvocations: number;
+  /** Projectiles en plus a chaque tir et a chaque salve d'eclats : Proliferation */
+  projectiles: number;
+  /** Multiplicateur de l'experience gagnee : Erudition */
+  xp: number;
+  /** Multiplicateur de l'or que laissent ses morts : Cupidite */
+  or: number;
   /** Fleches supplementaires dans la volee du Rodeur */
   flechesSupplementaires: number;
 
@@ -281,6 +297,13 @@ export function bonusVierge(): Bonus {
     chaineFulgurante: false,
     penetration: 0,
     penetrationProjectiles: 0,
+    dureeEffets: 1,
+    tailleZones: 1,
+    regeneration: 0,
+    dureeInvocations: 1,
+    projectiles: 0,
+    xp: 1,
+    or: 1,
     flechesSupplementaires: 0,
     charognard: 0,
     echo: 0,
@@ -329,8 +352,14 @@ export interface CompetenceDef {
   type: TypeCompetence;
   /** Ses tags, en masque de bits (`TAGS`) : ce qu'elle est, pour les builds (§4.25) */
   tags: number;
-  /** Absente = proposee a toutes les classes */
+  /** Absente = proposee a toutes les classes ; presente = sa classe, et les autres en rare (§4.13) */
   classes?: ClassId[];
+  /**
+   * Reservee a sa classe, meme depuis que les competences de classe s'ouvrent
+   * aux autres (§4.13, 23 septembre 2026) : elle n'a pas de sens ailleurs — les
+   * morts-vivants du necromancien, la volee du rodeur.
+   */
+  fermee?: boolean;
   /** Une phrase qui dit ce que la competence fait */
   description: string;
   /** Cle de texture de l'icone, pour les capacites */
@@ -522,6 +551,132 @@ export const COMPETENCES: CompetenceDef[] = [
     paliers: [
       { texte: "Rechargements -25%", appliquer: (b) => void (b.rechargementCapacites *= 0.75) },
       { texte: "Rechargements -25%", appliquer: (b) => void (b.rechargementCapacites *= 0.75) },
+    ],
+  },
+
+  // ================= Les statistiques qui manquaient =================
+  // §4.13, tranche le 23 septembre 2026 par Angelos : les communes ci-dessus
+  // SONT les statistiques (Amplification = Lame affutee, Hate = Bottes usees,
+  // Vigueur = Cuirasse rapiecee, Portee = Longue vue, Precision = Point
+  // faible). On n'ajoute que celles qui manquaient, plus la Penetration
+  // (l'ancienne Reserve), l'experience et l'or. ⚠️ Leurs chiffres sont tranches
+  // par le code, a regler en jouant.
+  {
+    id: "celerite",
+    nom: "Celerite",
+    rang: "E",
+    type: "passive",
+    tags: TAGS.MAGIE,
+    description: "Tes capacites reviennent un peu plus vite.",
+    paliers: [
+      { texte: "Rechargements -8%", appliquer: (b) => void (b.rechargementCapacites *= 0.92) },
+      { texte: "Rechargements -8%", appliquer: (b) => void (b.rechargementCapacites *= 0.92) },
+      { texte: "Rechargements -8%", appliquer: (b) => void (b.rechargementCapacites *= 0.92) },
+    ],
+  },
+  {
+    id: "concentration",
+    nom: "Concentration",
+    rang: "E",
+    type: "passive",
+    tags: TAGS.MAGIE,
+    description: "Ce que font tes capacites dure plus longtemps.",
+    paliers: [
+      { texte: "Effets 10% plus longs", appliquer: (b) => void (b.dureeEffets += 0.1) },
+      { texte: "Effets 10% plus longs", appliquer: (b) => void (b.dureeEffets += 0.1) },
+      { texte: "Effets 15% plus longs", appliquer: (b) => void (b.dureeEffets += 0.15) },
+    ],
+  },
+  {
+    id: "expansion",
+    nom: "Expansion",
+    rang: "E",
+    type: "passive",
+    tags: TAGS.ZONE,
+    description: "Tes zones s'elargissent.",
+    paliers: [
+      { texte: "Zones 10% plus larges", appliquer: (b) => void (b.tailleZones += 0.1) },
+      { texte: "Zones 10% plus larges", appliquer: (b) => void (b.tailleZones += 0.1) },
+      { texte: "Zones 15% plus larges", appliquer: (b) => void (b.tailleZones += 0.15) },
+    ],
+  },
+  {
+    id: "regeneration",
+    nom: "Regeneration",
+    rang: "F",
+    type: "passive",
+    tags: TAGS.SOIN,
+    description: "Tes plaies se referment toutes seules, lentement, meme au combat.",
+    paliers: [
+      { texte: "+0,5% de vie max par seconde", appliquer: (b) => void (b.regeneration += 0.005) },
+      { texte: "+0,25% de vie max par seconde", appliquer: (b) => void (b.regeneration += 0.0025) },
+      { texte: "+0,25% de vie max par seconde", appliquer: (b) => void (b.regeneration += 0.0025) },
+    ],
+  },
+  {
+    id: "persistance",
+    nom: "Persistance",
+    rang: "E",
+    type: "passive",
+    tags: TAGS.INVOCATION,
+    description: "Ce que tu invoques tient plus longtemps.",
+    paliers: [
+      { texte: "Invocations 10% plus durables", appliquer: (b) => void (b.dureeInvocations += 0.1) },
+      { texte: "Invocations 10% plus durables", appliquer: (b) => void (b.dureeInvocations += 0.1) },
+      { texte: "Invocations 15% plus durables", appliquer: (b) => void (b.dureeInvocations += 0.15) },
+    ],
+  },
+  {
+    id: "proliferation",
+    nom: "Proliferation",
+    rang: "E",
+    type: "passive",
+    tags: TAGS.PROJECTILE,
+    description: "Un projectile de plus a chaque tir, et a chaque salve d'eclats.",
+    paliers: [
+      { texte: "+1 projectile", appliquer: (b) => void (b.projectiles += 1) },
+      { texte: "+1 projectile", appliquer: (b) => void (b.projectiles += 1) },
+    ],
+  },
+  {
+    id: "penetration",
+    nom: "Penetration",
+    rang: "F",
+    type: "passive",
+    tags: TAGS.PROJECTILE,
+    description: "Ce qui traverse — tirs, charges, fleches — traverse un monstre de plus.",
+    paliers: [
+      { texte: "+1 de penetration", appliquer: (b) => void (b.penetration += 1) },
+      { texte: "+1 de penetration", appliquer: (b) => void (b.penetration += 1) },
+      { texte: "+1 de penetration", appliquer: (b) => void (b.penetration += 1) },
+    ],
+  },
+  {
+    id: "erudition",
+    nom: "Erudition",
+    rang: "F",
+    type: "passive",
+    // L'experience n'est ni un element, ni une forme, ni un role : aucun tag.
+    tags: 0,
+    description: "Chaque monstre abattu t'apprend un peu plus.",
+    paliers: [
+      { texte: "+10% d'experience", appliquer: (b) => void (b.xp += 0.1) },
+      { texte: "+10% d'experience", appliquer: (b) => void (b.xp += 0.1) },
+      { texte: "+15% d'experience", appliquer: (b) => void (b.xp += 0.15) },
+    ],
+  },
+  {
+    id: "cupidite",
+    nom: "Cupidite",
+    rang: "F",
+    type: "passive",
+    // L'or non plus : aucun tag.
+    tags: 0,
+    description: "Tu fouilles mieux les cadavres de ceux que tu abats.",
+    paliers: [
+      { texte: "+10% d'or", appliquer: (b) => void (b.or += 0.1) },
+      { texte: "+10% d'or", appliquer: (b) => void (b.or += 0.1) },
+      { texte: "+15% d'or", appliquer: (b) => void (b.or += 0.15) },
     ],
   },
 
@@ -1218,6 +1373,7 @@ export const COMPETENCES: CompetenceDef[] = [
     type: "passive",
     tags: TAGS.PROJECTILE,
     classes: ["rodeur"],
+    fermee: true,
     description: "Sa volee passe de trois fleches a un mur de fleches.",
     paliers: [
       { texte: "+2 fleches par volee", appliquer: (b) => void (b.flechesSupplementaires += 2) },
@@ -1306,6 +1462,7 @@ export const COMPETENCES: CompetenceDef[] = [
     type: "passive",
     tags: TAGS.MORT | TAGS.INVOCATION,
     classes: ["necromancien"],
+    fermee: true,
     description: "Il apprend a parler plus fort aux morts. Plus de cadavres se relevent.",
     paliers: [
       { texte: "+3% de chance de relever", appliquer: (b) => void (b.chanceRelevement += 0.03) },
@@ -1320,6 +1477,7 @@ export const COMPETENCES: CompetenceDef[] = [
     type: "passive",
     tags: TAGS.MORT | TAGS.OMBRE | TAGS.INVOCATION,
     classes: ["necromancien"],
+    fermee: true,
     description: "Ses mort-vivants tiennent mieux debout et frappent plus fort.",
     paliers: [
       { texte: "Mort-vivants +40% plus puissants", appliquer: (b) => void (b.puissanceMortsVivants += 0.4) },
@@ -1334,6 +1492,7 @@ export const COMPETENCES: CompetenceDef[] = [
     type: "passive",
     tags: TAGS.MORT | TAGS.EXPLOSION | TAGS.INVOCATION,
     classes: ["necromancien"],
+    fermee: true,
     description: "Quand un de ses morts retombe, il explose. Rien ne se perd.",
     paliers: [
       {
@@ -1349,6 +1508,7 @@ export const COMPETENCES: CompetenceDef[] = [
     type: "passive",
     tags: TAGS.MORT | TAGS.INVOCATION,
     classes: ["necromancien"],
+    fermee: true,
     description: "Ses mort-vivants ne se decomposent plus. Ils restent tant qu'on ne les detruit pas.",
     paliers: [
       {
@@ -1364,6 +1524,7 @@ export const COMPETENCES: CompetenceDef[] = [
     type: "active",
     tags: TAGS.MORT | TAGS.INVOCATION,
     classes: ["necromancien"],
+    fermee: true,
     description:
       "Il sacrifie tous ses mort-vivants d'un coup pour dresser un colosse fait de leurs restes.",
     icone: "cap-appel",
@@ -1630,12 +1791,24 @@ export function competenceParId(id: string): CompetenceDef | undefined {
   return COMPETENCES.find((c) => c.id === id);
 }
 
+/**
+ * Une competence d'une autre classe sort **cinq fois moins souvent** que chez
+ * elle (§4.13, tranche le 23 septembre 2026) — sauf celles qui restent fermees.
+ */
+export const PART_HORS_DE_SA_CLASSE = 0.2;
+
+/** Est-elle d'une autre classe que celle-ci ? */
+export function horsDeSaClasse(competence: CompetenceDef, classe: ClassId): boolean {
+  return competence.classes !== undefined && !competence.classes.includes(classe);
+}
+
 export function estDisponible(
   competence: CompetenceDef,
   classe: ClassId,
   possedees: CompetencesPossedees,
 ): boolean {
-  if (competence.classes && !competence.classes.includes(classe)) return false;
+  // Les competences de classe s'ouvrent aux autres, en rare, sauf les fermees.
+  if (horsDeSaClasse(competence, classe) && competence.fermee) return false;
   return (possedees[competence.id] ?? 0) < competence.paliers.length;
 }
 
@@ -1743,7 +1916,8 @@ export function penchantPour(
     if (meilleur > 1) retenus.push({ masque: -1, facteur: meilleur });
   }
   for (const trait of traits) retenir(PENCHANTS_DES_TRAITS[trait]);
-  let poids = 1;
+  // Chez une autre classe, elle sort cinq fois moins souvent (§4.13).
+  let poids = horsDeSaClasse(competence, classe) ? PART_HORS_DE_SA_CLASSE : 1;
   for (const r of retenus) poids *= r.facteur;
   return poids;
 }
@@ -1838,8 +2012,17 @@ export interface Proposition {
  */
 export const EMPLACEMENTS_ACTIFS = 4;
 
-/** Au plus deux emplacements de plus : les touches 6 et 7. */
+/**
+ * Au plus deux emplacements **achetes** : quatre, plus deux. Le trait
+ * Touche-a-tout (§4.23) en donne jusqu'a trois autres, gratuits, qui passent
+ * avant l'achat : un heros tient donc neuf actives au plus, touches 2 a 0.
+ */
 export const EMPLACEMENTS_ACTIFS_MAX = 6;
+
+/** La touche d'une active selon son rang, 1 etant l'ultime : 2 a 9, puis 0. */
+export function toucheDeLActive(rang: number): string {
+  return rang === 10 ? "0" : String(rang);
+}
 
 /** Le prix du cinquieme emplacement, puis du sixieme, en pieces (§4.8). */
 export const PRIX_DES_EMPLACEMENTS = [150, 400];
@@ -1854,7 +2037,11 @@ export function activesPossedees(possedees: CompetencesPossedees): CompetenceDef
     .filter((c): c is CompetenceDef => c !== undefined && c.type === "active");
 }
 
-/** Une competence neuve qui demanderait un emplacement de plus qu'on n'en a. */
+/**
+ * Une competence neuve qui demanderait un emplacement de plus qu'on n'en a.
+ *
+ * @param emplacements tous ceux qu'il a : quatre, ceux du trait, ceux achetes
+ */
 export function demandeUnePlace(
   competence: CompetenceDef,
   possedees: CompetencesPossedees,
@@ -1874,11 +2061,15 @@ export function prixDuProchainEmplacement(emplacements: number): number | null {
 /**
  * Les cartes de l'ecran « laquelle oublier ? » : les actives tenues, puis
  * l'emplacement a acheter quand on a de quoi. Oublier perd les paliers.
+ *
+ * @param emplacements quatre, plus ceux qu'il a achetes — c'est ce qui fixe le prix
+ * @param enPlus ceux que lui donne son trait (Touche-a-tout), gratuits
  */
 export function propositionsDeRemplacement(
   possedees: CompetencesPossedees,
   emplacements: number,
   argent: number,
+  enPlus = 0,
 ): Proposition[] {
   const cartes: Proposition[] = activesPossedees(possedees).map((c) => ({
     id: c.id,
@@ -1893,7 +2084,7 @@ export function propositionsDeRemplacement(
     cartes.push({
       id: ID_EMPLACEMENT,
       nom: "Un emplacement de plus",
-      description: `${prix} pieces. Rien n'est oublie : la nouvelle s'ajoute, touche ${emplacements + 2}.`,
+      description: `${prix} pieces. Rien n'est oublie : la nouvelle s'ajoute, touche ${toucheDeLActive(emplacements + enPlus + 2)}.`,
       etiquette: "PIECES  ·  ACHETER",
       couleur: COULEURS_RANG.SSR,
     });

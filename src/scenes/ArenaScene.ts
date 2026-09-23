@@ -545,7 +545,10 @@ const MORTS_POUR_UN_MASSACRE = 3;
 const ELIMINES_POUR_UNE_VICTOIRE = 30;
 const AFFAMES_POUR_UNE_FAMINE = 2;
 
-/** Les sept emplacements de capacite, dans l'ordre (§4.13). */
+/**
+ * Les dix touches de capacite, dans l'ordre (§4.13) : l'ultime, puis neuf
+ * actives au plus — quatre, trois de Touche-a-tout, deux achetees (§4.23).
+ */
 const ACTIONS_CAPACITE: string[] = [
   "capacite1",
   "capacite2",
@@ -554,6 +557,9 @@ const ACTIONS_CAPACITE: string[] = [
   "capacite5",
   "capacite6",
   "capacite7",
+  "capacite8",
+  "capacite9",
+  "capacite10",
 ];
 
 /**
@@ -4369,8 +4375,9 @@ export class ArenaScene extends Phaser.Scene {
       this.prochainTickAuras = this.time.now + 500;
       for (const hero of this.heros) {
         if (hero.bonus.auraFeu <= 0 || !hero.estAuCombat) continue;
-        this.aura(hero.x, hero.y, 9, 0xff8a3d, 400);
-        for (const e of this.ennemisDansRayon(hero.x, hero.y, 72)) {
+        const rayon = this.rayonDeZone(hero, 72);
+        this.aura(hero.x, hero.y, rayon / 8, 0xff8a3d, 400);
+        for (const e of this.ennemisDansRayon(hero.x, hero.y, rayon)) {
           this.blesserEnnemi(e, Math.max(1, Math.round(hero.bonus.auraFeu / 2)), hero);
         }
       }
@@ -4380,7 +4387,8 @@ export class ArenaScene extends Phaser.Scene {
     this.prochainTickEclats = this.time.now + 1800;
     for (const hero of this.heros) {
       if (hero.bonus.eclats <= 0 || !hero.estAuCombat) continue;
-      for (let i = 0; i < hero.bonus.eclats; i++) {
+      const salve = hero.bonus.eclats + hero.bonus.projectiles;
+      for (let i = 0; i < salve; i++) {
         const angle = this.rng.range(0, Math.PI * 2);
         const p = this.projectiles.create(hero.x, hero.y, "projectile") as Phaser.Physics.Arcade.Image;
         p.setTint(0xfff0a0).setScale(0.8).setDepth(hero.y + 1);
@@ -4574,6 +4582,10 @@ export class ArenaScene extends Phaser.Scene {
 
     for (const hero of this.heros) {
       if (hero.etat === "mort") continue;
+
+      // Regeneration (§4.13) : ses plaies se referment toutes seules, meme au
+      // combat. Un soin ordinaire — Sang pour sang le refuse.
+      if (hero.bonus.regeneration > 0) hero.soigner((hero.pvMax * hero.bonus.regeneration * delta) / 1000);
 
       const dansCite =
         rayonSoin > 0 &&
@@ -6845,8 +6857,9 @@ export class ArenaScene extends Phaser.Scene {
   private lancerProjectile(hero: Hero, cible: Ennemi): void {
     const angle = Phaser.Math.Angle.Between(hero.x, hero.y, cible.x, cible.y);
     // Trait du Rodeur : une volee en eventail plutot qu'un seul trait.
+    // Proliferation (§4.13) : un projectile de plus, volee comprise.
     const nombre =
-      hero.classe.trait === "volee" ? 3 + hero.bonus.flechesSupplementaires : 1;
+      (hero.classe.trait === "volee" ? 3 + hero.bonus.flechesSupplementaires : 1) + hero.bonus.projectiles;
 
     for (let i = 0; i < nombre; i++) {
       const ecart = (i - (nombre - 1) / 2) * 0.15;
@@ -6962,8 +6975,9 @@ export class ArenaScene extends Phaser.Scene {
    * on ne l'affiche que quand une piece entiere tombe — un « +0 » a chaque
    * fonceur ne dirait rien.
    */
-  private ramasserLeButin(e: Ennemi): void {
-    const gain = e.humain ? REGLAGES_BUTIN.orDUnHumain : orDUneBete(e.xpDonnee);
+  private ramasserLeButin(e: Ennemi, auteur: Hero): void {
+    // Cupidite (§4.13) : il fouille mieux les cadavres de ceux qu'il abat.
+    const gain = (e.humain ? REGLAGES_BUTIN.orDUnHumain : orDUneBete(e.xpDonnee)) * auteur.bonus.or;
     const bourse = encaisser(this.resteDeButin, gain);
     this.resteDeButin = bourse.reste;
     if (bourse.pieces <= 0) return;
@@ -7051,7 +7065,7 @@ export class ArenaScene extends Phaser.Scene {
     this.marquerLaMort(e);
 
     // L'or, comme l'XP, va a celui qui a tue (§4.29, 20 septembre 2026).
-    this.ramasserLeButin(e);
+    this.ramasserLeButin(e, auteur);
     if (e.humain) this.humainsEnFace = Math.max(0, this.humainsEnFace - 1);
 
     // L'XP va au heros qui a tue, pas a l'equipe (DESIGN.md §4.5).
@@ -7186,7 +7200,7 @@ export class ArenaScene extends Phaser.Scene {
       if (id === ID_EMPLACEMENT) {
         this.argent -= prixDuProchainEmplacement(hero.emplacements) ?? 0;
         hero.emplacements += 1;
-        this.flotter(hero.x, hero.y - 30, `EMPLACEMENT ${hero.emplacements}`, "#f0c419");
+        this.flotter(hero.x, hero.y - 30, `EMPLACEMENT ${hero.emplacementsTotal}`, "#f0c419");
       } else {
         const oubliee = competenceParId(id);
         hero.oublier(id);
@@ -7207,14 +7221,14 @@ export class ArenaScene extends Phaser.Scene {
     // Quatre actives au plus (§4.13) : une cinquieme demande une place. On
     // achete un emplacement, ou on en oublie une ; la fusion (§4.25) viendra
     // avec les builds.
-    if (demandeUnePlace(def, hero.competences, hero.emplacements)) {
+    if (demandeUnePlace(def, hero.competences, hero.emplacementsTotal)) {
       this.modeChoix = "remplacement";
       this.competenceEnAttente = def;
       this.events.emit(
         "choix",
         "PLUS DE PLACE",
         `${def.nom} demande un emplacement — laquelle oublier ?`,
-        propositionsDeRemplacement(hero.competences, hero.emplacements, this.argent),
+        propositionsDeRemplacement(hero.competences, hero.emplacements, this.argent, hero.emplacementsEnPlus),
       );
       return;
     }
@@ -7272,13 +7286,17 @@ export class ArenaScene extends Phaser.Scene {
     const hero = this.hero;
     if (!hero || hero.etat === "mort") return;
 
-    hero.capacites.forEach((capacite, i) => {
-      if (capacite.automatique) return;
-      const action = ACTIONS_CAPACITE[i];
-      if (!action || !this.clavier.justeAppuyee(action)) return;
-      if (!hero.peutLancer(capacite)) return;
+    // Les automatiques ne prennent pas de touche (§4.13) : la n-ieme capacite
+    // qu'on lance soi-meme est sur la n-ieme touche. Avant, une automatique
+    // apprise tot decalait toutes les suivantes d'un cran.
+    let rang = 0;
+    for (const capacite of hero.capacites) {
+      if (capacite.automatique) continue;
+      const action = ACTIONS_CAPACITE[rang++];
+      if (!action || !this.clavier.justeAppuyee(action)) continue;
+      if (!hero.peutLancer(capacite)) continue;
       this.lancerCapacite(hero, capacite);
-    });
+    }
   }
 
   private gererCapacitesAuto(): void {
@@ -7404,15 +7422,31 @@ export class ArenaScene extends Phaser.Scene {
 
   // --- Chevalier Sacre : Jugement et Bouclier des ames ---
 
+  /**
+   * Une duree d'effet de competence, allongee par Concentration (§4.13).
+   *
+   * ⚠️ Seulement ce qui **aide** : un sursis, un ralenti, un soin qui dure. Le
+   * delai du Contrat ou l'immobilisation de l'Exil sont des prix, pas des
+   * effets — Concentration ne les allonge pas.
+   */
+  private dureeDeLEffet(hero: Hero, ms: number): number {
+    return ms * hero.bonus.dureeEffets;
+  }
+
+  /** Le rayon d'une competence ZONE, elargi par Expansion (§4.13). */
+  private rayonDeZone(hero: Hero, rayon: number): number {
+    return rayon * hero.bonus.tailleZones;
+  }
+
   private effetJugement(hero: Hero, variante: string): void {
     const palier = Math.max(1, hero.palierDe("jugement"));
-    const rayon = 80 + palier * 15;
+    const rayon = this.rayonDeZone(hero, 80 + palier * 15);
 
     if (variante === "jugement-croisade") {
       // La colonne ne reste plus au sol : elle le suit.
       this.time.addEvent({
         delay: 400,
-        repeat: 14,
+        repeat: Math.round(15 * hero.bonus.dureeEffets) - 1,
         callback: () => {
           if (hero.etat === "mort") return;
           this.effetCercle(hero.x, hero.y, rayon, 0xfff0a0);
@@ -7489,9 +7523,10 @@ export class ArenaScene extends Phaser.Scene {
     hero.setPosition(arrivee.x, arrivee.y);
 
     if (variante === "charge-sismique") {
-      this.effetCercle(arrivee.x, arrivee.y, 120, 0xc9a06b);
+      const rayon = this.rayonDeZone(hero, 120);
+      this.effetCercle(arrivee.x, arrivee.y, rayon, 0xc9a06b);
       this.cameras.main.shake(220, 0.008);
-      for (const e of this.ennemisDansRayon(arrivee.x, arrivee.y, 120)) {
+      for (const e of this.ennemisDansRayon(arrivee.x, arrivee.y, rayon)) {
         this.repousser(e, arrivee.x, arrivee.y, 340);
         this.blesserEnnemi(e, hero.degats * 3, hero);
       }
@@ -7523,12 +7558,13 @@ export class ArenaScene extends Phaser.Scene {
 
   private effetCriDeGuerre(hero: Hero): void {
     const palier = Math.max(1, hero.palierDe("cri-de-guerre"));
-    const duree = 4000 + palier * 2000;
+    const duree = this.dureeDeLEffet(hero, 4000 + palier * 2000);
     const gain = 1 + 0.1 + palier * 0.1;
+    const rayon = this.rayonDeZone(hero, 220);
 
-    this.effetCercle(hero.x, hero.y, 220, 0xffd166);
+    this.effetCercle(hero.x, hero.y, rayon, 0xffd166);
     if (hero.estIncarne) this.cameras.main.shake(180, 0.005);
-    for (const e of this.ennemisDansRayon(hero.x, hero.y, 220)) {
+    for (const e of this.ennemisDansRayon(hero.x, hero.y, rayon)) {
       this.repousser(e, hero.x, hero.y, 420);
       e.ralentir(1500, 0.6);
     }
@@ -7570,9 +7606,9 @@ export class ArenaScene extends Phaser.Scene {
 
   private effetSablier(hero: Hero): void {
     const palier = Math.max(1, hero.palierDe("sablier"));
-    const duree = 3000 + palier * 2000;
+    const duree = this.dureeDeLEffet(hero, 3000 + palier * 2000);
     const facteur = palier >= 2 ? 0.25 : 0.4;
-    const rayon = 240;
+    const rayon = this.rayonDeZone(hero, 240);
 
     this.aura(hero.x, hero.y, rayon / 8, 0x8ed6ff, duree);
     const x = hero.x;
@@ -7590,7 +7626,7 @@ export class ArenaScene extends Phaser.Scene {
 
   private effetCrocEnJambe(hero: Hero): void {
     const palier = Math.max(1, hero.palierDe("croc-en-jambe"));
-    const rayon = 80 + palier * 20;
+    const rayon = this.rayonDeZone(hero, 80 + palier * 20);
     const point = hero.estIncarne
       ? this.cameras.main.getWorldPoint(this.input.activePointer.x, this.input.activePointer.y)
       : this.pointDevant(hero, 80);
@@ -7604,7 +7640,7 @@ export class ArenaScene extends Phaser.Scene {
 
     this.time.addEvent({
       delay: 500,
-      repeat: 11,
+      repeat: Math.round(12 * hero.bonus.dureeEffets) - 1,
       callback: () => {
         for (const e of this.ennemisDansRayon(point.x, point.y, rayon)) {
           e.ralentir(600, 0.6);
@@ -7612,7 +7648,7 @@ export class ArenaScene extends Phaser.Scene {
         }
       },
     });
-    this.time.delayedCall(6000, () => tapis.active && tapis.destroy());
+    this.time.delayedCall(this.dureeDeLEffet(hero, 6000), () => tapis.active && tapis.destroy());
   }
 
   private effetDoppelganger(hero: Hero): void {
@@ -7694,7 +7730,7 @@ export class ArenaScene extends Phaser.Scene {
         const pris = this.ennemisDansRayon(point.x, point.y, 34);
         if (pris.length === 0) return;
         for (const e of pris) {
-          e.ralentir(1000 + palier * 1000);
+          e.ralentir(this.dureeDeLEffet(hero, 1000 + palier * 1000));
           if (palier >= 2) this.blesserEnnemi(e, hero.degats * palier, hero);
         }
         this.effetCercle(point.x, point.y, 40, 0xb0a08a);
@@ -7764,7 +7800,7 @@ export class ArenaScene extends Phaser.Scene {
 
   private effetChantDeGuerre(hero: Hero): void {
     const palier = Math.max(1, hero.palierDe("chant-de-guerre"));
-    const duree = 7000 + palier * 1000;
+    const duree = this.dureeDeLEffet(hero, 7000 + palier * 1000);
     const facteur = palier >= 2 ? 0.55 : 0.7;
 
     for (const allie of this.heros) {
@@ -7786,7 +7822,7 @@ export class ArenaScene extends Phaser.Scene {
    */
   private effetMartyre(hero: Hero): void {
     const palier = Math.max(1, hero.palierDe("martyre"));
-    const duree = 5000 + palier * 3000;
+    const duree = this.dureeDeLEffet(hero, 5000 + palier * 3000);
     this.martyr = hero;
     hero.rendreInvulnerable(duree);
     this.aura(hero.x, hero.y, 5, 0xffd166, duree);
@@ -7843,7 +7879,8 @@ export class ArenaScene extends Phaser.Scene {
 
   private effetOrageFinal(hero: Hero): void {
     const palier = Math.max(1, hero.palierDe("orage-final"));
-    const duree = 6000 + palier * 4000;
+    const duree = this.dureeDeLEffet(hero, 6000 + palier * 4000);
+    const rayon = this.rayonDeZone(hero, 60);
 
     this.time.addEvent({
       delay: 400,
@@ -7854,8 +7891,8 @@ export class ArenaScene extends Phaser.Scene {
         const x = cible?.x ?? hero.x + this.rng.range(-160, 160);
         const y = cible?.y ?? hero.y + this.rng.range(-160, 160);
         this.trainee(x, y - 200, x, y, 0x8ed6ff);
-        this.effetCercle(x, y, 60, 0x8ed6ff);
-        for (const e of this.ennemisDansRayon(x, y, 60)) {
+        this.effetCercle(x, y, rayon, 0x8ed6ff);
+        for (const e of this.ennemisDansRayon(x, y, rayon)) {
           this.blesserEnnemi(e, Math.round(hero.degats * 1.6), hero);
         }
       },
@@ -7865,14 +7902,13 @@ export class ArenaScene extends Phaser.Scene {
   /** Heure sombre : le temps s'arrete pour tout le monde sauf le joueur. */
   private effetHeureSombre(hero: Hero): void {
     const palier = Math.max(1, hero.palierDe("heure-sombre"));
-    const duree = 1500 + palier * 1500;
+    const duree = this.dureeDeLEffet(hero, 1500 + palier * 1500);
     this.figeJusqua = this.time.now + duree;
     this.cameras.main.flash(200, 40, 20, 60);
     for (const objet of this.ennemis.getChildren()) (objet as Ennemi).setTint(0x6b6478);
     this.time.delayedCall(duree, () => {
       for (const objet of this.ennemis.getChildren()) (objet as Ennemi).clearTint();
     });
-    void hero;
   }
 
   private groupeLePlusDense(hero: Hero, portee: number, rayon: number): Ennemi | null {
@@ -7951,7 +7987,7 @@ export class ArenaScene extends Phaser.Scene {
 
   private effetSursautSacre(hero: Hero): void {
     const palier = Math.max(1, hero.palierDe("sursaut-sacre"));
-    hero.rendreInvulnerable(1000);
+    hero.rendreInvulnerable(this.dureeDeLEffet(hero, 1000));
     hero.soigner(hero.pvMax * (0.2 + palier * 0.05));
     this.effetCercle(hero.x, hero.y, 130, 0xfff0a0);
     for (const e of this.ennemisDansRayon(hero.x, hero.y, 130)) this.repousser(e, hero.x, hero.y, 380);
@@ -7959,11 +7995,11 @@ export class ArenaScene extends Phaser.Scene {
 
   private effetBenediction(hero: Hero): void {
     const palier = Math.max(1, hero.palierDe("benediction"));
-    const duree = 4000 + palier * 1000;
+    const duree = this.dureeDeLEffet(hero, 4000 + palier * 1000);
     const soin = palier;
     const x = hero.x;
     const y = hero.y;
-    const rayon = 130;
+    const rayon = this.rayonDeZone(hero, 130);
 
     this.aura(x, y, rayon / 8, 0xa8ffc8, duree);
     this.time.addEvent({
@@ -7984,8 +8020,8 @@ export class ArenaScene extends Phaser.Scene {
 
   private effetMoulinet(hero: Hero, variante: string): void {
     const palier = Math.max(1, hero.palierDe("moulinet"));
-    const duree = 2000 + palier * 500;
-    const rayon = 90;
+    const duree = this.dureeDeLEffet(hero, 2000 + palier * 500);
+    const rayon = this.rayonDeZone(hero, 90);
     const ticks = Math.floor(duree / 200);
 
     this.time.addEvent({
@@ -8055,7 +8091,7 @@ export class ArenaScene extends Phaser.Scene {
 
   private effetInvisibilite(hero: Hero): void {
     const palier = Math.max(1, hero.palierDe("invisibilite"));
-    const duree = 4000 + palier * 1000;
+    const duree = this.dureeDeLEffet(hero, 4000 + palier * 1000);
     hero.rendreInvisible(duree);
     hero.multiplicateurVitesse = 1 + 0.05 + palier * 0.05;
     this.time.delayedCall(duree, () => void (hero.multiplicateurVitesse = 1));

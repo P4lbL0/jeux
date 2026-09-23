@@ -3,7 +3,12 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-09-23, midi — **les builds sont entièrement tranchés**
+> Dernière mise à jour : 2026-09-23, après-midi — **les statistiques sont dans le jeu**
+> (§4.13, jalon 6.5, morceau 2a) : neuf cartes neuves, *Touche-à-tout* et ses touches 8, 9
+> et 0, les compétences de classe ouvertes aux autres en rare. La suite : les six bases
+> élémentaires.
+>
+> Avant ça : 2026-09-23, midi — **les builds sont entièrement tranchés**
 > (§4.25) : une fusion se propose en quatrième carte, arrive au palier 1 sans jamais être
 > moins forte que ses deux ingrédients, puis se monte au double du prix ; entre éléments ;
 > les compétences de classe s'ouvrent aux autres en rare ; aucune fusion ne s'affiche avant

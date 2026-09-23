@@ -80,6 +80,10 @@ export const ACTIONS: readonly ActionClavier[] = [
   { id: "capacite5", nom: "Capacite 5", categorie: "battre", defaut: "FIVE", alias: ["NUMPAD_FIVE"] },
   { id: "capacite6", nom: "Capacite 6", categorie: "battre", defaut: "SIX", alias: ["NUMPAD_SIX"] },
   { id: "capacite7", nom: "Capacite 7", categorie: "battre", defaut: "SEVEN", alias: ["NUMPAD_SEVEN"] },
+  // Touche-a-tout (§4.23) : jusqu'a trois actives de plus, sur 8, 9 et 0.
+  { id: "capacite8", nom: "Capacite 8", categorie: "battre", defaut: "EIGHT", alias: ["NUMPAD_EIGHT"] },
+  { id: "capacite9", nom: "Capacite 9", categorie: "battre", defaut: "NINE", alias: ["NUMPAD_NINE"] },
+  { id: "capacite10", nom: "Capacite 10", categorie: "battre", defaut: "ZERO", alias: ["NUMPAD_ZERO"] },
   // A et E encadrent ZQSD : on change de heros sans lacher les deplacements.
   { id: "heroPrecedent", nom: "Heros precedent", categorie: "battre", defaut: "A" },
   { id: "heroSuivant", nom: "Heros suivant", categorie: "battre", defaut: "E" },
@@ -248,6 +252,9 @@ const ECRITURES: Record<string, string> = {
   NUMPAD_FIVE: "PAVE 5",
   NUMPAD_SIX: "PAVE 6",
   NUMPAD_SEVEN: "PAVE 7",
+  NUMPAD_EIGHT: "PAVE 8",
+  NUMPAD_NINE: "PAVE 9",
+  NUMPAD_ZERO: "PAVE 0",
   BACKSPACE: "RETOUR",
   ENTER: "ENTREE",
   SHIFT: "MAJ",

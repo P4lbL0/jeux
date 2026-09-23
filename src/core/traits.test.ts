@@ -12,10 +12,11 @@ import {
 } from "./traits";
 
 describe("La table des traits", () => {
-  it("porte les 17 traits de naissance et les 11 d'exploit du §4.23", () => {
+  it("porte les 20 traits de naissance et les 11 d'exploit du §4.23", () => {
     // 15 au depart, plus les deux qui regardent qui est en face — reveilles le
-    // 20 septembre 2026 quand un village refuse a pu se jeter sur nous (§4.29).
-    expect(TRAITS_DE_NAISSANCE).toHaveLength(17);
+    // 20 septembre 2026 quand un village refuse a pu se jeter sur nous (§4.29) —,
+    // plus les trois degres de Touche-a-tout (23 septembre 2026).
+    expect(TRAITS_DE_NAISSANCE).toHaveLength(20);
     expect(TRAITS.filter((t) => t.origine === "exploit")).toHaveLength(11);
   });
 
@@ -126,5 +127,23 @@ describe("Les sequelles", () => {
     expect(sequelleParId(idSequelle("miracule"))?.nom).toBe("Miracule");
     expect(traitParId(idTrait("nyctalope"))?.nom).toBe("Nyctalope");
     expect(traitParId(999)).toBeUndefined();
+  });
+});
+
+describe("Touche-a-tout (§4.23, 23 septembre 2026)", () => {
+  const degres = ["touche-a-tout-1", "touche-a-tout-2", "touche-a-tout-3"] as const;
+
+  it("donne une, deux ou trois actives de plus, du plus courant au plus rare", () => {
+    const defs = degres.map((cle) => traitParId(idTrait(cle))!);
+    expect(defs.map((d) => d.effets.emplacements)).toEqual([1, 2, 3]);
+    expect(defs.every((d) => d.famille === "touche-a-tout" && d.origine === "naissance")).toBe(true);
+    // Plus il donne, plus il est rare.
+    expect(defs[0]!.rarete!).toBeGreaterThan(defs[1]!.rarete!);
+    expect(defs[1]!.rarete!).toBeGreaterThan(defs[2]!.rarete!);
+  });
+
+  it("s'agrege en emplacements, et vaut zero pour qui ne le porte pas", () => {
+    expect(modificateursVierges().emplacements).toBe(0);
+    expect(agreger([idTrait("touche-a-tout-2")], []).emplacements).toBe(2);
   });
 });

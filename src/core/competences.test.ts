@@ -24,6 +24,10 @@ import {
   texteDesTags,
   type CompetenceDef,
   type EvolutionDef,
+  estDisponible,
+  horsDeSaClasse,
+  PART_HORS_DE_SA_CLASSE,
+  toucheDeLActive,
 } from "./competences";
 
 /** Une competence du catalogue, ou le test echoue tout de suite. */
@@ -86,15 +90,47 @@ describe("Competences — coherence du contenu", () => {
 });
 
 describe("Competences — le tirage", () => {
-  it("ne propose jamais une competence reservee a une autre classe", () => {
+  it("ne propose jamais a une autre classe une competence fermee", () => {
+    // Les morts-vivants du necromancien, la volee du rodeur (§4.13, 23 septembre 2026).
     const rng = new Rng(11);
     for (const classe of ORDRE_CLASSES) {
       for (let i = 0; i < 200; i++) {
         for (const c of tirerCompetences(rng, classe, {}, 3)) {
-          if (c.classes) expect(c.classes).toContain(classe);
+          if (c.fermee) expect(c.classes).toContain(classe);
         }
       }
     }
+  });
+
+  it("ouvre les competences de classe aux autres classes, sauf les six fermees", () => {
+    const fermees = COMPETENCES.filter((c) => c.fermee).map((c) => c.id).sort();
+    expect(fermees).toEqual(
+      ["appel-des-morts", "armee-des-ombres", "carquois-sans-fin", "charnier", "lien-necrotique", "seigneur-des-tombes"],
+    );
+    // Un guerrier peut tirer le Sablier du mage — pas l'Armee des ombres.
+    expect(estDisponible(def("sablier"), "guerrier", {})).toBe(true);
+    expect(estDisponible(def("armee-des-ombres"), "guerrier", {})).toBe(false);
+    expect(estDisponible(def("armee-des-ombres"), "necromancien", {})).toBe(true);
+  });
+
+  it("montre une competence d'une autre classe cinq fois moins souvent", () => {
+    expect(horsDeSaClasse(def("sablier"), "guerrier")).toBe(true);
+    expect(horsDeSaClasse(def("sablier"), "mage")).toBe(false);
+    expect(penchantPour(def("sablier"), "guerrier")).toBeCloseTo(PART_HORS_DE_SA_CLASSE);
+    expect(penchantPour(def("sablier"), "mage")).toBe(1);
+    // Et ca se voit sur des milliers de tirages : le mage la croise bien plus.
+    const vues = (classe: "mage" | "guerrier") => {
+      const rng = new Rng(404);
+      let n = 0;
+      for (let i = 0; i < 3000; i++) {
+        if (tirerCompetences(rng, classe, {}, 3).some((c) => c.id === "sablier")) n++;
+      }
+      return n;
+    };
+    const chezLui = vues("mage");
+    const ailleurs = vues("guerrier");
+    expect(ailleurs).toBeGreaterThan(0);
+    expect(chezLui / ailleurs).toBeGreaterThan(3);
   });
 
   it("ne propose jamais deux fois la meme competence dans un tirage", () => {
@@ -220,9 +256,10 @@ describe("Les tags (§4.25) — le socle des builds", () => {
     }
   });
 
-  it("tague toutes les competences sauf le Veteran, qui n'est qu'un niveau", () => {
-    const sansTag = COMPETENCES.filter((c) => c.tags === 0).map((c) => c.id);
-    expect(sansTag).toEqual(["veteran"]);
+  it("tague toutes les competences sauf trois qui ne sont ni un element, ni une forme, ni un role", () => {
+    // Le Veteran (un niveau), l'Erudition (de l'experience) et la Cupidite (de l'or).
+    const sansTag = COMPETENCES.filter((c) => c.tags === 0).map((c) => c.id).sort();
+    expect(sansTag).toEqual(["cupidite", "erudition", "veteran"]);
   });
 
   it("reprend les exemples du design", () => {
@@ -332,5 +369,84 @@ describe("La penetration (§4.25) — combien de monstres une attaque traverse",
     expect(PENETRATION.charge(2)).toBeGreaterThan(PENETRATION.charge(1));
     expect(PENETRATION.flecheDuJugement(2)).toBeGreaterThan(PENETRATION.flecheDuJugement(1));
     expect(PENETRATION.ombre).toBeGreaterThan(1);
+  });
+});
+
+describe("Les statistiques (§4.13, 23 septembre 2026)", () => {
+  /** Tous les paliers d'une competence, appliques d'un coup a des bonus neufs. */
+  function auMaximum(id: string) {
+    const bonus = bonusVierge();
+    def(id).paliers.forEach((p, i) => p.appliquer?.(bonus, i + 1));
+    return bonus;
+  }
+
+  it("ajoute seulement celles qui manquaient, rangs F et E, ouvertes a toutes", () => {
+    const neuves = ["celerite", "concentration", "expansion", "regeneration", "persistance",
+      "proliferation", "penetration", "erudition", "cupidite"];
+    for (const id of neuves) {
+      const c = def(id);
+      expect(["F", "E"]).toContain(c.rang);
+      expect(c.type).toBe("passive");
+      expect(c.classes).toBeUndefined();
+    }
+    // Les doublons ne sont pas entres : Amplification est la Lame affutee.
+    for (const doublon of ["amplification", "hate", "vigueur", "portee", "precision", "reserve"]) {
+      expect(competenceParId(doublon)).toBeUndefined();
+    }
+  });
+
+  it("donne a chacune ce qu'elle promet", () => {
+    expect(auMaximum("celerite").rechargementCapacites).toBeCloseTo(0.92 ** 3);
+    expect(auMaximum("concentration").dureeEffets).toBeCloseTo(1.35);
+    expect(auMaximum("expansion").tailleZones).toBeCloseTo(1.35);
+    expect(auMaximum("regeneration").regeneration).toBeCloseTo(0.01);
+    expect(auMaximum("persistance").dureeInvocations).toBeCloseTo(1.35);
+    expect(auMaximum("proliferation").projectiles).toBe(2);
+    expect(auMaximum("erudition").xp).toBeCloseTo(1.35);
+    expect(auMaximum("cupidite").or).toBeCloseTo(1.35);
+  });
+
+  it("fait de la Penetration une brique de tout ce qui traverse, projectiles et frappes", () => {
+    const bonus = auMaximum("penetration");
+    expect(penetrationDe(PENETRATION.projectile, bonus, true)).toBe(4);
+    expect(penetrationDe(PENETRATION.ombre, bonus, false)).toBe(PENETRATION.ombre + 3);
+  });
+
+  it("part de bonus neutres : sans la carte, rien ne change", () => {
+    const b = bonusVierge();
+    expect([b.dureeEffets, b.tailleZones, b.dureeInvocations, b.xp, b.or]).toEqual([1, 1, 1, 1, 1]);
+    expect([b.regeneration, b.projectiles, b.penetration]).toEqual([0, 0, 0]);
+  });
+});
+
+describe("Les emplacements de Touche-a-tout (§4.23, 23 septembre 2026)", () => {
+  it("ecrit les touches des actives de 2 a 9, puis 0", () => {
+    expect(toucheDeLActive(2)).toBe("2");
+    expect(toucheDeLActive(9)).toBe("9");
+    expect(toucheDeLActive(10)).toBe("0");
+  });
+
+  it("vend l'emplacement au prix de l'achat, et annonce sa vraie touche", () => {
+    const quatre = { moulinet: 1, charge: 1, "cri-de-guerre": 1, sablier: 1 };
+    // Sans trait : le cinquieme, touche 6, a 150 pieces.
+    const sans = propositionsDeRemplacement(quatre, EMPLACEMENTS_ACTIFS, 1000).at(-1)!;
+    expect(sans.id).toBe(ID_EMPLACEMENT);
+    expect(sans.description).toContain("150 pieces");
+    expect(sans.description).toContain("touche 6");
+    // Avec Touche-a-tout III : trois places gratuites de plus, la premiere
+    // achetee coute toujours 150 et tombe sur la touche 9.
+    const avec = propositionsDeRemplacement(quatre, EMPLACEMENTS_ACTIFS, 1000, 3).at(-1)!;
+    expect(avec.description).toContain("150 pieces");
+    expect(avec.description).toContain("touche 9");
+    // La derniere possible, la neuvieme active, est sur le 0.
+    const derniere = propositionsDeRemplacement(quatre, EMPLACEMENTS_ACTIFS + 1, 1000, 3).at(-1)!;
+    expect(derniere.description).toContain("400 pieces");
+    expect(derniere.description).toContain("touche 0");
+  });
+
+  it("demande une place au-dela de tous les emplacements, trait compris", () => {
+    const sept = { moulinet: 1, charge: 1, "cri-de-guerre": 1, sablier: 1, clignement: 1, dome: 1, exil: 1 };
+    expect(demandeUnePlace(def("jugement"), sept, 7)).toBe(true);
+    expect(demandeUnePlace(def("jugement"), sept, 8)).toBe(false);
   });
 });

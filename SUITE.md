@@ -1568,6 +1568,61 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6.5, morceau 2a — les statistiques, Touche-à-tout, les classes ouvertes (23 septembre 2026)
+
+**Les décisions du questionnaire sont prises** (onze réponses, puis deux précisions : les
+compétences du village servent une fois par nuit, la mythique toutes les trois ; le trait
+va de +1 à +3). Elles sont écrites au design (§4.25, §4.13, §4.23, commit `acd08f2`).
+
+- **Neuf statistiques neuves** (`core/competences.ts`, après les communes) : *Célérité*,
+  *Concentration*, *Expansion*, *Régénération*, *Persistance*, *Prolifération*,
+  *Pénétration*, *Érudition*, *Cupidité* — chiffres au §4.13. Sept champs de bonus neufs,
+  branchés là où ils agissent : `dureeDeLEffet` et `rayonDeZone` dans chaque compétence qui
+  en a (seulement ce qui aide, seulement les ZONE), la régénération dans `majEtats`, les
+  projectiles dans le tir et les éclats, l'expérience dans `gagnerXp`, l'or dans
+  `ramasserLeButin` (celui qui tue), la vie des invocations dans `MortVivant` et `Double`.
+- **Les compétences de classe s'ouvrent aux autres**, cinq fois plus rares
+  (`PART_HORS_DE_SA_CLASSE`), sauf six **fermées** (`fermee: true`) : les morts-vivants du
+  nécromancien et le *Carquois sans fin*.
+- **Touche-à-tout** (`core/traits.ts`, trois degrés d'une même `famille`, chacun sa
+  `rarete`) : 12 % des naissances, 8 / 3 / 1 %. Il s'agrège en `emplacements` ;
+  `Hero.emplacementsTotal` = quatre + le trait + les achats, et l'achat garde ses deux crans
+  (150, 400). **Les touches 8, 9 et 0** sont trois actions neuves (`capacite8` à
+  `capacite10`).
+- **Les automatiques ne prennent plus de touche** (§4.13 le disait, le code non) : la
+  n-ième capacité lancée à la main est sur la n-ième touche, dans la scène comme dans le
+  panneau, qui lit désormais le mappage (les emplacements achetés s'affichaient « ? »).
+- **Le panneau des capacités se serre** quand tout ne tient pas en hauteur — une ligne par
+  capacité, sans description — et **l'écran de choix passe sur deux rangées** au-delà de
+  cinq cartes, touches 1 à 9 puis 0 (dix cartes sur une ligne faisaient cent pixels de
+  large, et la carte d'achat, toujours la dernière, n'avait pas de touche).
+
+**Vérifié dans trois parties** (`.tmp/verifier-2a.ts`) : **48 contrôles sur 48** — sept
+actives sans payer, l'achat au clavier (touche 8, puis 9), neuf actives et plus rien à
+acheter, les touches 2, 8 et 0 qui lancent la bonne active malgré une automatique apprise
+avant, et chaque statistique mesurée par ce qu'elle fait (le Moulinet qui atteint un
+monstre à 110 px, l'Invisibilité qui tient 6,75 s, le double 6 750 ms, 1 % de vie par
+seconde, un tiers d'or de plus sur trente boss). Le socle repasse : 27 sur 27.
+
+**À regarder** : `captures/jeu/2026-09-23-statistiques-et-touche-a-tout/` — neuf actives
+sur les touches 2 à 0, et l'écran « plus de place » sur deux rangées.
+
+⚠️ **Un bug trouvé en vérifiant, antérieur à ce chantier** : le chiffre qui choisit une carte
+est aussi la touche d'une capacité, et le jeu reprend **dans l'image même de l'appui**.
+Prendre la carte 1 au clavier lançait l'ultime à la reprise, la carte 2 la première active.
+Corrigé : `reprendreLeJeu` oublie les appuis de capacité (`Clavier.oublierLesAppuis`).
+
+⚠️ **Deux pièges pour les scripts de vérification** :
+
+1. **Ne jamais envoyer « choix-fait » sans pause.** La reprise rend le temps écoulé depuis
+   `debutPause` ; sans pause, elle rend celui d'une pause jamais prise, et tous les
+   horodatages sautent — un héros « condamné » que plus rien ne soigne, une invisibilité
+   sans fin. Poser `enPause`, `debutPause` et `physics.pause()` avant, comme `ouvrirChoix`.
+2. **`vitesse = 0` n'arrête pas un monstre** : l'IA pose une vitesse quand même. Pour un
+   monstre planté, `body.moves = false`.
+
+**1002 tests verts** (+12).
+
 ### Le jalon 6.5, morceau 1 — le socle des builds (23 septembre 2026)
 
 **Les tags, la pénétration, la pioche pondérée.** Le jalon est découpé en sept morceaux

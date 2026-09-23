@@ -170,8 +170,10 @@ Dans l'ordre :
    builds interrogent la horde par le voisinage** (`ennemisDansRayon`,
    `ennemiLePlusProche`, `monstresLeLongDuTrait`), jamais en parcourant `this.ennemis`.
    ✅ **Morceau 1, le socle** (23 septembre) : tags, pénétration, pioche pondérée, recul des
-   géants. **Les morceaux 2 à 7 attendent les onze réponses** du questionnaire
-   (https://claude.ai/artifact/K83jkcH7Lt7CYgt884fuU9) — découpage dans le §4.25, « Où ça se code ».
+   géants. ✅ **Les décisions sont prises** et écrites (§4.25, §4.13, §4.23). ✅ **Morceau
+   2a** : les neuf statistiques, *Touche-à-tout* (touches 8, 9, 0), les compétences de classe
+   ouvertes. **La suite : 2b, les six bases élémentaires** — découpage dans le §4.25, « Où
+   ça se code ».
 
 Toute mesure se fait **sur la vraie carte graphique**, sans fenêtre
 (`--use-angle=d3d11`), et **sur le même monde et le même village** que son témoin : le

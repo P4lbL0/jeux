@@ -190,6 +190,16 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   /** Les emplacements d'actives : quatre, puis ceux qu'on achete (§4.13). */
   emplacements = EMPLACEMENTS_ACTIFS;
 
+  /** Ceux que lui donne son trait, gratuits : Touche-a-tout (§4.23). */
+  get emplacementsEnPlus(): number {
+    return this.personne.mods.emplacements;
+  }
+
+  /** Tous ses emplacements d'actives : quatre, ceux du trait, ceux achetes. */
+  get emplacementsTotal(): number {
+    return this.emplacements + this.emplacementsEnPlus;
+  }
+
   pv: number;
   niveau = 1;
   xp = 0;
@@ -713,7 +723,8 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   /** Renvoie true si le heros a gagne un niveau */
   gagnerXp(montant: number): boolean {
-    this.xp += montant;
+    // Erudition (§4.13) : chaque monstre lui apprend un peu plus.
+    this.xp += montant * this.bonus.xp;
     if (this.xp < this.xpRequise) return false;
     this.xp -= this.xpRequise;
     this.niveau += 1;
@@ -1127,7 +1138,10 @@ export class MortVivant extends Invocation {
     this.degats = Math.round((4 + maitre.niveau * 1.2) * puissance);
     this.vitesse = 70;
     this.explosif = maitre.bonus.mortsVivantsExplosifs;
-    this.finDeVie = maitre.bonus.mortsVivantsEternels ? Infinity : scene.time.now + 45000;
+    // Persistance (§4.13) : ils tiennent plus longtemps avant de retomber.
+    this.finDeVie = maitre.bonus.mortsVivantsEternels
+      ? Infinity
+      : scene.time.now + 45000 * maitre.bonus.dureeInvocations;
   }
 }
 
@@ -1165,7 +1179,7 @@ export class Double extends Invocation {
     this.vitesse = 0;
     this.provoque = true;
     this.explosif = true;
-    this.finDeVie = scene.time.now + 5000;
+    this.finDeVie = scene.time.now + 5000 * maitre.bonus.dureeInvocations;
     this.setAlpha(0.6);
     this.teinte = 0x9fd8ff;
     this.setTint(0x9fd8ff);

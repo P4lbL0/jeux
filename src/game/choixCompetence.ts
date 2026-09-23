@@ -4,6 +4,16 @@ import {
   affuter, C, POLICE, T, cadre, espacer, type Plaque } from "./ui/chrome";
 import { largeurEcran, hauteurEcran } from "./ui/ecran";
 
+/** Au-dela, les cartes passent a la rangee suivante. */
+const CARTES_PAR_RANGEE = 5;
+
+/** « Touches 1 a 3 », « Touches 1 a 9 et 0 » : ce que les cartes affichent. */
+function texteDesTouches(n: number): string {
+  if (n <= 1) return "Touche 1";
+  if (n <= 9) return `Touches 1 a ${n}`;
+  return "Touches 1 a 9 et 0";
+}
+
 /**
  * Ecran de choix, utilise pour les competences comme pour les evolutions
  * (DESIGN.md §4.13).
@@ -41,27 +51,32 @@ export class ChoixCompetence {
     this.ajouterTexte(l / 2, h * 0.17, espacer(titre.toUpperCase()), 26, T.laiton).setOrigin(0.5);
     this.ajouterTexte(l / 2, h * 0.17 + 34, sousTitre, 13, T.osMat).setOrigin(0.5);
 
-    // Trois cartes d'ordinaire ; jusqu'a cinq sur l'ecran « laquelle oublier ? »
-    // (§4.13) — elles se serrent pour tenir dans la largeur.
+    // Trois cartes d'ordinaire. L'ecran « laquelle oublier ? » (§4.13) en montre
+    // une par active tenue, plus l'achat : jusqu'a dix depuis Touche-a-tout
+    // (§4.23). Au-dela de cinq, elles passent sur deux rangees — sur une seule,
+    // dix cartes faisaient cent pixels de large et ne se lisaient plus.
     const espace = 18;
     const n = Math.max(1, propositions.length);
-    const largeur = Math.min(226, Math.floor((l - 48 - (n - 1) * espace) / n));
+    const parRangee = Math.min(n, CARTES_PAR_RANGEE);
+    const largeur = Math.min(226, Math.floor((l - 48 - (parRangee - 1) * espace) / parRangee));
     // Assez haute pour la description et, en pied, la ligne des tags (§4.25).
     const hauteur = 188;
-    const total = propositions.length * largeur + (propositions.length - 1) * espace;
-    const debut = l / 2 - total / 2;
-    const y = h * 0.35;
+    const y = h * (n > CARTES_PAR_RANGEE ? 0.27 : 0.35);
 
     propositions.forEach((proposition, i) => {
-      this.carte(proposition, debut + i * (largeur + espace), y, largeur, hauteur, i + 1, () => {
+      const rangee = Math.floor(i / CARTES_PAR_RANGEE);
+      const dansRangee = Math.min(CARTES_PAR_RANGEE, n - rangee * CARTES_PAR_RANGEE);
+      const total = dansRangee * largeur + (dansRangee - 1) * espace;
+      const x = l / 2 - total / 2 + (i % CARTES_PAR_RANGEE) * (largeur + espace);
+      this.carte(proposition, x, y + rangee * (hauteur + espace), largeur, hauteur, i + 1, () => {
         this.masquer();
         surChoix(proposition.id);
       });
     });
 
-    this.ajouterTexte(l / 2, y + hauteur + 34, `Touches 1 a ${Math.min(n, 5)}, ou clique`, 12, T.osMat).setOrigin(
-      0.5,
-    );
+    const rangees = Math.ceil(n / CARTES_PAR_RANGEE);
+    const basDesCartes = y + rangees * hauteur + (rangees - 1) * espace;
+    this.ajouterTexte(l / 2, basDesCartes + 34, `${texteDesTouches(n)}, ou clique`, 12, T.osMat).setOrigin(0.5);
 
     const clavier = this.scene.input.keyboard;
     if (!clavier) return;
@@ -71,6 +86,11 @@ export class ChoixCompetence {
       Phaser.Input.Keyboard.KeyCodes.THREE,
       Phaser.Input.Keyboard.KeyCodes.FOUR,
       Phaser.Input.Keyboard.KeyCodes.FIVE,
+      Phaser.Input.Keyboard.KeyCodes.SIX,
+      Phaser.Input.Keyboard.KeyCodes.SEVEN,
+      Phaser.Input.Keyboard.KeyCodes.EIGHT,
+      Phaser.Input.Keyboard.KeyCodes.NINE,
+      Phaser.Input.Keyboard.KeyCodes.ZERO,
     ];
     propositions.forEach((proposition, i) => {
       const code = codes[i];
@@ -102,7 +122,7 @@ export class ChoixCompetence {
     // Le numero de touche est en laiton, comme partout ailleurs : c'est ce
     // qu'on appuie (§4.10). La rarete de la competence, elle, garde sa couleur
     // — c'est une information de contenu, pas de chrome.
-    this.ajouterTexte(x + 14, y + 15, `${numero}`, 15, T.laiton);
+    this.ajouterTexte(x + 14, y + 15, numero === 10 ? "0" : `${numero}`, 15, T.laiton);
     this.ajouterTexte(x + 34, y + 12, proposition.nom, 15, T.os).setWordWrapWidth(largeur - 50);
     this.ajouterTexte(x + 34, y + 36, espacer(proposition.etiquette.toUpperCase()), 9, T.osMat);
 

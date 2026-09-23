@@ -1,5 +1,7 @@
 import Phaser from "phaser";
+import { ecrireAction, ecrireActionCourte } from "../core/touches";
 import type { Hero } from "./entities";
+import { mappage } from "./touches";
 import { C, T, cadre, creux, espacer, teindre, texte, type Plaque } from "./ui/chrome";
 import { hauteurEcran } from "./ui/ecran";
 
@@ -37,8 +39,27 @@ const ESPACE = 5;
 const MARGE_BASSE = 62;
 const TAILLE_ICONE = 40;
 
-/** Libelle de la touche associee a chaque emplacement */
-export const TOUCHES_CAPACITES = ["ESPACE", "2", "3", "4", "5"];
+/**
+ * Le panneau serre, quand tout ne tient pas en pleine hauteur : neuf actives et
+ * l'ultime depuis Touche-a-tout (§4.23). Une ligne par capacite, sans sa
+ * description.
+ */
+const HAUTEUR_SERREE = 34;
+const ICONE_SERREE = 26;
+/** Ce que le haut de l'ecran garde pour lui : la carte du heros et les ordres. */
+const HAUT_RESERVE = 200;
+
+/**
+ * La touche d'une capacite lancee a la main, d'apres son rang — l'ultime, puis
+ * les actives. Lue dans le mappage : une touche remappee s'affiche remappee.
+ *
+ * ⚠️ Elle etait figee (« ESPACE », « 2 » a « 5 ») : les emplacements achetes,
+ * sur 6 et 7, s'affichaient « ? ».
+ */
+function libelleDeTouche(rang: number): string {
+  const m = mappage();
+  return rang === 0 ? ecrireActionCourte(m, "capacite1") : ecrireAction(m, `capacite${rang + 1}`);
+}
 
 interface Entree {
   icone: Phaser.GameObjects.Image;
@@ -86,9 +107,7 @@ export class PanneauCapacites {
         description: this.texte(10, T.osMat)
           .setText(capacite.description)
           .setWordWrapWidth(242),
-        touche: this.texte(11, T.laiton)
-          .setText(TOUCHES_CAPACITES[i] ?? "?")
-          .setOrigin(1, 0),
+        touche: this.texte(11, T.laiton).setOrigin(1, 0),
       });
     });
   }
@@ -118,16 +137,21 @@ export class PanneauCapacites {
     this.voiles.clear();
 
     const bas = hauteurEcran(this.scene) - MARGE_BASSE;
+    const serre = capacites.length * (HAUTEUR + ESPACE) > bas - HAUT_RESERVE;
+    const hauteur = serre ? HAUTEUR_SERREE : HAUTEUR;
+    const icone = serre ? ICONE_SERREE : TAILLE_ICONE;
+    // Les automatiques ne prennent pas de touche (§4.13) : le rang compte les autres.
+    let rang = 0;
 
     capacites.forEach((capacite, i) => {
       const entree = this.entrees[i];
       if (!entree) return;
 
       const x = 16;
-      const y = bas - HAUTEUR - i * (HAUTEUR + ESPACE);
+      const y = bas - hauteur - i * (hauteur + ESPACE);
       const charge = this.hero.chargeCapacite(capacite);
       const pret = charge === 0;
-      const plaque: Plaque = { x, y, largeur: LARGEUR, hauteur: HAUTEUR };
+      const plaque: Plaque = { x, y, largeur: LARGEUR, hauteur };
 
       cadre(this.cadres, plaque, pret);
 
@@ -136,37 +160,38 @@ export class PanneauCapacites {
       if (pret) {
         const battement = 0.28 + 0.22 * Math.sin(this.scene.time.now / 260);
         this.cadres.lineStyle(1, C.laiton, battement);
-        this.cadres.strokeRect(x + 1.5, y + 1.5, LARGEUR - 3, HAUTEUR - 3);
+        this.cadres.strokeRect(x + 1.5, y + 1.5, LARGEUR - 3, hauteur - 3);
       }
 
-      const ix = x + 9;
-      const iy = y + (HAUTEUR - TAILLE_ICONE) / 2;
-      creux(this.cadres, { x: ix, y: iy, largeur: TAILLE_ICONE, hauteur: TAILLE_ICONE });
+      const ix = x + (serre ? 5 : 9);
+      const iy = y + (hauteur - icone) / 2;
+      creux(this.cadres, { x: ix, y: iy, largeur: icone, hauteur: icone });
 
-      entree.icone.setPosition(ix + TAILLE_ICONE / 2, iy + TAILLE_ICONE / 2);
+      entree.icone.setPosition(ix + icone / 2, iy + icone / 2);
       // L'icone garde ses couleurs quand la capacite est prete, et vire a l'os
       // mat quand elle recharge. La teinte de classe a disparu : sept couleurs
       // vives dans un coin de l'ecran, c'etait le huitieme systeme de couleur
       // du jeu (§4.10).
       entree.icone.setTint(pret ? C.os : 0x5b5147);
       entree.icone.setScale(
-        (TAILLE_ICONE / 32) * (pret ? 1 + 0.04 * Math.sin(this.scene.time.now / 260) : 1),
+        (icone / 32) * (pret ? 1 + 0.04 * Math.sin(this.scene.time.now / 260) : 1),
       );
 
       // Le rechargement se vide par le haut : l'icone "se remplit" en remontant.
       if (!pret) {
         this.voiles.fillStyle(C.fer, 0.78);
-        this.voiles.fillRect(ix, iy, TAILLE_ICONE, TAILLE_ICONE * charge);
+        this.voiles.fillRect(ix, iy, icone, icone * charge);
       }
 
-      const tx = x + 58;
-      entree.nom.setPosition(tx, y + 8);
+      const tx = x + (serre ? 40 : 58);
+      const ty = serre ? y + (hauteur - 14) / 2 : y + 8;
+      entree.nom.setPosition(tx, ty);
       teindre(entree.nom, pret ? T.os : T.osMat);
-      entree.description.setPosition(tx, y + 26);
+      entree.description.setPosition(tx, y + 26).setVisible(!serre);
 
       const restant = Math.ceil((charge * capacite.rechargement) / 1000);
-      const libelle = capacite.automatique ? "AUTO" : (TOUCHES_CAPACITES[i] ?? "?");
-      entree.touche.setPosition(x + LARGEUR - 11, y + 8).setText(pret ? libelle : `${restant}s`);
+      const libelle = capacite.automatique ? "AUTO" : libelleDeTouche(rang++);
+      entree.touche.setPosition(x + LARGEUR - 11, ty).setText(pret ? libelle : `${restant}s`);
       teindre(entree.touche, pret ? T.laiton : T.osMat);
     });
   }
