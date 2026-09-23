@@ -35,8 +35,8 @@ export { CLE_ORC, TAILLE_ORC };
 const CORPS_ORC = 166 / 255;
 /** La hauteur d'une bande de profondeur : l'erreur de profondeur tient dedans. */
 const HAUTEUR_BANDE = 16;
-/** Les nombres d'un orc : x, y, echelle, sens, rouge, vert, bleu, phase, couche. */
-const PAS = 9;
+/** Les nombres d'un orc : x, y, echelle, sens, rouge, vert, bleu, phase, couche, cabre. */
+const PAS = 10;
 const OCTETS = PAS * 4;
 /**
  * Les cadavres gardes, en anneau : au-dela, le plus ancien laisse sa place.
@@ -45,15 +45,15 @@ const OCTETS = PAS * 4;
 const MAX_CADAVRES = 20000;
 /** Sous tout ce qui se trie par profondeur, au-dessus des champs (-940), sous les reperes (-500). */
 const PROFONDEUR_CADAVRES = -700;
-/** Ce qui peut deborder d'une bande vers le haut : un enorme fait trois orcs de haut. */
-const DEBORD = TAILLE_ORC * 3;
+/** Ce qui peut deborder d'une bande vers le haut : un enorme brute fait plus de quatre orcs de haut. */
+const DEBORD = TAILLE_ORC * 4.5;
 
 const SOMMETS = [
   "attribute vec2 aCoin;",
   "attribute vec2 aPos;",
   "attribute vec2 aEchelleSens;",
   "attribute vec3 aCouleur;",
-  "attribute vec2 aPhaseCouche;",
+  "attribute vec3 aEtat;",
   "uniform mat3 uVue;",
   "uniform vec2 uTaille;",
   "uniform vec2 uUV0;",
@@ -69,12 +69,16 @@ const SOMMETS = [
   "  vec2 local = (aCoin - vec2(0.5)) * uTaille * e;",
   "  local.x *= sens;",
   "  float angle = 0.0;",
-  "  if (aPhaseCouche.y > 0.5) {",
+  "  if (aEtat.y > 0.5) {",
   // Couche : un quart de tour autour des pieds, vers l'avant.
   "    angle = 1.5708 * sens;",
-  "  } else if (aPhaseCouche.x >= 0.0) {",
+  "  } else if (aEtat.z > 0.5) {",
+  // Cabre : un boss se redresse en arriere avant de frapper — dans la horde,
+  // c'est le seul qui previent (§4.33).
+  "    angle = -0.32 * sens;",
+  "  } else if (aEtat.x >= 0.0) {",
   // La marche : un balancement et un pas qui souleve, calcules du temps.
-  "    float t = uTemps * 9.0 + aPhaseCouche.x;",
+  "    float t = uTemps * 9.0 + aEtat.x;",
   "    angle = 0.09 * sin(t);",
   "    local.y -= abs(sin(t)) * 1.2 * e;",
   "  }",
@@ -138,7 +142,7 @@ interface Emplacements {
   pos: number;
   echelleSens: number;
   couleur: number;
-  phaseCouche: number;
+  etat: number;
   vue: WebGLUniformLocation | null;
   taille: WebGLUniformLocation | null;
   uv0: WebGLUniformLocation | null;
@@ -218,7 +222,7 @@ export class Nuee {
       pos: gl.getAttribLocation(programme, "aPos"),
       echelleSens: gl.getAttribLocation(programme, "aEchelleSens"),
       couleur: gl.getAttribLocation(programme, "aCouleur"),
-      phaseCouche: gl.getAttribLocation(programme, "aPhaseCouche"),
+      etat: gl.getAttribLocation(programme, "aEtat"),
       vue: gl.getUniformLocation(programme, "uVue"),
       taille: gl.getUniformLocation(programme, "uTaille"),
       uv0: gl.getUniformLocation(programme, "uUV0"),
@@ -273,8 +277,18 @@ export class Nuee {
    * @param couleur la teinte de son type, ou le rouge du coup
    * @param luminosite ce qu'il lui reste de vie, deja traduit (§4.33 : il fonce en mourant)
    * @param phase sa phase de marche, ou -1 s'il ne bouge pas
+   * @param cabre vrai quand un boss arme son coup : il se redresse (§4.33)
    */
-  poser(x: number, y: number, echelle: number, sens: number, couleur: number, luminosite: number, phase: number): void {
+  poser(
+    x: number,
+    y: number,
+    echelle: number,
+    sens: number,
+    couleur: number,
+    luminosite: number,
+    phase: number,
+    cabre = false,
+  ): void {
     if ((this.n + 1) * PAS > this.poses.length) {
       const taille = this.poses.length * 2;
       const poses = new Float32Array(taille);
@@ -298,6 +312,7 @@ export class Nuee {
     d[o + 6] = b;
     d[o + 7] = phase;
     d[o + 8] = 0;
+    d[o + 9] = cabre ? 1 : 0;
     this.ys[this.n] = y;
     this.n += 1;
   }
@@ -327,6 +342,7 @@ export class Nuee {
     d[o + 6] = b;
     d[o + 7] = -1;
     d[o + 8] = 1;
+    d[o + 9] = 0;
     this.teteCadavres = (this.teteCadavres + 1) % MAX_CADAVRES;
     this.nCadavres = Math.min(MAX_CADAVRES, this.nCadavres + 1);
     this.cadavresSales = true;
@@ -421,14 +437,14 @@ export class Nuee {
     attribut(L.pos, 2, 0);
     attribut(L.echelleSens, 2, 8);
     attribut(L.couleur, 3, 16);
-    attribut(L.phaseCouche, 2, 28);
+    attribut(L.etat, 3, 28);
 
     inst.drawArraysInstancedANGLE(gl.TRIANGLES, 0, 6, combien);
 
     // ⚠️ **Rendre l'etat tel qu'on l'a trouve.** Phaser n'a pas de VAO en WebGL 1 :
     // un diviseur laisse a 1 sur un attribut qu'il reutilise casserait tout ce
     // qu'il dessine ensuite.
-    for (const lieu of [L.pos, L.echelleSens, L.couleur, L.phaseCouche]) {
+    for (const lieu of [L.pos, L.echelleSens, L.couleur, L.etat]) {
       inst.vertexAttribDivisorANGLE(lieu, 0);
       gl.disableVertexAttribArray(lieu);
     }

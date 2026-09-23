@@ -3,7 +3,12 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-09-22, tard — **le palier 2 de la horde est posé**
+> Dernière mise à jour : 2026-09-23 — **chaque nuit a son boss** (§4.33) : un boss par nuit
+> dès la deuxième, un énorme toutes les cinq, deux et trois fois plus gros, dix et trente
+> fois plus de points de vie, et ils se cabrent avant de frapper — les seuls de la horde qui
+> préviennent. La suite est le **jalon 6.5, les builds**.
+>
+> Avant ça : 2026-09-22, tard — **le palier 2 de la horde est posé**
 > (§4.33) : la piétaille est dessinée par **la nuée**, une passe instanciée qui teinte un orc
 > unique (24 px, sorti de Blender) selon ce qu'il fait, ce qu'il lui reste de vie et le coup
 > qu'il vient d'encaisser, rangée par bandes pour passer derrière les maisons. Les cadavres

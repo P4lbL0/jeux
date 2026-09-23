@@ -161,10 +161,14 @@ Dans l'ordre :
    teinté au dessin, dessiné en une passe instanciée par bandes de profondeur, les cadavres
    couchés. **60 images/s jusqu'à 3 500 monstres**, 43-51 à 5 000. Angelos a tranché : les
    boss seront des géants (×2 à ×3) avec beaucoup plus de PV — **rangs à créer**.
-4. **La suite, à faire trancher par Angelos** : ce qui reste à 5 000, c'est l'IA et le corps
-   Arcade de chaque monstre (~15 ms). Pour aller vers vingt mille, la logique de la
-   piétaille doit passer en tableaux typés, sans objet ni corps (l'ancien palier 3). Ou
-   s'arrêter là et passer aux builds (6.5) : la horde tient déjà ~4 000.
+4. ✅ **Les boss géants** (23 septembre) : un boss par nuit dès la deuxième, un énorme toutes
+   les cinq ; ×2/×3 de taille, ×10/×30 de PV, ×3/×6 de dégâts, ils se cabrent avant de
+   frapper. Le cœur de boss attend les matériaux.
+5. **La suite, tranchée par Angelos : les builds (jalon 6.5, §4.25)**. La horde s'arrête à
+   ~4 000 à 60 images/s ; le palier 3 (la logique en tableaux typés) n'est pas fait. ⚠️ Pour
+   qu'il ne réécrive pas les builds s'il vient un jour, **les zones et les chaînes des
+   builds interrogent la horde par le voisinage** (`ennemisDansRayon`,
+   `ennemiLePlusProche`), jamais en parcourant `this.ennemis`.
 
 Toute mesure se fait **sur la vraie carte graphique**, sans fenêtre
 (`--use-angle=d3d11`), et **sur le même monde et le même village** que son témoin : le

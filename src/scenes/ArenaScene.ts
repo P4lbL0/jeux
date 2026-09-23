@@ -75,7 +75,8 @@ import {
   type Capacite,
   type Dome,
 } from "../game/entities";
-import { ARCHETYPE_HUMAIN, beteDEau, choisirArchetype, teinteDeNuee } from "../game/ennemis";
+import { ARCHETYPE_HUMAIN, archetypeParId, beteDEau, choisirArchetype, teinteDeNuee } from "../game/ennemis";
+import { NON_PROMUS, PROMU_A_LEUR_PLACE, RANGS, rendezvousDeLaNuit, type Rang, type Rendezvous } from "../core/rangs";
 import { Nuee } from "../game/nuee";
 import { C as COULEURS } from "../game/ui/couleurs";
 import { POLICE } from "../game/ui/chrome";
@@ -972,6 +973,13 @@ export class ArenaScene extends Phaser.Scene {
   port!: BatimentPort;
   /** Ce qu'il reste a faire arriver de l'effectif de la nuit en cours */
   private resteDeLaNuit = 0;
+  /**
+   * Les rangs que la nuit doit encore envoyer (§4.33) : chaque nuit a son boss,
+   * au moment ou telle part de son effectif est partie.
+   */
+  private rendezvous: Rendezvous[] = [];
+  /** L'effectif de la nuit a la tombee : c'est sur lui que se lisent les rendez-vous. */
+  private effectifDeDepart = 0;
   /** Instant de la prochaine horde de jour, et de celle qu'on vient d'annoncer */
   private prochaineHorde = 0;
   private hordeAuDepart = 0;
@@ -1760,6 +1768,7 @@ export class ArenaScene extends Phaser.Scene {
       // La nuit reprend la ou elle en etait : l'effectif restant se recompose a
       // partir du cycle, il ne se stocke pas monstre par monstre.
       this.resteDeLaNuit = this.effectifDeLaNuitIci(this.cycle.nuit);
+      this.poserLesRendezvous(this.cycle.nuit);
       this.village.tomberLaNuit();
       this.fronts = frontsDeLaVague(this.cycle.nuit, this.rng.next());
       this.partPremierFront = repartition(this.fronts, this.rng.next());
@@ -5282,19 +5291,24 @@ export class ArenaScene extends Phaser.Scene {
       const e = objet as Ennemi;
       if (!e.active || !e.dansLaNuee) continue;
       const coup = maintenant < e.flashJusqua + 50 || e.souscontrat;
+      // Un boss qui arme son coup se cabre et clignote : dans la horde, c'est le
+      // seul qui previent (§4.33). La piétaille, elle, frappe sans prevenir.
+      const cabre = e.rang !== "pietaille" && e.enArmement;
+      const eclat = cabre && Math.floor(maintenant / 90) % 2 === 0;
       const vie = e.pvMax > 0 ? Math.max(0, Math.min(1, e.pv / e.pvMax)) : 1;
       const corps = e.body as Phaser.Physics.Arcade.Body | null;
       const bouge = !!corps && Math.abs(corps.velocity.x) + Math.abs(corps.velocity.y) > 8;
       nuee.poser(
         e.x,
         e.y,
-        e.archetype.echelle,
+        e.archetype.echelle * RANGS[e.rang].taille,
         e.flipX ? -1 : 1,
-        coup ? COULEURS.sangFrais : teinteDeNuee(e.archetype),
+        coup ? COULEURS.sangFrais : eclat ? COULEURS.os : teinteDeNuee(e.archetype),
         // Il fonce en mourant, jusqu'a un tiers de sa lumiere : plus sombre, il
         // disparaitrait dans la nuit (vu sur planche, a 25 %).
-        coup ? 1 : 0.35 + 0.65 * vie,
+        coup || eclat ? 1 : 0.35 + 0.65 * vie,
         bouge ? e.phaseDeMarche : -1,
+        cabre,
       );
     }
     nuee.finir();
@@ -7059,7 +7073,7 @@ export class ArenaScene extends Phaser.Scene {
     // octets, donc plus de plafond de 24 — ils restent tous, et le champ de
     // bataille se couvre.
     if (e.dansLaNuee && this.nuee) {
-      this.nuee.coucher(e.x, e.y, e.archetype.echelle, e.flipX ? -1 : 1, teinteDeNuee(e.archetype));
+      this.nuee.coucher(e.x, e.y, e.archetype.echelle * RANGS[e.rang].taille, e.flipX ? -1 : 1, teinteDeNuee(e.archetype));
       return;
     }
     if (this.cadavres >= MAX_CADAVRES) return;
@@ -8731,6 +8745,7 @@ export class ArenaScene extends Phaser.Scene {
 
     const nuit = this.cycle.nuit;
     this.resteDeLaNuit = this.effectifDeLaNuitIci(nuit);
+    this.poserLesRendezvous(nuit);
     this.village.tomberLaNuit();
 
     this.fronts = frontsDeLaVague(nuit, this.rng.next());
@@ -8783,6 +8798,7 @@ export class ArenaScene extends Phaser.Scene {
     // Ce qui restait de l'effectif ne poursuit pas la journee : la nuit est
     // finie, ceux qui sont encore debout finissent la leur.
     this.resteDeLaNuit = 0;
+    this.rendezvous = [];
     // Les portes se rouvrent : on ressort travailler (§4.20).
     this.clocheSonnee = false;
     if (this.constructions.portesFermees) this.constructions.ouvrirLesPortes(this.time.now);
@@ -9503,13 +9519,24 @@ export class ArenaScene extends Phaser.Scene {
     return puissanceDeLaNuit(this.meteo.nuitEquivalente(numero) + this.menaces.nuitsDAvance);
   }
 
+  /** Les rendez-vous d'une nuit qui tombe (§4.33) : un boss chaque nuit, un enorme toutes les cinq. */
+  private poserLesRendezvous(nuit: number): void {
+    this.rendezvous = rendezvousDeLaNuit(nuit);
+    this.effectifDeDepart = this.resteDeLaNuit;
+  }
+
   private deverserLaNuit(): void {
     if (this.resteDeLaNuit <= 0) return;
     if (this.time.now < this.prochaineApparition) return;
 
     const place = MAX_ENNEMIS - this.ennemis.getLength();
     if (place > 0) {
-      this.faireApparaitreEnnemi(this.puissanceIci(this.cycle.nuit));
+      // Chaque nuit a son boss (§4.33) : quand la part de l'effectif deja
+      // partie atteint un rendez-vous, le monstre qui sort prend le rang.
+      const partie = this.effectifDeDepart > 0 ? 1 - (this.resteDeLaNuit - 1) / this.effectifDeDepart : 1;
+      const prochain = this.rendezvous[0];
+      const rang: Rang = prochain && partie >= prochain.part ? this.rendezvous.shift()!.rang : "pietaille";
+      this.faireApparaitreEnnemi(this.puissanceIci(this.cycle.nuit), rang);
       this.resteDeLaNuit -= 1;
     }
 
@@ -9576,7 +9603,7 @@ export class ArenaScene extends Phaser.Scene {
     this.hordeAuDepart = 0;
   }
 
-  private faireApparaitreEnnemi(puissance: number): void {
+  private faireApparaitreEnnemi(puissance: number, rang: Rang = "pietaille"): void {
     // ⚠️ **La nuit de crue passe devant tout le reste** (§4.21) : ce qui sort de
     // l'eau ne vient pas d'un front, et ce n'est pas un monstre de la table des
     // vagues. Le reste de la nuit — l'effectif, la puissance, le pillage — ne
@@ -9593,9 +9620,13 @@ export class ArenaScene extends Phaser.Scene {
     // L'archetype module la puissance, il ne la remplace pas : les seuils font
     // que les premieres minutes n'envoient que des fonceurs, puis que la
     // variete s'ouvre a mesure que la vague durcit.
-    const archetype = parLEau
+    let archetype = parLEau
       ? beteDEau(this.rng.next())
       : choisirArchetype(puissance, this.rng.next());
+    // Un rang ne promeut ni l'essaim ni le kamikaze : ils deviennent une brute (§4.33).
+    if (rang !== "pietaille" && NON_PROMUS.has(archetype.id)) {
+      archetype = archetypeParId(PROMU_A_LEUR_PLACE) ?? archetype;
+    }
     const point = parLEau
       ? this.rng.pick(this.rivesDeLaCrue)
       : pointDApparition(front, this.rng.next());
@@ -9603,6 +9634,11 @@ export class ArenaScene extends Phaser.Scene {
     // Une part vient piller : la maison debout la plus proche de la ou il
     // surgit, pas de l'eglise — c'est ce qui etale la menace sur le village.
     if (this.rng.chance(PART_DE_PILLARDS)) e.cibleMaison = this.maisons.laPlusProcheDebout(point.x, point.y);
+    if (rang !== "pietaille") {
+      e.promouvoir(rang);
+      // On l'attend : le boss de la nuit est un rendez-vous, et le guet le dit.
+      this.events.emit("annonce", rang === "enorme" ? "Un enorme sort de la nuit" : "Le boss de la nuit arrive", "guet");
+    }
     this.ennemis.add(e);
     this.annoncerNouveaute(archetype.id, archetype.nom);
   }

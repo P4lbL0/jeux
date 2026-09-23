@@ -20,6 +20,7 @@ import { creerPersonne, prenomLibre, type Personne } from "../core/personne";
 import { Rng } from "../core/rng";
 import { nouvellePose } from "./poses";
 import { ARCHETYPE_DEFAUT, estDeLaNuee, type Archetype } from "./ennemis";
+import { RANGS, type Rang } from "../core/rangs";
 import { familleDeMonstre } from "./dessin/monstres";
 import { familleDeHero } from "./dessin/heros";
 import { assurerHero, plancheDe } from "./dessin/monde";
@@ -826,6 +827,8 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
    * son corps, son IA, ses coups — est inchange.
    */
   readonly dansLaNuee: boolean;
+  /** Son rang (§4.33) : la piétaille, un boss, un énorme. C'est la taille qui le dit. */
+  rang: Rang = "pietaille";
   pv: number;
   pvMax: number;
   vitesse: number;
@@ -950,6 +953,24 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
       this.teinte = archetype.teinte;
       this.setTint(archetype.teinte);
     }
+  }
+
+  /**
+   * Il devient un boss ou un enorme (DESIGN.md §4.33) : tout ce qu'un rang
+   * multiplie se multiplie, et sa hitbox grandit avec lui — ce qu'on voit est ce
+   * qu'on touche. L'XP monte d'autant, et l'or avec elle (`butin.ts`).
+   */
+  promouvoir(rang: Rang): void {
+    const r = RANGS[rang];
+    this.rang = rang;
+    this.pvMax = Math.max(1, Math.round(this.pvMax * r.pv));
+    this.pv = this.pvMax;
+    this.degats = Math.max(1, Math.round(this.degats * r.degats));
+    this.vitesse *= r.vitesse;
+    this.xpDonnee = Math.round(this.xpDonnee * r.butin);
+    // Hors de la nuee — un navigateur sans instanciation —, c'est le sprite qui grandit.
+    if (!this.dansLaNuee) this.setScale(ECHELLE_PERSONNAGE * r.taille);
+    calerCorps(this, 8 * this.archetype.echelle * r.taille, 9 * this.archetype.echelle * r.taille);
   }
 
   get vitesseEffective(): number {

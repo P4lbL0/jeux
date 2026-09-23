@@ -1568,6 +1568,44 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Les rangs de la horde — le boss et l'énorme (23 septembre 2026)
+
+**Chaque nuit a son boss.** Quatre décisions d'Angelos, toutes sur la recommandation :
+un boss par nuit dès la deuxième (un de plus toutes les cinq nuits), un énorme toutes les
+cinq nuits ; PV ×10 et ×30 ; dégâts ×3 et ×6, vitesse ×0,7 et ×0,5, et **ils se cabrent
+avant de frapper** — les seuls de la horde qui préviennent ; or et XP ×10 et ×30.
+
+- **`core/rangs.ts`**, pur et testé : ce que chaque rang multiplie, et le calendrier.
+  `rendezvousDeLaNuit` répartit les boss sur la fenêtre d'arrivée — ni en tête, ni en
+  queue — et pose l'énorme aux trois quarts. Rien n'est tiré au hasard : tout se lit dans
+  le numéro de la nuit, comme l'effectif.
+- **`Ennemi.promouvoir(rang)`** : tout se multiplie, et la **hitbox grandit avec la
+  taille** — ce qu'on voit est ce qu'on touche. L'XP monte d'autant, et l'or avec elle
+  (`orDUneBete` est proportionnelle à l'XP : aucune ligne de plus dans le butin).
+- **Un rang se pose sur un archétype** — un boss cracheur est un géant jaune. Ni l'essaim
+  ni le kamikaze ne sont promus : ils deviennent une brute.
+- **La nuit tient ses rendez-vous** (`deverserLaNuit`) : quand la part de l'effectif déjà
+  partie atteint le prochain, le monstre qui sort prend le rang. Le guet l'annonce (« Le
+  boss de la nuit arrive », « Un énorme sort de la nuit »).
+- **La nuée dessine les géants** — échelle ×2 et ×3 — et les fait **se cabrer** : un
+  dixième nombre par orc, un quart de tour en arrière dans le shader, et un clignotement
+  d'os tant qu'il arme son coup.
+
+**Vérifié dans trois parties** (`.tmp/verifier-rangs.ts`, nuit 10 accélérée) : **27
+contrôles sur 27**. Deux boss et un énorme par nuit 10, le premier boss vers le tiers de
+l'effectif et l'énorme vers les trois quarts, les annonces, aucun essaim ni kamikaze promu,
+PV, XP et hitbox exactement ×10/×2 et ×30/×3.
+
+**À regarder** : `captures/jeu/2026-09-23-boss/` — un énorme qui arrive, qui cogne le héros,
+et qui rougit sous ses coups. Trois géants posés ensemble convergent sur le héros et se
+superposent : les monstres ne se poussent pas entre eux.
+
+⚠️ **Pas encore branché** : le **cœur de boss** (il paie la Relique, §4.3 — les matériaux ne
+sont pas codés) et l'**immunité à l'étourdissement** (§4.13 — l'étourdissement n'existe pas
+encore, jalon 6.7).
+
+**972 tests verts** (+6).
+
 ### Le jalon 6.2, palier 2 — la nuée (22 septembre 2026, tard)
 
 **La piétaille est dessinée par la nuée** : un orc unique, teinté au dessin, rangé par bandes
