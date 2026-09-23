@@ -288,3 +288,76 @@ describe("Les bandes de la nuee — la profondeur sans trier", () => {
     }
   });
 });
+
+describe("Le long d'un trait — la penetration (§4.25)", () => {
+  /** Le parcours brut : tout le monde, la distance au segment, puis l'ordre du trait. */
+  function brut(
+    xs: Float32Array,
+    ys: Float32Array,
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+    epaisseur: number,
+    n: number,
+    accepte?: (i: number) => boolean,
+  ): number[] {
+    const longueur = Math.hypot(bx - ax, by - ay);
+    const ux = longueur > 0 ? (bx - ax) / longueur : 0;
+    const uy = longueur > 0 ? (by - ay) / longueur : 0;
+    const retenus: { i: number; t: number }[] = [];
+    for (let i = 0; i < xs.length; i++) {
+      if (distanceAuSegment(xs[i]!, ys[i]!, ax, ay, bx, by) > epaisseur) continue;
+      if (accepte && !accepte(i)) continue;
+      // La meme precision que la grille, qui garde l'avancee en 32 bits.
+      retenus.push({ i, t: Math.fround((xs[i]! - ax) * ux + (ys[i]! - ay) * uy) });
+    }
+    retenus.sort((a, b) => a.t - b.t || a.i - b.i);
+    return retenus.slice(0, n).map((r) => r.i);
+  }
+
+  it("rend les N premiers le long du trait, exactement comme le parcours brut", () => {
+    const { xs, ys } = nuage(31, 3000);
+    const v = new Voisinage(LARGEUR, HAUTEUR);
+    v.ranger(xs.length, xs, ys);
+    const rng = new Rng(17);
+    for (let q = 0; q < 300; q++) {
+      const ax = rng.range(-150, LARGEUR + 150);
+      const ay = rng.range(-150, HAUTEUR + 150);
+      const angle = rng.range(0, Math.PI * 2);
+      const longueur = rng.next() < 0.1 ? 0 : rng.range(20, 2500);
+      const bx = ax + Math.cos(angle) * longueur;
+      const by = ay + Math.sin(angle) * longueur;
+      const epaisseur = rng.range(10, 90);
+      const n = 1 + Math.floor(rng.range(0, 60));
+      const k = v.leLongDuTrait(ax, ay, bx, by, epaisseur, n);
+      expect(lire(v, k)).toEqual(brut(xs, ys, ax, ay, bx, by, epaisseur, n));
+    }
+  });
+
+  it("traverse la melee sans en oublier, filtre compris", () => {
+    const { xs, ys } = nuage(5, 3000);
+    const v = new Voisinage(LARGEUR, HAUTEUR);
+    v.ranger(xs.length, xs, ys);
+    // Un trait qui passe en plein dans la melee (autour de 1500, 1200).
+    const pairs = (i: number) => i % 2 === 0;
+    for (const n of [1, 8, 30, 500]) {
+      const k = v.leLongDuTrait(1200, 1150, 1900, 1260, 48, n, pairs);
+      expect(lire(v, k)).toEqual(brut(xs, ys, 1200, 1150, 1900, 1260, 48, n, pairs));
+    }
+  });
+
+  it("ne touche ni derriere le depart ni au-dela du bout", () => {
+    const xs = new Float32Array([100, 200, 300, 400, 500, 600]);
+    const ys = new Float32Array([500, 500, 500, 500, 500, 500]);
+    const v = new Voisinage(LARGEUR, HAUTEUR);
+    v.ranger(xs.length, xs, ys);
+    // De 250 a 450 : seuls 300 et 400, dans l'ordre du trait.
+    expect(lire(v, v.leLongDuTrait(250, 500, 450, 500, 20, 10))).toEqual([2, 3]);
+    // Dans l'autre sens, l'ordre s'inverse.
+    expect(lire(v, v.leLongDuTrait(450, 500, 250, 500, 20, 10))).toEqual([3, 2]);
+    // La penetration epuisee, on s'arrete au premier.
+    expect(lire(v, v.leLongDuTrait(50, 500, 650, 500, 20, 1))).toEqual([0]);
+    expect(v.leLongDuTrait(50, 500, 650, 500, 20, 0)).toBe(0);
+  });
+});

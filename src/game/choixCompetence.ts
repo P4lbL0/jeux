@@ -46,7 +46,8 @@ export class ChoixCompetence {
     const espace = 18;
     const n = Math.max(1, propositions.length);
     const largeur = Math.min(226, Math.floor((l - 48 - (n - 1) * espace) / n));
-    const hauteur = 168;
+    // Assez haute pour la description et, en pied, la ligne des tags (§4.25).
+    const hauteur = 188;
     const total = propositions.length * largeur + (propositions.length - 1) * espace;
     const debut = l / 2 - total / 2;
     const y = h * 0.35;
@@ -108,6 +109,16 @@ export class ChoixCompetence {
     this.ajouterTexte(x + 14, y + 66, proposition.description, 11, T.os).setWordWrapWidth(
       largeur - 28,
     );
+
+    // Les tags, en pied de carte (§4.25) : ce que la competence **est**, pour
+    // que le joueur apprenne a lire son build. Un filet les separe du texte.
+    if (proposition.tags) {
+      fond.lineStyle(1, C.sangSeche, 0.9);
+      fond.lineBetween(x + 14, y + hauteur - 30, x + largeur - 14, y + hauteur - 30);
+      this.ajouterTexte(x + 14, y + hauteur - 22, espacer(proposition.tags), 9, T.acier).setWordWrapWidth(
+        largeur - 28,
+      );
+    }
 
     const zone = this.scene.add
       .zone(x, y, largeur, hauteur)

@@ -1,5 +1,6 @@
 import type { ClassId, Rang } from "./classes";
 import { COULEURS_RANG, ORDRE_RANGS } from "./classes";
+import type { CleTrait } from "./traits";
 
 /**
  * Competences (DESIGN.md §4.13).
@@ -72,6 +73,74 @@ export type EffetCapacite =
 
 export type TypeCompetence = "passive" | "active" | "auto";
 
+// ------------------------------------------------------------------ les tags
+
+/**
+ * Les tags (§4.25) : le socle des builds. Chaque competence en porte
+ * quelques-uns, et tout le reste s'appuie dessus — les passives qui parlent a
+ * plusieurs competences a la fois, les fusions, les synergies, la pioche
+ * ponderee par la classe et par les traits.
+ *
+ * ⚠️ **Un tag est un bit, jamais une chaine** : « ce build contient-il FEU et
+ * VENT ? » est un `&` sur un entier, pas un parcours de tableau a chaque image.
+ * Vingt-sept aujourd'hui, trente et un au plus : les operations binaires de
+ * JavaScript travaillent sur 32 bits signes.
+ *
+ * ⚠️ **Un element est un tag, jamais un type de degats.** Les monstres n'ont
+ * aucune resistance elementaire, et il n'y a qu'une statistique de degats
+ * (§4.2) : FEU ne veut rien dire d'autre que « cette competence est du feu ».
+ *
+ * ACTIVE, AUTO et PASSIVE ne sont pas des tags : la nature d'une competence
+ * les dit deja (`type`).
+ */
+export const TAGS = {
+  // Les elements
+  FEU: 1 << 0,
+  GLACE: 1 << 1,
+  FOUDRE: 1 << 2,
+  POISON: 1 << 3,
+  OMBRE: 1 << 4,
+  SACRE: 1 << 5,
+  EAU: 1 << 6,
+  VENT: 1 << 7,
+  NATURE: 1 << 8,
+  SANG: 1 << 9,
+  LAME: 1 << 10,
+  MORT: 1 << 11,
+  // Les formes
+  PROJECTILE: 1 << 12,
+  ZONE: 1 << 13,
+  CHAINE: 1 << 14,
+  MELEE: 1 << 15,
+  EXPLOSION: 1 << 16,
+  SOL: 1 << 17,
+  // Les roles
+  MAGIE: 1 << 18,
+  DEFENSE: 1 << 19,
+  BOUCLIER: 1 << 20,
+  MOBILITE: 1 << 21,
+  ESQUIVE: 1 << 22,
+  RAGE: 1 << 23,
+  SOIN: 1 << 24,
+  INVOCATION: 1 << 25,
+  ENTRAVE: 1 << 26,
+} as const;
+
+export type NomDeTag = keyof typeof TAGS;
+
+/** Les noms, dans l'ordre des bits : l'ordre ou une carte les affiche. */
+const ORDRE_DES_TAGS = Object.keys(TAGS) as NomDeTag[];
+
+/** Les tags d'un masque, dans l'ordre des bits. */
+export function nomsDesTags(masque: number): NomDeTag[] {
+  return ORDRE_DES_TAGS.filter((nom) => (masque & TAGS[nom]) !== 0);
+}
+
+/** Ce qu'une carte affiche : « FEU · ZONE ». Vide pour une competence sans tag. */
+export function texteDesTags(masque: number): string {
+  return nomsDesTags(masque).join("  ·  ");
+}
+
 /** Les bonus accumules par un heros. Toujours partir de bonusVierge(). */
 export interface Bonus {
   pvMax: number;
@@ -128,8 +197,13 @@ export interface Bonus {
   chaineEclairs: number;
   chaineDiffuse: boolean;
   chaineFulgurante: boolean;
-  /** Les projectiles traversent les ennemis */
-  perforant: boolean;
+  /**
+   * Monstres traverses en plus par toute attaque qui traverse — projectiles
+   * et frappes en ligne (§4.25, la penetration).
+   */
+  penetration: number;
+  /** Monstres traverses en plus par les seuls projectiles : Ricochet, Fleche perforante. */
+  penetrationProjectiles: number;
   /** Fleches supplementaires dans la volee du Rodeur */
   flechesSupplementaires: number;
 
@@ -205,7 +279,8 @@ export function bonusVierge(): Bonus {
     chaineEclairs: 0,
     chaineDiffuse: false,
     chaineFulgurante: false,
-    perforant: false,
+    penetration: 0,
+    penetrationProjectiles: 0,
     flechesSupplementaires: 0,
     charognard: 0,
     echo: 0,
@@ -235,6 +310,8 @@ export interface EvolutionDef {
   effet?: EffetCapacite;
   /** Change l'allure du heros : le build se voit a l'ecran */
   teinte?: number;
+  /** Les tags qu'elle ajoute a ceux de sa competence : des satellites de feu sont du FEU (§4.25) */
+  tags?: number;
   appliquer?(bonus: Bonus): void;
 }
 
@@ -250,6 +327,8 @@ export interface CompetenceDef {
   nom: string;
   rang: Rang;
   type: TypeCompetence;
+  /** Ses tags, en masque de bits (`TAGS`) : ce qu'elle est, pour les builds (§4.25) */
+  tags: number;
   /** Absente = proposee a toutes les classes */
   classes?: ClassId[];
   /** Une phrase qui dit ce que la competence fait */
@@ -272,6 +351,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Lame affutee",
     rang: "F",
     type: "passive",
+    tags: TAGS.LAME,
     description: "Des degats en plus, tout simplement.",
     paliers: [
       { texte: "+4 degats", appliquer: (b) => void (b.degats += 4) },
@@ -284,6 +364,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Bottes usees",
     rang: "F",
     type: "passive",
+    tags: TAGS.MOBILITE,
     description: "On se deplace plus vite. Dans ce jeu, c'est survivre plus longtemps.",
     paliers: [
       { texte: "+14 vitesse", appliquer: (b) => void (b.vitesse += 14) },
@@ -296,6 +377,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Cuirasse rapiecee",
     rang: "E",
     type: "passive",
+    tags: TAGS.DEFENSE,
     description: "De la vie en plus.",
     paliers: [
       { texte: "+25 vie maximum", appliquer: (b) => void (b.pvMax += 25) },
@@ -308,6 +390,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Entrainement",
     rang: "E",
     type: "passive",
+    tags: TAGS.MELEE,
     description: "On frappe plus souvent.",
     paliers: [
       { texte: "Attaque 10% plus vite", appliquer: (b) => void (b.cadence *= 0.9) },
@@ -320,6 +403,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Reflexes",
     rang: "D",
     type: "passive",
+    tags: TAGS.ESQUIVE,
     description: "Une chance d'annuler completement un coup.",
     paliers: [
       { texte: "+6% d'esquive", appliquer: (b) => void (b.esquive += 0.06) },
@@ -332,6 +416,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Longue vue",
     rang: "D",
     type: "passive",
+    tags: TAGS.PROJECTILE,
     description: "On frappe de plus loin — donc on encaisse moins.",
     paliers: [
       { texte: "+30 de portee", appliquer: (b) => void (b.portee += 30) },
@@ -344,6 +429,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Point faible",
     rang: "C",
     type: "passive",
+    tags: TAGS.LAME,
     description: "Des coups critiques plus frequents.",
     paliers: [
       { texte: "+12% de critique", appliquer: (b) => void (b.critChance += 0.12) },
@@ -356,6 +442,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Sang-froid",
     rang: "C",
     type: "passive",
+    tags: TAGS.SANG,
     description: "Chaque mort ennemie te remet debout.",
     paliers: [
       { texte: "+2 vie par ennemi tue", appliquer: (b) => void (b.soinParKill += 2) },
@@ -368,6 +455,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Sangsue",
     rang: "B",
     type: "passive",
+    tags: TAGS.SANG,
     description: "Une part de tes degats revient en vie. Plus tu tapes fort, plus tu tiens.",
     paliers: [
       { texte: "+6% de vol de vie", appliquer: (b) => void (b.volDeVie += 0.06) },
@@ -380,6 +468,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Peau de pierre",
     rang: "B",
     type: "passive",
+    tags: TAGS.DEFENSE,
     description: "Chaque coup recu fait moins mal. Redoutable contre les petits ennemis nombreux.",
     paliers: [
       { texte: "-3 degats subis par coup", appliquer: (b) => void (b.resistance += 3) },
@@ -392,6 +481,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Fureur",
     rang: "A",
     type: "passive",
+    tags: TAGS.RAGE,
     description: "Plus fort et plus rapide a la fois.",
     paliers: [
       {
@@ -415,6 +505,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Second souffle",
     rang: "S",
     type: "passive",
+    tags: TAGS.SOIN,
     description: "Beaucoup de vie d'un coup, et une remise a neuf immediate.",
     paliers: [
       { texte: "+70 vie maximum et soin complet", appliquer: (b) => void (b.pvMax += 70) },
@@ -426,6 +517,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Capacites affinees",
     rang: "S",
     type: "passive",
+    tags: TAGS.MAGIE,
     description: "Toutes tes capacites reviennent plus vite.",
     paliers: [
       { texte: "Rechargements -25%", appliquer: (b) => void (b.rechargementCapacites *= 0.75) },
@@ -439,6 +531,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Sursaut sacre",
     rang: "F",
     type: "auto",
+    tags: TAGS.SACRE | TAGS.SOIN | TAGS.DEFENSE,
     classes: ["chevalier"],
     description:
       "Regulierement et tout seul : il prie une seconde, devient invincible, se soigne et repousse tout.",
@@ -455,6 +548,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Provocation",
     rang: "SR",
     type: "passive",
+    tags: TAGS.DEFENSE,
     classes: ["chevalier"],
     description:
       "Tout ce qui l'approche ne voit plus que lui. Chaque ennemi qui le cible le rend plus dur, et chaque mort a ses pieds le remet un peu debout.",
@@ -472,6 +566,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Benediction",
     rang: "S",
     type: "active",
+    tags: TAGS.SACRE | TAGS.SOIN | TAGS.ZONE,
     classes: ["chevalier"],
     description: "Un dome de lumiere qui soigne tous les allies a l'interieur.",
     icone: "cap-benediction",
@@ -487,6 +582,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Endurance sacree",
     rang: "A",
     type: "passive",
+    tags: TAGS.SACRE | TAGS.DEFENSE,
     classes: ["chevalier"],
     description: "Il grossit a mesure qu'il tue. Une competence qui recompense les longues parties.",
     paliers: [
@@ -502,6 +598,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Rage",
     rang: "S",
     type: "passive",
+    tags: TAGS.RAGE,
     classes: ["guerrier"],
     description:
       "Plus il est blesse, plus il frappe vite. Elle recompense exactement ce que le jeu punit d'habitude.",
@@ -525,6 +622,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Moulinet",
     rang: "E",
     type: "active",
+    tags: TAGS.LAME | TAGS.ZONE | TAGS.MELEE,
     classes: ["guerrier"],
     description: "Il tourne sur lui-meme et fauche tout ce qui l'entoure.",
     icone: "cap-moulinet",
@@ -546,6 +644,7 @@ export const COMPETENCES: CompetenceDef[] = [
         },
         {
           id: "moulinet-sanglant",
+          tags: TAGS.SANG,
           nom: "Lames rouges",
           description: "Pendant le moulinet, tout ce que tu infliges te revient en vie.",
           effet: "moulinet-sanglant",
@@ -559,6 +658,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Entaille",
     rang: "A",
     type: "passive",
+    tags: TAGS.LAME,
     classes: ["guerrier"],
     description: "Chaque tranche de morts le rend definitivement plus dangereux.",
     paliers: [
@@ -577,6 +677,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Apotheose",
     rang: "SSR",
     type: "passive",
+    tags: TAGS.RAGE,
     classes: ["guerrier"],
     description:
       "Toutes ses statistiques sont doublees, maintenant et pour tout ce qui viendra apres.",
@@ -594,6 +695,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Satellite",
     rang: "B",
     type: "passive",
+    tags: TAGS.MAGIE,
     classes: ["mage"],
     description: "Un eclat d'energie tourne autour de lui et blesse tout ce qu'il traverse.",
     paliers: [
@@ -607,6 +709,7 @@ export const COMPETENCES: CompetenceDef[] = [
       options: [
         {
           id: "satellite-feu",
+          tags: TAGS.FEU,
           nom: "Satellites de feu",
           description: "Ils brulent : degats doubles, et ils laissent une trainee ardente.",
           teinte: 0xff8a3d,
@@ -614,6 +717,7 @@ export const COMPETENCES: CompetenceDef[] = [
         },
         {
           id: "satellite-glace",
+          tags: TAGS.GLACE,
           nom: "Satellites de givre",
           description: "Ils ralentissent de moitie tout ce qu'ils touchent.",
           teinte: 0x8ed6ff,
@@ -627,6 +731,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Savoir arcanique",
     rang: "A",
     type: "passive",
+    tags: TAGS.MAGIE,
     classes: ["mage"],
     description: "Son savoir grandit avec le nombre de creatures qu'il a etudiees de pres.",
     paliers: [
@@ -645,6 +750,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Dome",
     rang: "D",
     type: "active",
+    tags: TAGS.MAGIE | TAGS.DEFENSE | TAGS.BOUCLIER,
     classes: ["mage"],
     description:
       "Pose un dome la ou tu le decides. Il a ses propres points de vie et arrete ce qui passe.",
@@ -661,6 +767,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Exil",
     rang: "SSR",
     type: "active",
+    tags: TAGS.MAGIE,
     classes: ["mage"],
     description:
       "Il sacrifie 99% de sa vie pour bannir toutes les creatures hostiles vers un autre monde. Personne ne gagne d'experience. Il reste immobilise a 1 PV pendant 30 s, insoignable, et le moindre contact le tue.",
@@ -675,6 +782,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Invisibilite",
     rang: "D",
     type: "active",
+    tags: TAGS.OMBRE | TAGS.MOBILITE | TAGS.ESQUIVE,
     classes: ["assassin"],
     description: "Il disparait. Plus rien ne le vise, et il court plus vite.",
     icone: "cap-invisibilite",
@@ -690,6 +798,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Saignee",
     rang: "A",
     type: "passive",
+    tags: TAGS.SANG,
     classes: ["assassin"],
     description: "Plus il tue, plus chaque coup le nourrit.",
     paliers: [
@@ -708,6 +817,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Hecatombe",
     rang: "SSR",
     type: "active",
+    tags: TAGS.LAME | TAGS.OMBRE,
     classes: ["assassin"],
     description:
       "Tout ennemi sous 10% de vie qu'il touche est execute sur-le-champ, et chaque execution le projette sur sa cible suivante.",
@@ -728,6 +838,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Epee tournoyante",
     rang: "F",
     type: "passive",
+    tags: TAGS.LAME,
     description: "Une epee flotte autour de toi et fauche ce qu'elle croise. Elle ne s'arrete jamais.",
     paliers: [
       { texte: "1 epee", appliquer: (b) => void (b.epees += 1) },
@@ -741,6 +852,7 @@ export const COMPETENCES: CompetenceDef[] = [
       options: [
         {
           id: "epee-ardente",
+          tags: TAGS.FEU,
           nom: "Lames ardentes",
           description: "Elles chauffent au rouge : degats doubles.",
           teinte: 0xff8a3d,
@@ -761,6 +873,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Aura de flammes",
     rang: "E",
     type: "passive",
+    tags: TAGS.FEU | TAGS.ZONE,
     description: "Tout ce qui s'approche de toi brule, en continu, sans que tu aies rien a faire.",
     paliers: [
       { texte: "6 degats par seconde autour de toi", appliquer: (b) => void (b.auraFeu += 6) },
@@ -773,6 +886,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Eclats",
     rang: "E",
     type: "passive",
+    tags: TAGS.PROJECTILE | TAGS.MAGIE,
     description: "Regulierement, des eclats partent au hasard autour de toi. Ils finissent par trouver.",
     paliers: [
       { texte: "3 eclats par salve", appliquer: (b) => void (b.eclats += 3) },
@@ -785,6 +899,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Chaine d'eclairs",
     rang: "C",
     type: "passive",
+    tags: TAGS.FOUDRE | TAGS.CHAINE | TAGS.MAGIE,
     description: "Tes attaques sautent d'un ennemi a l'autre en arc electrique.",
     paliers: [
       { texte: "Rebondit sur 1 ennemi", appliquer: (b) => void (b.chaineEclairs += 1) },
@@ -816,14 +931,18 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Ricochet",
     rang: "D",
     type: "passive",
-    description: "Tes projectiles traversent les ennemis au lieu de s'arreter au premier.",
-    paliers: [{ texte: "Les projectiles transpercent", appliquer: (b) => void (b.perforant = true) }],
+    tags: TAGS.PROJECTILE,
+    description: "Tes projectiles traversent trois ennemis de plus avant de s'arreter.",
+    paliers: [
+      { texte: "+3 de penetration aux projectiles", appliquer: (b) => void (b.penetrationProjectiles += 3) },
+    ],
   },
   {
     id: "pas-leger",
     nom: "Pas leger",
     rang: "F",
     type: "passive",
+    tags: TAGS.MOBILITE | TAGS.ESQUIVE,
     description: "Un peu plus vif, un peu plus difficile a toucher.",
     paliers: [
       {
@@ -854,6 +973,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Charognard",
     rang: "E",
     type: "passive",
+    tags: TAGS.MORT | TAGS.SOIN,
     description: "Les cadavres laissent parfois de quoi tenir debout.",
     paliers: [
       { texte: "12% de chance de recuperer un soin", appliquer: (b) => void (b.charognard += 0.12) },
@@ -865,6 +985,8 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Veteran",
     rang: "D",
     type: "passive",
+    // L'experience d'une vie, en un niveau : rien de ce qu'elle donne n'a de nom.
+    tags: 0,
     description: "L'experience de toute une vie, d'un coup. Un niveau immediat.",
     paliers: [
       { texte: "Gagne un niveau tout de suite" },
@@ -876,6 +998,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Echo",
     rang: "B",
     type: "passive",
+    tags: TAGS.MAGIE,
     description: "Il arrive qu'une capacite ne parte pas en rechargement. On ne sait pas pourquoi.",
     paliers: [
       { texte: "20% de chance de ne pas consommer le rechargement", appliquer: (b) => void (b.echo += 0.2) },
@@ -887,6 +1010,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Serment du protecteur",
     rang: "A",
     type: "passive",
+    tags: TAGS.DEFENSE,
     description:
       "Tant que tu te bats a portee de la cite, tout te reussit. Loin d'elle, tu n'es qu'un mercenaire de plus.",
     paliers: [
@@ -899,6 +1023,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Fardeau",
     rang: "S",
     type: "passive",
+    tags: TAGS.RAGE,
     description: "Tu portes une arme trop lourde pour ton armure. Tu frappes beaucoup plus fort, et tu tiens beaucoup moins.",
     paliers: [
       {
@@ -915,6 +1040,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Orage final",
     rang: "SR",
     type: "active",
+    tags: TAGS.FOUDRE | TAGS.ZONE | TAGS.MAGIE,
     description:
       "Un orage se leve au-dessus de toi et te suit. Pendant dix secondes, la foudre s'abat sans repit sur tout ce qui t'entoure.",
     icone: "cap-orage",
@@ -929,6 +1055,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Heure sombre",
     rang: "SSR",
     type: "active",
+    tags: TAGS.MAGIE,
     description:
       "Le monde s'arrete. Pendant trois secondes, plus rien ne bouge — sauf toi. Ce que tu en fais te regarde.",
     icone: "cap-heure-sombre",
@@ -945,6 +1072,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Serment de fer",
     rang: "C",
     type: "passive",
+    tags: TAGS.DEFENSE | TAGS.SACRE,
     classes: ["chevalier"],
     description:
       "Chaque fois qu'il tombe sous la moitie de sa vie, il jure a nouveau — et il en ressort plus dur. Definitivement.",
@@ -958,6 +1086,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Martyre",
     rang: "SSR",
     type: "active",
+    tags: TAGS.SACRE | TAGS.DEFENSE,
     classes: ["chevalier"],
     description:
       "Pendant 8 secondes, tous les degats subis par l'equipe entiere lui sont transferes, et il ne peut pas mourir. Apres, on verra.",
@@ -975,6 +1104,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Sang pour sang",
     rang: "B",
     type: "passive",
+    tags: TAGS.SANG | TAGS.RAGE,
     classes: ["guerrier"],
     description:
       "Il refuse d'etre soigne par qui que ce soit. Il ne recupere plus qu'en tuant — mais alors, beaucoup.",
@@ -988,6 +1118,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Le dernier debout",
     rang: "SR",
     type: "passive",
+    tags: TAGS.RAGE,
     classes: ["guerrier"],
     description:
       "Plus l'equipe s'effondre, plus il devient terrifiant. Il n'a jamais aussi bien combattu que seul.",
@@ -1003,6 +1134,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Marque de sang",
     rang: "D",
     type: "passive",
+    tags: TAGS.SANG | TAGS.LAME,
     classes: ["assassin"],
     description: "Sa premiere attaque sur une cible qu'il n'a jamais touchee frappe bien plus fort.",
     paliers: [
@@ -1015,6 +1147,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Danse des ombres",
     rang: "SR",
     type: "passive",
+    tags: TAGS.OMBRE,
     classes: ["assassin"],
     description:
       "Chaque mort raccourcit ses rechargements. Enchaine assez vite, et il ne s'arrete plus jamais.",
@@ -1030,15 +1163,19 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Fleche perforante",
     rang: "E",
     type: "passive",
+    tags: TAGS.PROJECTILE,
     classes: ["rodeur"],
-    description: "Ses fleches traversent les corps et continuent leur route.",
-    paliers: [{ texte: "Les fleches transpercent", appliquer: (b) => void (b.perforant = true) }],
+    description: "Ses fleches traversent trois corps de plus avant de tomber.",
+    paliers: [
+      { texte: "+3 de penetration aux fleches", appliquer: (b) => void (b.penetrationProjectiles += 3) },
+    ],
   },
   {
     id: "piege",
     nom: "Piege a machoires",
     rang: "D",
     type: "active",
+    tags: TAGS.SOL | TAGS.ENTRAVE,
     classes: ["rodeur"],
     description: "Pose un piege au sol : le premier qui marche dessus reste sur place.",
     icone: "cap-piege",
@@ -1054,6 +1191,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Oeil de lynx",
     rang: "C",
     type: "passive",
+    tags: TAGS.PROJECTILE,
     classes: ["rodeur"],
     description: "Il voit plus loin, et il vise mieux.",
     paliers: [
@@ -1078,6 +1216,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Carquois sans fin",
     rang: "SR",
     type: "passive",
+    tags: TAGS.PROJECTILE,
     classes: ["rodeur"],
     description: "Sa volee passe de trois fleches a un mur de fleches.",
     paliers: [
@@ -1090,6 +1229,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Fleche du jugement",
     rang: "SSR",
     type: "active",
+    tags: TAGS.PROJECTILE,
     classes: ["rodeur"],
     description:
       "Une seule fleche, qui traverse tout l'ecran d'un bout a l'autre et acheve net tout ce qui est deja blesse.",
@@ -1107,6 +1247,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Priere",
     rang: "E",
     type: "active",
+    tags: TAGS.SACRE | TAGS.SOIN,
     classes: ["oracle"],
     description: "Elle soigne l'allie le plus mal en point, ou qu'il soit sur le champ de bataille.",
     icone: "cap-priere",
@@ -1122,6 +1263,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Presage",
     rang: "C",
     type: "passive",
+    tags: TAGS.ESQUIVE,
     classes: ["oracle"],
     description: "Elle voit les coups arriver, et le dit assez fort pour que les autres esquivent.",
     paliers: [
@@ -1134,6 +1276,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Chant de guerre",
     rang: "B",
     type: "active",
+    tags: TAGS.RAGE,
     classes: ["oracle"],
     description: "Toute l'equipe frappe nettement plus vite pendant huit secondes.",
     icone: "cap-chant",
@@ -1148,6 +1291,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Resurrection",
     rang: "SSR",
     type: "passive",
+    tags: TAGS.SACRE | TAGS.SOIN,
     classes: ["oracle"],
     description:
       "Une fois dans la partie — une seule — un heros qui tombe se releve. Elle ne peut pas expliquer comment.",
@@ -1160,6 +1304,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Charnier",
     rang: "E",
     type: "passive",
+    tags: TAGS.MORT | TAGS.INVOCATION,
     classes: ["necromancien"],
     description: "Il apprend a parler plus fort aux morts. Plus de cadavres se relevent.",
     paliers: [
@@ -1173,6 +1318,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Armee des ombres",
     rang: "D",
     type: "passive",
+    tags: TAGS.MORT | TAGS.OMBRE | TAGS.INVOCATION,
     classes: ["necromancien"],
     description: "Ses mort-vivants tiennent mieux debout et frappent plus fort.",
     paliers: [
@@ -1186,6 +1332,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Lien necrotique",
     rang: "C",
     type: "passive",
+    tags: TAGS.MORT | TAGS.EXPLOSION | TAGS.INVOCATION,
     classes: ["necromancien"],
     description: "Quand un de ses morts retombe, il explose. Rien ne se perd.",
     paliers: [
@@ -1200,6 +1347,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Seigneur des tombes",
     rang: "SR",
     type: "passive",
+    tags: TAGS.MORT | TAGS.INVOCATION,
     classes: ["necromancien"],
     description: "Ses mort-vivants ne se decomposent plus. Ils restent tant qu'on ne les detruit pas.",
     paliers: [
@@ -1214,6 +1362,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "L'Appel",
     rang: "SSR",
     type: "active",
+    tags: TAGS.MORT | TAGS.INVOCATION,
     classes: ["necromancien"],
     description:
       "Il sacrifie tous ses mort-vivants d'un coup pour dresser un colosse fait de leurs restes.",
@@ -1228,6 +1377,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Jugement",
     rang: "B",
     type: "active",
+    tags: TAGS.SACRE | TAGS.ZONE,
     classes: ["chevalier"],
     description: "Il plante son epee, et une colonne de lumiere ecrase la zone.",
     icone: "cap-jugement",
@@ -1249,6 +1399,7 @@ export const COMPETENCES: CompetenceDef[] = [
         },
         {
           id: "jugement-absolution",
+          tags: TAGS.SOIN,
           nom: "Absolution",
           description: "La lumiere cesse de blesser : elle soigne d'un coup tous les allies dedans.",
           effet: "jugement-absolution",
@@ -1262,6 +1413,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Bouclier des ames",
     rang: "SR",
     type: "auto",
+    tags: TAGS.SACRE | TAGS.SOIN,
     classes: ["chevalier"],
     description:
       "Des qu'un allie est au plus mal, il lui donne de sa propre vie. Personne ne le lui demande.",
@@ -1279,6 +1431,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Charge",
     rang: "D",
     type: "active",
+    tags: TAGS.MELEE | TAGS.MOBILITE,
     classes: ["guerrier"],
     description: "Il fonce en ligne droite et renverse tout ce qui se trouve sur son chemin.",
     icone: "cap-charge",
@@ -1293,6 +1446,7 @@ export const COMPETENCES: CompetenceDef[] = [
       options: [
         {
           id: "charge-sismique",
+          tags: TAGS.ZONE | TAGS.SOL,
           nom: "Charge sismique",
           description: "Le sol se fissure a l'arrivee : tout ce qui est autour est souffle.",
           effet: "charge-sismique",
@@ -1300,6 +1454,7 @@ export const COMPETENCES: CompetenceDef[] = [
         },
         {
           id: "charge-sanglante",
+          tags: TAGS.SANG,
           nom: "Charge sanglante",
           description: "Il traverse, puis revient aussitot sur ses pas en fauchant a nouveau.",
           effet: "charge-sanglante",
@@ -1313,6 +1468,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Cri de guerre",
     rang: "C",
     type: "active",
+    tags: TAGS.RAGE | TAGS.ZONE,
     classes: ["guerrier"],
     description: "Il hurle. Les monstres reculent, et l'equipe entiere se met a frapper plus fort.",
     icone: "cap-cri",
@@ -1329,6 +1485,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Clignement",
     rang: "E",
     type: "active",
+    tags: TAGS.MAGIE | TAGS.MOBILITE | TAGS.EXPLOSION,
     classes: ["mage"],
     description:
       "Il disparait et reapparait plus loin, en laissant une deflagration a l'endroit qu'il quitte.",
@@ -1345,6 +1502,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Sablier",
     rang: "A",
     type: "active",
+    tags: TAGS.MAGIE | TAGS.ENTRAVE | TAGS.ZONE,
     classes: ["mage"],
     description: "Le temps ralentit dans une large zone — pour les monstres seulement.",
     icone: "cap-sablier",
@@ -1359,6 +1517,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Familier",
     rang: "S",
     type: "passive",
+    tags: TAGS.INVOCATION | TAGS.MAGIE,
     classes: ["mage"],
     description:
       "Une creature liee a lui se bat a ses cotes en permanence, et grandit a chacun de ses niveaux.",
@@ -1372,6 +1531,7 @@ export const COMPETENCES: CompetenceDef[] = [
       options: [
         {
           id: "familier-golem",
+          tags: TAGS.DEFENSE,
           nom: "Golem",
           description: "Lourd, tres resistant, et il attire sur lui tout ce qui passe a portee.",
           teinte: 0xc9a06b,
@@ -1379,6 +1539,7 @@ export const COMPETENCES: CompetenceDef[] = [
         },
         {
           id: "familier-spectre",
+          tags: TAGS.OMBRE,
           nom: "Spectre",
           description: "Rapide, invisible aux monstres, et il acheve tout ce qui agonise.",
           teinte: 0x9fd8ff,
@@ -1394,6 +1555,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Croc-en-jambe",
     rang: "C",
     type: "active",
+    tags: TAGS.LAME | TAGS.SANG | TAGS.SOL | TAGS.ZONE,
     classes: ["assassin"],
     description: "Il seme des lames au sol. Tout ce qui passe dessus saigne longtemps.",
     icone: "cap-croc",
@@ -1409,6 +1571,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Doppelganger",
     rang: "B",
     type: "active",
+    tags: TAGS.OMBRE | TAGS.EXPLOSION,
     classes: ["assassin"],
     description:
       "Il laisse un double immobile qui attire toute l'attention, puis explose quand on le detruit.",
@@ -1424,6 +1587,7 @@ export const COMPETENCES: CompetenceDef[] = [
     nom: "Contrat",
     rang: "SSR",
     type: "active",
+    tags: TAGS.OMBRE | TAGS.MORT,
     classes: ["assassin"],
     description:
       "Il designe une cible : elle mourra dans dix secondes, quoi qu'il arrive. Mais tant que le contrat court, il ne peut attaquer personne d'autre.",
@@ -1475,18 +1639,128 @@ export function estDisponible(
   return (possedees[competence.id] ?? 0) < competence.paliers.length;
 }
 
+/**
+ * Les tags d'un build (§4.25) : ceux de chaque competence tenue, plus ceux
+ * qu'ajoute son evolution.
+ *
+ * ⚠️ **Agreges une fois**, quand le heros gagne, fait evoluer ou oublie une
+ * competence — jamais a chaque image, exactement comme les traits (§4.23).
+ */
+export function tagsDuBuild(
+  possedees: CompetencesPossedees,
+  evolutions: Readonly<Record<string, EvolutionDef>>,
+): number {
+  let tags = 0;
+  for (const id of Object.keys(possedees)) {
+    const competence = competenceParId(id);
+    if (competence) tags |= competence.tags;
+    const evolution = evolutions[id];
+    if (evolution?.tags) tags |= evolution.tags;
+  }
+  return tags;
+}
+
+// ------------------------------------------------------- la pioche ponderee
+
+/** « Ce qui porte l'un de ces tags pese tant de fois plus lourd dans la pioche. » */
+export interface Penchant {
+  masque: number;
+  facteur: number;
+}
+
+/**
+ * Ce qu'une classe voit plus souvent parmi les competences **ouvertes a toutes**
+ * (§4.13 : « un Mage voit les bases elementaires beaucoup plus souvent qu'un
+ * Guerrier — mais un Guerrier peut les tirer »). Ses propres competences de
+ * classe ne sont pas concernees : elles sont deja a elle seule.
+ *
+ * ⚠️ **Tranche par le code**, a regler en jouant : x2 sur ce qui ressemble a la
+ * classe, x3 pour le Mage sur les elements.
+ */
+export const PENCHANTS_DE_CLASSE: Record<ClassId, readonly Penchant[]> = {
+  guerrier: [{ masque: TAGS.LAME | TAGS.RAGE | TAGS.MELEE, facteur: 2 }],
+  chevalier: [{ masque: TAGS.SACRE | TAGS.DEFENSE | TAGS.SOIN | TAGS.BOUCLIER, facteur: 2 }],
+  mage: [
+    { masque: TAGS.MAGIE, facteur: 2 },
+    { masque: TAGS.FEU | TAGS.GLACE | TAGS.FOUDRE | TAGS.EAU | TAGS.VENT | TAGS.NATURE, facteur: 3 },
+  ],
+  assassin: [{ masque: TAGS.OMBRE | TAGS.SANG | TAGS.ESQUIVE, facteur: 2 }],
+  rodeur: [{ masque: TAGS.PROJECTILE | TAGS.ENTRAVE | TAGS.NATURE, facteur: 2 }],
+  oracle: [{ masque: TAGS.SACRE | TAGS.SOIN, facteur: 2 }],
+  necromancien: [{ masque: TAGS.MORT | TAGS.INVOCATION, facteur: 2 }],
+};
+
+/**
+ * La table du §4.25, « les traits pesent sur ce qu'on te propose ». Un trait
+ * ne debloque rien et ne bloque rien : il **pondere** — un ancien pompier
+ * devenu pyromane finit mage de feu parce que c'est ce qu'il a vecu.
+ *
+ * Le x3 du Pyromane est ecrit au design ; les x2 des autres sont **tranches par
+ * le code**.
+ */
+export const PENCHANTS_DES_TRAITS: Partial<Record<CleTrait, readonly Penchant[]>> = {
+  pyromane: [{ masque: TAGS.FEU, facteur: 3 }],
+  peureux: [{ masque: TAGS.MOBILITE | TAGS.ESQUIVE, facteur: 2 }],
+  colerique: [{ masque: TAGS.RAGE | TAGS.LAME, facteur: 2 }],
+  boucher: [{ masque: TAGS.RAGE | TAGS.LAME, facteur: 2 }],
+  hante: [{ masque: TAGS.OMBRE | TAGS.MORT, facteur: 2 }],
+  marque: [{ masque: TAGS.OMBRE | TAGS.MORT, facteur: 2 }],
+  devot: [{ masque: TAGS.SACRE | TAGS.SOIN, facteur: 2 }],
+  pieux: [{ masque: TAGS.SACRE | TAGS.SOIN, facteur: 2 }],
+  veteran: [{ masque: TAGS.DEFENSE, facteur: 2 }],
+  endurci: [{ masque: TAGS.DEFENSE, facteur: 2 }],
+};
+
+/**
+ * Ce que la classe et les traits font peser sur une competence (§4.25).
+ *
+ * Un penchant qui touche la competence la multiplie par son facteur. Deux
+ * penchants **identiques** ne s'empilent pas — Colerique et Boucher disent la
+ * meme chose, un heros qui porte les deux ne voit pas la LAME quatre fois plus ;
+ * deux penchants **differents** se multiplient — un Pyromane colerique voit une
+ * lame de feu six fois plus.
+ */
+export function penchantPour(
+  competence: CompetenceDef,
+  classe: ClassId,
+  traits: readonly CleTrait[] = [],
+): number {
+  const retenus: Penchant[] = [];
+  const retenir = (penchants: readonly Penchant[] | undefined) => {
+    for (const p of penchants ?? []) {
+      if ((p.masque & competence.tags) === 0) continue;
+      const deja = retenus.find((r) => r.masque === p.masque);
+      if (!deja) retenus.push({ ...p });
+      else if (p.facteur > deja.facteur) deja.facteur = p.facteur;
+    }
+  };
+  // La classe : seulement sur ce qui est ouvert a toutes, et son meilleur penchant.
+  if (!competence.classes) {
+    let meilleur = 1;
+    for (const p of PENCHANTS_DE_CLASSE[classe]) {
+      if ((p.masque & competence.tags) !== 0 && p.facteur > meilleur) meilleur = p.facteur;
+    }
+    if (meilleur > 1) retenus.push({ masque: -1, facteur: meilleur });
+  }
+  for (const trait of traits) retenir(PENCHANTS_DES_TRAITS[trait]);
+  let poids = 1;
+  for (const r of retenus) poids *= r.facteur;
+  return poids;
+}
+
 export function tirerCompetences(
   rng: SourceAleatoire,
   classe: ClassId,
   possedees: CompetencesPossedees,
   nombre = 3,
   faveur = 0,
+  traits: readonly CleTrait[] = [],
 ): CompetenceDef[] {
   const restantes = COMPETENCES.filter((c) => estDisponible(c, classe, possedees));
   const tirees: CompetenceDef[] = [];
 
   while (tirees.length < nombre && restantes.length > 0) {
-    const poids = restantes.map((c) => poidsDe(c.rang, faveur));
+    const poids = restantes.map((c) => poidsDe(c.rang, faveur) * penchantPour(c, classe, traits));
     const total = poids.reduce((a, b) => a + b, 0);
     let seuil = rng.next() * total;
 
@@ -1510,6 +1784,35 @@ function poidsDe(rang: Rang, faveur: number): number {
   return POIDS[rang] * Math.pow(1 + faveur, ORDRE_RANGS.indexOf(rang));
 }
 
+// ------------------------------------------------------------ la penetration
+
+/**
+ * Combien de monstres chaque attaque qui traverse touche avant de s'arreter
+ * (§4.25, la penetration — decision d'Angelos du 22 septembre 2026).
+ *
+ * Contre soixante monstres, un trait qui traversait tout ne coutait rien ;
+ * contre des milliers, un trait de deux mille pixels en toucherait des
+ * centaines. La penetration borne ca, et elle monte avec le build.
+ *
+ * ⚠️ **Tranche par le code**, a regler en jouant : aucun de ces chiffres n'a
+ * ete soumis.
+ */
+export const PENETRATION = {
+  /** Le tir des classes a distance : il s'arrete au premier monstre. */
+  projectile: 1,
+  /** La Charge renverse les premiers de la file, pas la file entiere. */
+  charge: (palier: number) => 6 + palier * 2,
+  /** La Fleche du Jugement traverse l'ecran, pas une horde entiere. */
+  flecheDuJugement: (palier: number) => 20 + palier * 10,
+  /** L'Ombre, l'ultime de l'assassin. */
+  ombre: 12,
+} as const;
+
+/** La penetration d'une attaque : sa base, plus ce que le build y ajoute (§4.25). */
+export function penetrationDe(base: number, bonus: Bonus, projectile: boolean): number {
+  return base + bonus.penetration + (projectile ? bonus.penetrationProjectiles : 0);
+}
+
 // --------------------------------------------------- affichage (sans Phaser)
 
 /** Ce que l'interface a besoin de savoir pour dessiner une carte de choix. */
@@ -1519,6 +1822,8 @@ export interface Proposition {
   description: string;
   etiquette: string;
   couleur: number;
+  /** Ses tags, en clair (« FEU  ·  ZONE ») : absent quand la carte n'est pas une competence */
+  tags?: string;
 }
 
 // ------------------------------------------------- les emplacements d'actives
@@ -1581,6 +1886,7 @@ export function propositionsDeRemplacement(
     description: `Oubliee, paliers perdus. ${c.description}`,
     etiquette: `${c.rang}  ·  OUBLIER`,
     couleur: COULEURS_RANG[c.rang],
+    tags: texteDesTags(c.tags),
   }));
   const prix = prixDuProchainEmplacement(emplacements);
   if (prix !== null && argent >= prix) {
@@ -1609,6 +1915,7 @@ export function propositionCompetence(
     description: nouvelle ? competence.description : (palier?.texte ?? ""),
     etiquette: `${competence.rang}  ·  ${etiquetteType(competence.type)}`,
     couleur: COULEURS_RANG[competence.rang],
+    tags: texteDesTags(competence.tags),
   };
 }
 
@@ -1619,6 +1926,7 @@ export function propositionEvolution(competence: CompetenceDef, evolution: Evolu
     description: evolution.description,
     etiquette: `EVOLUTION  ·  ${competence.nom}`,
     couleur: evolution.teinte ?? COULEURS_RANG[competence.rang],
+    tags: texteDesTags(competence.tags | (evolution.tags ?? 0)),
   };
 }
 

@@ -392,7 +392,8 @@ src/
   core/      logique pure, sans Phaser, testable
     rng.ts           aleatoire seede (une graine = une partie rejouable)
     classes.ts       donnees des 7 classes — c'est ici qu'on equilibre
-    competences.ts   ameliorations et leurs raretes
+    competences.ts   ameliorations et leurs raretes, leurs tags (un bit
+                     chacun), la penetration et la pioche ponderee (§4.25)
     ia.ts            decisions des heros joues par l'IA (fonction pure, testee)
     ordres.ts        postures, formations et postes (fonction pure, testee)
     affinites.ts     experience de groupe par paire de heros (testee)
@@ -407,8 +408,9 @@ src/
                      rendent, ce qui les garde, et ce que dit une stele (testee)
     parcours.ts      le champ de directions : contourner l'eau et la roche,
                      et sortir par la porte (testee)
-    voisinage.ts     la grille de la horde : qui est pres de qui, et ce qui
-                     arrete les corps, en une passe par image (testee, §4.33)
+    voisinage.ts     la grille de la horde : qui est pres de qui, les N
+                     premiers le long d'un trait, et ce qui arrete les corps,
+                     en une passe par image (testee, §4.33, §4.25)
     cycle.ts         le jour, la nuit, les effectifs et les hordes (testee)
     habitants.ts     metiers, cadence, progression et faim (testee)
     arrivants.ts     la porte : indices, questions, degres de folie,

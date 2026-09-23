@@ -3,7 +3,14 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-09-23 — **chaque nuit a son boss** (§4.33) : un boss par nuit
+> Dernière mise à jour : 2026-09-23, fin de matinée — **le socle des builds est posé**
+> (§4.25, jalon 6.5, morceau 1) : les 71 compétences portent leurs **tags** (vingt-sept, un
+> bit chacun), affichés en pied de carte ; la **pénétration** borne les projectiles et les
+> frappes en ligne ; la pioche est **pondérée par la classe et par les traits** ; les géants
+> reculent moins. Le reste du jalon attend **onze décisions**, posées d'un coup dans un
+> questionnaire.
+>
+> Avant ça : 2026-09-23 — **chaque nuit a son boss** (§4.33) : un boss par nuit
 > dès la deuxième, un énorme toutes les cinq, deux et trois fois plus gros, dix et trente
 > fois plus de points de vie, et ils se cabrent avant de frapper — les seuls de la horde qui
 > préviennent. La suite est le **jalon 6.5, les builds**.

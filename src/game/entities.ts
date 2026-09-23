@@ -13,6 +13,7 @@ import {
   type EvolutionDef,
   EMPLACEMENTS_ACTIFS,
   activesPossedees,
+  tagsDuBuild,
 } from "../core/competences";
 import type { Ordre, Point } from "../core/ordres";
 import type { Metier } from "../core/habitants";
@@ -180,6 +181,12 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   readonly competences: CompetencesPossedees = {};
   /** Evolution choisie pour une competence, par identifiant de competence */
   readonly evolutions: Record<string, EvolutionDef> = {};
+  /**
+   * Les tags de son build (§4.25), agreges une fois a chaque competence gagnee,
+   * changee ou oubliee : « ce build contient-il FEU et VENT ? » est un `&` sur
+   * cet entier.
+   */
+  tags = 0;
   /** Les emplacements d'actives : quatre, puis ceux qu'on achete (§4.13). */
   emplacements = EMPLACEMENTS_ACTIFS;
 
@@ -738,6 +745,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   apprendre(competence: CompetenceDef): EvolutionDef[] | null {
     const palier = (this.competences[competence.id] ?? 0) + 1;
     this.competences[competence.id] = palier;
+    this.tags = tagsDuBuild(this.competences, this.evolutions);
 
     const avant = this.pvMax;
     competence.paliers[palier - 1]?.appliquer?.(this.bonus, palier);
@@ -756,6 +764,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   appliquerEvolution(competenceId: string, evolution: EvolutionDef): void {
     this.evolutions[competenceId] = evolution;
+    this.tags = tagsDuBuild(this.competences, this.evolutions);
     evolution.appliquer?.(this.bonus);
     // Le build se voit a l'ecran : une evolution change l'allure du heros.
     // Elle est retenue, pas seulement posee : un eclair d'encaissement la
@@ -780,8 +789,9 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   oublier(id: string): void {
     delete this.competences[id];
     const evolution = this.evolutions[id];
-    if (!evolution) return;
     delete this.evolutions[id];
+    this.tags = tagsDuBuild(this.competences, this.evolutions);
+    if (!evolution) return;
     if (evolution.teinte !== undefined && this.teinte === evolution.teinte) {
       this.teinte = null;
       this.clearTint();

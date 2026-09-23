@@ -168,7 +168,10 @@ Dans l'ordre :
    ~4 000 à 60 images/s ; le palier 3 (la logique en tableaux typés) n'est pas fait. ⚠️ Pour
    qu'il ne réécrive pas les builds s'il vient un jour, **les zones et les chaînes des
    builds interrogent la horde par le voisinage** (`ennemisDansRayon`,
-   `ennemiLePlusProche`), jamais en parcourant `this.ennemis`.
+   `ennemiLePlusProche`, `monstresLeLongDuTrait`), jamais en parcourant `this.ennemis`.
+   ✅ **Morceau 1, le socle** (23 septembre) : tags, pénétration, pioche pondérée, recul des
+   géants. **Les morceaux 2 à 7 attendent les onze réponses** du questionnaire
+   (https://claude.ai/artifact/K83jkcH7Lt7CYgt884fuU9) — découpage dans le §4.25, « Où ça se code ».
 
 Toute mesure se fait **sur la vraie carte graphique**, sans fenêtre
 (`--use-angle=d3d11`), et **sur le même monde et le même village** que son témoin : le

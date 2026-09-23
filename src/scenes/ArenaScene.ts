@@ -3,7 +3,7 @@ import { Noyade, REGLAGES_EAU, profondeurDe } from "../core/eau";
 import { Chemins } from "../core/chemins";
 import { CoucheDesChemins, RAYON_VOISINAGE } from "../game/dessin/chemins";
 import { Rng } from "../core/rng";
-import { distanceAuSegment, Emprises, Voisinage } from "../core/voisinage";
+import { Emprises, Voisinage } from "../core/voisinage";
 import { CLASSES, ORDRE_CLASSES, type ClassId } from "../core/classes";
 import {
   competenceParId,
@@ -16,6 +16,8 @@ import {
   demandeUnePlace,
   prixDuProchainEmplacement,
   propositionsDeRemplacement,
+  PENETRATION,
+  penetrationDe,
 } from "../core/competences";
 import { creerTexturesPlaceholder } from "../game/art";
 import {
@@ -6869,8 +6871,9 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
 
-    // Un projectile perforant traverse : il faut se souvenir de qui il a deja
-    // touche, sinon il blesse la meme cible a chaque image.
+    // La penetration (§4.25) : un projectile traverse un nombre de monstres,
+    // puis s'arrete. Il faut se souvenir de qui il a deja touche, sinon il
+    // blesse la meme cible a chaque image.
     const touches = (p.getData("touches") as Set<Ennemi> | undefined) ?? new Set<Ennemi>();
     if (touches.has(e)) return;
     touches.add(e);
@@ -6884,7 +6887,7 @@ export class ArenaScene extends Phaser.Scene {
       this.frapper(auteur, e);
     }
 
-    if (!auteur.bonus.perforant) p.destroy();
+    if (touches.size >= penetrationDe(PENETRATION.projectile, auteur.bonus, true)) p.destroy();
   }
 
   private frapper(auteur: Hero, e: Ennemi): void {
@@ -7122,6 +7125,12 @@ export class ArenaScene extends Phaser.Scene {
       3,
       // Passera au rang du heros quand les rangs existeront (DESIGN.md §4.1).
       0,
+      // Ses traits pesent sur ce qu'on lui propose (§4.25) : un Pyromane voit
+      // le FEU trois fois plus souvent.
+      hero.personne.traits.flatMap((id) => {
+        const trait = traitParId(id);
+        return trait ? [trait.cle] : [];
+      }),
     );
     const propositions = defs.map((d) => propositionCompetence(d, hero.competences));
 
@@ -7471,9 +7480,12 @@ export class ArenaScene extends Phaser.Scene {
     const depart = new Phaser.Math.Vector2(hero.x, hero.y);
     const arrivee = this.pointDevant(hero, distance);
 
+    // Elle renverse les premiers de la file, pas la file entiere (§4.25) : le
+    // heros, lui, va toujours au bout — la Charge est aussi sa fuite.
+    const penetration = penetrationDe(PENETRATION.charge(palier), hero.bonus, false);
     hero.rendreInvulnerable(400);
     this.trainee(depart.x, depart.y, arrivee.x, arrivee.y, 0xffc27a);
-    this.faucherLeLong(hero, depart, arrivee, hero.degats * 2);
+    this.faucherLeLong(hero, depart, arrivee, hero.degats * 2, penetration);
     hero.setPosition(arrivee.x, arrivee.y);
 
     if (variante === "charge-sismique") {
@@ -7490,7 +7502,7 @@ export class ArenaScene extends Phaser.Scene {
       this.time.delayedCall(220, () => {
         if (hero.etat === "mort") return;
         this.trainee(arrivee.x, arrivee.y, depart.x, depart.y, 0xff8080);
-        this.faucherLeLong(hero, arrivee, depart, hero.degats * 2);
+        this.faucherLeLong(hero, arrivee, depart, hero.degats * 2, penetration);
         hero.setPosition(depart.x, depart.y);
       });
     }
@@ -7501,11 +7513,9 @@ export class ArenaScene extends Phaser.Scene {
     depart: Phaser.Math.Vector2,
     arrivee: Phaser.Math.Vector2,
     degats: number,
+    penetration: number,
   ): void {
-    for (const e of [...this.ennemis.getChildren()] as Ennemi[]) {
-      if (!e.active) continue;
-      // Le long du trait, juste devant — pas sur toute la droite (`distanceAuSegment`).
-      if (distanceAuSegment(e.x, e.y, depart.x, depart.y, arrivee.x, arrivee.y) > 48) continue;
+    for (const e of this.monstresLeLongDuTrait(depart.x, depart.y, arrivee.x, arrivee.y, 48, penetration)) {
       this.repousser(e, depart.x, depart.y, 260);
       this.blesserEnnemi(e, degats, hero);
     }
@@ -7699,13 +7709,23 @@ export class ArenaScene extends Phaser.Scene {
     const palier = Math.max(1, hero.palierDe("fleche-du-jugement"));
     const seuil = 0.25 + palier * 0.15;
     const arrivee = this.pointDevant(hero, 2000);
-    this.trainee(hero.x, hero.y, arrivee.x, arrivee.y, 0xfff0a0);
+    const penetration = penetrationDe(PENETRATION.flecheDuJugement(palier), hero.bonus, true);
+    const touches = this.monstresLeLongDuTrait(hero.x, hero.y, arrivee.x, arrivee.y, 56, penetration);
+    // Sa penetration epuisee, la fleche s'arrete sur le dernier qu'elle a
+    // traverse : le trait le dit, pour qu'on voie jusqu'ou elle est allee.
+    let bout = arrivee;
+    const dernier = touches[touches.length - 1];
+    if (dernier && touches.length >= penetration) {
+      const longueur = Math.hypot(arrivee.x - hero.x, arrivee.y - hero.y) || 1;
+      const ux = (arrivee.x - hero.x) / longueur;
+      const uy = (arrivee.y - hero.y) / longueur;
+      const avance = (dernier.x - hero.x) * ux + (dernier.y - hero.y) * uy;
+      bout = new Phaser.Math.Vector2(hero.x + ux * avance, hero.y + uy * avance);
+    }
+    this.trainee(hero.x, hero.y, bout.x, bout.y, 0xfff0a0);
     this.cameras.main.shake(220, 0.008);
 
-    for (const e of [...this.ennemis.getChildren()] as Ennemi[]) {
-      if (!e.active) continue;
-      // Le long du trait, juste devant — pas sur toute la droite (`distanceAuSegment`).
-      if (distanceAuSegment(e.x, e.y, hero.x, hero.y, arrivee.x, arrivee.y) > 56) continue;
+    for (const e of touches) {
       if (e.pv / e.pvMax <= seuil) {
         this.flotter(e.x, e.y - 16, "JUGE", "#fff0a0");
         this.blesserEnnemi(e, e.pv, hero);
@@ -7920,12 +7940,9 @@ export class ArenaScene extends Phaser.Scene {
     hero.rendreInvulnerable(500);
     this.trainee(hero.x, hero.y, arrivee.x, arrivee.y, 0x7ee0a0);
 
-    for (const e of [...this.ennemis.getChildren()] as Ennemi[]) {
-      if (!e.active) continue;
-      // Le long du trait, juste devant — pas sur toute la droite (`distanceAuSegment`).
-      if (distanceAuSegment(e.x, e.y, hero.x, hero.y, arrivee.x, arrivee.y) <= 44) {
-        this.blesserEnnemi(e, hero.degats * 5, hero);
-      }
+    const penetration = penetrationDe(PENETRATION.ombre, hero.bonus, false);
+    for (const e of this.monstresLeLongDuTrait(hero.x, hero.y, arrivee.x, arrivee.y, 44, penetration)) {
+      this.blesserEnnemi(e, hero.degats * 5, hero);
     }
     hero.setPosition(arrivee.x, arrivee.y);
   }
@@ -8128,9 +8145,32 @@ export class ArenaScene extends Phaser.Scene {
     return trouves;
   }
 
+  /**
+   * Les `n` premiers monstres debout le long du trait [a, b], a `epaisseur` au
+   * plus, du plus proche du depart au plus lointain — la penetration (§4.25).
+   * Par le voisinage : on ne lit que les cellules que le trait traverse, jamais
+   * toute la horde (§4.33).
+   */
+  private monstresLeLongDuTrait(
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+    epaisseur: number,
+    n: number,
+  ): Ennemi[] {
+    const k = this.voisinage.leLongDuTrait(ax, ay, bx, by, epaisseur, n, this.monstreDebout);
+    const trouves = new Array<Ennemi>(k);
+    for (let j = 0; j < k; j++) trouves[j] = this.horde[this.voisinage.trouve(j)]!;
+    return trouves;
+  }
+
   private repousser(e: Ennemi, x: number, y: number, force: number): void {
     const angle = Phaser.Math.Angle.Between(x, y, e.x, e.y);
-    e.setVelocity(Math.cos(angle) * force, Math.sin(angle) * force);
+    // Un geant recule moins (§4.25, le recul ; §4.33, les rangs) : le boss deux
+    // fois, l'enorme trois. Pousse comme un orc, il ne se lirait plus geant.
+    const recul = force / RANGS[e.rang].taille;
+    e.setVelocity(Math.cos(angle) * recul, Math.sin(angle) * recul);
   }
 
   // -------------------------------------------------------- le jour et la nuit

@@ -13,7 +13,32 @@ import {
   demandeUnePlace,
   prixDuProchainEmplacement,
   propositionsDeRemplacement,
+  nomsDesTags,
+  penchantPour,
+  PENETRATION,
+  penetrationDe,
+  propositionCompetence,
+  propositionEvolution,
+  TAGS,
+  tagsDuBuild,
+  texteDesTags,
+  type CompetenceDef,
+  type EvolutionDef,
 } from "./competences";
+
+/** Une competence du catalogue, ou le test echoue tout de suite. */
+function def(id: string): CompetenceDef {
+  const c = competenceParId(id);
+  if (!c) throw new Error(`competence inconnue : ${id}`);
+  return c;
+}
+
+/** Une evolution du catalogue, retrouvee par son identifiant. */
+function evolution(competence: string, id: string): EvolutionDef {
+  const e = def(competence).evolutions?.options.find((o) => o.id === id);
+  if (!e) throw new Error(`evolution inconnue : ${id}`);
+  return e;
+}
 
 describe("Competences — coherence du contenu", () => {
   it("n'a pas deux fois le meme identifiant", () => {
@@ -171,5 +196,141 @@ describe("Competences — les emplacements d'actives (§4.13)", () => {
     const avec = propositionsDeRemplacement(quatre, EMPLACEMENTS_ACTIFS, 150);
     expect(avec.at(-1)?.id).toBe(ID_EMPLACEMENT);
     expect(propositionsDeRemplacement(quatre, 6, 10_000).some((p) => p.id === ID_EMPLACEMENT)).toBe(false);
+  });
+});
+
+describe("Les tags (§4.25) — le socle des builds", () => {
+  const TOUS = Object.values(TAGS).reduce((a, b) => a | b, 0);
+
+  it("donne a chaque tag un bit a lui, et tous tiennent dans un entier signe", () => {
+    const valeurs = Object.values(TAGS);
+    expect(new Set(valeurs).size).toBe(valeurs.length);
+    for (const v of valeurs) {
+      // Une puissance de deux, sous le bit de signe : `&` et `|` restent sages.
+      expect(v & (v - 1)).toBe(0);
+      expect(v).toBeGreaterThan(0);
+      expect(v).toBeLessThan(2 ** 31);
+    }
+  });
+
+  it("ne pose sur les competences et les evolutions que des tags connus", () => {
+    for (const c of COMPETENCES) {
+      expect(c.tags & ~TOUS).toBe(0);
+      for (const e of c.evolutions?.options ?? []) expect((e.tags ?? 0) & ~TOUS).toBe(0);
+    }
+  });
+
+  it("tague toutes les competences sauf le Veteran, qui n'est qu'un niveau", () => {
+    const sansTag = COMPETENCES.filter((c) => c.tags === 0).map((c) => c.id);
+    expect(sansTag).toEqual(["veteran"]);
+  });
+
+  it("reprend les exemples du design", () => {
+    const moulinet = TAGS.LAME | TAGS.ZONE | TAGS.MELEE;
+    expect(def("moulinet").tags & moulinet).toBe(moulinet);
+    const chaine = TAGS.FOUDRE | TAGS.CHAINE | TAGS.MAGIE;
+    expect(def("chaine-eclairs").tags & chaine).toBe(chaine);
+    // Les satellites de feu sont du FEU, ceux de givre de la GLACE : l'evolution
+    // ajoute son element a la competence.
+    expect(evolution("satellite", "satellite-feu").tags).toBe(TAGS.FEU);
+    expect(evolution("satellite", "satellite-glace").tags).toBe(TAGS.GLACE);
+  });
+
+  it("lit un masque dans l'ordre des bits, et l'ecrit comme une carte l'affiche", () => {
+    expect(nomsDesTags(TAGS.ZONE | TAGS.FEU)).toEqual(["FEU", "ZONE"]);
+    expect(texteDesTags(TAGS.FEU | TAGS.ZONE)).toBe("FEU  ·  ZONE");
+    expect(texteDesTags(0)).toBe("");
+  });
+
+  it("agrege les tags d'un build, evolutions comprises", () => {
+    expect(tagsDuBuild({}, {})).toBe(0);
+    const build = { moulinet: 3, "aura-de-flammes": 1 };
+    expect(tagsDuBuild(build, {})).toBe(def("moulinet").tags | def("aura-de-flammes").tags);
+    // Lames rouges : le moulinet devient aussi du SANG.
+    const avecEvolution = tagsDuBuild(build, { moulinet: evolution("moulinet", "moulinet-sanglant") });
+    expect(avecEvolution & TAGS.SANG).toBe(TAGS.SANG);
+    // « Ce build contient-il FEU et LAME ? » : un `&` sur un entier.
+    const feuEtLame = TAGS.FEU | TAGS.LAME;
+    expect(avecEvolution & feuEtLame).toBe(feuEtLame);
+  });
+
+  it("met les tags sur les cartes de choix, evolution comprise", () => {
+    expect(propositionCompetence(def("aura-de-flammes"), {}).tags).toBe("FEU  ·  ZONE");
+    const feu = propositionEvolution(def("satellite"), evolution("satellite", "satellite-feu"));
+    expect(feu.tags).toBe("FEU  ·  MAGIE");
+    expect(propositionsDeRemplacement({ moulinet: 1 }, EMPLACEMENTS_ACTIFS, 0)[0]?.tags).toBe(
+      texteDesTags(def("moulinet").tags),
+    );
+  });
+});
+
+describe("La pioche ponderee (§4.25) — la classe et les traits", () => {
+  it("fait peser le FEU trois fois plus lourd pour un Pyromane", () => {
+    expect(penchantPour(def("aura-de-flammes"), "guerrier")).toBe(1);
+    expect(penchantPour(def("aura-de-flammes"), "guerrier", ["pyromane"])).toBe(3);
+    // Un trait qui ne parle pas au FEU ne change rien.
+    expect(penchantPour(def("aura-de-flammes"), "guerrier", ["peureux"])).toBe(1);
+  });
+
+  it("fait voir au Mage les elements plus souvent, et multiplie avec les traits", () => {
+    expect(penchantPour(def("aura-de-flammes"), "mage")).toBe(3);
+    expect(penchantPour(def("aura-de-flammes"), "mage", ["pyromane"])).toBe(9);
+  });
+
+  it("ne pondere par la classe que ce qui est ouvert a toutes", () => {
+    // La Rage est deja au guerrier seul : la classe n'y ajoute rien, un trait si.
+    expect(penchantPour(def("rage"), "guerrier")).toBe(1);
+    expect(penchantPour(def("rage"), "guerrier", ["colerique"])).toBe(2);
+    // La Lame affutee est ouverte : le guerrier la voit deux fois plus.
+    expect(penchantPour(def("lame-affutee"), "guerrier")).toBe(2);
+  });
+
+  it("n'empile pas deux traits qui disent la meme chose", () => {
+    // Colerique et Boucher parlent tous deux de RAGE et de LAME : x2, pas x4.
+    expect(penchantPour(def("lame-affutee"), "guerrier", ["colerique", "boucher"])).toBe(4);
+    expect(penchantPour(def("rage"), "guerrier", ["colerique", "boucher"])).toBe(2);
+  });
+
+  it("montre vraiment plus souvent le FEU a un Pyromane, sur des milliers de tirages", () => {
+    const compter = (traits: ("pyromane")[]): number => {
+      const rng = new Rng(2026);
+      let vues = 0;
+      for (let i = 0; i < 4000; i++) {
+        if (tirerCompetences(rng, "guerrier", {}, 3, 0, traits).some((c) => c.id === "aura-de-flammes")) vues++;
+      }
+      return vues;
+    };
+    const sans = compter([]);
+    const avec = compter(["pyromane"]);
+    // Trois fois le poids ; un peu moins de trois fois les apparitions, parce
+    // qu'une carte tiree n'est pas remise dans le paquet.
+    expect(avec / sans).toBeGreaterThan(2.2);
+    expect(avec / sans).toBeLessThan(3.5);
+  });
+});
+
+describe("La penetration (§4.25) — combien de monstres une attaque traverse", () => {
+  it("arrete un tir au premier monstre, sauf ce que le build y ajoute", () => {
+    const bonus = bonusVierge();
+    expect(penetrationDe(PENETRATION.projectile, bonus, true)).toBe(1);
+    def("ricochet").paliers[0]?.appliquer?.(bonus, 1);
+    expect(penetrationDe(PENETRATION.projectile, bonus, true)).toBe(4);
+    def("fleche-perforante").paliers[0]?.appliquer?.(bonus, 1);
+    expect(penetrationDe(PENETRATION.projectile, bonus, true)).toBe(7);
+  });
+
+  it("ne donne aux frappes en ligne que la penetration commune, pas celle des projectiles", () => {
+    const bonus = bonusVierge();
+    def("ricochet").paliers[0]?.appliquer?.(bonus, 1);
+    expect(penetrationDe(PENETRATION.charge(1), bonus, false)).toBe(PENETRATION.charge(1));
+    bonus.penetration += 2;
+    expect(penetrationDe(PENETRATION.charge(1), bonus, false)).toBe(PENETRATION.charge(1) + 2);
+    expect(penetrationDe(PENETRATION.projectile, bonus, true)).toBe(1 + 2 + 3);
+  });
+
+  it("borne chaque frappe en ligne, et la fait grandir avec ses paliers", () => {
+    expect(PENETRATION.charge(2)).toBeGreaterThan(PENETRATION.charge(1));
+    expect(PENETRATION.flecheDuJugement(2)).toBeGreaterThan(PENETRATION.flecheDuJugement(1));
+    expect(PENETRATION.ombre).toBeGreaterThan(1);
   });
 });

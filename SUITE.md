@@ -1568,6 +1568,52 @@ d'avant-partie sur leur vignette.
 
 **669 tests verts** (+3).
 
+### Le jalon 6.5, morceau 1 — le socle des builds (23 septembre 2026)
+
+**Les tags, la pénétration, la pioche pondérée.** Le jalon est découpé en sept morceaux
+(§4.25, « Où ça se code ») ; le premier ne dépendait d'aucune décision, les six autres en
+attendent onze, posées d'un coup dans [le questionnaire](https://claude.ai/artifact/K83jkcH7Lt7CYgt884fuU9).
+
+- **Vingt-sept tags**, un bit chacun (`TAGS`, `core/competences.ts`), posés sur les 71
+  compétences et sur les évolutions qui changent d'élément. Le héros les **agrège une fois**
+  (`Hero.tags`, par `tagsDuBuild`) quand il apprend, fait évoluer ou oublie — une sauvegarde
+  les retrouve d'elle-même, puisqu'elle rejoue les apprentissages.
+- **Les tags se lisent en pied de carte** (`choixCompetence.ts`), sous un filet, en acier :
+  sur le choix de niveau, les évolutions et l'écran « plus de place ».
+- **La pénétration** (`PENETRATION`, `penetrationDe`) : le tir s'arrête au premier monstre,
+  *Ricochet* et *Flèche perforante* lui en ajoutent trois chacune ; la *Charge* renverse les
+  8 premiers de la file, la *Flèche du Jugement* s'arrête au trentième (et son trait avec
+  elle), l'*Ombre* au douzième. La Charge et l'Ombre mènent quand même le héros au bout.
+- **Les trois frappes en ligne passent par le voisinage** : `Voisinage.leLongDuTrait` ne
+  lit que les cellules que le trait traverse et rend les N premiers dans l'ordre du trait.
+  C'étaient les trois derniers parcours de `this.ennemis` dans les compétences.
+- **La pioche pondérée** (`penchantPour`) : la classe sur les compétences ouvertes (×2, ×3
+  pour le Mage sur les éléments), les traits sur tout (Pyromane ×3 sur le FEU, les autres
+  ×2) ; deux traits qui disent la même chose ne s'empilent pas.
+- **Un géant recule moins** : la poussée est divisée par sa taille (×2, ×3).
+
+**Vérifié dans trois parties** (`.tmp/verifier-socle.ts`) : **27 contrôles sur 27** — les
+cartes portent leurs tags, la Charge touche exactement les 8 premiers d'une file de 30 et le
+héros parcourt ses 260 px, la Flèche les 30 premiers d'une file de 90, l'Ombre les 12
+premiers, un tir avec Ricochet traverse 4 monstres puis tombe, les reculs valent 300 / 150 /
+100, aucune erreur de page.
+
+**À regarder** : `captures/jeu/2026-09-23-socle-builds/` — les tags sur les cartes, la
+Flèche du Jugement qui s'arrête sur le trentième (les touchés restent rouges pour la photo),
+la Charge qui renverse les huit premiers.
+
+⚠️ **Deux pièges trouvés en vérifiant** :
+
+1. **Une musique coupée pendant son propre fondu d'entrée figeait le jeu.** Au milieu
+   d'une montée, `cancelAndHoldAtTime` pose lui-même un point, et Chrome refuse une
+   `setValueCurveAtTime` qui part au même instant : l'exception remontait jusqu'à la boucle
+   de Phaser, qui s'arrêtait. Un combat dans les six premières secondes de la musique calme
+   suffisait. Corrigé dans `son.ts` : le fondu part 5 ms après la tenue.
+2. **Un projectile détruit perd ses données** : `getData("touches")` rend `undefined` après
+   le coup qui l'arrête. Un script qui compte les coups doit compter avant l'appel.
+
+**990 tests verts** (+18).
+
 ### Les rangs de la horde — le boss et l'énorme (23 septembre 2026)
 
 **Chaque nuit a son boss.** Quatre décisions d'Angelos, toutes sur la recommandation :

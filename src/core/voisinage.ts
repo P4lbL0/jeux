@@ -114,12 +114,18 @@ export class Voisinage {
   private trouves = new Int32Array(64);
   /** Les cellules marquees : « un heros est dans les parages » (le niveau de detail temporel). */
   private readonly marques: Uint8Array;
+  /** Le long d'un trait : jusqu'ou chaque entite retenue est avancee sur lui. */
+  private avancees = new Float32Array(0);
+  /** Le numero du dernier trait qui a visite chaque cellule : on ne la lit qu'une fois. */
+  private readonly visites: Int32Array;
+  private trait = 0;
 
   constructor(largeur: number, hauteur: number, cote = COTE_VOISINAGE) {
     this.decoupage = new Decoupage(largeur, hauteur, cote);
     this.debuts = new Int32Array(this.decoupage.cellules + 1);
     this.curseurs = new Int32Array(this.decoupage.cellules);
     this.marques = new Uint8Array(this.decoupage.cellules);
+    this.visites = new Int32Array(this.decoupage.cellules);
   }
 
   /** Efface toutes les marques : a refaire a chaque image, avant de marquer. */
@@ -193,6 +199,7 @@ export class Voisinage {
     this.px = agrandir(this.px, n);
     this.py = agrandir(this.py, n);
     this.trouves = agrandir(this.trouves, n);
+    this.avancees = agrandir(this.avancees, n);
     const debuts = this.debuts;
     debuts.fill(0);
     for (let i = 0; i < n; i++) {
@@ -257,6 +264,80 @@ export class Voisinage {
       this.trouves[k++] = i;
     }
     return k;
+  }
+
+  /**
+   * Les `n` premieres entites le long du **segment** [a, b], a `epaisseur` au
+   * plus de lui (bord compris), de la plus proche du depart a la plus lointaine
+   * — la penetration (§4.25) : une frappe en ligne touche les N premiers de la
+   * file, pas toute la file.
+   *
+   * On ne lit que les cellules que le trait traverse : un echantillon tous les
+   * demi-cotes, et autour de chacun les cellules a `epaisseur` pres. Une entite
+   * a `epaisseur` du segment est a `epaisseur` d'un de ses points, donc a moins
+   * de `epaisseur + cote / 4` d'un echantillon : la boite de chacun, elargie
+   * d'un demi-cote, ne peut pas la manquer.
+   *
+   * @returns combien (au plus `n`) ; elles se lisent par `trouve(k)`, dans
+   *   l'ordre du trait — a egalite, l'ordre de la liste
+   */
+  leLongDuTrait(
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+    epaisseur: number,
+    n: number,
+    accepte?: (i: number) => boolean,
+  ): number {
+    if (n <= 0) return 0;
+    const d = this.decoupage;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const longueur = Math.hypot(dx, dy);
+    const ux = longueur > 0 ? dx / longueur : 0;
+    const uy = longueur > 0 ? dy / longueur : 0;
+    const pas = d.cote / 2;
+    const echantillons = Math.max(1, Math.ceil(longueur / pas));
+    const marge = epaisseur + pas;
+
+    this.trait += 1;
+    if (this.trait === 0x7fffffff) {
+      this.visites.fill(0);
+      this.trait = 1;
+    }
+    const numero = this.trait;
+    let k = 0;
+    for (let e = 0; e <= echantillons; e++) {
+      const t = (e / echantillons) * longueur;
+      const sx = ax + ux * t;
+      const sy = ay + uy * t;
+      const c0 = d.colonneDe(sx - marge);
+      const c1 = d.colonneDe(sx + marge);
+      const l0 = d.ligneDe(sy - marge);
+      const l1 = d.ligneDe(sy + marge);
+      for (let l = l0; l <= l1; l++) {
+        const base = l * d.colonnes;
+        for (let c = c0; c <= c1; c++) {
+          const cellule = base + c;
+          if (this.visites[cellule] === numero) continue;
+          this.visites[cellule] = numero;
+          const fin = this.debuts[cellule + 1]!;
+          for (let r = this.debuts[cellule]!; r < fin; r++) {
+            const i = this.rangees[r]!;
+            const px = this.px[i]!;
+            const py = this.py[i]!;
+            if (distanceAuSegment(px, py, ax, ay, bx, by) > epaisseur) continue;
+            if (accepte && !accepte(i)) continue;
+            this.avancees[i] = (px - ax) * ux + (py - ay) * uy;
+            this.trouves[k++] = i;
+          }
+        }
+      }
+    }
+    const avancees = this.avancees;
+    this.trouves.subarray(0, k).sort((a, b) => avancees[a]! - avancees[b]! || a - b);
+    return Math.min(k, n);
   }
 
   /** Combien d'entites a `rayon` au plus de (x, y). */
