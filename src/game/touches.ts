@@ -178,6 +178,18 @@ export class Clavier {
   }
 
   /**
+   * Oublie les appuis en attente de ces actions, toutes leurs touches comprises.
+   *
+   * ⚠️ `justeAppuyee` s'arrete a la premiere touche qui repond : elle ne vide
+   * pas les autres. Ici, on les lit toutes.
+   */
+  oublierLesAppuis(...ids: string[]): void {
+    for (const id of ids) {
+      for (const t of this.touches.get(id) ?? []) Phaser.Input.Keyboard.JustDown(t);
+    }
+  }
+
+  /**
    * Prepare les touches d'une action qu'on lit a l'image, sans poignee.
    *
    * Sans ca, `enfoncee("haut")` serait toujours faux : une touche n'existe pour

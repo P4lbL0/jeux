@@ -9386,6 +9386,11 @@ export class ArenaScene extends Phaser.Scene {
     this.physics.resume();
     this.anims.resumeAll();
     this.enPause = false;
+    // ⚠️ Le chiffre qui vient de choisir une carte est aussi la touche d'une
+    // capacite, et le jeu reprend dans l'image meme de l'appui : sans ca,
+    // prendre la carte 1 au clavier lancait l'ultime a la reprise, la carte 2
+    // la premiere active. Vu le 23 septembre 2026, en achetant un emplacement.
+    this.clavier.oublierLesAppuis(...ACTIONS_CAPACITE);
   }
 
   /**
