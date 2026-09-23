@@ -218,14 +218,24 @@ export function jouer(
       // musiques qui se croisent vite ne doivent pas sauter.
       const depuis = gain.gain.value;
       tenir(gain.gain, t);
-      fondre(gain.gain, courbe, depuis, 0, t, fondu);
-      source.stop(t + fondu + 0.02);
+      // ⚠️ Le fondu part un souffle apres la tenue, jamais au meme instant.
+      // Au milieu d'une montee, `cancelAndHoldAtTime` pose lui-meme un point a
+      // `t`, et Chrome refuse une `setValueCurveAtTime` qui le recouvre : son
+      // exception remontait jusqu'a la boucle du jeu et le figeait (vu le
+      // 23 septembre 2026 — un combat dans les six premieres secondes de la
+      // musique calme la coupait en pleine montee).
+      const debut = t + SOUFFLE;
+      fondre(gain.gain, courbe, depuis, 0, debut, fondu);
+      source.stop(debut + fondu + 0.02);
     },
   };
 }
 
 /** Les points d'une courbe de fondu : assez pour une sinusoide lisse sur quelques secondes. */
 const POINTS_DE_COURBE = 64;
+
+/** L'ecart entre la tenue d'un volume et le fondu qui le suit : 5 ms, inaudible. */
+const SOUFFLE = 0.005;
 
 /**
  * Coupe ce qui etait programme sur ce parametre et le tient a sa valeur de
