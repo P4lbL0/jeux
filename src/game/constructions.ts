@@ -184,9 +184,22 @@ export class Construction extends Phaser.Physics.Arcade.Image {
   travailRestant = 0;
   /** Jusqu'a quand elle tremble d'un coup ; un coup par secousse, pas plus. */
   secoueeJusqua = 0;
+  /**
+   * Le centre de sa case : la ou elle revient apres une secousse, et **la seule position
+   * que lisent le registre des cases et la grille**.
+   *
+   * ⚠️ Corrige le 9 novembre 2026, trouve par le robot du jalon 6.4 : chaque secousse
+   * repartait de la position du moment. Sous vingt monstres, une secousse relancee avant
+   * la fin de la precedente partait d'un ou deux pixels a droite, et le mur derivait ainsi,
+   * coup apres coup. Passe la moitie d'une case, le registre le cherchait chez sa voisine :
+   * detruit, il y restait inscrit, et le redessin des raccords tombait sur un objet mort
+   * (« Cannot read properties of undefined (reading 'sys') ») — **la partie se figeait**.
+   */
+  repos: { x: number; y: number };
 
   constructor(scene: Phaser.Scene, x: number, y: number, def: ConstructionDef) {
     super(scene, x, y, textureDe(def));
+    this.repos = { x, y };
     this.def = def;
     this.pv = def.pvMax;
     this.battant = def.id === "porte" ? new Battant(true) : null;
@@ -363,7 +376,7 @@ export class Constructions {
     ] as const) {
       const c = this.en(x + dx, y + dy);
       if (!c) continue;
-      c.masque = c.def.id === "douve" ? this.masqueDouveEn(c.x, c.y) : this.masqueEn(c.x, c.y);
+      c.masque = c.def.id === "douve" ? this.masqueDouveEn(c.repos.x, c.repos.y) : this.masqueEn(c.repos.x, c.repos.y);
       c.habiller();
     }
   }
@@ -371,7 +384,7 @@ export class Constructions {
   private inscrire(construction: Construction): void {
     this.groupe.add(construction);
     this.liste.push(construction);
-    this.parCase.set(this.cleDe(construction.x, construction.y), construction);
+    this.parCase.set(this.cleDe(construction.repos.x, construction.repos.y), construction);
   }
 
   /** Ecrit dans la grille, et perime ce qui en dependait. */
@@ -953,7 +966,7 @@ export class Constructions {
   private secouer(construction: Construction, maintenant: number): void {
     if (maintenant < construction.secoueeJusqua) return;
     construction.secoueeJusqua = maintenant + 160;
-    const x0 = construction.x;
+    const x0 = construction.repos.x;
     this.scene.tweens.add({
       targets: construction,
       x: x0 + 2,
@@ -979,7 +992,7 @@ export class Constructions {
 
     // La case redevient franchissable, mais elle garde une trace : une ruine se
     // voit, et le jalon 8 (restauration) saura quoi en faire.
-    this.ecrire(construction.x, construction.y, "ruine");
+    this.ecrire(construction.repos.x, construction.repos.y, "ruine");
 
     this.effondrer(construction);
     this.retirer(construction);
@@ -1014,9 +1027,9 @@ export class Constructions {
     this.scene.tweens.killTweensOf(construction);
     const index = this.liste.indexOf(construction);
     if (index >= 0) this.liste.splice(index, 1);
-    const cle = this.cleDe(construction.x, construction.y);
+    const cle = this.cleDe(construction.repos.x, construction.repos.y);
     if (this.parCase.get(cle) === construction) this.parCase.delete(cle);
-    const { x, y } = construction;
+    const { x, y } = construction.repos;
     const pontLevis = construction.pontLevis;
     construction.destroy();
     // Les voisines perdent un raccord : elles se redessinent.
@@ -1045,7 +1058,7 @@ export class Constructions {
     crediter(rendu, stocks);
 
     construction.occupant = null;
-    this.grille.liberer(construction.x, construction.y);
+    this.grille.liberer(construction.repos.x, construction.repos.y);
     this.version += 1;
     this.retirer(construction);
     // Une douve en eau comblee rouvre un passage : le parcours change.
@@ -1074,7 +1087,7 @@ export class Constructions {
       return false;
     }
 
-    const depart = { x: construction.x, y: construction.y };
+    const depart = { ...construction.repos };
     const centre = this.grille.centreDe(x, y);
     // Et meme regle de l'enceinte : le mur libere sa case, puis on juge la
     // case d'arrivee — s'il refermerait tout sans porte, il reste ou il est.
@@ -1095,6 +1108,7 @@ export class Constructions {
     this.ecrire(centre.x, centre.y, occupationDe(construction.def.id));
 
     construction.setPosition(centre.x, centre.y);
+    construction.repos = { x: centre.x, y: centre.y };
     construction.caler();
     this.parCase.set(this.cleDe(centre.x, centre.y), construction);
 

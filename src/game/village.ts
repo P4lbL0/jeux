@@ -81,6 +81,11 @@ export interface ContexteVillage {
   /** Combien de blesses elle traite a la fois — le champ `lits` du §4.22 */
   litsEglise: () => number;
   /**
+   * Les heros a l'abri de l'eglise (dans son rayon de soin), vivants : ils passent par les
+   * memes lits que les habitants (§4.22, « les heros ne se soignent qu'autour d'elle »).
+   */
+  herosALEglise: () => Personne[];
+  /**
    * Un defenseur frappe ce qui passe a sa portee.
    *
    * Ce fichier ne connait pas les monstres, et il ne doit pas : la scene se
@@ -255,9 +260,9 @@ const VITESSE_DE_RONDE = 0.12;
  */
 const RAYON_DE_LA_COUR = 40;
 
-/** Le pire palier d'un habitant, pour faire passer les mourants en premier. */
-function palierDe(villageois: Villageois): number {
-  return pireEtat(villageois.regles.personne.etats)?.palier ?? -1;
+/** Le pire palier d'une personne, pour faire passer les mourants en premier. */
+function palierDe(personne: Personne): number {
+  return pireEtat(personne.etats)?.palier ?? -1;
 }
 
 /**
@@ -1097,13 +1102,26 @@ export class Village {
 
     // On soigne d'abord le plus atteint : c'est aussi celui qui repartira avec
     // une sequelle, et c'est tout l'interet de la decision.
+    //
+    // ⚠️ **Les heros aussi** (9 novembre 2026, trouve par le robot du jalon 6.4) : seuls les
+    // habitants passaient par ces lits. Un heros pris d'une hemorragie (§4.23 : « elle tue
+    // en une seule journee ») mourait donc a l'aube **quoi qu'on fasse** — le ramener a
+    // l'eglise, comme le design le demande, ne servait a rien. Il prend un lit comme un
+    // habitant, a la meme regle : le plus atteint d'abord.
     const lits = this.contexte.litsEglise();
-    const patients = this.habitants
-      .filter((v) => v.regles.vivant && v.etat === "abri" && v.regles.personne.etats.length > 0)
-      .sort((a, b) => palierDe(b) - palierDe(a))
+    const patients: { personne: Personne; soigner: () => void }[] = [
+      ...this.habitants
+        .filter((v) => v.regles.vivant && v.etat === "abri" && v.regles.personne.etats.length > 0)
+        .map((v) => ({ personne: v.regles.personne, soigner: () => void this.soignerALEglise(v) })),
+      ...this.contexte
+        .herosALEglise()
+        .filter((p) => p.etats.length > 0)
+        .map((p) => ({ personne: p, soigner: () => void this.soignerUnHerosALEglise(p) })),
+    ]
+      .sort((a, b) => palierDe(b.personne) - palierDe(a.personne))
       .slice(0, lits);
 
-    for (const patient of patients) this.soignerALEglise(patient);
+    for (const patient of patients) patient.soigner();
   }
 
   private majorerLeMoralDUn(
@@ -2035,6 +2053,23 @@ export class Village {
       );
     } else {
       this.contexte.annoncer(`${villageois.nom} est soigne — ${ETATS[pire.cle].nom}`);
+    }
+    return true;
+  }
+
+  /**
+   * L'eglise soigne un heros a l'abri : la meme purge, la meme sequelle au stade Mourant.
+   * Ses points de vie, eux, remontent deja par le soin de l'eglise (`majEtats`).
+   */
+  soignerUnHerosALEglise(personne: Personne): boolean {
+    const pire = pireEtat(personne.etats);
+    if (!pire) return false;
+    const etaitMourant = pire.palier === 2;
+    const sequelle = soignerEtat(personne, pire.cle, this.rng);
+    if (etaitMourant && sequelle !== null) {
+      this.contexte.annoncer(`${personne.nom} survit — mais il en garde : ${SEQUELLES[sequelle]!.nom}`);
+    } else {
+      this.contexte.annoncer(`${personne.nom} est soigne — ${ETATS[pire.cle].nom}`);
     }
     return true;
   }

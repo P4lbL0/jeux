@@ -1292,6 +1292,7 @@ export class ArenaScene extends Phaser.Scene {
       egliseDebout: () => this.eglise.fonctionne,
       niveauEglise: () => this.eglise.niveau,
       litsEglise: () => this.eglise.regles.palier.lits,
+      herosALEglise: () => this.heros.filter((h) => h.etat === "cite").map((h) => h.personne),
       frapperMonstre: (x, y, portee, degats) => this.frapperPourLeVillage(x, y, portee, degats),
       peuplement: this.peuplement,
       // Le heros se compose avant le village : son prenom est deja pris, et
