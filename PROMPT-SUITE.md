@@ -168,7 +168,12 @@ ciel, et le ciel est fini.
 >    réglage (les classes, décidé « après le reste »).
 > 4. **Les premiers chiffres réglés**, sur une cible : **un joueur moyen tombe vers la nuit 6
 >    à 8** (1 h 30 à 2 h), soit **le robot vers la nuit 5 à 6** ; puis une partie de 30 à
->    45 min vérifiée de bout en bout. **C'est la suite.**
+>    45 min vérifiée de bout en bout. **En cours** (9 novembre au soir, `SUITE.md`, « étape
+>    4 ») : le robot recule devant les boss et ne se noie plus, il va 1,35 fois plus vite ;
+>    le Serment ×2 et la Mise à mort 45 % remontent le chevalier et l'assassin vers la nuit
+>    4,7 (le trait plafonne là) ; le **Nécromancien est la classe hardcore**, hors cible.
+>    **La suite** : remesurer les sept classes (six parties de front au plus : RAM), trancher
+>    le chevalier et l'assassin, puis la partie vérifiée.
 >
 > Décidé aussi : **pas encore dans The Circle**, et **pas de 3D temps réel**.
 >

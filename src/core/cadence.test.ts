@@ -1,4 +1,4 @@
-import { PAS_30, PAS_60, PAS_HORS_FOCUS, creerCadence, pasVoulu } from "./cadence";
+import { PAS_30, PAS_60, PAS_HORS_FOCUS, PAS_ROBOT, creerCadence, pasVoulu } from "./cadence";
 
 // Images gardées sur 10 s d'un écran à `hz`, avec un léger tremblement des horodatages
 // (± 0,3 ms, comme les vrais requestAnimationFrame).
@@ -54,5 +54,10 @@ describe("La cadence des images (jalon 6.4)", () => {
     expect(pasVoulu({ auPremierPlan: true, partieQuiTourne: false })).toBe(PAS_30);
     expect(pasVoulu({ auPremierPlan: false, partieQuiTourne: true })).toBe(PAS_HORS_FOCUS);
     expect(pasVoulu({ auPremierPlan: false, partieQuiTourne: false })).toBe(PAS_HORS_FOCUS);
+  });
+
+  it("dessine 10 images par seconde quand le robot accélère, focus ou pas", () => {
+    expect(pasVoulu({ auPremierPlan: true, partieQuiTourne: true, accelere: true })).toBe(PAS_ROBOT);
+    expect(pasVoulu({ auPremierPlan: false, partieQuiTourne: false, accelere: true })).toBe(PAS_ROBOT);
   });
 });

@@ -20,6 +20,13 @@ export const PAS_60 = 1000 / 60;
 export const PAS_30 = 2 * PAS_60;
 /** 5 images par seconde : la fenêtre n'a plus le focus (le jeu est déjà en pause). */
 export const PAS_HORS_FOCUS = 200;
+/**
+ * 10 images par seconde : le robot qui joue accéléré (jalon 6.4). Personne ne regarde, et
+ * toutes les parties d'une série passent par **un seul** processus graphique de Chromium :
+ * à 60 images chacune, c'était lui qui plafonnait la série (~185 secondes de jeu par seconde
+ * réelle, qu'on lance 6 ou 10 parties à la fois — mesuré le 9 novembre 2026).
+ */
+export const PAS_ROBOT = 100;
 
 /**
  * Tri des images d'une boucle `requestAnimationFrame` : `true` quand l'heure prévue est
@@ -46,14 +53,17 @@ export interface EtatDeLaCadence {
   auPremierPlan: boolean;
   /** L'arène tourne : pas en pause, ou en mode d'aménagement, qu'on manie à la souris. */
   partieQuiTourne: boolean;
+  /** Le robot joue la partie en accéléré : on dessine juste assez pour la capture de fin. */
+  accelere?: boolean;
 }
 
 /**
  * Le pas voulu : 60 images par seconde quand on joue ou qu'on aménage, 30 dans les menus, la
  * pause et les fenêtres de choix (le décor y est figé), 5 hors du premier plan. Les mêmes
- * chiffres que BELLEVUE, choisis par Angelos le 29 octobre 2026.
+ * chiffres que BELLEVUE, choisis par Angelos le 29 octobre 2026. Le robot accéléré : 10.
  */
 export function pasVoulu(etat: EtatDeLaCadence): number {
+  if (etat.accelere) return PAS_ROBOT;
   if (!etat.auPremierPlan) return PAS_HORS_FOCUS;
   return etat.partieQuiTourne ? PAS_60 : PAS_30;
 }

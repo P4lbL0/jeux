@@ -12,6 +12,7 @@ import {
   tranche,
 } from "../../game/effets";
 import { REGLAGES_STRESS, contracterEtat, monterStress, type Personne } from "../../core/personne";
+import { RIPOSTE_DU_SERMENT } from "../../core/classes";
 import type { ArenaScene } from "../ArenaScene";
 import { FORCE_RECUL, VITESSE_CRACHAT, RAYON_KAMIKAZE, competenceALeguer } from "./reglages";
 
@@ -82,7 +83,7 @@ export class ArenaDegats {
 
     // Trait "riposte" du Chevalier Sacre : il blesse ce qui le frappe.
     if (cible.classe.trait === "riposte") {
-      this.blesserEnnemi(e, Math.round(cible.degats * 0.9), cible);
+      this.blesserEnnemi(e, Math.round(cible.degats * RIPOSTE_DU_SERMENT), cible);
     }
 
     const distance = Phaser.Math.Distance.Between(e.x, e.y, cible.x, cible.y);

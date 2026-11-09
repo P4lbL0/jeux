@@ -26,11 +26,18 @@ interface BoucleDePhaser {
  * **sans dessin** ajoutées à chaque image dessinée, par pas de 1/60 s — chacun exactement le
  * pas d'un joueur à 60 images par seconde, donc la même partie, plus vite. `avance` est le
  * temps de jeu ainsi gagné : l'horloge des scènes lit l'heure que la boucle leur passe, et
- * elle ne doit jamais reculer.
+ * elle ne doit jamais reculer. `heure` est la dernière heure passée au jeu.
+ *
+ * ⚠️ **L'image dessinée avance elle aussi d'un pas fixe de 1/60 s** quand on accélère (9
+ * novembre 2026, au soir). Elle avançait du temps réel écoulé depuis la précédente : d'autant
+ * plus gros que la machine ramait (plafonné à 50 ms par la scène), si bien que la même partie
+ * ne se jouait pas tout à fait pareil à 6 ou à 10 parties de front. Désormais, seule l'heure
+ * du jeu compte : la charge de la machine ne change plus que la durée réelle.
  */
 interface Acceleration {
   budget: number;
   avance: number;
+  heure: number;
 }
 const accelerations = new WeakMap<Phaser.Game, Acceleration>();
 
@@ -52,7 +59,7 @@ export function accelerer(jeu: Phaser.Game, budget: number): void {
  */
 export function poserLaCadence(jeu: Phaser.Game): void {
   const cadence = creerCadence();
-  const acceleration: Acceleration = { budget: 0, avance: 0 };
+  const acceleration: Acceleration = { budget: 0, avance: 0, heure: 0 };
   accelerations.set(jeu, acceleration);
   let auPremierPlan = true;
   // Les mêmes événements que la pause hors focus de l'arène (`suspendre`, `reprendre`) :
@@ -83,15 +90,24 @@ export function poserLaCadence(jeu: Phaser.Game): void {
 
     const accelere = acceleration.budget > 0;
     // Accéléré, le robot joue sans fenêtre au premier plan : le focus ne compte plus.
-    if (cadence(time, pasVoulu({ auPremierPlan: auPremierPlan || accelere, partieQuiTourne: partieQuiTourne() }))) {
+    if (cadence(time, pasVoulu({ auPremierPlan, partieQuiTourne: partieQuiTourne(), accelere }))) {
       this.framesThisSecond++;
-      this.callback(time + acceleration.avance, this.delta);
+      if (accelere) {
+        // Un pas fixe, comme les pas sans dessin : l'heure du jeu ne suit plus l'horloge.
+        acceleration.heure += PAS_60;
+        acceleration.avance = acceleration.heure - time;
+        this.callback(acceleration.heure, PAS_60);
+      } else {
+        acceleration.heure = time + acceleration.avance;
+        this.callback(acceleration.heure, this.delta);
+      }
       this.delta = 0;
       if (accelere) {
         const debut = performance.now();
         while (performance.now() - debut < acceleration.budget) {
           acceleration.avance += PAS_60;
-          jeu.headlessStep(time + acceleration.avance, PAS_60);
+          acceleration.heure = time + acceleration.avance;
+          jeu.headlessStep(acceleration.heure, PAS_60);
         }
       }
     }

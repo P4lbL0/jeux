@@ -2,6 +2,8 @@ import Phaser from "phaser";
 import { choisirCarte, type CarteVue, type ModeCartes } from "../core/robot";
 import { competenceParId, ID_EMPLACEMENT, type Proposition } from "../core/competences";
 import { NIVEAU_MAX } from "../core/eglise";
+import { estTerreFerme, terrainEn } from "../core/carte";
+import { profondeurDe } from "../core/eau";
 import { accelerer } from "./cadence";
 import type { Ennemi, Hero } from "./entities";
 import type { ArenaScene } from "../scenes/ArenaScene";
@@ -18,14 +20,19 @@ import type { ArenaScene } from "../scenes/ArenaScene";
  * - à la porte, il accepte tout le monde (`porte`, vrai) ;
  * - quand son héros porte un état (hémorragie, maladie...), il le ramène à l'église jusqu'à
  *   ce qu'elle l'ait soigné, comme le design le demande au joueur (§4.23) ;
- * - quand le jeu annonce « je coule », il ramène son héros vers la terre : l'IA des héros
- *   ne connaît pas l'eau profonde (seul l'incarné peut s'y noyer), un joueur si ;
+ * - **il ne met pas le pied dans l'eau qui noie** (la mer, l'abysse), et s'il y est projeté,
+ *   il gagne la terre ferme la plus proche : l'IA des héros ne connaît pas l'eau profonde
+ *   (seul l'incarné peut s'y noyer), un joueur si. Jusqu'au 9 novembre au soir il visait
+ *   l'église, parfois à travers plus d'eau encore : deux mondes sur douze le noyaient dès la
+ *   première nuit (série 11) ;
  * - le reste du temps, son héros **tient l'église** (ancré sur elle, il se bat dans sa
  *   laisse), et dès qu'elle est à terre il **relance son chantier** (la touche Y) —
  *   décision d'Angelos du 9 novembre 2026 : sa chute décidait de presque toutes les parties ;
  * - « un minimum intelligent » (Angelos, même jour) : il **monte l'église** de niveau dès
  *   que ses quatre conditions sont réunies (la même touche Y), et il **esquive les
  *   crachats** — un pas de côté quand l'un d'eux va le toucher, ce que l'IA ne sait pas faire ;
+ *   et il **recule devant un boss qui se cabre** sur lui (même soir), jusqu'à ce que le coup
+ *   parte — mais jamais pendant qu'il sort de l'eau ;
  * - l'interface ne montre ni l'écran de choix ni la fiche de la porte (`UiScene`) ;
  * - pas de pause hors focus (`suspendre`), et la partie est accélérée (`accelerer`).
  *
@@ -69,7 +76,7 @@ export interface RapportRobot {
   releves: ReleveRobot[];
   /** Combien de fois il a ramené son héros à l'église pour un état */
   allersALEglise: number;
-  /** Combien de fois il a sorti son héros de l'eau (« je coule ») */
+  /** Combien de fois son héros a coulé (« je coule ») : autant d'allers vers la rive */
   sortiesDeLEau: number;
   /** Combien de chantiers de l'église il a lancés après une chute */
   relevements: number;
@@ -77,6 +84,8 @@ export interface RapportRobot {
   montees: number;
   /** Combien de crachats il a esquivés (un pas de côté décidé) */
   esquives: number;
+  /** Combien de fois il a reculé devant un boss ou un énorme qui se cabrait sur lui */
+  reculs: number;
   /**
    * Les coups portés à l'église, par ce qui les porte (« Brute (boss) », « Nuee »...) :
    * dégâts cumulés et part du rôle du monstre (pillard qui a fini ses maisons, chasseur sans
@@ -87,6 +96,12 @@ export interface RapportRobot {
   egliseTombee: { t: number; jour: number; phase: string } | null;
   /** Le dernier relevé, tenu à jour toutes les secondes de jeu */
   dernier: ReleveRobot | null;
+}
+
+/** L'eau où l'on se noie en trois secondes (`Noyade`) : la mer et l'abysse. */
+function noie(x: number, y: number): boolean {
+  const profondeur = profondeurDe(terrainEn(x, y));
+  return profondeur === "mer" || profondeur === "abysse";
 }
 
 /** Un petit générateur à graine : le hasard du robot ne touche pas à celui de la partie. */
@@ -118,8 +133,6 @@ export class Robot {
   private readonly annonces: { t: number; texte: string }[] = [];
   /** Le héros qu'on a vu porter un état : pour ne compter qu'une fois chaque aller. */
   private malade: Hero | null = null;
-  /** Jusqu'à quand il ramène son héros vers la terre (« je coule »). */
-  private horsDeLEauJusqua = 0;
   /** Quand il retentera de relever l'église (pas chaque seconde : le refus s'annonce). */
   private prochainRelevement = 0;
   /** Quand il regardera de nouveau s'il peut monter l'église. */
@@ -147,6 +160,7 @@ export class Robot {
       relevements: 0,
       montees: 0,
       esquives: 0,
+      reculs: 0,
       degatsEglise: {},
       egliseTombee: null,
       dernier: null,
@@ -264,12 +278,8 @@ export class Robot {
   private surAnnonce(texte: string, _canal?: string, nom?: string): void {
     this.annonces.push({ t: this.scene.time.now, texte: nom ? `${nom} ${texte}` : texte });
     if (this.annonces.length > 12) this.annonces.shift();
-    // « je coule — trois secondes et je me noie » : on regagne la terre, vers l'église.
-    if (texte.startsWith("je coule") && nom === this.scene.hero?.personne.nom) {
-      this.horsDeLEauJusqua = this.scene.time.now + 6000;
-      this.rapport.sortiesDeLEau += 1;
-      this.choisirLOrdre();
-    }
+    // « je coule — trois secondes et je me noie » : la rive, c'est `esquiver` qui y mène.
+    if (texte.startsWith("je coule") && nom === this.scene.hero?.personne.nom) this.rapport.sortiesDeLEau += 1;
   }
 
   private surChute(hero: Hero): void {
@@ -344,11 +354,38 @@ export class Robot {
    * Le pas de côté : un crachat qui vient sur lui et passera à moins de 26 px, à moins de
    * 170 px de lui, le fait s'écarter perpendiculairement à sa course, du côté où il est
    * déjà, pendant un quart de seconde. Assez pour un crachat à 140 px/s ; rien de plus fin.
+   *
+   * Et le recul (Angelos, 9 novembre 2026, au soir) : un boss ou un énorme qui se cabre
+   * **sur lui**, à portée de son coup, le fait reculer droit à l'opposé jusqu'à ce que le
+   * coup parte — ce qu'un joueur fait en voyant le cabrage. La piétaille, non. ⚠️ **Essayé
+   * aussi sur la Brute ordinaire** (le coup le plus annoncé du jeu) : rien de mesurable sur 84
+   * parties (série 10), retiré.
+   *
+   * L'eau passe avant tout : celui qui coule pense d'abord à la rive (`gagnerLaRive`), et
+   * aucun pas — de l'IA, de côté ou en arrière — ne l'y fait entrer (`garderLePied`).
    */
   private esquiver(): void {
     const hero = this.scene.hero;
     if (!hero || hero.etat === "mort" || this.scene.enPause) return;
     const maintenant = this.scene.time.now;
+    if (noie(hero.x, hero.y)) {
+      this.esquive = null;
+      this.gagnerLaRive(hero);
+      return;
+    }
+    if (!this.esquive || maintenant >= this.esquive.jusqua) {
+      this.esquive = null;
+      for (const e of this.scene.ennemisDansRayon(hero.x, hero.y, 150)) {
+        if (e.rang === "pietaille" || !e.enArmement || e.cibleArmee !== hero) continue;
+        const dx = hero.x - e.x;
+        const dy = hero.y - e.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        if (distance > e.archetype.portee + 10) continue;
+        this.esquive = { x: dx / distance, y: dy / distance, jusqua: e.instantFrappe + 60 };
+        this.rapport.reculs += 1;
+        break;
+      }
+    }
     if (!this.esquive || maintenant >= this.esquive.jusqua) {
       this.esquive = null;
       for (const objet of this.scene.projectilesEnnemis.getChildren()) {
@@ -372,11 +409,46 @@ export class Robot {
       }
     }
     if (this.esquive) hero.setVelocity(this.esquive.x * hero.vitesse, this.esquive.y * hero.vitesse);
+    this.garderLePied(hero);
+  }
+
+  /**
+   * Dans l'eau qui noie : droit vers la terre ferme la plus proche (seize directions, par
+   * cercles de 16 px jusqu'à 240), à la vitesse que l'eau lui laisse.
+   */
+  private gagnerLaRive(hero: Hero): void {
+    for (let rayon = 16; rayon <= 240; rayon += 16) {
+      for (let k = 0; k < 16; k++) {
+        const angle = (k / 16) * Math.PI * 2;
+        if (!estTerreFerme(hero.x + Math.cos(angle) * rayon, hero.y + Math.sin(angle) * rayon)) continue;
+        hero.setVelocity(Math.cos(angle) * hero.vitesse, Math.sin(angle) * hero.vitesse);
+        return;
+      }
+    }
+  }
+
+  /**
+   * Au sec : si son pas l'emmène dans l'eau qui noie (18 px devant lui), il longe la rive —
+   * il garde l'axe qui reste au sec — ou s'arrête. Pas quand un coup le projette : ça, un
+   * joueur ne le retient pas non plus.
+   */
+  private garderLePied(hero: Hero): void {
+    if (hero.estEnRecul) return;
+    const v = (hero.body as Phaser.Physics.Arcade.Body).velocity;
+    const vitesse = Math.hypot(v.x, v.y);
+    if (vitesse === 0) return;
+    const devant = 18 / vitesse;
+    const x = hero.x + v.x * devant;
+    const y = hero.y + v.y * devant;
+    if (!noie(x, y)) return;
+    if (!noie(x, hero.y)) hero.setVelocity(v.x, 0);
+    else if (!noie(hero.x, y)) hero.setVelocity(0, v.y);
+    else hero.setVelocity(0, 0);
   }
 
   /**
    * L'ordre de son héros, revu chaque seconde : rentrer (posture « repli », il y reste) s'il
-   * coule, ou s'il porte un état et que l'église peut le soigner ; sinon **tenir l'église**,
+   * porte un état et que l'église peut le soigner ; sinon **tenir l'église**,
    * ancré sur elle à la laisse ordinaire. Église à terre, un malade ne rentre plus : rien ne
    * l'y soignerait, il se bat.
    */
@@ -385,11 +457,10 @@ export class Robot {
     if (!hero || hero.etat === "mort") return;
     const eglise = this.scene.eglise;
     const malade = hero.personne.etats.length > 0 && eglise.fonctionne;
-    const coule = this.scene.time.now < this.horsDeLEauJusqua;
     if (malade && this.malade !== hero) this.rapport.allersALEglise += 1;
     this.malade = malade ? hero : null;
 
-    if (malade || coule) {
+    if (malade) {
       if (hero.ordre.posture !== "repli") hero.ordre = { posture: "repli", ancre: null };
       return;
     }

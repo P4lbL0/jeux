@@ -30,12 +30,17 @@ heros, le niveau, l'or, les habitants a chaque aube et chaque crepuscule.
 ```bash
 npx tsx scripts/robot.ts                       # les 7 classes, regle et hasard
 npx tsx scripts/robot.ts --classes mage --cartes regle --nuit-max 8
+npx tsx scripts/robot.ts --parties 6 --paralleles 6    # 6 mondes par classe, 6 de front (RAM : ~1 Go par partie)
 ```
 
 Les rapports tombent dans `.tmp/robot/<date>/` : un fichier par partie, une capture de la
 fin, et `resume.md`. Le robot joue **le heros seul** (la meme IA que les autres heros, repli
 compris), choisit ses cartes par une regle simple ou au hasard, et accepte tout le monde a
-la porte ; le village vit tout seul. Il ne se lance jamais dans une partie de joueur.
+la porte ; le village vit tout seul. Il esquive les crachats, recule devant un boss qui se
+cabre, ne met pas le pied dans l'eau qui noie. Il ne se lance jamais dans une partie de joueur.
+Une partie accelere ne dessine que 10 images par seconde ; `--dist` et `--port` laissent
+tourner deux series cote a cote (un temoin et sa variante). Six parties par classe laissent
+pres d'une nuit d'ecart au hasard : douze pour trancher un reglage.
 
 Le jeu s'ouvre sur **l'ecran-titre** (§4.10) : neuf secondes de village en feu rendues par
 Blender — un clic ou une touche les sautent —, puis le titre et **JOUER**, qui mene aux

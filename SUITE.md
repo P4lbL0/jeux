@@ -4573,7 +4573,77 @@ comme son commentaire le disait — il en comptait 30, écrites pour l'ancien cy
   oracle 5,0 — dans la cible ou au-dessus ; **chevalier 4,0, assassin 3,2, Nécromancien 2,5**
   en dessous. Règle et hasard : 4,76 et 4,71.
 
+### Le jalon 6.4, étape 4 : les classes sous la cible (9 novembre 2026, au soir)
+
+**Ce que les rapports de la série 7 disaient** : les sept classes tuent à peu près autant
+(42 à 55 monstres à l'aube 2, 100 à 125 à l'aube 3) — c'est la **tenue** qui manque aux
+trois du bas. Le chevalier et l'assassin meurent au contact des **boss**, alors que chaque
+coup de monstre est annoncé (`armerEnnemi` puis `resoudreFrappe`, 620 ms pour une brute) et
+que le robot n'esquivait que les crachats. Le Nécromancien perd son armée de départ le
+premier jour, et son église **dès le jour 1** sur deux mondes sur trois (à 3 min de jeu sur
+l'un) — aucune autre classe ne fait ça.
+
+**Les décisions d'Angelos** :
+- le robot **recule devant un boss ou un énorme qui se cabre** sur lui, comme il esquive les
+  crachats (`esquiver`, droit à l'opposé jusqu'à `instantFrappe` + 60 ms) ;
+- le **Nécromancien est la classe hardcore** : « un héros vraiment hardcore, qu'on prend au
+  début à ses risques et périls, parce que si on survit bien il fait boule de neige ». Il
+  sort de la cible ; son départ ne se rattrape pas (§4.14, §4.1) ;
+- le chevalier et l'assassin se remontent par **leur trait** (pas par des points de vie) ;
+- on **ne baisse pas** le mage ni le rôdeur, au-dessus de la cible.
+
+**Ce que les séries ont montré** (8 à 12, 246 parties) :
+- **Le bruit d'abord.** Six parties par classe laissent près d'une nuit d'écart au hasard :
+  le guerrier est passé de 5,3 à 4,5 entre deux séries dans une partie où le changement
+  n'avait **pas joué une seule fois** (zéro recul). Toute décision se prend désormais sur
+  **douze parties par classe contre un témoin sur les mêmes mondes** (`--dist`, `--port`).
+- **Le recul devant les boss** (série 8) : assassin 3,2 → 4,3, chevalier 4,0 → 4,2 ; la
+  moyenne 4,7 → 5,1.
+- **Le trait plus fort** (séries 9, témoin et variante sur six mondes) : le **Serment** passe
+  de 0,9 à **2** fois les dégâts du chevalier (`RIPOSTE_DU_SERMENT`), la **Mise à mort** de
+  25 à **45 %** de critiques (`CRITIQUE_DE_LA_MISE_A_MORT`) : chevalier 4,0 → 4,8, assassin
+  4,3 → 4,7. Poussés à ×3 et 60 % (séries 11 et 12, douze mondes) : **pas mieux** (4,6 et
+  4,8) — le trait plafonne, on garde ×2 et 45 %.
+- **Le recul étendu à la Brute ordinaire** (série 10, le coup le plus annoncé du jeu) : rien
+  de mesurable, retiré.
+- **La cause « crachat » ne veut pas dire grand-chose** : c'est le dernier coup reçu, et les
+  crachats sont fréquents ; elle a varié de 1 à 12 sur 24 parties sans que rien ne change.
+- **Les noyades** : sur douze mondes, deux (1007 et 1011) noyaient le robot **dès la nuit 1**
+  dans 7 parties sur 8. Il visait l'église pour sortir de l'eau — parfois à travers plus
+  d'eau encore. Désormais il **ne met pas le pied** dans la mer ni l'abysse (`garderLePied` :
+  18 px devant lui, il longe la rive ou s'arrête, sauf projeté par un coup) et, s'il y est, il
+  gagne **la terre ferme la plus proche** (`gagnerLaRive`). Série 12 : **0 noyade** (10
+  avant), et ces deux mondes tiennent jusqu'aux nuits 3 à 5.
+
+**Le robot plus rapide** (Angelos : « on peut pas accélérer la cadence des tests ? ») : le
+débit plafonnait à ~185 secondes de jeu par seconde réelle, qu'on lance 6 ou 10 parties de
+front — chaque partie redessinait 60 images par seconde pour personne, toutes par **un seul**
+processus graphique de Chromium. Accéléré, le jeu ne dessine plus que **10 images par
+seconde** (`PAS_ROBOT`) avec **90 ms** de calcul sans dessin par image (`--budget`, 12
+avant). Et l'image dessinée avance d'**un pas fixe de 1/60 s** comme les autres : elle
+avançait du temps réel écoulé, d'autant plus gros que la machine ramait (jusqu'à 50 ms) — la
+même partie ne se jouait pas tout à fait pareil à 6 ou à 10 de front. Série 12, à 12 de
+front : **252** secondes de jeu par seconde réelle (×1,35), 48 parties en 14 minutes.
+
+**Où on en est** (le robot sans noyade, Serment ×2, Mise à mort 45 %) : chevalier et
+assassin **vers la nuit 4,7** — juste sous la cible de 5 à 6, et le trait n'ira pas plus
+loin ; guerrier et oracle vers 4,7-5 (série 10) ; mage et rôdeur 7 à 8,5 (au-dessus, on n'y
+touche pas) ; Nécromancien 2,5 à 3,6, hors cible par décision. ⚠️ Les cinq autres classes
+n'ont **pas** été remesurées avec le robot qui ne se noie plus : la série 13, qui devait le
+faire, a lancé **12 parties de front** et saturé les 31 Go de RAM de la machine (une partie
+longue de mage ou de rôdeur prend ~1,1 Go) — 6 pages qui ne chargeaient plus, 8 parties
+coupées au bout de 45 minutes, inutilisable. **Six de front au plus** (`CLAUDE.md`).
+
+**Ce qui reste du jalon 6.4** : remesurer les sept classes sur le robot d'aujourd'hui (84
+parties à six de front, ~40 min, quand la machine est libre), décider si le chevalier et
+l'assassin restent juste sous la cible, puis la partie de 30 à 45 min vérifiée de bout en
+bout. Et pour le Nécromancien, sa **boule de neige** n'existe pas encore (§4.14).
+
 ## Dettes et pièges connus
+
+- **Le Serment riposte même quand le coup part dans le vide** (`resoudreFrappe` : la riposte
+  passe avant le test de distance). Le texte dit « blesse quiconque le touche ». Vu le 9
+  novembre en réglant le chevalier, laissé tel quel : à trancher.
 
 - **`npm run build` échoue depuis Git Bash** (`No matching HTML proxy module found from
   C:/…/index.html?html-proxy&inline-css…`) : le chemin y commence par `c:` en minuscule, et

@@ -80,8 +80,16 @@ d'août et septembre sont dans `archives/` : ils ne font plus foi.
   Il joue le héros seul (la même IA que les autres héros), choisit ses cartes par une règle
   simple ou au hasard (`--cartes regle,hasard`, mêmes mondes pour les deux), accepte tout le
   monde à la porte. Il construit le jeu à part (`.tmp/robot-dist`) : on peut toucher à
-  `src/` pendant qu'il tourne. Options : `--classes`, `--parties`, `--paralleles`,
-  `--nuit-max`, `--budget` (ms de calcul sans dessin par image), `--minutes`.
+  `src/` **une fois sa construction finie** (première ligne de partie dans son journal).
+  Options : `--classes`, `--parties`, `--paralleles`, `--nuit-max`, `--budget` (ms de
+  calcul sans dessin par image dessinée, 90 par défaut, à 10 images/s), `--minutes`,
+  `--dist` et `--port` (deux séries côte à côte : un témoin et sa variante). **Six parties
+  par classe laissent près d'une nuit d'écart au hasard** : douze (`--parties 6`, règle et
+  hasard) pour trancher un réglage, et toujours contre un témoin sur les mêmes mondes.
+  **`--paralleles 6` au plus** : une partie longue (mage, rôdeur) prend ~1,1 Go de RAM ; à
+  12 de front, la série 13 a saturé les 31 Go de la machine d'Angelos (6 parties en erreur, 8
+  coupées, tout le PC ralenti). Fermer ensuite tout `chrome-headless-shell` qui resterait.
+  Lecture : `node .tmp/synthese-robot.mjs <dossier>`.
 - **La cadence** (`core/cadence.ts`) : le jeu dessine 60 images par seconde en partie, 30
   dans les menus, l'écran-titre et la pause, **5 sans le focus** — un script qui ne
   réveille pas le jeu par `window.dispatchEvent(new Event("focus"))` tourne au ralenti.

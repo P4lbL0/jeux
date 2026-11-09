@@ -219,7 +219,7 @@ export const CLASSES: Record<ClassId, ClasseDef> = {
     role: "flanc",
     trait: "critique",
     traitNom: "Mise a mort",
-    traitTexte: "25% de coups critiques, et la cadence la plus rapide du jeu",
+    traitTexte: "45% de coups critiques, et la cadence la plus rapide du jeu",
     ultimes: [
       {
         nom: "Ombre",
@@ -326,6 +326,25 @@ export const ORDRE_CLASSES: ClassId[] = [
   "oracle",
   "necromancien",
 ];
+
+/**
+ * Le Serment du Chevalier Sacre : ce qu'il rend a qui le frappe, en part de ses degats.
+ *
+ * ⚠️ **0,9 jusqu'au 9 novembre 2026.** Le robot du jalon 6.4 le voyait tomber vers la nuit 4
+ * (cible 5 a 6) ; Angelos a tranche pour **le trait plus fort** plutot que des points de vie
+ * en plus : on accentue ce qui le distingue. A 2, le robot passe de la nuit 4,0 a 4,8 (12
+ * parties, memes mondes) ; a 3, pas mieux (4,6 sur 24) : le trait plafonne, on garde 2.
+ */
+export const RIPOSTE_DU_SERMENT = 2;
+
+/**
+ * La Mise a mort de l'Assassin : sa chance de critique de base.
+ *
+ * ⚠️ **25 % jusqu'au 9 novembre 2026** — meme decision que le Serment, pour la meme raison.
+ * A 45 %, le robot passe de la nuit 4,3 a 4,7 (12 parties, memes mondes) ; a 60 %, pas mieux
+ * (4,8 sur 24) : on garde 45 %.
+ */
+export const CRITIQUE_DE_LA_MISE_A_MORT = 0.45;
 
 /** Seuil critique : verrouille le changement de heros et declenche le repli de l'IA (DESIGN.md §4.3) */
 export const SEUIL_CRITIQUE = 0.2;

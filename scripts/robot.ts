@@ -8,7 +8,8 @@ import { build, preview } from "vite";
  *
  *     npx tsx scripts/robot.ts [--classes guerrier,mage] [--cartes regle,hasard]
  *                              [--parties 1] [--paralleles 4] [--nuit-max 10]
- *                              [--budget 12] [--minutes 45] [--sortie .tmp/robot/x]
+ *                              [--budget 90] [--minutes 45] [--sortie .tmp/robot/x]
+ *                              [--dist .tmp/robot-dist] [--port 5251]
  *
  * Chaque classe joue une partie par façon de choisir ses cartes (`regle`, `hasard`), **sur
  * les mêmes mondes et les mêmes villages** (graines 1000 + k et 2000 + k) : l'écart entre
@@ -17,6 +18,10 @@ import { build, preview } from "vite";
  * modification de `src/` pendant les parties ne recharge rien), lance les parties en
  * parallèle, chacune dans son propre contexte de navigateur, et écrit un rapport par
  * partie plus un résumé.
+ *
+ * `--dist` et `--port` laissent tourner deux séries côte à côte (un témoin et sa variante) :
+ * chacune construit dans son dossier et sert sur son port. Le témoin d'abord ; on ne touche
+ * à `src/` qu'une fois sa construction finie (la première ligne de parties dans son journal).
  *
  * Une partie s'arrête à la fin (toute l'équipe tombée, ou plus un habitant), à l'aube qui
  * suit la nuit `--nuit-max`, ou au bout de `--minutes` minutes réelles. Une partie dont le
@@ -33,11 +38,13 @@ const CARTES = (options.get("cartes") ?? "regle,hasard").split(",");
 const PARTIES = Number(options.get("parties") ?? 1);
 const PARALLELES = Number(options.get("paralleles") ?? 4);
 const NUIT_MAX = Number(options.get("nuit-max") ?? 10);
-const BUDGET = Number(options.get("budget") ?? 12);
+// 90 ms de calcul sans dessin par image dessinée, à 10 images par seconde (`PAS_ROBOT`).
+const BUDGET = Number(options.get("budget") ?? 90);
 const MINUTES = Number(options.get("minutes") ?? 45);
 const horodatage = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
 const SORTIE = resolve(options.get("sortie") ?? `.tmp/robot/${horodatage}`);
-const PORT = 5251;
+const PORT = Number(options.get("port") ?? 5251);
+const DIST = options.get("dist") ?? ".tmp/robot-dist";
 mkdirSync(SORTIE, { recursive: true });
 
 interface Releve {
@@ -77,8 +84,8 @@ for (let k = 0; k < PARTIES; k++) for (const classe of CLASSES) for (const carte
 
 console.log(`${parties.length} partie(s), ${PARALLELES} à la fois, nuit max ${NUIT_MAX}, budget ${BUDGET} ms — ${SORTIE}`);
 // Sans compression, avec les cartes du code : une erreur de la page dit sa vraie ligne.
-await build({ logLevel: "warn", build: { outDir: ".tmp/robot-dist", emptyOutDir: true, minify: false, sourcemap: true } });
-const serveur = await preview({ logLevel: "silent", build: { outDir: ".tmp/robot-dist" }, preview: { port: PORT, strictPort: true, open: false } });
+await build({ logLevel: "warn", build: { outDir: DIST, emptyOutDir: true, minify: false, sourcemap: true } });
+const serveur = await preview({ logLevel: "silent", build: { outDir: DIST }, preview: { port: PORT, strictPort: true, open: false } });
 
 async function jouer(navigateur: Browser, p: Partie): Promise<Bilan> {
   const nom = `${p.classe}-${p.cartes}-${p.k}`;

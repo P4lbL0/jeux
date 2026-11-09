@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import type { Maison } from "./maisons";
 import type { ClasseDef, EtatHero } from "../core/classes";
-import { SEUIL_CRITIQUE, donneUnChoix, xpPourNiveauSuivant } from "../core/classes";
+import { CRITIQUE_DE_LA_MISE_A_MORT, SEUIL_CRITIQUE, donneUnChoix, xpPourNiveauSuivant } from "../core/classes";
 import {
   bonusVierge,
   competenceParId,
@@ -510,7 +510,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     // Une main mutilee interdit le critique, et rien ne peut le lui rendre :
     // c'est une sequelle, pas un malus (§4.23).
     if (!this.personne.mods.peutCritiquer) return 0;
-    const base = this.classe.trait === "critique" ? 0.25 : 0;
+    const base = this.classe.trait === "critique" ? CRITIQUE_DE_LA_MISE_A_MORT : 0;
     return Math.min(0.85, base + this.bonus.critChance + this.personne.mods.critique);
   }
 
