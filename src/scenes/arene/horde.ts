@@ -20,7 +20,7 @@ import { Construction } from "../../game/constructions";
 import { type Champ } from "../../game/champs";
 import { Maison } from "../../game/maisons";
 import type { ArenaScene } from "../ArenaScene";
-import { TEINTE_FIGEE, RAYON_DE_VUE } from "./reglages";
+import { TEINTE_FIGEE, RAYON_DE_VUE, VUE_DU_CHASSEUR } from "./reglages";
 
 /**
  * La horde (§4.33) : le voisinage, la nuée, le déplacement et la teinte des monstres, les
@@ -608,7 +608,7 @@ export class ArenaHorde {
     // Un simple parcours : trier a chaque image pour chaque ennemi coutait
     // beaucoup plus cher que le probleme ne le meritait.
     let premier: Hero | null = null;
-    let meilleure = RAYON_DE_VUE;
+    let meilleure = e.chasseur ? RAYON_DE_VUE * VUE_DU_CHASSEUR : RAYON_DE_VUE;
     let expose: Hero | null = null;
     let meilleureExpose = Infinity;
 

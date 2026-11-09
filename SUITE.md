@@ -4535,6 +4535,22 @@ comme son commentaire le disait — il en comptait 30, écrites pour l'ancien cy
   et 3 habitants, des monstres arrivent même de jour et l'église tombe le jour 1.
 - **Il reste à régler** (étape 4) : la cible du robot est la nuit 5 à 6, il est à 4,3, et
   l'écart entre classes va de 1,5 à 7,5.
+- **Deuxième passe de décisions** (Angelos, même jour) : les monstres **visent moins
+  l'église** (pillards 0,4 → 0,5, et 0,2 de **chasseurs** qui voient un héros deux fois
+  plus loin ; il en reste 0,3 pour elle, contre 0,6), le **crachat plus lent** (210 → 140
+  px/s, pour l'esquiver), l'armée de départ du Nécromancien **trois fois plus solide**, les
+  classes **après**. Le tirage du rôle reste un seul `rng.next()` : la suite du hasard de la
+  partie ne bouge pas.
+- **Série 5** (42 parties) : **nuit 4,3**, comme la série 4 ; l'écart entre classes se
+  resserre (Nécromancien 2,8 au lieu de 1,5, rôdeur 5,5 au lieu de 7,5, mage 6,2) ; l'église
+  tombe encore **36 fois sur 42**, vers la nuit 3,8 au lieu de 3,5 ; crachat 18 morts.
+- **Qui abat l'église** (14 parties, le robot pèse chaque coup, `degatsEglise`) : à **86 %
+  la piétaille**, à **48 % le seul fonceur** (le « Rodeur » des monstres, l'espèce la plus
+  courante) ; **87 %** des dégâts viennent de monstres qui la visent à ce moment-là — ceux
+  qui la visaient dès le départ et les pillards dont les maisons sont tombées —, 12 % des
+  chasseurs sans héros en vue, 1 % des pillards encore à leurs maisons. Les boss : 11 %.
+  Changer ce que visent les monstres retarde le moment où tout le monde finit sur elle ; ça
+  ne l'empêche pas.
 
 ## Dettes et pièges connus
 

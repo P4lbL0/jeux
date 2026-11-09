@@ -1009,6 +1009,8 @@ export class Ennemi extends Phaser.Physics.Arcade.Sprite {
    * proche ; quand elle tombe, il en prend une autre, et l'eglise en dernier.
    */
   cibleMaison: Maison | null = null;
+  /** Un chasseur (9 novembre 2026) : il voit les heros `VUE_DU_CHASSEUR` fois plus loin */
+  chasseur = false;
 
   /**
    * Il porte un visage d'homme (DESIGN.md §4.29) : c'est un habitant du village

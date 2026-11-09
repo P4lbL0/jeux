@@ -69,7 +69,13 @@ export interface RapportRobot {
   sortiesDeLEau: number;
   /** Combien de chantiers de l'église il a lancés après une chute */
   relevements: number;
-  /** Quand l'église est tombée pour la première fois (le robot ne la relève pas) */
+  /**
+   * Les coups portés à l'église, par ce qui les porte (« Brute (boss) », « Nuee »...) :
+   * dégâts cumulés et part du rôle du monstre (pillard qui a fini ses maisons, chasseur sans
+   * héros en vue, ou monstre qui la visait).
+   */
+  degatsEglise: Record<string, { degats: number; coups: number }>;
+  /** Quand l'église est tombée pour la première fois */
   egliseTombee: { t: number; jour: number; phase: string } | null;
   /** Le dernier relevé, tenu à jour toutes les secondes de jeu */
   dernier: ReleveRobot | null;
@@ -127,6 +133,7 @@ export class Robot {
       allersALEglise: 0,
       sortiesDeLEau: 0,
       relevements: 0,
+      degatsEglise: {},
       egliseTombee: null,
       dernier: null,
     };
@@ -211,6 +218,23 @@ export class Robot {
     envelopper("resoudreFrappe", ([e]) => nommer(e as Ennemi));
     envelopper("impactCrachat", () => "crachat");
     envelopper("exploser", ([e]) => `${nommer(e as Ennemi)}, explosion`);
+
+    // Ce qui abat l'église : chaque coup, rangé par espèce, rang et rôle.
+    const cognerEglise = scene.cognerEglise!;
+    scene.cognerEglise = function (this: unknown, ...args: unknown[]) {
+      const e = args[0] as Ennemi;
+      const avant = robot.scene.eglise.regles.pv;
+      const resultat = cognerEglise.apply(this, args);
+      const perdus = avant - robot.scene.eglise.regles.pv;
+      if (perdus > 0) {
+        const role = e.cibleMaison ? "pillard" : e.chasseur ? "chasseur" : "eglise";
+        const cle = `${nommer(e)} · ${role}`;
+        const ligne = (robot.rapport.degatsEglise[cle] ??= { degats: 0, coups: 0 });
+        ligne.degats += perdus;
+        ligne.coups += 1;
+      }
+      return resultat;
+    };
 
     const encaisser = scene.encaisser!;
     scene.encaisser = function (this: unknown, ...args: unknown[]) {

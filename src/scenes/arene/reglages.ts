@@ -287,8 +287,26 @@ export type ModeBati = TypeConstruction | "champ" | "maison" | "cour";
  * La part des monstres qui viennent piller (§4.24, 19 septembre 2026) : ils
  * visent la maison debout la plus proche au lieu de l'eglise. Le reste marche
  * sur l'eglise comme avant — c'est elle le cap, et la ligne a tenir (§4.22).
+ *
+ * ⚠️ **0,4 jusqu'au 9 novembre 2026.** Le robot du jalon 6.4 voyait l'eglise tomber dans
+ * 35 parties sur 42 vers la nuit 3,5, meme defendue et relevee, et sa chute decider de la
+ * partie. Angelos a tranche : les monstres la visent moins. La moitie pille, un
+ * cinquieme chasse les heros (`PART_DE_CHASSEURS`), il en reste trois sur dix pour elle.
  */
-export const PART_DE_PILLARDS = 0.4;
+export const PART_DE_PILLARDS = 0.5;
+
+/**
+ * La part des monstres qui chassent les heros (9 novembre 2026, meme decision) : ils
+ * voient un heros `VUE_DU_CHASSEUR` fois plus loin que les autres et vont sur lui ;
+ * sans heros en vue, ils marchent sur l'eglise comme le reste.
+ */
+export const PART_DE_CHASSEURS = 0.2;
+
+/**
+ * Jusqu'ou voit un chasseur, en multiple de `RAYON_DE_VUE`. Deux fois : il repere le
+ * heros qui tient la place, pas celui qui campe a l'autre bout de la carte.
+ */
+export const VUE_DU_CHASSEUR = 2;
 
 /** Ce que chaque poste donne au joueur qui y frappe (DESIGN.md §4.18). */
 export const RECOLTE_DU_POSTE: Record<"pecheur" | "bucheron" | "mineur", Ressource> = {
@@ -312,8 +330,15 @@ export const MAX_CADAVRES = 24;
 /** Impulsion rendue a un heros qui encaisse, en pixels par seconde. */
 export const FORCE_RECUL = 110;
 
-/** Vitesse d'un crachat de monstre, en pixels par seconde. */
-export const VITESSE_CRACHAT = 210;
+/**
+ * Vitesse d'un crachat de monstre, en pixels par seconde.
+ *
+ * ⚠️ **210 jusqu'au 9 novembre 2026** : le crachat faisait plus de la moitie des morts du
+ * robot (22 sur 42). Angelos a tranche : plus lent, pour qu'on l'esquive — un tiers de
+ * moins, pres de deux secondes de vol a la portee du cracheur. Le robot, lui, n'esquive
+ * pas : ses chiffres n'en bougeront guere, ceux d'un joueur si.
+ */
+export const VITESSE_CRACHAT = 140;
 
 /** Rayon de l'explosion d'un kamikaze, en pixels. */
 export const RAYON_KAMIKAZE = 92;
@@ -332,6 +357,14 @@ export const MAX_MORTS_VIVANTS = 12;
  * retire pour ca).
  */
 export const ARMEE_DE_DEPART = 4;
+
+/**
+ * Combien de fois plus de vie ont ces quatre-la (9 novembre 2026). A ~22 PV au niveau 1,
+ * ils mouraient dans les premieres escarmouches du premier jour, et le Necromancien tombait
+ * toujours la nuit 1 ou 2 : Angelos a tranche pour une armee de depart trois fois plus
+ * solide. Leurs forces restent celles de sa naissance — ils ne grandissent pas avec lui.
+ */
+export const SOLIDITE_DE_L_ARMEE = 3;
 
 /**
  * Le zoom de depart, et ses bornes.

@@ -18,7 +18,7 @@ import {
   villageAttire,
 } from "../../core/cycle";
 import type { ArenaScene } from "../ArenaScene";
-import { MAX_ENNEMIS, PART_DE_PILLARDS } from "./reglages";
+import { MAX_ENNEMIS, PART_DE_CHASSEURS, PART_DE_PILLARDS } from "./reglages";
 
 /**
  * Les vagues : l'effectif et la puissance de la nuit, les rendez-vous, les hordes
@@ -193,7 +193,10 @@ export class ArenaVagues {
     const e = new Ennemi(this, point.x, point.y, puissance, archetype);
     // Une part vient piller : la maison debout la plus proche de la ou il
     // surgit, pas de l'eglise — c'est ce qui etale la menace sur le village.
-    if (this.rng.chance(PART_DE_PILLARDS)) e.cibleMaison = this.maisons.laPlusProcheDebout(point.x, point.y);
+    // Un seul tirage, comme avant : la suite du hasard de la partie ne bouge pas.
+    const role = this.rng.next();
+    if (role < PART_DE_PILLARDS) e.cibleMaison = this.maisons.laPlusProcheDebout(point.x, point.y);
+    else if (role < PART_DE_PILLARDS + PART_DE_CHASSEURS) e.chasseur = true;
     if (rang !== "pietaille") {
       e.promouvoir(rang);
       // On l'attend : le boss de la nuit est un rendez-vous, et le guet le dit.
