@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { creerCadence, pasVoulu } from "../core/cadence";
+import { PAS_60, creerCadence, pasVoulu } from "../core/cadence";
 import type { ArenaScene } from "../scenes/ArenaScene";
 
 /**
@@ -22,6 +22,25 @@ interface BoucleDePhaser {
 }
 
 /**
+ * L'accélération du robot (jalon 6.4, étape 3), par partie : `budget` millisecondes de calcul
+ * **sans dessin** ajoutées à chaque image dessinée, par pas de 1/60 s — chacun exactement le
+ * pas d'un joueur à 60 images par seconde, donc la même partie, plus vite. `avance` est le
+ * temps de jeu ainsi gagné : l'horloge des scènes lit l'heure que la boucle leur passe, et
+ * elle ne doit jamais reculer.
+ */
+interface Acceleration {
+  budget: number;
+  avance: number;
+}
+const accelerations = new WeakMap<Phaser.Game, Acceleration>();
+
+/** Accélère la partie (robot) ; `0` la rend au temps réel, sans jamais faire reculer l'heure. */
+export function accelerer(jeu: Phaser.Game, budget: number): void {
+  const acceleration = accelerations.get(jeu);
+  if (acceleration) acceleration.budget = Math.max(0, budget);
+}
+
+/**
  * Pose la cadence des images (`core/cadence.ts`) sur la boucle de Phaser.
  *
  * À appeler juste après `new Phaser.Game`, avec `fps.limit` dans la configuration : Phaser
@@ -33,6 +52,8 @@ interface BoucleDePhaser {
  */
 export function poserLaCadence(jeu: Phaser.Game): void {
   const cadence = creerCadence();
+  const acceleration: Acceleration = { budget: 0, avance: 0 };
+  accelerations.set(jeu, acceleration);
   let auPremierPlan = true;
   // Les mêmes événements que la pause hors focus de l'arène (`suspendre`, `reprendre`) :
   // les scripts Playwright, qui réveillent le jeu par un `focus`, réveillent aussi la cadence.
@@ -60,10 +81,19 @@ export function poserLaCadence(jeu: Phaser.Game): void {
     this.delta += delta;
     if (time >= this.nextFpsUpdate) this.updateFPS(time);
 
-    if (cadence(time, pasVoulu({ auPremierPlan, partieQuiTourne: partieQuiTourne() }))) {
+    const accelere = acceleration.budget > 0;
+    // Accéléré, le robot joue sans fenêtre au premier plan : le focus ne compte plus.
+    if (cadence(time, pasVoulu({ auPremierPlan: auPremierPlan || accelere, partieQuiTourne: partieQuiTourne() }))) {
       this.framesThisSecond++;
-      this.callback(time, this.delta);
+      this.callback(time + acceleration.avance, this.delta);
       this.delta = 0;
+      if (accelere) {
+        const debut = performance.now();
+        while (performance.now() - debut < acceleration.budget) {
+          acceleration.avance += PAS_60;
+          jeu.headlessStep(time + acceleration.avance, PAS_60);
+        }
+      }
     }
 
     this.lastTime = time;

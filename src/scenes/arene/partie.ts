@@ -130,7 +130,8 @@ export class ArenaPartie {
   suspendre(this: ArenaScene): void {
     // Le menu de choix met deja le jeu en pause, et c'est lui qui decidera du
     // degel : on ne se met pas en travers.
-    if (this.enPause || this.termine) return;
+    // Le robot (jalon 6.4) joue sans fenetre au premier plan : jamais de pause hors focus.
+    if (this.enPause || this.termine || this.robot) return;
     this.enPause = true;
     this.pauseHorsFocus = true;
     this.debutPause = this.time.now;

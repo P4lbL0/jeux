@@ -119,6 +119,7 @@ import { ArenaDegats } from "./arene/degats";
 import { ArenaMemoire } from "./arene/memoireDuVillage";
 import { ArenaEffetsVisuels } from "./arene/effetsVisuels";
 import { greffer } from "./arene/greffer";
+import { Robot, type ReglagesRobot } from "../game/robot";
 import {
   VolDEpee,
   ZoneFracturee,
@@ -505,7 +506,7 @@ export class ArenaScene extends Phaser.Scene {
    */
   carte: CarteDuMonde | null = null;
   /** La graine du village de cette partie : elle traverse la sauvegarde (§4.24) */
-  private graineVillage = 0;
+  graineVillage = 0;
   /** La graine du monde (§4.29) : la mer, le relief, l'endroit ou l'on tombe */
   graineMonde = 0;
   /**
@@ -706,6 +707,13 @@ export class ArenaScene extends Phaser.Scene {
   /** Millisecondes de jeu cumulees, sessions precedentes comprises */
   dureeJouee = 0;
 
+  /**
+   * Le robot qui joue la partie (jalon 6.4, `game/robot.ts`) : `null` dans une partie de
+   * joueur. Il pilote le heros incarne par l'IA, choisit les cartes et repond a la porte.
+   */
+  robot: Robot | null = null;
+  private reglagesRobot: ReglagesRobot | null = null;
+
   constructor() {
     super("arena");
   }
@@ -732,6 +740,8 @@ export class ArenaScene extends Phaser.Scene {
     butinDeLaRoute?: Stocks;
     /** Ceux qui nous suivent d'un monde a l'autre (§4.31) */
     compagnons?: Survivant[];
+    /** Le robot qui joue la partie (jalon 6.4) : jamais dans une partie de joueur */
+    robot?: ReglagesRobot;
   }): void {
     this.registry.set("classe", data.classe ?? "guerrier");
     this.emplacement = data.emplacement ?? 1;
@@ -770,6 +780,7 @@ export class ArenaScene extends Phaser.Scene {
     // graine : elle prend zero, toujours la meme, plutot qu'un village qui
     // changerait a chaque rechargement.
     this.graineVillage = data.graineVillage ?? (data.reprise ? (data.reprise.graineVillage ?? 0) : graineDeVillage());
+    this.reglagesRobot = data.robot ?? null;
     // Le monde de la partie (§4.29) : une partie neuve en tire un — la mer, le
     // relief, les lacs, l'endroit ou l'on tombe ; une partie reprise garde le
     // sien. Une sauvegarde d'avant le 20 septembre 2026 n'a pas de graine de
@@ -1119,6 +1130,7 @@ export class ArenaScene extends Phaser.Scene {
     this.demelerLesPrenoms();
 
     this.scene.launch("ui", { arene: this });
+    this.robot = this.reglagesRobot ? new Robot(this, this.reglagesRobot) : null;
     this.events.on("choix-fait", this.resoudreChoix, this);
     this.events.on("changer-hero", this.changerHero, this);
     this.events.on("selectionner", this.selectionnerDepuisUi, this);

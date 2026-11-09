@@ -168,6 +168,8 @@ export class ArenaDeplacements {
   }
 
   deplacerHeroIncarne(this: ArenaScene): void {
+    // Le robot (jalon 6.4) pilote le heros incarne par l'IA, dans `deplacerHerosIA`.
+    if (this.robot) return;
     const hero = this.hero;
     if (!hero || hero.etat === "mort") return;
 
@@ -225,7 +227,7 @@ export class ArenaDeplacements {
     };
 
     for (const hero of this.heros) {
-      if (hero.estIncarne || hero.etat === "mort") continue;
+      if ((hero.estIncarne && !this.robot) || hero.etat === "mort") continue;
       // Un heros repousse subit son recul avant de reprendre sa course.
       if (hero.estEnRecul) continue;
       if (hero.estImmobilise) {

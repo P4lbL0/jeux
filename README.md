@@ -23,6 +23,20 @@ npm test        # lance les tests de la logique de jeu
 npm run build   # verifie les types et construit la version finale
 ```
 
+**Le robot** (jalon 6.4) joue des parties entieres tout seul, sans fenetre et en accelere,
+et rend des chiffres : jusqu'a quelle nuit on tient avec chaque classe, ce qui a tue chaque
+heros, le niveau, l'or, les habitants a chaque aube et chaque crepuscule.
+
+```bash
+npx tsx scripts/robot.ts                       # les 7 classes, regle et hasard
+npx tsx scripts/robot.ts --classes mage --cartes regle --nuit-max 8
+```
+
+Les rapports tombent dans `.tmp/robot/<date>/` : un fichier par partie, une capture de la
+fin, et `resume.md`. Le robot joue **le heros seul** (la meme IA que les autres heros, repli
+compris), choisit ses cartes par une regle simple ou au hasard, et accepte tout le monde a
+la porte ; le village vit tout seul. Il ne se lance jamais dans une partie de joueur.
+
 Le jeu s'ouvre sur **l'ecran-titre** (§4.10) : neuf secondes de village en feu rendues par
 Blender — un clic ou une touche les sautent —, puis le titre et **JOUER**, qui mene aux
 trois emplacements de sauvegarde. Le film se refait avec `npm run intro` (voir « Les

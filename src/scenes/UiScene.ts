@@ -337,6 +337,7 @@ export class UiScene extends Phaser.Scene {
     etatAnnonce?: string,
     lieu: "porte" | "sauvetage" | "route" = "porte",
   ): void {
+    if (this.arene.robot) return;
     this.fiche.afficher({
       genre: "arrivant",
       arrivant,
@@ -382,6 +383,8 @@ export class UiScene extends Phaser.Scene {
   }
 
   private ouvrirChoix(titre: string, sousTitre: string, propositions: Proposition[]): void {
+    // Le robot (jalon 6.4) repond lui-meme, par le meme evenement que le clic.
+    if (this.arene.robot) return;
     this.fiche.fermer();
     this.choix.afficher(titre, sousTitre, propositions, (id) =>
       this.arene.events.emit("choix-fait", id),

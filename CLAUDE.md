@@ -74,6 +74,14 @@ d'août et septembre sont dans `archives/` : ils ne font plus foi.
   rendu par défaut (SwiftShader) ment, et une vraie fenêtre se fait brider à 1 image/s.
   En rendu logiciel, tout ce qui est minuté s'étire d'un facteur quatre : les **écarts**
   sont vrais, les valeurs absolues non.
+- **Le robot** (`npx tsx scripts/robot.ts`, jalon 6.4) joue des parties entières sans
+  fenêtre, accélérées, et rend un rapport par partie plus un résumé dans `.tmp/robot/` :
+  nuit atteinte, niveau, ce qui a tué chaque héros, relevés à chaque aube et crépuscule.
+  Il joue le héros seul (la même IA que les autres héros), choisit ses cartes par une règle
+  simple ou au hasard (`--cartes regle,hasard`, mêmes mondes pour les deux), accepte tout le
+  monde à la porte. Il construit le jeu à part (`.tmp/robot-dist`) : on peut toucher à
+  `src/` pendant qu'il tourne. Options : `--classes`, `--parties`, `--paralleles`,
+  `--nuit-max`, `--budget` (ms de calcul sans dessin par image), `--minutes`.
 - **La cadence** (`core/cadence.ts`) : le jeu dessine 60 images par seconde en partie, 30
   dans les menus, l'écran-titre et la pause, **5 sans le focus** — un script qui ne
   réveille pas le jeu par `window.dispatchEvent(new Event("focus"))` tourne au ralenti.
@@ -131,6 +139,7 @@ npm run dev      # le jeu s'ouvre dans le navigateur
 npx vitest run   # les tests
 npm run build    # vérifie les types et construit (depuis PowerShell)
 
+npx tsx scripts/robot.ts                   # le robot joue des parties entières (.tmp/robot/)
 npx tsx scripts/capturer.ts apres          # les captures du jeu, par Playwright
 npx tsx scripts/capturer-mondes.ts 0,1,2   # plusieurs mondes tirés
 npx tsx scripts/planche.ts                 # les planches PNG, sans navigateur
