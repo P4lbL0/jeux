@@ -152,7 +152,11 @@ ciel, et le ciel est fini.
 >    pause, 5 hors du premier plan (`core/cadence.ts`, `game/cadence.ts` ; voir `SUITE.md`,
 >    « Le jalon 6.4, étape 2 »). **La suite est l'étape 3, le robot.**
 > 3. **Un robot qui joue une partie entière** en accéléré, et des chiffres par classe.
-> 4. **Les premiers chiffres réglés**, une partie de 30 à 45 min vérifiée de bout en bout.
+>    Tranché le 9 novembre : **le héros seul** (le village vit tout seul), ses cartes par
+>    **une règle simple** plus **une série au hasard** en témoin, **il accepte tout le monde**
+>    à la porte. Le reste (vitesse, nombre de parties, ce qu'on relève) se tranche seul.
+> 4. **Les premiers chiffres réglés**, sur une cible : **un joueur moyen tombe vers la nuit 6
+>    à 8** (1 h 30 à 2 h) ; puis une partie de 30 à 45 min vérifiée de bout en bout.
 >
 > Décidé aussi : **pas encore dans The Circle**, et **pas de 3D temps réel** — la nuit sera
 > éclairée par des cartes de relief rendues par Blender (pas encore placé dans l'ordre).
