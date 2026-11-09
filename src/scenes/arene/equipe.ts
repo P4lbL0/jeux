@@ -380,9 +380,11 @@ export class ArenaEquipe {
       if (dansCite) {
         hero.etat = "cite";
         hero.soigner((soinParSeconde * delta) / 1000);
-      } else if (hero.estIncarne && !this.robot) {
+      } else if (hero.estIncarne && (!this.robot || !this.eglise.fonctionne)) {
         // Reprendre un heros en fuite le remet au combat : c'est le joueur qui
         // decide de faire demi-tour, et c'est comme ca qu'on perd un heros.
+        // Le robot (jalon 6.4) se replie comme l'IA, sauf eglise tombee : il n'y a
+        // plus de refuge, il se bat — sinon il tournait au centre jusqu'a la fin.
         hero.etat = "combat";
       } else if (hero.estCritique) {
         // Repli automatique : l'IA ne perd jamais un heros. Le robot (jalon 6.4) se

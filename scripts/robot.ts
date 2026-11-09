@@ -76,7 +76,8 @@ const parties: Partie[] = [];
 for (let k = 0; k < PARTIES; k++) for (const classe of CLASSES) for (const cartes of CARTES) parties.push({ classe, cartes, k });
 
 console.log(`${parties.length} partie(s), ${PARALLELES} à la fois, nuit max ${NUIT_MAX}, budget ${BUDGET} ms — ${SORTIE}`);
-await build({ logLevel: "warn", build: { outDir: ".tmp/robot-dist", emptyOutDir: true } });
+// Sans compression, avec les cartes du code : une erreur de la page dit sa vraie ligne.
+await build({ logLevel: "warn", build: { outDir: ".tmp/robot-dist", emptyOutDir: true, minify: false, sourcemap: true } });
 const serveur = await preview({ logLevel: "silent", build: { outDir: ".tmp/robot-dist" }, preview: { port: PORT, strictPort: true, open: false } });
 
 async function jouer(navigateur: Browser, p: Partie): Promise<Bilan> {
@@ -84,7 +85,7 @@ async function jouer(navigateur: Browser, p: Partie): Promise<Bilan> {
   const contexte = await navigateur.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
   const page = await contexte.newPage();
   const erreurs: string[] = [];
-  page.on("pageerror", (e) => erreurs.push(e.message));
+  page.on("pageerror", (e) => erreurs.push(e.stack ?? e.message));
   const depart = Date.now();
   let issue: Bilan["issue"] = "temps";
   let rapport: Rapport | null = null;

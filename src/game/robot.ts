@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { choisirCarte, type CarteVue, type ModeCartes } from "../core/robot";
 import { competenceParId, ID_EMPLACEMENT, type Proposition } from "../core/competences";
 import { accelerer } from "./cadence";
+import type { Ordre } from "../core/ordres";
 import type { Ennemi, Hero } from "./entities";
 import type { ArenaScene } from "../scenes/ArenaScene";
 
@@ -15,6 +16,8 @@ import type { ArenaScene } from "../scenes/ArenaScene";
  * - les cartes de niveau se choisissent par `core/robot.ts` (une règle simple, ou le hasard)
  *   et partent par le même événement que le clic (`choix-fait`) ;
  * - à la porte, il accepte tout le monde (`porte`, vrai) ;
+ * - quand son héros porte un état (hémorragie, maladie...), il le ramène à l'église jusqu'à
+ *   ce qu'elle l'ait soigné, comme le design le demande au joueur (§4.23) ;
  * - l'interface ne montre ni l'écran de choix ni la fiche de la porte (`UiScene`) ;
  * - pas de pause hors focus (`suspendre`), et la partie est accélérée (`accelerer`).
  *
@@ -54,6 +57,10 @@ export interface RapportRobot {
   cartesPrises: { t: number; niveau: number; ecran: string; id: string; nom: string }[];
   chutes: { t: number; jour: number; nuit: number; phase: string; nom: string; classe: string; niveau: number; cause: string }[];
   releves: ReleveRobot[];
+  /** Combien de fois il a ramené son héros à l'église pour un état */
+  allersALEglise: number;
+  /** Quand l'église est tombée pour la première fois (le robot ne la relève pas) */
+  egliseTombee: { t: number; jour: number; phase: string } | null;
   /** Le dernier relevé, tenu à jour toutes les secondes de jeu */
   dernier: ReleveRobot | null;
 }
@@ -83,6 +90,10 @@ export class Robot {
   private coupEnCours: string | null = null;
   private phaseVue = "";
   private prochaineSeconde = 0;
+  /** Les dernières annonces : c'est par elles qu'on sait ce qui tue sans coup. */
+  private readonly annonces: { t: number; texte: string }[] = [];
+  /** Le héros envoyé se soigner, et l'ordre qu'il avait avant. */
+  private enSoin: { hero: Hero; ordre: Ordre } | null = null;
 
   constructor(
     private readonly scene: ArenaScene,
@@ -99,6 +110,8 @@ export class Robot {
       cartesPrises: [],
       chutes: [],
       releves: [],
+      allersALEglise: 0,
+      egliseTombee: null,
       dernier: null,
     };
     (window as unknown as { __robot: RapportRobot }).__robot = this.rapport;
@@ -111,12 +124,14 @@ export class Robot {
     evenements.on("arrivant", this.surArrivant, this);
     evenements.on("hero-tombe", this.surChute, this);
     evenements.on("fin-de-partie", this.surFin, this);
+    evenements.on("annonce", this.surAnnonce, this);
     evenements.on(Phaser.Scenes.Events.UPDATE, this.surImage, this);
     evenements.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       evenements.off("choix", this.surChoix, this);
       evenements.off("arrivant", this.surArrivant, this);
       evenements.off("hero-tombe", this.surChute, this);
       evenements.off("fin-de-partie", this.surFin, this);
+      evenements.off("annonce", this.surAnnonce, this);
       evenements.off(Phaser.Scenes.Events.UPDATE, this.surImage, this);
       accelerer(scene.game, 0);
     });
@@ -188,9 +203,17 @@ export class Robot {
     };
   }
 
+  private surAnnonce(texte: string, _canal?: string, nom?: string): void {
+    this.annonces.push({ t: this.scene.time.now, texte: nom ? `${nom} ${texte}` : texte });
+    if (this.annonces.length > 12) this.annonces.shift();
+  }
+
   private surChute(hero: Hero): void {
     const coup = this.derniersCoups.get(hero);
     const recent = coup && this.scene.time.now - coup.t < 1500;
+    // Sans coup récent : ce que le jeu a annoncé à son sujet juste avant (noyade, état, cœur).
+    const nom = hero.personne.nom;
+    const annonce = [...this.annonces].reverse().find((a) => this.scene.time.now - a.t < 3000 && a.texte.includes(nom));
     this.rapport.chutes.push({
       t: this.secondes,
       jour: this.scene.cycle.jour,
@@ -199,8 +222,7 @@ export class Robot {
       nom: hero.personne.nom,
       classe: hero.classe.id,
       niveau: hero.niveau,
-      // Sans coup récent : la noyade, une maladie, le cœur qui lâche.
-      cause: recent ? coup.cause : "sans coup (noyade, maladie, cœur)",
+      cause: recent ? coup.cause : (annonce?.texte.replace(nom, "").trim() ?? "sans coup ni annonce"),
     });
   }
 
@@ -232,7 +254,27 @@ export class Robot {
     if (this.scene.time.now >= this.prochaineSeconde) {
       this.prochaineSeconde = this.scene.time.now + 1000;
       this.rapport.dernier = this.relever();
+      if (!this.rapport.egliseTombee && !this.scene.eglise.fonctionne) {
+        this.rapport.egliseTombee = { t: this.secondes, jour: this.scene.cycle.jour, phase: this.scene.cycle.phase };
+      }
+      this.allerSeSoigner();
     }
+  }
+
+  /**
+   * Un héros qui porte un état rentre à l'église (posture « repli » : il y reste) jusqu'à
+   * ce qu'elle l'ait purgé, puis reprend son ordre d'avant.
+   */
+  private allerSeSoigner(): void {
+    const hero = this.scene.hero;
+    if (this.enSoin && (this.enSoin.hero !== hero || this.enSoin.hero.personne.etats.length === 0)) {
+      this.enSoin.hero.ordre = this.enSoin.ordre;
+      this.enSoin = null;
+    }
+    if (!hero || hero.etat === "mort" || this.enSoin || hero.personne.etats.length === 0) return;
+    this.enSoin = { hero, ordre: hero.ordre };
+    hero.ordre = { posture: "repli", ancre: null };
+    this.rapport.allersALEglise += 1;
   }
 
   private surFin(): void {
