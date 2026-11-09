@@ -4375,6 +4375,42 @@ Ce que l'audit a trouvé, et ce qu'Angelos en a fait :
   (confirmé), mais **la lumière par cartes de relief** rendues par Blender, à placer.
 - **Pas encore dans The Circle** : le jeu reste chez Angelos.
 
+### Le jalon 6.4, étape 1 : le ménage (9 novembre 2026)
+
+- **`CLAUDE.md`** à la racine, chargé tout seul : les règles de travail, les pièges du
+  navigateur et de la mesure, le Grimoire, les commandes. `PROMPT-SUITE.md` ne dit plus que
+  l'état et la suite, et n'a plus à être collé. Les sept vieux briefs et prompts sont dans
+  `archives/` (avec un `README.md` qui dit ce qu'était chacun).
+- **`ArenaScene.ts` : 10 973 → ~1 780 lignes.** Il garde les champs, `init`, `preload`,
+  `create`, `construireVillageVivant`, `update`, les getters et `groupeDe`. Ses 308 autres
+  méthodes sont dans **27 fichiers de `src/scenes/arene/`**, un par système (de 95 à 770
+  lignes), plus `reglages.ts` (les 44 déclarations du haut du fichier, exportées) et
+  `greffer.ts`.
+- **Le motif** est celui des *mixins* de TypeScript : chaque fichier est une classe jamais
+  instanciée (`ArenaHorde`, `ArenaCombat`...) dont les méthodes prennent `this:
+  ArenaScene` ; la scène déclare `interface ArenaScene extends ArenaHorde, ...` (fusion de
+  déclarations), et `greffer` recopie les descripteurs sur le prototype au chargement — non
+  énumérables comme des méthodes de classe, et un nom en double lève une erreur. Pas de
+  composition « un objet par système » : elle aurait obligé à réécrire chaque `this.x` des
+  11 000 lignes, et le but était de ne pas changer une ligne de comportement.
+- **Fait par un script, pas à la main** (`.tmp/decouper-arene.mjs`) : le texte de chaque
+  méthode est recopié tel quel (commentaires et bannières compris), seuls tombent `private`
+  et s'ajoute `this: ArenaScene` (effacé à la compilation). Les imports de chaque fichier
+  sont recalculés par le vérificateur de TypeScript sur les symboles réellement utilisés. Un
+  piège du premier passage : un littéral typé par une interface du haut de fichier fait
+  remonter ses noms de champs jusqu'à l'interface — trois imports en trop, attrapés par
+  `noUnusedLocals`. **173 membres** restés dans la scène ont perdu `private`, parce que le
+  code déplacé les lit.
+- **La preuve que rien n'a bougé** (`.tmp/menage-temoin.mjs` puis `menage-comparer.mjs`) :
+  le navigateur relève, pour chacun des **336 noms** du prototype de la scène, le texte JS
+  de sa fonction, avant et après. Mêmes noms, même genre, même énumérabilité, **même texte**
+  — sauf le constructeur (son texte est celui de la classe entière) et `repousser`, où
+  esbuild nommait une variable locale `recul2` parce qu'un import `recul` la masquait dans
+  l'ancien fichier. Puis trois parties (guerrier, mage, nécromancien ; mondes 4242, 777,
+  21 ; une nuit forcée à 300 monstres avec boss, le héros posé dans la horde) : **0 erreur**,
+  avant comme après, en dev et sur le build de production. 1 042 tests verts, types et
+  build propres.
+
 ## Dettes et pièges connus
 
 - **`npm run build` échoue depuis Git Bash** (`No matching HTML proxy module found from

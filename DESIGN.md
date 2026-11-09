@@ -8,6 +8,8 @@
 > projet, 60 images/s au plus, un robot qui joue une partie entière, les premiers chiffres
 > réglés. Pas encore dans The Circle ; pas de 3D temps réel, la nuit sera éclairée par des
 > cartes de relief Blender.
+> **Le ménage est fait le même jour** : `CLAUDE.md`, `archives/`, et `ArenaScene.ts` rangé
+> par système dans `src/scenes/arene/` (10 973 → ~1 780 lignes, comportement identique).
 >
 > Avant ça : 2026-09-23, fin d'après-midi — **les fusions sont dans le jeu**
 > (§4.25, jalon 6.5, morceau 3) : une quatrième carte quand deux ingrédients sont au

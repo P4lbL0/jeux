@@ -145,9 +145,9 @@ ciel, et le ciel est fini.
 > ⚠️ **L'ordre a changé le 9 novembre 2026** (audit de reprise, réponses d'Angelos) : **le
 > jalon 6.4, le jeu jouable, passe avant la suite des builds** (§5). Dans l'ordre :
 >
-> 1. **Le ménage** : un `CLAUDE.md` à la racine (ce prompt n'aura plus à être collé), les
->    vieux briefs rangés dans un dossier d'archives, `ArenaScene.ts` découpé par système —
->    rien ne change à l'écran, tests verts, trois passes Playwright.
+> 1. ✅ **Le ménage** (fait le 9 novembre) : `CLAUDE.md` à la racine, les vieux briefs dans
+>    `archives/`, `ArenaScene.ts` à ~1 780 lignes et ses méthodes dans `src/scenes/arene/`
+>    (voir `SUITE.md`, « Le jalon 6.4, étape 1 »). **La suite est l'étape 2.**
 > 2. **60 images/s au plus**, rien de dessiné en pause (`src/main.ts` n'a que `fps.min`, et un
 >    pas de physique par image) : mesuré avant/après sur l'écran à 240 Hz.
 > 3. **Un robot qui joue une partie entière** en accéléré, et des chiffres par classe.

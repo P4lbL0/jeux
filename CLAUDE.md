@@ -31,7 +31,11 @@ d'août et septembre sont dans `archives/` : ils ne font plus foi.
   change devient une modification du noyau plus ses tests. Les tests restent verts. **La
   graine zéro reste la carte d'avant.**
 - **`src/game/`** — les systèmes branchés sur Phaser, le dessin (`dessin/`), l'interface.
-- **`src/scenes/`** — les scènes (titre, menu, arène, interface).
+- **`src/scenes/`** — les scènes (titre, menu, arène, interface). **`ArenaScene.ts`** ne
+  garde que l'état de la partie (ses champs), `init`, `create`, `update` et les getters ;
+  ses ~300 méthodes sont rangées par système dans **`src/scenes/arene/`** (une classe par
+  fichier, greffée sur la scène : voir « Structure du code » du `README.md`). Une méthode
+  neuve va dans le fichier de son système, jamais dans `ArenaScene.ts`.
 - **`scripts/blender/`** — la chaîne Blender : `npm run sprites`, `npm run persos`,
   `npm run intro`. Un PNG dans `src/assets/` remplace le dessin du code sous la même clé.
 - **`scripts/son/`** — les sons fabriqués au code (`npm run son`, `bruits`, `ciel`).

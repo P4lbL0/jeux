@@ -469,9 +469,52 @@ src/
   scenes/    les ecrans du jeu
     MenuScene.ts         les trois emplacements, et le compte
     ChoixClasseScene.ts  choix de la classe de depart
-    ArenaScene.ts        le combat
+    ArenaScene.ts        la partie : l'etat (ses champs), init, create,
+                         update, les getters — et rien d'autre (~1 800 lignes)
+    arene/               ses methodes, rangees par systeme (une classe par
+                         fichier, greffee sur la scene, voir plus bas)
+      reglages.ts          constantes, fonctions et types partages
+      greffer.ts           recopie les methodes des parts sur la scene
+      partie.ts            reprise, enregistrement, pause, quitter, la fin
+      marche.ts            la marche, la porte, la rencontre, le refus
+      route.ts             caches, camps, survivant, compagnons, stele
+      installation.ts      la carte, le decor, le village, l'enceinte
+      controles.ts         zoom, souris, touches
+      commandement.ts      ordres, selection, taches, changer de heros
+      equipe.ts            la boucle des heros : auras, invocations, etats,
+                           moral, orbiteurs
+      deplacements.ts      l'eau, le terrain, les chemins, les heros
+      horde.ts             le voisinage, la nuee, les monstres
+      travail.ts           la recolte, le travail, le village arme
+      amenagement.ts       batir, la grille, le fantome, les tours
+      combat.ts            frapper, tirer, blesser, tuer, le butin
+      progression.ts       monter de niveau, l'ecran de choix
+      capacites.ts         gerer et lancer les capacites
+      effetsDeClasse.ts    ce que fait chaque competence et ultime
+      fusions.ts           ce que fait chaque fusion
+      outillage.ts         chercher dans un rayon, le long d'un trait...
+      jourEtNuit.ts        le cycle, le ciel, la crue, le journal
+      incendie.ts          le feu
+      meteore.ts           le meteore
+      arrivants.ts         la porte, les survivants, les fous
+      port.ts              le navire et la vente
+      journees.ts          la journee des heros et de la memoire
+      vagues.ts            effectifs, hordes, apparition d'un monstre
+      degats.ts            encaisser, exploser, tomber, le deuil
+      memoireDuVillage.ts  une mort, les tombes, les archives, les initiatives
+      effetsVisuels.ts     textes flottants, cercles, auras, trainees
     UiScene.ts           l'interface, dans sa propre couche
 ```
+
+**L'arene est rangee par systeme** (menage du 9 novembre 2026 : `ArenaScene.ts`
+faisait 10 972 lignes). Chaque fichier de `scenes/arene/` est une classe qu'on
+n'instancie jamais, dont les methodes prennent `this: ArenaScene` ; la scene
+declare `interface ArenaScene extends ArenaHorde, ...` et `greffer` recopie leurs
+methodes sur son prototype au chargement. Pour TypeScript comme pour le
+navigateur, la scene a toujours toutes ses methodes : on ecrit `this.tuer(...)`
+partout comme avant. **Une methode neuve va dans le fichier de son systeme** ;
+un systeme neuf, dans un fichier neuf ajoute aux deux listes en bas
+d'`ArenaScene.ts`. Un nom en double arrete le jeu au chargement.
 
 **L'interface est une scene a part.** Le zoom appartient a la camera et agrandit
 tout ce qu'elle affiche, y compris les elements fixes a l'ecran. Une interface
