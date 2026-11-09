@@ -5,6 +5,7 @@ import {
   NIVEAU_MAX,
   PALIERS,
   RELEVEMENT,
+  REPARATION_A_L_AUBE,
   type ContexteMontee,
 } from "./eglise";
 import { stocksVides, type Stocks } from "./habitants";
@@ -259,5 +260,25 @@ describe("Eglise — la table des paliers", () => {
     // pas d'en avoir deja. Six est un objectif, pas un mur.
     expect(CONDITIONS[2].population).toBeGreaterThan(3);
     expect(CONDITIONS[2].population).toBeLessThanOrEqual(8);
+  });
+});
+
+describe("Eglise — elle se repare chaque matin (9 novembre 2026)", () => {
+  it("regagne un quart de sa vie a l'aube, sans depasser son maximum", () => {
+    const eglise = new Eglise();
+    eglise.encaisser(eglise.pvMax * 0.6);
+    const gain = eglise.reparerALAube();
+    expect(gain).toBeCloseTo(eglise.pvMax * REPARATION_A_L_AUBE);
+    expect(eglise.pv).toBeCloseTo(eglise.pvMax * 0.65);
+    eglise.reparerALAube();
+    eglise.reparerALAube();
+    expect(eglise.pv).toBe(eglise.pvMax);
+  });
+
+  it("ne repare ni une ruine ni un chantier : c'est le relevement qui les rend", () => {
+    const eglise = new Eglise();
+    expect(eglise.encaisser(eglise.pvMax)).toBe(true);
+    expect(eglise.reparerALAube()).toBe(0);
+    expect(eglise.fonctionne).toBe(false);
   });
 });

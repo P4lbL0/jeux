@@ -52,19 +52,31 @@ export interface PalierEglise {
  * **La table de reglages de l'eglise.** Comme celle du cycle et celle de
  * l'economie, c'est le seul endroit a toucher pour la re-regler.
  *
- * Les chiffres viennent du §4.22 : 1200 PV et +600 par niveau, 90 px de rayon
+ * Les chiffres viennent du §4.22 : 2400 PV et +1200 par niveau, 90 px de rayon
  * de soin et +30 par niveau.
+ *
+ * ⚠️ **Points de vie doubles depuis le 9 novembre 2026** (1200 et +600 avant) : le robot
+ * du jalon 6.4 la voyait tomber dans 36 parties sur 42 vers la nuit 3,8, sous la masse des
+ * monstres ordinaires, et sa chute decider de la partie. Angelos a tranche : deux fois
+ * plus solide, **et elle se repare chaque matin** (`REPARATION_A_L_AUBE`).
  *
  * Le rayon de soin est **plus petit que l'ancien cercle du village** (150 px) :
  * se soigner veut desormais dire rentrer sur la place, pas trainer au bord du
  * village. C'est le changement qu'on sentira le plus.
  */
 export const PALIERS: Record<NiveauEglise, PalierEglise> = {
-  1: { niveau: 1, pvMax: 1200, rayonSoin: 90, soinParSeconde: 9, lits: 1, faveur: 0 },
-  2: { niveau: 2, pvMax: 1800, rayonSoin: 120, soinParSeconde: 12, lits: 2, faveur: 0.05 },
-  3: { niveau: 3, pvMax: 2400, rayonSoin: 150, soinParSeconde: 15, lits: 3, faveur: 0.1 },
-  4: { niveau: 4, pvMax: 3000, rayonSoin: 180, soinParSeconde: 18, lits: 4, faveur: 0.2 },
+  1: { niveau: 1, pvMax: 2400, rayonSoin: 90, soinParSeconde: 9, lits: 1, faveur: 0 },
+  2: { niveau: 2, pvMax: 3600, rayonSoin: 120, soinParSeconde: 12, lits: 2, faveur: 0.05 },
+  3: { niveau: 3, pvMax: 4800, rayonSoin: 150, soinParSeconde: 15, lits: 3, faveur: 0.1 },
+  4: { niveau: 4, pvMax: 6000, rayonSoin: 180, soinParSeconde: 18, lits: 4, faveur: 0.2 },
 };
+
+/**
+ * Ce qu'elle regagne a chaque aube, en part de ses points de vie (9 novembre 2026,
+ * decision d'Angelos). Un quart : de quoi effacer une nuit ordinaire, pas une mauvaise —
+ * une eglise entamee nuit apres nuit finit quand meme par tomber.
+ */
+export const REPARATION_A_L_AUBE = 0.25;
 
 /**
  * Ce que coute son relevement une fois a terre (§4.22).
@@ -239,6 +251,18 @@ export class Eglise {
   reparer(montant: number): void {
     if (!this.fonctionne) return;
     this.pv = Math.min(this.pvMax, this.pv + montant);
+  }
+
+  /**
+   * L'aube la remet d'aplomb d'un quart (`REPARATION_A_L_AUBE`). Une ruine ou un chantier
+   * ne se reparent pas : c'est le relevement qui les rend.
+   *
+   * @returns ce qu'elle a regagne
+   */
+  reparerALAube(): number {
+    const avant = this.pv;
+    this.reparer(this.pvMax * REPARATION_A_L_AUBE);
+    return this.pv - avant;
   }
 
   /**

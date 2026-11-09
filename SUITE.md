@@ -4551,6 +4551,15 @@ comme son commentaire le disait — il en comptait 30, écrites pour l'ancien cy
   chasseurs sans héros en vue, 1 % des pillards encore à leurs maisons. Les boss : 11 %.
   Changer ce que visent les monstres retarde le moment où tout le monde finit sur elle ; ça
   ne l'empêche pas.
+- **Troisième passe** (Angelos) : l'église **deux fois plus solide** (`PALIERS`, 2400 au
+  niveau 1) **et réparée d'un quart chaque aube** (`REPARATION_A_L_AUBE`, `reparerALAube`
+  branché dans `leverLeJour` — la méthode `reparer` existait, jamais appelée).
+- **Série 6** (42 parties) : **nuit 4,4** ; l'église tombe encore **34 fois sur 42**, vers la
+  nuit 3,7. Elle encaisse en moyenne **2 485** dégâts par partie, et il ne reste que 0 à 3
+  monstres debout à l'aube : **elle tombe en une seule nuit**, quand l'effectif dépasse ce
+  que le héros tue autour d'elle — pas d'usure que la réparation rattraperait. Et **le robot
+  ne la monte jamais de niveau** : elle reste au niveau 1 toute la partie, quand un joueur
+  la ferait monter (vie, lits, rayon de soin).
 
 ## Dettes et pièges connus
 
