@@ -158,12 +158,24 @@ ciel, et le ciel est fini.
 >    Nécromancien **commence avec quatre morts-vivants** ; le robot **défend et relève
 >    l'église**. Série 4 : nuit 4,3, église tombée 35 fois sur 42, crachat 22 morts sur 42,
 >    Nécromancien toujours 1,5 (son armée meurt le premier jour).
+>    **Puis trois passes de réglage le même soir** (voir `SUITE.md`) : les monstres visent
+>    moins l'église, un crachat plus lent, l'église deux fois plus solide et réparée chaque
+>    matin, et le robot « un minimum intelligent » (il monte l'église et esquive les
+>    crachats). ⚠️ **La série de contrôle de ce dernier robot (`.tmp/robot/serie-7`) n'a
+>    peut-être pas été consignée** : si `SUITE.md` n'en dit rien, la relancer (`npx tsx
+>    scripts/robot.ts --parties 3 --paralleles 6`) et lire `node .tmp/synthese-robot.mjs
+>    <dossier>`. Dernier chiffre connu : nuit 4,4 (série 6), l'église tombée 34 fois sur 42.
 > 4. **Les premiers chiffres réglés**, sur une cible : **un joueur moyen tombe vers la nuit 6
 >    à 8** (1 h 30 à 2 h), soit **le robot vers la nuit 5 à 6** ; puis une partie de 30 à
 >    45 min vérifiée de bout en bout. **C'est la suite.**
 >
-> Décidé aussi : **pas encore dans The Circle**, et **pas de 3D temps réel** — la nuit sera
-> éclairée par des cartes de relief rendues par Blender (pas encore placé dans l'ordre).
+> Décidé aussi : **pas encore dans The Circle**, et **pas de 3D temps réel**.
+>
+> **Juste après le 6.4 : le chantier 6.45, le sol et la lumière** (décidé le 9 novembre au
+> soir, §5 et §4.30) — Angelos n'aime pas du tout le sol (« on dirait qu'on joue sur un
+> tapis de jeu ») ; la refonte du sol (relief, textures, ombres) se fait **avec** la lumière
+> de nuit, sur les mêmes cartes de relief rendues par Blender. **Commencer par des maquettes
+> en image** et attendre sa validation.
 > Ce qui suit reste vrai pour **la reprise des builds, après le 6.4**.
 
 **La suite du jalon 6.2, la horde.** Le profilage est fait, le §4.33 est réécrit avec ses

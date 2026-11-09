@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { choisirCarte, type CarteVue, type ModeCartes } from "../core/robot";
 import { competenceParId, ID_EMPLACEMENT, type Proposition } from "../core/competences";
+import { NIVEAU_MAX } from "../core/eglise";
 import { accelerer } from "./cadence";
 import type { Ennemi, Hero } from "./entities";
 import type { ArenaScene } from "../scenes/ArenaScene";
@@ -22,6 +23,9 @@ import type { ArenaScene } from "../scenes/ArenaScene";
  * - le reste du temps, son héros **tient l'église** (ancré sur elle, il se bat dans sa
  *   laisse), et dès qu'elle est à terre il **relance son chantier** (la touche Y) —
  *   décision d'Angelos du 9 novembre 2026 : sa chute décidait de presque toutes les parties ;
+ * - « un minimum intelligent » (Angelos, même jour) : il **monte l'église** de niveau dès
+ *   que ses quatre conditions sont réunies (la même touche Y), et il **esquive les
+ *   crachats** — un pas de côté quand l'un d'eux va le toucher, ce que l'IA ne sait pas faire ;
  * - l'interface ne montre ni l'écran de choix ni la fiche de la porte (`UiScene`) ;
  * - pas de pause hors focus (`suspendre`), et la partie est accélérée (`accelerer`).
  *
@@ -69,6 +73,10 @@ export interface RapportRobot {
   sortiesDeLEau: number;
   /** Combien de chantiers de l'église il a lancés après une chute */
   relevements: number;
+  /** Combien de niveaux d'église il a montés */
+  montees: number;
+  /** Combien de crachats il a esquivés (un pas de côté décidé) */
+  esquives: number;
   /**
    * Les coups portés à l'église, par ce qui les porte (« Brute (boss) », « Nuee »...) :
    * dégâts cumulés et part du rôle du monstre (pillard qui a fini ses maisons, chasseur sans
@@ -114,6 +122,10 @@ export class Robot {
   private horsDeLEauJusqua = 0;
   /** Quand il retentera de relever l'église (pas chaque seconde : le refus s'annonce). */
   private prochainRelevement = 0;
+  /** Quand il regardera de nouveau s'il peut monter l'église. */
+  private prochaineMontee = 0;
+  /** Le pas de côté en cours : sa direction, et jusqu'à quand. */
+  private esquive: { x: number; y: number; jusqua: number } | null = null;
 
   constructor(
     private readonly scene: ArenaScene,
@@ -133,6 +145,8 @@ export class Robot {
       allersALEglise: 0,
       sortiesDeLEau: 0,
       relevements: 0,
+      montees: 0,
+      esquives: 0,
       degatsEglise: {},
       egliseTombee: null,
       dernier: null,
@@ -149,6 +163,9 @@ export class Robot {
     evenements.on("fin-de-partie", this.surFin, this);
     evenements.on("annonce", this.surAnnonce, this);
     evenements.on(Phaser.Scenes.Events.UPDATE, this.surImage, this);
+    // Après la boucle de la scène : l'IA a posé la vitesse du héros, le pas de côté la
+    // remplace, et la physique l'applique à l'image suivante.
+    evenements.on(Phaser.Scenes.Events.POST_UPDATE, this.esquiver, this);
     evenements.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       evenements.off("choix", this.surChoix, this);
       evenements.off("arrivant", this.surArrivant, this);
@@ -156,6 +173,7 @@ export class Robot {
       evenements.off("fin-de-partie", this.surFin, this);
       evenements.off("annonce", this.surAnnonce, this);
       evenements.off(Phaser.Scenes.Events.UPDATE, this.surImage, this);
+      evenements.off(Phaser.Scenes.Events.POST_UPDATE, this.esquiver, this);
       accelerer(scene.game, 0);
     });
     this.espionnerLesCoups();
@@ -306,7 +324,54 @@ export class Robot {
       }
       this.choisirLOrdre();
       this.releverLEglise();
+      this.monterLEglise();
     }
+  }
+
+  /** Église debout, conditions réunies : il la monte d'un niveau, comme la touche Y. */
+  private monterLEglise(): void {
+    const eglise = this.scene.eglise;
+    if (!eglise.fonctionne || eglise.niveau >= NIVEAU_MAX) return;
+    if (this.scene.time.now < this.prochaineMontee) return;
+    this.prochaineMontee = this.scene.time.now + 10_000;
+    if (!eglise.regles.peutMonter(this.scene.contexteMontee).possible) return;
+    const avant = eglise.niveau;
+    this.scene.oeuvrerALEglise();
+    if (eglise.niveau > avant) this.rapport.montees += 1;
+  }
+
+  /**
+   * Le pas de côté : un crachat qui vient sur lui et passera à moins de 26 px, à moins de
+   * 170 px de lui, le fait s'écarter perpendiculairement à sa course, du côté où il est
+   * déjà, pendant un quart de seconde. Assez pour un crachat à 140 px/s ; rien de plus fin.
+   */
+  private esquiver(): void {
+    const hero = this.scene.hero;
+    if (!hero || hero.etat === "mort" || this.scene.enPause) return;
+    const maintenant = this.scene.time.now;
+    if (!this.esquive || maintenant >= this.esquive.jusqua) {
+      this.esquive = null;
+      for (const objet of this.scene.projectilesEnnemis.getChildren()) {
+        const p = objet as Phaser.Physics.Arcade.Image;
+        if (!p.active || !p.body) continue;
+        const v = p.body.velocity;
+        const vitesse = Math.hypot(v.x, v.y);
+        if (vitesse === 0) continue;
+        const dx = hero.x - p.x;
+        const dy = hero.y - p.y;
+        if (dx * dx + dy * dy > 170 * 170) continue;
+        // Il vient vers lui, et sa course passe près de lui.
+        if (dx * v.x + dy * v.y <= 0) continue;
+        const ecart = (dx * v.y - dy * v.x) / vitesse;
+        if (Math.abs(ecart) > 26) continue;
+        // Perpendiculaire à la course, du côté où il est déjà.
+        const cote = ecart >= 0 ? 1 : -1;
+        this.esquive = { x: (v.y / vitesse) * cote, y: (-v.x / vitesse) * cote, jusqua: maintenant + 250 };
+        this.rapport.esquives += 1;
+        break;
+      }
+    }
+    if (this.esquive) hero.setVelocity(this.esquive.x * hero.vitesse, this.esquive.y * hero.vitesse);
   }
 
   /**
