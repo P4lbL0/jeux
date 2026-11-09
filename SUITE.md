@@ -4560,6 +4560,18 @@ comme son commentaire le disait — il en comptait 30, écrites pour l'ancien cy
   que le héros tue autour d'elle — pas d'usure que la réparation rattraperait. Et **le robot
   ne la monte jamais de niveau** : elle reste au niveau 1 toute la partie, quand un joueur
   la ferait monter (vie, lits, rayon de soin).
+- **Le robot « un minimum intelligent »** (Angelos : « faut pousser le robot à être un
+  minimum intelligent, après là on prend trop de temps ») : il **monte l'église** dès que
+  `peutMonter` le permet (toutes les 10 s de jeu, par `oeuvrerALEglise`), et il **esquive les
+  crachats** — à `POST_UPDATE`, après l'IA, un crachat qui vient sur lui à moins de 170 px
+  et passera à moins de 26 px lui fait faire un pas de côté perpendiculaire de 250 ms.
+- **Série 7** (42 parties) : **nuit 4,7** (4,4) ; le **crachat ne tue plus que 4 fois**
+  (18 avant), 18 523 pas de côté — le crachat à 140 px/s s'esquive bien. Ce qui tue
+  désormais : **les boss et les énormes** (17 morts sur 42, la Brute en tête). L'église tombe
+  encore 34 fois sur 42, vers la nuit 4,0 ; il ne l'a montée que **6 fois** (ses quatre
+  conditions demandent de gérer le village). Classes : mage 7,3, rôdeur 5,8, guerrier 5,3,
+  oracle 5,0 — dans la cible ou au-dessus ; **chevalier 4,0, assassin 3,2, Nécromancien 2,5**
+  en dessous. Règle et hasard : 4,76 et 4,71.
 
 ## Dettes et pièges connus
 

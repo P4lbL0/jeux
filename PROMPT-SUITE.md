@@ -161,10 +161,11 @@ ciel, et le ciel est fini.
 >    **Puis trois passes de réglage le même soir** (voir `SUITE.md`) : les monstres visent
 >    moins l'église, un crachat plus lent, l'église deux fois plus solide et réparée chaque
 >    matin, et le robot « un minimum intelligent » (il monte l'église et esquive les
->    crachats). ⚠️ **La série de contrôle de ce dernier robot (`.tmp/robot/serie-7`) n'a
->    peut-être pas été consignée** : si `SUITE.md` n'en dit rien, la relancer (`npx tsx
->    scripts/robot.ts --parties 3 --paralleles 6`) et lire `node .tmp/synthese-robot.mjs
->    <dossier>`. Dernier chiffre connu : nuit 4,4 (série 6), l'église tombée 34 fois sur 42.
+>    crachats). **Dernière série (7) : nuit 4,7** pour une cible de 5 à 6 ; le crachat ne tue
+>    presque plus (4 morts), ce sont les **boss et les énormes** (17 sur 42) ; l'église tombe
+>    encore 34 fois sur 42 (nuit 4,0). Mage 7,3, rôdeur 5,8, guerrier 5,3, oracle 5,0 ;
+>    **chevalier 4,0, assassin 3,2, Nécromancien 2,5** : c'est par eux que reprend le
+>    réglage (les classes, décidé « après le reste »).
 > 4. **Les premiers chiffres réglés**, sur une cible : **un joueur moyen tombe vers la nuit 6
 >    à 8** (1 h 30 à 2 h), soit **le robot vers la nuit 5 à 6** ; puis une partie de 30 à
 >    45 min vérifiée de bout en bout. **C'est la suite.**
