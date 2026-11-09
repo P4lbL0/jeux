@@ -322,6 +322,18 @@ export const RAYON_KAMIKAZE = 92;
 export const MAX_MORTS_VIVANTS = 12;
 
 /**
+ * Les morts-vivants avec lesquels un Necromancien commence une partie neuve (§4.14).
+ *
+ * Il n'attaque jamais et vit de ses morts (8 % des cadavres) ; choisi au depart, il etait
+ * seul, personne ne faisait de cadavres, et le robot du jalon 6.4 le voyait tomber la nuit
+ * 1 ou 2 dans six parties sur six. Angelos a tranche le 9 novembre 2026 : une petite armee
+ * de depart. Quatre, le tiers de son plafond : de quoi tenir la premiere nuit et faire ses
+ * premiers cadavres, pas de quoi jouer la partie a sa place (le taux de 25 % avait ete
+ * retire pour ca).
+ */
+export const ARMEE_DE_DEPART = 4;
+
+/**
  * Le zoom de depart, et ses bornes.
  *
  * Il valait 3 du temps des placeholders, qui faisaient 18 px de haut : un heros

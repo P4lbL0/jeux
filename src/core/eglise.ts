@@ -14,6 +14,7 @@
  */
 
 import type { Ressource, Stocks } from "./habitants";
+import { REGLAGES_CYCLE } from "./cycle";
 
 /** Les quatre niveaux du §4.22. Le niveau 1 est debout des la premiere minute. */
 export type NiveauEglise = 1 | 2 | 3 | 4;
@@ -74,8 +75,13 @@ export const PALIERS: Record<NiveauEglise, PalierEglise> = {
  */
 export const RELEVEMENT = {
   cout: { bois: 120 } as Partial<Record<Ressource, number>>,
-  /** Duree en millisecondes : une journee complete du §4.19 */
-  duree: 30 * 60_000,
+  /**
+   * Duree en millisecondes : **une journee complete du §4.19, jour et nuit**. Elle valait
+   * 30 minutes, ecrites quand une journee les durait ; depuis le cycle de 10 + 5 minutes,
+   * c'etaient deux journees entieres sans soin ni refuge (corrige le 9 novembre 2026, au
+   * reglage du jalon 6.4).
+   */
+  duree: REGLAGES_CYCLE.jour + REGLAGES_CYCLE.nuit,
 };
 
 /**

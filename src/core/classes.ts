@@ -351,13 +351,17 @@ export function xpPourNiveauSuivant(niveau: number): number {
 }
 
 /**
- * Un choix de competence tous les 5 niveaux (et non a chaque niveau).
+ * Un choix de competence tous les 2 niveaux (et non a chaque niveau).
  *
  * Les niveaux intermediaires donnent une progression discrete de statistiques ;
- * les paliers de 5 sont des moments de decision. Ca rend chaque choix rare, donc
- * important, et ca laisse respirer le combat.
+ * les paliers pairs sont des moments de decision, et ca laisse respirer le combat.
+ *
+ * ⚠️ **C'etait tous les 5 niveaux jusqu'au 9 novembre 2026.** Le robot du jalon 6.4 a
+ * montre qu'une partie s'arrete vers le niveau 7 : on voyait **une carte par partie**, et
+ * tout le contenu des builds (§4.25) restait invisible — la regle ou le hasard donnaient
+ * la meme nuit. Angelos a tranche : tous les 2 niveaux, trois a quatre cartes par partie.
  */
-export const NIVEAUX_PAR_CHOIX = 5;
+export const NIVEAUX_PAR_CHOIX = 2;
 
 export function donneUnChoix(niveau: number): boolean {
   return niveau % NIVEAUX_PAR_CHOIX === 0;

@@ -1165,8 +1165,10 @@ export class ArenaScene extends Phaser.Scene {
       this.reprise = null;
     } else if (this.enMarche) {
       this.commencerLaMarche();
+      this.leverLArmeeDeDepart();
     } else {
       this.sInstaller(false);
+      this.leverLArmeeDeDepart();
     }
 
     this.surveillerLaFermeture();

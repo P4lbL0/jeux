@@ -775,7 +775,7 @@ Une planche de propositions a servi de test, et elle a fait remonter trois défa
 - ✅ Rank up → **matériaux rares lâchés par les monstres** (§4.1)
 - ✅ Ultimes multiples → **une touche par ultime**, chacun son rechargement (§4.2)
 - ✅ Courbe d'XP → **de plus en plus raide** (§4.8)
-- ✅ Choix de compétence → **tous les 5 niveaux**, rareté liée au rang (§4.8, §4.13)
+- ✅ Choix de compétence → **tous les 2 niveaux** (tous les 5 jusqu'au 9 novembre 2026, §4.8), rareté liée au rang (§4.8, §4.13)
 - ✅ Compétences → **actives, automatiques ou passives**, à paliers, avec évolutions (§4.13)
 - ✅ Le Chevalier devient le **Chevalier Sacré**
 - ✅ Fiche de héros consultable en cliquant un portrait (§4.10)

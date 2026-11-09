@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import { choisirCarte, type CarteVue, type ModeCartes } from "../core/robot";
 import { competenceParId, ID_EMPLACEMENT, type Proposition } from "../core/competences";
 import { accelerer } from "./cadence";
-import type { Ordre } from "../core/ordres";
 import type { Ennemi, Hero } from "./entities";
 import type { ArenaScene } from "../scenes/ArenaScene";
 
@@ -18,6 +17,11 @@ import type { ArenaScene } from "../scenes/ArenaScene";
  * - à la porte, il accepte tout le monde (`porte`, vrai) ;
  * - quand son héros porte un état (hémorragie, maladie...), il le ramène à l'église jusqu'à
  *   ce qu'elle l'ait soigné, comme le design le demande au joueur (§4.23) ;
+ * - quand le jeu annonce « je coule », il ramène son héros vers la terre : l'IA des héros
+ *   ne connaît pas l'eau profonde (seul l'incarné peut s'y noyer), un joueur si ;
+ * - le reste du temps, son héros **tient l'église** (ancré sur elle, il se bat dans sa
+ *   laisse), et dès qu'elle est à terre il **relance son chantier** (la touche Y) —
+ *   décision d'Angelos du 9 novembre 2026 : sa chute décidait de presque toutes les parties ;
  * - l'interface ne montre ni l'écran de choix ni la fiche de la porte (`UiScene`) ;
  * - pas de pause hors focus (`suspendre`), et la partie est accélérée (`accelerer`).
  *
@@ -44,6 +48,8 @@ export interface ReleveRobot {
   argent: number;
   tues: number;
   monstres: number;
+  /** Les invocations actives (morts-vivants du Nécromancien, familiers...) */
+  invocations: number;
 }
 
 export interface RapportRobot {
@@ -59,6 +65,10 @@ export interface RapportRobot {
   releves: ReleveRobot[];
   /** Combien de fois il a ramené son héros à l'église pour un état */
   allersALEglise: number;
+  /** Combien de fois il a sorti son héros de l'eau (« je coule ») */
+  sortiesDeLEau: number;
+  /** Combien de chantiers de l'église il a lancés après une chute */
+  relevements: number;
   /** Quand l'église est tombée pour la première fois (le robot ne la relève pas) */
   egliseTombee: { t: number; jour: number; phase: string } | null;
   /** Le dernier relevé, tenu à jour toutes les secondes de jeu */
@@ -92,8 +102,12 @@ export class Robot {
   private prochaineSeconde = 0;
   /** Les dernières annonces : c'est par elles qu'on sait ce qui tue sans coup. */
   private readonly annonces: { t: number; texte: string }[] = [];
-  /** Le héros envoyé se soigner, et l'ordre qu'il avait avant. */
-  private enSoin: { hero: Hero; ordre: Ordre } | null = null;
+  /** Le héros qu'on a vu porter un état : pour ne compter qu'une fois chaque aller. */
+  private malade: Hero | null = null;
+  /** Jusqu'à quand il ramène son héros vers la terre (« je coule »). */
+  private horsDeLEauJusqua = 0;
+  /** Quand il retentera de relever l'église (pas chaque seconde : le refus s'annonce). */
+  private prochainRelevement = 0;
 
   constructor(
     private readonly scene: ArenaScene,
@@ -111,6 +125,8 @@ export class Robot {
       chutes: [],
       releves: [],
       allersALEglise: 0,
+      sortiesDeLEau: 0,
+      relevements: 0,
       egliseTombee: null,
       dernier: null,
     };
@@ -206,6 +222,12 @@ export class Robot {
   private surAnnonce(texte: string, _canal?: string, nom?: string): void {
     this.annonces.push({ t: this.scene.time.now, texte: nom ? `${nom} ${texte}` : texte });
     if (this.annonces.length > 12) this.annonces.shift();
+    // « je coule — trois secondes et je me noie » : on regagne la terre, vers l'église.
+    if (texte.startsWith("je coule") && nom === this.scene.hero?.personne.nom) {
+      this.horsDeLEauJusqua = this.scene.time.now + 6000;
+      this.rapport.sortiesDeLEau += 1;
+      this.choisirLOrdre();
+    }
   }
 
   private surChute(hero: Hero): void {
@@ -241,6 +263,7 @@ export class Robot {
       argent: Math.round(scene.argent),
       tues: scene.resume.kills,
       monstres: scene.ennemis.getLength(),
+      invocations: scene.invocations.countActive(),
     };
   }
 
@@ -257,24 +280,47 @@ export class Robot {
       if (!this.rapport.egliseTombee && !this.scene.eglise.fonctionne) {
         this.rapport.egliseTombee = { t: this.secondes, jour: this.scene.cycle.jour, phase: this.scene.cycle.phase };
       }
-      this.allerSeSoigner();
+      this.choisirLOrdre();
+      this.releverLEglise();
     }
   }
 
   /**
-   * Un héros qui porte un état rentre à l'église (posture « repli » : il y reste) jusqu'à
-   * ce qu'elle l'ait purgé, puis reprend son ordre d'avant.
+   * L'ordre de son héros, revu chaque seconde : rentrer (posture « repli », il y reste) s'il
+   * coule, ou s'il porte un état et que l'église peut le soigner ; sinon **tenir l'église**,
+   * ancré sur elle à la laisse ordinaire. Église à terre, un malade ne rentre plus : rien ne
+   * l'y soignerait, il se bat.
    */
-  private allerSeSoigner(): void {
+  private choisirLOrdre(): void {
     const hero = this.scene.hero;
-    if (this.enSoin && (this.enSoin.hero !== hero || this.enSoin.hero.personne.etats.length === 0)) {
-      this.enSoin.hero.ordre = this.enSoin.ordre;
-      this.enSoin = null;
+    if (!hero || hero.etat === "mort") return;
+    const eglise = this.scene.eglise;
+    const malade = hero.personne.etats.length > 0 && eglise.fonctionne;
+    const coule = this.scene.time.now < this.horsDeLEauJusqua;
+    if (malade && this.malade !== hero) this.rapport.allersALEglise += 1;
+    this.malade = malade ? hero : null;
+
+    if (malade || coule) {
+      if (hero.ordre.posture !== "repli") hero.ordre = { posture: "repli", ancre: null };
+      return;
     }
-    if (!hero || hero.etat === "mort" || this.enSoin || hero.personne.etats.length === 0) return;
-    this.enSoin = { hero, ordre: hero.ordre };
-    hero.ordre = { posture: "repli", ancre: null };
-    this.rapport.allersALEglise += 1;
+    const { x, y } = eglise.sprite;
+    const ancre = hero.ordre.ancre;
+    if (hero.ordre.posture !== "temporiser" || !ancre || ancre.x !== x || ancre.y !== y) {
+      hero.ordre = { posture: "temporiser", ancre: { x, y } };
+    }
+  }
+
+  /** Église à terre et pas encore en chantier : il tente de la relever, comme la touche Y. */
+  private releverLEglise(): void {
+    const eglise = this.scene.eglise;
+    if (eglise.fonctionne || eglise.regles.etat !== "ruine") return;
+    if (this.scene.time.now < this.prochainRelevement) return;
+    this.prochainRelevement = this.scene.time.now + 20_000;
+    this.scene.oeuvrerALEglise();
+    // Relu après l'appel : TypeScript croit encore l'église en ruine.
+    const etat: string = eglise.regles.etat;
+    if (etat === "relevement") this.rapport.relevements += 1;
   }
 
   private surFin(): void {

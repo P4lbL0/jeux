@@ -4463,6 +4463,79 @@ tombe vers 48 images par seconde.
 autre village : c'est pour ça que le banc fixe maintenant la graine du village. 1 048 tests
 verts, et les trois parties de `.tmp/menage-temoin.mjs` sans une erreur.
 
+### Le jalon 6.4, étape 3 : le robot (9 novembre 2026)
+
+**Ce qu'il est** (`src/game/robot.ts`, `src/core/robot.ts`, `scripts/robot.ts`) : un
+joueur automatique, lancé seulement par `scene.start("arena", { robot: {...} })`. Décisions
+d'Angelos : il joue **le héros seul** (la même IA que les autres héros, `piloter`, repli à
+20 % compris, mais son héros reste incarné et peut mourir), choisit ses cartes par **une
+règle simple** (fusion, puis ce qu'il a déjà, puis sa classe) ou **au hasard**, sur les
+mêmes mondes pour comparer, et **accepte tout le monde à la porte**. Il ne passe que par
+les chemins d'un joueur : `choix-fait`, `porte`, la touche Y (`oeuvrerALEglise`).
+L'interface ne montre ni l'écran de choix ni la fiche de la porte quand il joue.
+
+**L'accélération** (`game/cadence.ts`, `accelerer`) : à chaque image dessinée, autant de
+`headlessStep` de 1/60 s que tient un budget (12 ms par défaut) — chacun exactement le pas
+d'un joueur à 60 images par seconde, sans dessin. Piège payé : l'horloge des scènes lit
+l'heure que la boucle lui passe (`Clock.now = time`) ; les pas en plus la feraient reculer
+à l'image réelle suivante. Une `avance` cumulée s'ajoute à l'heure de toutes les images.
+Jusqu'à ×60 en début de partie ; une partie complète prend 1 à 3 minutes réelles, six à la
+fois sur la machine d'Angelos (16 fils).
+
+**Le lanceur** construit le jeu à part (`.tmp/robot-dist`, sans compression, avec les
+cartes du code : une erreur dit sa vraie ligne), une partie par contexte de navigateur, un
+rapport JSON par partie (cartes, chutes et leur cause, relevés à chaque aube et crépuscule,
+chute de l'église) et `resume.md`. Lecture : `.tmp/lire-robot.mjs` et
+`.tmp/synthese-robot.mjs`.
+
+**Ce qu'il a trouvé** — quatre séries :
+- **Série 1** (14 parties, avant correctifs) : **4 parties figées** sur l'erreur « Cannot
+  read properties of undefined (reading 'sys') », et presque toutes les morts **à l'aube,
+  sans un coup**.
+- **Le gel** : un mur frappé tremble de 2 px pendant 160 ms ; chaque secousse repartait de
+  la position du moment. Relancée (dans la même image que la fin de la précédente, la
+  physique passant avant les tweens), elle partait d'un ou deux pixels à droite : sous
+  vingt monstres, le mur dérivait jusqu'à ce que `cleDe(x, y)` le cherche chez sa voisine.
+  Détruit, il restait dans `parCase`, et `rehabillerAutour` appelait `habiller` sur un
+  objet mort. **Correctif** : `Construction.repos`, le centre de sa case, seule position
+  lue par le registre, la grille et la secousse. Les maisons le faisaient déjà
+  (`colonne * CASE`).
+- **Les morts à l'aube** : des hémorragies. L'infirmerie de l'église (`tenirLInfirmerie`)
+  ne soignait que les habitants ; un héros qui saignait mourait le lendemain quoi qu'on
+  fasse. **Correctif** : les héros à l'abri (`herosALEglise`) prennent un lit comme un
+  habitant, le plus atteint d'abord (`soignerUnHerosALEglise`).
+- **Série 2** (14 parties) : 0 gel, plus une hémorragie mortelle. Restaient **4 noyades** :
+  seul l'incarné se noie, et l'IA ne connaît pas l'eau profonde ; le robot sort désormais
+  de l'eau à l'annonce « je coule » (27 sorties sur la série 3, une noyade).
+- **Série 3** (42 parties, 3 mondes) : **nuit 4,0** en moyenne (mage 5,5, rôdeur 5,3, oracle
+  4,8, guerrier 4,0, assassin 3,7, chevalier 3,0, **nécromancien 1,5**). **L'église tombe
+  dans 37 parties sur 42**, vers la nuit 3,5, **toujours avant la mort du héros** (2 min
+  plus tard en médiane) ; **une carte par partie** (choix au niveau 5, mort vers le niveau
+  7), donc règle et hasard donnent la même nuit (3,8 et 4,1) ; le **crachat** fait 45 % des
+  morts, surtout église tombée.
+
+**Les décisions d'Angelos sur ces chiffres** : régler **sur le robot seul** (cible du robot :
+nuit 5 à 6, en supposant qu'un joueur tient une ou deux nuits de plus) ; **une carte tous
+les 2 niveaux** (`NIVEAUX_PAR_CHOIX`) ; le Nécromancien **commence avec une petite armée**
+(quatre morts-vivants permanents, `ARMEE_DE_DEPART` — permanents parce qu'un mort-vivant vit
+45 s et une journée 10 min) ; le robot **défend l'église** (ancré sur elle) **et la relève**.
+Tranché en passant : le relèvement de l'église dure **une journée, jour et nuit** (15 min),
+comme son commentaire le disait — il en comptait 30, écrites pour l'ancien cycle.
+
+- **Série 4** (42 parties, les mêmes mondes, décisions appliquées) : **nuit 4,3** (4,0
+  avant) ; **3,5 cartes** par partie (1,0 avant) ; rôdeur **7,5** (jusqu'à la nuit 13), mage
+  5,8, oracle 4,7, guerrier 4,5, chevalier 3,7, **assassin 2,5** (3,7 avant), **nécromancien
+  toujours 1,5**. Règle et hasard toujours à égalité (4,29 et 4,33) malgré trois cartes et
+  demie. L'église tombe encore dans **35 parties sur 42** vers la nuit 3,5, alors que le
+  robot la tient et relance son chantier (35 chantiers lancés) ; le **crachat** fait **22
+  morts sur 42**. 0 erreur.
+- **Pourquoi le Nécromancien ne bouge pas** : ses quatre morts-vivants sont bien permanents,
+  mais ils ont ~22 PV au niveau 1 et meurent dans les premières escarmouches du premier
+  jour (aucun n'est debout à la première nuit). Sur les mondes 1001 et 1002, au village de 1
+  et 3 habitants, des monstres arrivent même de jour et l'église tombe le jour 1.
+- **Il reste à régler** (étape 4) : la cible du robot est la nuit 5 à 6, il est à 4,3, et
+  l'écart entre classes va de 1,5 à 7,5.
+
 ## Dettes et pièges connus
 
 - **`npm run build` échoue depuis Git Bash** (`No matching HTML proxy module found from

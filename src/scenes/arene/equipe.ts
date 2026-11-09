@@ -27,7 +27,7 @@ import {
   verifierRupture,
 } from "../../core/personne";
 import { ArenaScene } from "../ArenaScene";
-import { CITE, MAX_MORTS_VIVANTS, RAYON_DE_VUE } from "./reglages";
+import { ARMEE_DE_DEPART, CITE, MAX_MORTS_VIVANTS, RAYON_DE_VUE } from "./reglages";
 
 /**
  * La boucle de l'équipe : teintes, affinités, contexte, auras, invocations, relèvement,
@@ -336,10 +336,30 @@ export class ArenaEquipe {
     }
   }
 
-  relever(this: ArenaScene, maitre: Hero, x: number, y: number): void {
+  /**
+   * L'armee de depart d'un Necromancien (§4.14, decision du 9 novembre 2026) : ses
+   * morts-vivants en cercle autour de lui, dans une partie neuve seulement.
+   *
+   * ⚠️ **Ils ne se defont pas.** Un mort-vivant vit 45 s, une journee 10 minutes : levee au
+   * depart, l'armee avait disparu avant la premiere nuit (vu par le robot). Ces premiers
+   * morts restent, comme le familier du Mage, grandissent avec lui, et comptent dans ses
+   * douze.
+   */
+  leverLArmeeDeDepart(this: ArenaScene): void {
+    for (const hero of this.heros) {
+      if (hero.etat === "mort" || hero.classe.trait !== "necromancie") continue;
+      for (let i = 0; i < ARMEE_DE_DEPART; i++) {
+        const angle = (i / ARMEE_DE_DEPART) * Math.PI * 2;
+        this.relever(hero, hero.x + Math.cos(angle) * 36, hero.y + Math.sin(angle) * 36).finDeVie = Infinity;
+      }
+    }
+  }
+
+  relever(this: ArenaScene, maitre: Hero, x: number, y: number): MortVivant {
     const mort = new MortVivant(this, x, y, maitre);
     this.invocations.add(mort);
     this.effetCercle(x, y, 34, 0x9ee8a0);
+    return mort;
   }
 
   /**
