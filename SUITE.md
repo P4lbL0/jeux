@@ -4634,7 +4634,13 @@ faire, a lancé **12 parties de front** et saturé les 31 Go de RAM de la machin
 longue de mage ou de rôdeur prend ~1,1 Go) — 6 pages qui ne chargeaient plus, 8 parties
 coupées au bout de 45 minutes, inutilisable. **Six de front au plus** (`CLAUDE.md`).
 
-**Ce qui reste du jalon 6.4** : remesurer les sept classes sur le robot d'aujourd'hui (84
+**Ce qui reste du jalon 6.4** — ⚠️ **réécrit le même soir** : Angelos a arrêté les séries
+du robot (« on ne va pas tester ») et rappelé que le but est de jouer **plusieurs héros en
+formation** — le robot n'en a jamais vu un deuxième en 216 parties. Décidé : **le deuxième
+héros vient vers la nuit 2 ou 3** — à l'aube du jour 3, s'il n'y a eu qu'un héros, le
+village en réveille un (`reveilGaranti`, `reveillerLeDeuxiemeHeros` à `leverLeJour`, §4.1).
+Codé et testé dans le noyau, **pas vérifié dans le navigateur ni par le robot** (décision
+d'Angelos). Ce qui était prévu avant, pour mémoire : remesurer les sept classes sur le robot d'aujourd'hui (84
 parties à six de front, ~40 min, quand la machine est libre), décider si le chevalier et
 l'assassin restent juste sous la cible, puis la partie de 30 à 45 min vérifiée de bout en
 bout. Et pour le Nécromancien, sa **boule de neige** n'existe pas encore (§4.14).

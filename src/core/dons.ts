@@ -155,3 +155,50 @@ export const PRIX_DU_RITUEL = 900;
 
 /** Le niveau d'eglise a partir duquel le rituel est possible (§4.22). */
 export const NIVEAU_EGLISE_RITUEL = 3;
+
+/**
+ * **Le deuxième héros vient vers la nuit 2 ou 3** (Angelos, 9 novembre 2026, au soir).
+ *
+ * Le robot du jalon 6.4 a joué 216 parties sans voir **un seul** deuxième héros : les trois
+ * voies du réveil demandent de gérer le village (la cour, le rituel) ou de la chance (le
+ * danger), et le héros tombait seul vers la nuit 4 ou 5 — les formations, les ordres et
+ * l'expérience de groupe (§4.4, §4.16) ne servaient jamais. Le solo devient donc
+ * **l'ouverture** de la partie : à l'aube de ce jour (après la nuit 2), s'il n'y a encore eu
+ * qu'un héros dans la partie, le village en réveille un. Un réveil plus tôt (la cour, le
+ * rituel, le danger) le rend inutile ; un deuxième héros mort ne se remplace pas.
+ */
+export const JOUR_DU_REVEIL_GARANTI = 3;
+
+/** À l'aube de `jour`, faut-il réveiller un don d'office ? `herosDeLaPartie` compte les morts. */
+export function reveilGaranti(jour: number, herosDeLaPartie: number): boolean {
+  return jour >= JOUR_DU_REVEIL_GARANTI && herosDeLaPartie < 2;
+}
+
+/**
+ * Qui se réveille d'office : un porteur de don encore endormi — le don majeur d'abord —,
+ * ou `null` s'il n'y en a aucun (l'appelant prend alors quelqu'un et lui donne
+ * `donQuiDormait`).
+ */
+export function porteurAReveiller<T>(gens: readonly T[], donDe: (qui: T) => Don | null): T | null {
+  let elu: T | null = null;
+  for (const qui of gens) {
+    const don = donDe(qui);
+    if (!don || don.eveille) continue;
+    if (don.majeur) return qui;
+    elu ??= qui;
+  }
+  return elu;
+}
+
+/**
+ * Le don qui dormait chez quelqu'un que rien ne désignait : un village sur trois environ n'a
+ * aucun porteur (un habitant sur dix, une vingtaine d'habitants). La classe au hasard, comme
+ * à la naissance — et un sur vingt majeur.
+ */
+export function donQuiDormait(rng: Rng): Don {
+  return {
+    classe: ORDRE_CLASSES[rng.int(0, ORDRE_CLASSES.length - 1)]!,
+    majeur: rng.next() < PART_MAJEURS,
+    eveille: false,
+  };
+}

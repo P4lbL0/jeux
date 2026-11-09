@@ -242,6 +242,8 @@ export class ArenaJourEtNuit {
     this.clocheSonnee = false;
     if (this.constructions.portesFermees) this.constructions.ouvrirLesPortes(this.time.now);
     this.village.seLever(this.cycle.jour);
+    // Le deuxieme heros vient vers la nuit 2 ou 3 (9 novembre 2026) : la partie cesse d'etre solo.
+    this.reveillerLeDeuxiemeHeros();
     // L'eglise se repare a l'aube (9 novembre 2026) : d'un quart, debout seulement.
     this.eglise.regles.reparerALAube();
     // Les chemins palissent d'un cran, et ceux qu'on a oublies quatre journees s'effacent.

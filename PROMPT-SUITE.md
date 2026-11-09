@@ -172,8 +172,10 @@ ciel, et le ciel est fini.
 >    4 ») : le robot recule devant les boss et ne se noie plus, il va 1,35 fois plus vite ;
 >    le Serment ×2 et la Mise à mort 45 % remontent le chevalier et l'assassin vers la nuit
 >    4,7 (le trait plafonne là) ; le **Nécromancien est la classe hardcore**, hors cible.
->    **La suite** : remesurer les sept classes (six parties de front au plus : RAM), trancher
->    le chevalier et l'assassin, puis la partie vérifiée.
+>    **Puis, le même soir, Angelos a arrêté les séries du robot** (« on ne va pas tester ») et
+>    rappelé le but : **jouer plusieurs héros en formation**. Décidé et codé : **le deuxième
+>    héros vient vers la nuit 2 ou 3** (à l'aube du jour 3, le village en réveille un, §4.1).
+>    Le réglage en solo s'arrête là.
 >
 > Décidé aussi : **pas encore dans The Circle**, et **pas de 3D temps réel**.
 >

@@ -8,7 +8,11 @@ import {
   PART_MAJEURS,
   PART_PORTEURS,
   SEUIL_DANGER,
+  JOUR_DU_REVEIL_GARANTI,
+  donQuiDormait,
   entrainer,
+  porteurAReveiller,
+  reveilGaranti,
   reveilParLeDanger,
   rituel,
   tirerLeDon,
@@ -133,5 +137,44 @@ describe("Les trois voies du reveil (§4.1, §6)", () => {
     expect(entrainer(eveille).don).toBeNull();
     expect(rituel(eveille)).toBeNull();
     expect(reveilParLeDanger(eveille, 0, new Rng(9))).toBe(false);
+  });
+});
+
+describe("Le deuxieme heros vers la nuit 2 ou 3 (9 novembre 2026)", () => {
+  it("se garantit a l'aube du jour 3, tant qu'un seul heros a paru dans la partie", () => {
+    expect(JOUR_DU_REVEIL_GARANTI).toBe(3);
+    expect(reveilGaranti(1, 1)).toBe(false);
+    expect(reveilGaranti(2, 1)).toBe(false);
+    expect(reveilGaranti(3, 1)).toBe(true);
+    expect(reveilGaranti(5, 1)).toBe(true);
+    // Un reveil plus tot, ou un deuxieme heros deja tombe : rien d'office.
+    expect(reveilGaranti(3, 2)).toBe(false);
+    expect(reveilGaranti(7, 3)).toBe(false);
+  });
+
+  it("reveille un porteur endormi, le don majeur d'abord, jamais un don deja eveille", () => {
+    const gens: { nom: string; don: Don | null }[] = [
+      { nom: "a", don: null },
+      { nom: "b", don: { classe: "mage", majeur: false, eveille: true } },
+      { nom: "c", don: { classe: "rodeur", majeur: false, eveille: false } },
+      { nom: "d", don: { classe: "oracle", majeur: true, eveille: false } },
+    ];
+    expect(porteurAReveiller(gens, (g) => g.don)?.nom).toBe("d");
+    expect(porteurAReveiller(gens.slice(0, 3), (g) => g.don)?.nom).toBe("c");
+    expect(porteurAReveiller(gens.slice(0, 2), (g) => g.don)).toBeNull();
+    expect(porteurAReveiller([], (g: { don: Don | null }) => g.don)).toBeNull();
+  });
+
+  it("le don qui dormait est endormi, d'une classe existante, et majeur une fois sur vingt environ", () => {
+    const rng = new Rng(17);
+    let majeurs = 0;
+    for (let i = 0; i < 4000; i++) {
+      const don = donQuiDormait(rng);
+      expect(don.eveille).toBe(false);
+      expect(ORDRE_CLASSES).toContain(don.classe);
+      if (don.majeur) majeurs++;
+    }
+    expect(majeurs / 4000).toBeGreaterThan(0.03);
+    expect(majeurs / 4000).toBeLessThan(0.07);
   });
 });

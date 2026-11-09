@@ -2,7 +2,15 @@ import Phaser from "phaser";
 import { CLASSES } from "../../core/classes";
 import { Hero } from "../../game/entities";
 import { declencher } from "../../game/poses";
-import { NOMS_VOIE, entrainer, reveilParLeDanger, type VoieDuReveil } from "../../core/dons";
+import {
+  NOMS_VOIE,
+  donQuiDormait,
+  entrainer,
+  porteurAReveiller,
+  reveilGaranti,
+  reveilParLeDanger,
+  type VoieDuReveil,
+} from "../../core/dons";
 import { REGLAGES_COUR } from "../../game/cour";
 import { POSTES } from "../../core/carte";
 import { type Villageois } from "../../game/village";
@@ -347,6 +355,23 @@ export class ArenaTravail {
       "village",
     );
     return hero;
+  }
+
+  /**
+   * Le deuxieme heros, au plus tard a l'aube du jour 3 (Angelos, 9 novembre 2026 ; voir
+   * `reveilGaranti`). Un porteur endormi s'il y en a, sinon un habitant tire au sort chez qui
+   * le don dormait. Par la voie du danger : il sort des deux premieres nuits.
+   */
+  reveillerLeDeuxiemeHeros(this: ArenaScene): void {
+    if (!reveilGaranti(this.cycle.jour, this.heros.length)) return;
+    const vivants = this.village.habitants.filter((v) => v.regles.vivant);
+    if (vivants.length === 0) return;
+    let elu = porteurAReveiller(vivants, (v) => v.regles.personne.don);
+    if (!elu) {
+      elu = vivants[this.rng.int(0, vivants.length - 1)]!;
+      elu.regles.personne.don = donQuiDormait(this.rng);
+    }
+    this.eveillerUnDon(elu, "danger");
   }
 
   /**
