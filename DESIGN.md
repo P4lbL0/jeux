@@ -3,7 +3,13 @@
 > Document de référence du projet. Toute décision de gameplay se prend ici **avant** d'être codée.
 > Si le code et ce document se contredisent, c'est le document qui a raison : c'est le code qu'on corrige.
 >
-> Dernière mise à jour : 2026-09-23, fin d'après-midi — **les fusions sont dans le jeu**
+> Dernière mise à jour : 2026-11-09 — **l'ordre change après l'audit de reprise** (§5) : un
+> jalon neuf, le **6.4, le jeu jouable**, passe avant la suite des builds — le ménage du
+> projet, 60 images/s au plus, un robot qui joue une partie entière, les premiers chiffres
+> réglés. Pas encore dans The Circle ; pas de 3D temps réel, la nuit sera éclairée par des
+> cartes de relief Blender.
+>
+> Avant ça : 2026-09-23, fin d'après-midi — **les fusions sont dans le jeu**
 > (§4.25, jalon 6.5, morceau 3) : une quatrième carte quand deux ingrédients sont au
 > maximum, le double prix, les douze fusions du morceau — dont le *Néant* à 60 s à
 > découvert et le *Revenant* qui revient avec une séquelle, seconde porte vers les séquelles

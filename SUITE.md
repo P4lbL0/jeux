@@ -4350,7 +4350,37 @@ brancher.
   denoise, une seule image par héros** — surtout pas frame par frame, l'IA ne tient pas
   la cohérence entre frames en 32 px. Ensuite on relance `animer-sprites.ts` tel quel.
 
+### L'audit de reprise (9 novembre 2026)
+
+Sept semaines sans commit (le dernier date du 23 septembre) : Angelos a fait entre-temps
+quatre jeux dans l'arcade de The Circle, dont BELLEVUE (three.js, prototype en trois jours,
+joué par le clan). État relevé : **1 042 tests verts** (52 fichiers), types et build
+propres, Grimoire sans aucune modification en attente. ~58 000 lignes hors tests :
+`src/core/` 18 000, `src/game/` 26 100, `src/scenes/` 13 400 — dont **`ArenaScene.ts`,
+10 972 lignes à lui seul**. Le paquet JS fait 2,6 Mo (812 Ko compressé) en un seul morceau.
+
+Ce que l'audit a trouvé, et ce qu'Angelos en a fait :
+- **Aucune partie jouée de bout en bout, aucun chiffre réglé en jouant**, avec une dizaine
+  de jalons encore écrits → **le jalon 6.4, le jeu jouable, passe avant la suite des builds**
+  (§5).
+- **Pas de plafond d'images** : `fps: { min: 20 }` seulement, `fixedStep: false` (un pas de
+  physique par image). Sur l'écran principal à 240 Hz, Chrome fait tout tourner à 240 :
+  dessin, physique et horde quatre fois de trop — la cause exacte de la chauffe de BELLEVUE
+  le 29/10 (`docs/arcade/la-sirene.md` de The Circle, section « Ce que le jeu consomme »).
+  Pas encore mesuré ici.
+- **Pas de `CLAUDE.md`**, un prompt de 20 Ko à recoller, six briefs périmés à la racine,
+  `ArenaScene.ts` qui grossit à chaque morceau → **le ménage d'abord**.
+- **Les persos dans un cadre de 20 px**, le boss géant = l'orc de 24 px agrandi ×3 (gros
+  pixels), la nuit = un voile sans aucune source de lumière → **pas de 3D temps réel**
+  (confirmé), mais **la lumière par cartes de relief** rendues par Blender, à placer.
+- **Pas encore dans The Circle** : le jeu reste chez Angelos.
+
 ## Dettes et pièges connus
+
+- **`npm run build` échoue depuis Git Bash** (`No matching HTML proxy module found from
+  C:/…/index.html?html-proxy&inline-css…`) : le chemin y commence par `c:` en minuscule, et
+  Vite, sous Windows, compare les chemins à la casse près. Depuis PowerShell (`C:\`), le
+  même build passe. Ce n'est pas le code.
 
 - **`npm run ciel` réécrit tous les `.ogg`, même ceux qu'on n'a pas touchés.** Le contenu
   sonore est identique (même graine, même code), mais l'encodeur Vorbis ne produit pas deux

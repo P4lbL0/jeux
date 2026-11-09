@@ -52,7 +52,8 @@ coûte cher ou casse quelque chose.
   l'écran-titre est une cinématique Blender avec sa bande-son. La carte se peint par
   morceaux : une partie s'ouvre en une demi-seconde sur une zone de 3 464 × 2 598.
 
-**Les chiffres** : 944 tests verts, `npm run build` propre, ~50 000 lignes de TypeScript.
+**Les chiffres** (9 novembre 2026) : 1 042 tests verts, `npm run build` propre, ~58 000
+lignes de TypeScript hors tests (18 000 dans `src/core/`).
 
 ## 2. Avant TOUT, tu lis — et tu ne codes pas encore
 
@@ -137,6 +138,21 @@ ciel, et le ciel est fini.
   intéressant, c'est le village qu'on laisse vivre seul pendant qu'on y est.
 
 ## 4. Par quoi je te demande de commencer
+
+> ⚠️ **L'ordre a changé le 9 novembre 2026** (audit de reprise, réponses d'Angelos) : **le
+> jalon 6.4, le jeu jouable, passe avant la suite des builds** (§5). Dans l'ordre :
+>
+> 1. **Le ménage** : un `CLAUDE.md` à la racine (ce prompt n'aura plus à être collé), les
+>    vieux briefs rangés dans un dossier d'archives, `ArenaScene.ts` découpé par système —
+>    rien ne change à l'écran, tests verts, trois passes Playwright.
+> 2. **60 images/s au plus**, rien de dessiné en pause (`src/main.ts` n'a que `fps.min`, et un
+>    pas de physique par image) : mesuré avant/après sur l'écran à 240 Hz.
+> 3. **Un robot qui joue une partie entière** en accéléré, et des chiffres par classe.
+> 4. **Les premiers chiffres réglés**, une partie de 30 à 45 min vérifiée de bout en bout.
+>
+> Décidé aussi : **pas encore dans The Circle**, et **pas de 3D temps réel** — la nuit sera
+> éclairée par des cartes de relief rendues par Blender (pas encore placé dans l'ordre).
+> Ce qui suit reste vrai pour **la reprise des builds, après le 6.4**.
 
 **La suite du jalon 6.2, la horde.** Le profilage est fait, le §4.33 est réécrit avec ses
 chiffres, et le **palier 0** est posé (22 septembre au soir) — lis la section « Le jalon
