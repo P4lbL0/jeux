@@ -1,6 +1,9 @@
 # Prompt de reprise — ce qui reste à coder (22 septembre 2026, tard)
 
-> Colle tout ce qui suit dans une nouvelle session, à la racine du projet.
+> ⚠️ **Plus besoin de le coller** (9 novembre 2026) : `CLAUDE.md`, chargé tout seul à chaque
+> session, envoie ici. Ce fichier dit **où on en est et ce qui reste** ; les règles de
+> travail, les pièges et les commandes sont passés dans `CLAUDE.md` (§5, §6 et §8 ci-dessous
+> n'y renvoient plus que par un mot).
 >
 > Écrit après **le jalon 5 fini**. Les trois derniers blocs sont tombés le même soir : le
 > **bloc 10** (la pause Échap, le menu d'options, les 36 touches remappables), le **bloc 11**
@@ -217,54 +220,12 @@ d'un coup les décisions qui te manquent.
 
 ## 5. Comment je veux qu'on travaille
 
-- **Les décisions d'abord, groupées** : des questions **à choix** (jamais ouvertes), posées
-  d'un coup **avant** de coder, par paquets de quatre. Pendant le travail, tu ne m'interromps
-  plus. Tout chiffre technique défendable, tu le tranches toi-même et tu me le dis.
-- **Des morceaux courts**, que je valide un par un. Je ne veux pas découvrir le résultat au
-  bout de trois heures.
-- **Le visuel se juge sur image** : tu fabriques, tu regardes toi-même la capture, tu
-  corriges ce qui est raté, **puis** tu me montres (`captures/`, rangé par type et par date).
-  Le son se juge à l'oreille, pareil.
-- **Ce qui bouge se vérifie dans le navigateur**, pas seulement en tests unitaires : un script
-  Playwright jetable dans `.tmp/` qui pilote une vraie partie et compte ses contrôles. ⚠️ Le
-  monde est **tiré au sort** à chaque lancement : lance-le **trois fois** avant de dire qu'il
-  passe. (`graineMonde: N` rejoue un monde précis, `sansLaMarche: true` commence installé,
-  `refus: N` et `mondesMuets: N` placent l'errance où tu veux, `argent`, `butinDeLaRoute` et
-  `compagnons` remplissent la bourse, le sac et la troupe.)
-- **Mesure avec un témoin.** Un « c'est plus rapide » sans chiffre d'avant ne vaut rien : le
-  20 septembre, la vraie référence a été obtenue en **remettant l'ancien code en place** pour
-  le mesurer. Et en rendu logiciel (headless), tout ce qui est minuté s'étire d'un facteur
-  quatre : les **écarts** sont vrais, les **valeurs absolues** non.
-- **Ma dernière décision fait foi**, même quand elle contredit le design : tu signales la
-  contradiction une fois, avec ce qu'elle coûte, puis tu réécris le paragraphe périmé.
-- **On ne jette jamais `src/core/`** : une règle qui change devient une modification du
-  noyau plus ses tests. Les tests restent verts. **La graine zéro reste la carte d'avant.**
-- **Tout ce qui se voit passe par Blender** (`scripts/blender/`), le code dessiné n'est plus
-  qu'un secours ; un PNG dans `src/assets/` remplace le dessin sous la même clé.
-- À la fin de chaque morceau : typecheck, tests, commit poussé (un seul par chantier, sans
-  trailer d'outil), `SUITE.md` et la section du design à jour, et le journal de portfolio.
+Dans `CLAUDE.md`, section « Comment Angelos veut qu'on travaille » et « Vérifier et
+mesurer ».
 
 ## 6. Sept pièges du navigateur, déjà payés
 
-Ils reserviront, et ils ont tous coûté une session :
-
-1. `camera.worldView` n'est recalculé qu'au rendu **suivant** (lire `scrollX`/`scrollY`
-   après un `centerOn`).
-2. La caméra est **bornée** par la carte : `removeBounds()` le temps d'un contrôle.
-3. Pousser le héros « loin » le fait **changer de monde** (`guetterLeDepart` voit le bord).
-4. En rendu logiciel, tout ce qui est minuté **s'étire d'un facteur quatre** : on mesure les
-   écarts et les vitesses, jamais les distances parcourues.
-5. **Phaser écoute le clavier sur `window` en phase de bouillonnement.** Pour passer devant
-   lui — remapper une touche déjà prise, par exemple — il faut écouter sur `document` **en
-   capture** et arrêter la propagation.
-6. **`page.evaluate` renvoie la dernière expression.** Un `cameras.main.centerOn(...)` en fin
-   de bloc renvoie la caméra entière, Playwright essaie de la sérialiser, et Node tombe sur
-   `Cannot create a string longer than 0x1fffffe8 characters`. Finis tes blocs par `void 0;`.
-   Pareil pour `scene.pause()` : il renvoie le greffon de scène, et le script se fige.
-7. **Ne touche jamais à `src/` pendant qu'un script tourne** : Vite recharge la page en
-   pleine mesure (« Execution context was destroyed »). Et un monstre qu'on vient de poser
-   n'est dans le voisinage qu'au pas de physique suivant : attends une image avant de
-   lancer une base à la main.
+Dans `CLAUDE.md`, section « Sept pièges du navigateur, déjà payés ».
 
 ## 7. Les dettes connues, petites
 
@@ -295,15 +256,4 @@ Ils reserviront, et ils ont tous coûté une session :
 
 ## 8. Pour lancer
 
-```bash
-npm install
-npm run dev      # le jeu s'ouvre dans le navigateur
-npx vitest run   # les tests (944)
-npm run build    # vérifie les types et construit
-
-npx tsx scripts/capturer.ts apres          # les captures du jeu, par Playwright
-npx tsx scripts/capturer-mondes.ts 0,1,2   # plusieurs mondes tirés
-npx tsx scripts/planche.ts                 # les planches PNG, sans navigateur
-npm run intro                              # refait la cinématique Blender
-npm run son                                # refait la bande-son
-```
+Dans `CLAUDE.md`, section « Pour lancer ».

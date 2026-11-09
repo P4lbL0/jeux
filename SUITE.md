@@ -136,7 +136,7 @@ texture). Personnages en 32×32, sols en 64, maisons en 48.
 ⚠️ **PixelLab est à 0 crédit.** `scripts/generer-assets.ts` ne peut plus rien produire.
 Tout ce qui est visuel doit donc se faire en code ou avec des assets gratuits.
 
-### Le jalon combat & monstres (`BRIEF-COMBAT-ET-MONSTRES.md`) — terminé sauf §5
+### Le jalon combat & monstres (`archives/BRIEF-COMBAT-ET-MONSTRES.md`) — terminé sauf §5
 
 - **`src/game/effets.ts`** — impacts, poufs de mort, tranches, flashs, secousses,
   hitstop, recul. Émetteurs de particules **créés une fois** et réutilisés, quota de
@@ -4117,7 +4117,7 @@ murs en poteaux et pans, tour, porte) ; captures `murs-*.png` à valider.
 4. **Jouer une vraie partie longue.** C'est ce que le cycle raccourci débloque : le stress,
    l'église, le port, les arrivées et la folie n'ont jamais tourné assez longtemps pour être
    jugés. Tous les chiffres du dépouillage sont faits pour être corrigés là.
-5. ✅ **Le `feedback.md` a été traité** (session du 8-9 août). Tout est tranché et écrit
+5. ✅ **Le `archives/feedback.md` a été traité** (session du 8-9 août). Tout est tranché et écrit
    dans `DESIGN.md` : appétit des héros, totem, fous, humeurs, renommage, options.
 
 ### ⚠️ Le design du village a été entièrement refondu les 8 et 9 août 2026
