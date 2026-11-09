@@ -74,6 +74,11 @@ d'août et septembre sont dans `archives/` : ils ne font plus foi.
   rendu par défaut (SwiftShader) ment, et une vraie fenêtre se fait brider à 1 image/s.
   En rendu logiciel, tout ce qui est minuté s'étire d'un facteur quatre : les **écarts**
   sont vrais, les valeurs absolues non.
+- **La cadence** (`core/cadence.ts`) : le jeu dessine 60 images par seconde en partie, 30
+  dans les menus, l'écran-titre et la pause, **5 sans le focus** — un script qui ne
+  réveille pas le jeu par `window.dispatchEvent(new Event("focus"))` tourne au ralenti.
+  `loop.actualFps` compte les images **dessinées**. Pour simuler un écran rapide, lancer
+  Chromium avec `--disable-frame-rate-limit --disable-gpu-vsync` (`.tmp/cadence-mesure.mjs`).
 - **Avant de lâcher une meute** : `prochaineArriveeJournee = 9999`, sinon la fiche
   d'arrivant met la partie en pause. Pour planter un monstre : `body.moves = false`.
   Émettre `choix-fait` exige une pause posée avant.

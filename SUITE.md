@@ -4411,6 +4411,58 @@ Ce que l'audit a trouvé, et ce qu'Angelos en a fait :
   avant comme après, en dev et sur le build de production. 1 042 tests verts, types et
   build propres.
 
+### Le jalon 6.4, étape 2 : la cadence des images (9 novembre 2026)
+
+Angelos n'était pas chez lui (deux écrans à 60 Hz branchés sur son portable, pas l'écran à
+240 Hz) : la mesure ne dépend pas de l'écran. Chromium sans fenêtre, lancé **sans limite
+d'images** (`--disable-frame-rate-limit --disable-gpu-vsync`), appelle
+`requestAnimationFrame` aussi vite que la machine le permet — pire qu'un écran à 240 Hz.
+Banc : `.tmp/cadence-mesure.mjs <étiquette> <dossier> <libre|60hz>`.
+
+**Le témoin, sans limite d'écran** : l'écran-titre dessinait **2 355 images par seconde**,
+la partie de jour 309, la pause (Échap) 340, la fenêtre sans le focus 339, la nuit à 1 346
+monstres 210. Le fil principal à 99-100 %, 1 à 1,6 cœur pour la page et 1 à 1,9 pour le
+processus graphique. Rien ne plafonnait : `fps: { min: 20 }` seulement.
+
+**Pourquoi pas `fps.limit` de Phaser** : son pas limité (`stepLimitFPS`) cumule l'écart et
+le remet à **zéro** à chaque image dessinée, sans marge. À 60 Hz, une image arrivée 0,1 ms
+trop tôt saute ; à 240 Hz, quatre battements font 16,66 ms et il en faut parfois cinq : on
+tombe vers 48 images par seconde.
+
+**Ce qui a changé** :
+- `core/cadence.ts` (pur, 6 tests) : `creerCadence`, la même que BELLEVUE (`src/lib/cadence.ts`
+  de The Circle) — une image part quand l'heure prévue est atteinte **à 2 ms près**, l'heure
+  suivante avance d'un pas (au lieu de repartir de zéro), donc 60 en moyenne à 75, 120, 144,
+  165, 240 ou 360 Hz, aucune perdue à 59-61 Hz, toutes gardées sur une machine lente.
+  `pasVoulu` : **60** quand l'arène tourne (ou en mode d'aménagement, qu'on manie à la
+  souris), **30** dans les menus, l'écran-titre, la pause et les fenêtres de choix, **5**
+  hors du premier plan — les chiffres que BELLEVUE a reçus d'Angelos le 29 octobre.
+- `game/cadence.ts` : `poserLaCadence(jeu)`, appelée juste après `new Phaser.Game`. La
+  configuration dit `fps: { min: 20, limit: 60 }` pour que Phaser choisisse son pas limité
+  au démarrage de la boucle, et on remplace ce pas par le nôtre : la tenue de compte de
+  Phaser 3.90 recopiée ligne pour ligne, seule la décision change. `framesThisSecond` ne
+  compte plus que les images dessinées : **`loop.actualFps` dit ce que le jeu dessine**.
+- Le focus suit `BLUR` / `FOCUS` de Phaser, les mêmes événements que la pause hors focus de
+  l'arène : un script qui réveille le jeu par un `focus` réveille aussi la cadence.
+- L'écart accumulé entre deux images ne dépasse 50 ms qu'à 5 images par seconde, quand
+  l'arène est déjà en pause ; au retour du focus, Phaser remet l'écart à zéro (`resetDelta`).
+
+**Après, sans limite d'écran** (village différent du témoin, tiré au sort) :
+
+| Situation | Images dessinées | Fil principal | Page (cœurs) | Graphique (cœurs) |
+|---|---|---|---|---|
+| Écran-titre | 2 355 → 31 | 87 % → 3 % | 1,64 → 0,06 | 1,94 → 0,04 |
+| Partie, le jour | 309 → 60 | 99 % → 17 % | 1,04 → 0,22 | 1,41 → 0,18 |
+| Pause (Échap) | 340 → 30 | 99 % → 9 % | 0,98 → 0,13 | 1,55 → 0,11 |
+| Hors du focus | 339 → 5 | 99 % → 3 % | 1,00 → 0,04 | 1,53 → 0,02 |
+| Nuit, ~1 400 monstres | 210 → 60 | 100 % → 34 % | 1,12 → 0,41 | 1,01 → 0,27 |
+
+**À 60 Hz, sur le même monde et le même village** (`graineVillage: 99`, trois passes de
+10 s) : 59-60 images par seconde avant comme après — **aucune perdue** — et le même coût
+(fil principal 19/19/19 % avant, 20/20/23 % après). Une première passe à 33 % venait d'un
+autre village : c'est pour ça que le banc fixe maintenant la graine du village. 1 048 tests
+verts, et les trois parties de `.tmp/menage-temoin.mjs` sans une erreur.
+
 ## Dettes et pièges connus
 
 - **`npm run build` échoue depuis Git Bash** (`No matching HTML proxy module found from

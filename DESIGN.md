@@ -10,6 +10,8 @@
 > cartes de relief Blender.
 > **Le ménage est fait le même jour** : `CLAUDE.md`, `archives/`, et `ArenaScene.ts` rangé
 > par système dans `src/scenes/arene/` (10 973 → ~1 780 lignes, comportement identique).
+> **La cadence aussi** : 60 images/s en partie, 30 dans les menus et la pause, 5 hors du
+> premier plan (la partie en dessinait 309, l'écran-titre 2 355, sans limite d'écran).
 >
 > Avant ça : 2026-09-23, fin d'après-midi — **les fusions sont dans le jeu**
 > (§4.25, jalon 6.5, morceau 3) : une quatrième carte quand deux ingrédients sont au

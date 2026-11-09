@@ -147,9 +147,10 @@ ciel, et le ciel est fini.
 >
 > 1. ✅ **Le ménage** (fait le 9 novembre) : `CLAUDE.md` à la racine, les vieux briefs dans
 >    `archives/`, `ArenaScene.ts` à ~1 780 lignes et ses méthodes dans `src/scenes/arene/`
->    (voir `SUITE.md`, « Le jalon 6.4, étape 1 »). **La suite est l'étape 2.**
-> 2. **60 images/s au plus**, rien de dessiné en pause (`src/main.ts` n'a que `fps.min`, et un
->    pas de physique par image) : mesuré avant/après sur l'écran à 240 Hz.
+>    (voir `SUITE.md`, « Le jalon 6.4, étape 1 »).
+> 2. ✅ **La cadence** (faite le 9 novembre) : 60 images/s en partie, 30 dans les menus et la
+>    pause, 5 hors du premier plan (`core/cadence.ts`, `game/cadence.ts` ; voir `SUITE.md`,
+>    « Le jalon 6.4, étape 2 »). **La suite est l'étape 3, le robot.**
 > 3. **Un robot qui joue une partie entière** en accéléré, et des chiffres par classe.
 > 4. **Les premiers chiffres réglés**, une partie de 30 à 45 min vérifiée de bout en bout.
 >

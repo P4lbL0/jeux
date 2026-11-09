@@ -436,6 +436,8 @@ src/
                      initiatives (testee)
     sauvegarde.ts    la forme d'une partie enregistree, et l'arbitrage
                      local/cloud — fonction pure, testee (§4.28)
+    cadence.ts       combien d'images on dessine : 60 en partie, 30 dans les
+                     menus et la pause, 5 hors du focus (testee, jalon 6.4)
   en-ligne/  le seul dossier qui connait le reseau. Retirable en entier
     client.ts          le client Supabase, et le refus de toute cle non-anon
     compte.ts          connexion au compte The Circle (pas d'inscription ici)
@@ -466,6 +468,7 @@ src/
     panneauSon.ts      les trois volumes (titre et menu de pause)
     portraits.ts       portraits assembles par morceaux, en onze couches
     sauvegarde.ts      le pont : capture de la partie, reprise, localStorage
+    cadence.ts         pose la cadence de core/ sur la boucle de Phaser
   scenes/    les ecrans du jeu
     MenuScene.ts         les trois emplacements, et le compte
     ChoixClasseScene.ts  choix de la classe de depart

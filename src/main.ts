@@ -8,6 +8,7 @@ import { MenuScene } from "./scenes/MenuScene";
 import { ChoixClasseScene } from "./scenes/ChoixClasseScene";
 import { ArenaScene } from "./scenes/ArenaScene";
 import { UiScene } from "./scenes/UiScene";
+import { poserLaCadence } from "./game/cadence";
 
 /** Le div qui porte le canvas : c'est lui qui donne la place disponible. */
 const cadreDuJeu = document.getElementById("game")!;
@@ -75,8 +76,15 @@ const config: Phaser.Types.Core.GameConfig = {
    * - `fps.min: 20` : **le delta est plafonne a 50 ms**. En dessous de vingt
    *   images par seconde, le jeu passe **au ralenti** plutot que de teleporter
    *   tout le monde d'un demi-pas. Une chute doit rester jouable, donc lisible.
+   *
+   * Et **un plafond** (jalon 6.4, étape 2, 9 novembre 2026) : `limit` fait choisir à
+   * Phaser son pas limité, que `poserLaCadence` remplace aussitôt par la cadence de
+   * `core/cadence.ts` — 60 images par seconde quand on joue, 30 dans les menus et la
+   * pause, 5 hors du premier plan. Sans lui, Phaser dessinait au rythme de l'écran
+   * principal (240 Hz chez Angelos) : 309 images par seconde en partie, 2 355 à
+   * l'écran-titre, mesurées sans limite d'écran.
    */
-  fps: { min: 20 },
+  fps: { min: 20, limit: 60 },
   physics: {
     default: "arcade",
     /**
@@ -125,6 +133,8 @@ async function attendreLaPolice(): Promise<void> {
  */
 void attendreLaPolice().then(() => {
   const jeu = new Phaser.Game(config);
+  // Avant le premier pas : la boucle ne démarre qu'après le chargement des textures.
+  poserLaCadence(jeu);
   (window as unknown as { __jeu: Phaser.Game }).__jeu = jeu;
   // Le mode `NONE` n'ecoute rien : c'est a nous de suivre la fenetre.
   window.addEventListener("resize", () => {
