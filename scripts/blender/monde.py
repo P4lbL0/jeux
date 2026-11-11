@@ -100,6 +100,44 @@ class Atelier:
             v.co *= 1 + rnd.uniform(-bosses, bosses)
         return self._objet("Boule", bm, matiere, pos, echelle)
 
+    def masse(self, matiere, r, pos, graine, bosses=0.13, echelle=(1, 1, 1)):
+        """Une masse de feuillage : une icosphère à 80 faces, cabossée — assez de pans
+        pour que la lumière y tourne, pas assez pour faire une bille."""
+        bm = bmesh.new()
+        bmesh.ops.create_icosphere(bm, subdivisions=2, radius=r)
+        rnd = random.Random(graine)
+        for v in bm.verts:
+            v.co *= 1 + rnd.uniform(-bosses, bosses)
+        return self._objet("Masse", bm, matiere, pos, echelle)
+
+    def bloc(self, matiere, rx, ry, rz, pos, graine, points=12):
+        """Un rocher taillé à pans : une caisse dont on rentre les coins du haut et dont
+        on pousse quelques faces, puis son enveloppe convexe. Massif, le dessus presque plat.
+
+        ⚠️ Essayé d'abord avec des points tirés dans un ellipsoïde : ça donne une pyramide,
+        un petit caillou pointu. Et `convex_hull` rend le même sommet dans deux de ses
+        listes : on les dédoublonne, sinon `delete` refuse.
+        """
+        rnd = random.Random(graine)
+        bm = bmesh.new()
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                bm.verts.new((sx * rx * rnd.uniform(0.78, 1.0), sy * ry * rnd.uniform(0.78, 1.0), 0.0))
+                bm.verts.new((sx * rx * rnd.uniform(0.8, 1.0), sy * ry * rnd.uniform(0.8, 1.0),
+                              rz * rnd.uniform(0.4, 0.62)))
+                bm.verts.new((sx * rx * rnd.uniform(0.38, 0.7), sy * ry * rnd.uniform(0.38, 0.7),
+                              rz * rnd.uniform(0.78, 1.0)))
+        for _ in range(max(0, points - 12)):
+            t = rnd.uniform(0, 2 * math.pi)
+            bm.verts.new((math.cos(t) * rx * 1.02, math.sin(t) * ry * 1.02, rz * rnd.uniform(0.15, 0.5)))
+        res = bmesh.ops.convex_hull(bm, input=bm.verts)
+        inutiles = list({e for e in res.get("geom_interior", []) + res.get("geom_unused", [])
+                         if isinstance(e, bmesh.types.BMVert)})
+        if inutiles:
+            bmesh.ops.delete(bm, geom=inutiles, context="VERTS")
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        return self._objet("Bloc", bm, matiere, pos)
+
     def branche(self, matiere, depart, arrivee, r):
         """Un cylindre à 5 pans entre deux points : tronc mort, branche, perche."""
         dx, dy, dz = (arrivee[i] - depart[i] for i in range(3))
@@ -262,48 +300,90 @@ def eglise(a, niveau=1):
     return (0.8, -P / 2)
 
 
+# ⚠️ Les arbres et les rochers ont été **remodelés le 11 novembre 2026** (chantier 6.45,
+# §4.30) : « oui, mais refaire les arbres ». Avec le grain du sol, trois boules de
+# feuillage et un galet ne tenaient plus. Les tailles des sprites n'ont pas bougé.
+
 def chene(a, graine):
-    rnd = random.Random(graine)
-    a.cone("ecorce", 0.24, 1.25, (0, 0, 0), cotes=5, r_haut=0.15)
-    for i in range(3):
-        a.boule("feuille", rnd.uniform(0.62, 0.8),
-                (rnd.uniform(-0.35, 0.35), rnd.uniform(-0.2, 0.2), 1.55 + rnd.uniform(0, 0.4)),
-                graine * 7 + i)
+    """Un feuillu : un tronc qui s'évase au pied et se divise, puis des masses de
+    feuillage distinctes — une couronne, une ceinture, deux retombées."""
+    rnd = random.Random(graine * 31 + 5)
+    penche = rnd.uniform(-0.12, 0.12)
+    a.cone("ecorce", 0.3, 0.42, (0, 0, 0), cotes=6, r_haut=0.19)            # l'empattement
+    a.branche("ecorce", (0, 0, 0.3), (penche, 0, 1.45), 0.2)                 # le fût
+    for cote in (-1, 1):                                                     # deux charpentières
+        a.branche("ecorce", (penche * 0.6, 0, 0.95),
+                  (penche + cote * rnd.uniform(0.45, 0.6), rnd.uniform(-0.1, 0.1), 1.55), 0.1)
+    haut = 1.95 + (0.18 if graine == 1 else 0.0)
+    large = 1.0 if graine != 1 else 0.86
+    a.masse("feuille", 0.6, (penche, 0.02, haut + 0.12), graine * 7, echelle=(1.05 * large, 1.0, 0.82))
+    for i in range(5):                                                       # la ceinture
+        ang = 2 * math.pi * i / 5 + rnd.uniform(-0.3, 0.3) + graine
+        r = rnd.uniform(0.4, 0.52)
+        d = rnd.uniform(0.5, 0.62) * large
+        a.masse("feuille", r, (penche + math.cos(ang) * d, math.sin(ang) * d * 0.75, haut - rnd.uniform(0.25, 0.5)),
+                graine * 11 + i, echelle=(1.0, 1.0, 0.8))
+    for i, cote in enumerate((-1, 1)):                                       # deux retombées
+        if graine == 2 and cote == 1:
+            continue  # la troisième variante est déséquilibrée : le vent
+        a.masse("feuille", rnd.uniform(0.3, 0.36),
+                (penche + cote * rnd.uniform(0.62, 0.74) * large, -0.12, haut - rnd.uniform(0.62, 0.75)),
+                graine * 13 + i, echelle=(1.0, 1.0, 0.78))
     return (0, 0)
 
 
 def conifere(a, graine):
-    rnd = random.Random(graine)
-    a.cone("ecorce", 0.14, 0.6, (0, 0, 0), cotes=5)
-    etages = 3 + graine % 2
-    for i in range(etages):
-        r = 0.85 - i * 0.18
-        a.cone("feuille", r, 1.0 - i * 0.08, (0, 0, 0.35 + i * 0.62), cotes=7,
-               rot_z=rnd.uniform(0, 1))
+    """Un épicéa : quatre ou cinq jupes bien détachées, chacune à huit pans et un peu de
+    travers, dont le bord dépasse nettement de celle du dessus ; un tronc qu'on voit dessous.
+
+    ⚠️ Des jupes trop serrées (un pas de 0,47) se fondaient en un cône lisse une fois le
+    grain posé : il faut que chaque bord porte son ombre sur la jupe du dessous.
+    """
+    rnd = random.Random(graine * 17 + 3)
+    a.cone("ecorce", 0.15, 0.7, (0, 0, 0), cotes=5)
+    rayons = [0.98, 0.8, 0.62, 0.44] if graine % 2 == 0 else [0.9, 0.76, 0.6, 0.46, 0.32]
+    pas = 0.62 if graine % 2 == 0 else 0.52
+    z = 0.36
+    for r in rayons:
+        dx, dy = rnd.uniform(-0.05, 0.05), rnd.uniform(-0.04, 0.04)
+        a.cone("feuille", r, 0.78, (dx, dy, z), cotes=8, r_haut=r * 0.22, rot_z=rnd.uniform(0, 0.8))
+        z += pas
+    a.cone("feuille", 0.2, 0.5, (0, 0, z + 0.05), cotes=6)                   # la flèche
     return (0, 0)
 
 
 def arbre_mort(a, graine):
+    """Un arbre mort : un fût coudé, des branches qui se divisent en rameaux."""
     rnd = random.Random(graine + 100)
-    haut = rnd.uniform(2.2, 2.8)
-    penche = rnd.uniform(-0.25, 0.25)
-    a.branche("ecorce", (0, 0, 0), (penche, 0, haut), 0.2)
+    haut = rnd.uniform(2.2, 2.7)
+    penche = rnd.uniform(-0.28, 0.28)
+    coude = (penche * 0.35, 0, haut * 0.5)
+    a.cone("ecorce", 0.27, 0.3, (0, 0, 0), cotes=6, r_haut=0.19)
+    a.branche("ecorce", (0, 0, 0.2), coude, 0.2)
+    a.branche("ecorce", coude, (penche, 0, haut), 0.15)
     for i in range(3 + graine % 2):
-        z = haut * rnd.uniform(0.45, 0.9)
+        zz = haut * rnd.uniform(0.42, 0.88)
         cote = -1 if i % 2 == 0 else 1
-        dx = cote * rnd.uniform(0.5, 0.9)
-        a.branche("ecorce", (penche * z / haut, 0, z),
-                  (penche * z / haut + dx, rnd.uniform(-0.2, 0.2), z + rnd.uniform(0.4, 0.8)),
-                  0.08)
+        base = (penche * zz / haut, 0, zz)
+        bout = (base[0] + cote * rnd.uniform(0.5, 0.85), rnd.uniform(-0.2, 0.2), zz + rnd.uniform(0.35, 0.7))
+        a.branche("ecorce", base, bout, 0.08)
+        a.branche("ecorce", bout, (bout[0] + cote * rnd.uniform(0.05, 0.3), bout[1], bout[2] + rnd.uniform(0.3, 0.5)),
+                  0.045)
     return (0, 0)
 
 
 def rocher(a, graine):
-    rnd = random.Random(graine + 50)
-    a.boule("roche", 0.75, (0, 0, 0.25), graine + 3, bosses=0.28,
-            echelle=(1.2, 0.85, 0.65))
-    if graine % 2 == 0:
-        a.boule("roche", 0.38, (rnd.uniform(0.6, 0.8), -0.2, 0.12), graine + 9, bosses=0.3)
+    """Un rocher taillé à pans, et un ou deux éclats à son pied : une dalle, un bloc dressé, un amas."""
+    if graine % 3 == 0:
+        a.bloc("roche", 0.9, 0.62, 0.74, (-0.06, 0, 0), graine + 3, points=15)
+        a.bloc("roche", 0.32, 0.28, 0.38, (0.72, -0.4, 0), graine + 9)
+    elif graine % 3 == 1:
+        a.bloc("roche", 0.68, 0.56, 1.08, (-0.14, 0, 0), graine + 3, points=14)
+        a.bloc("roche", 0.4, 0.36, 0.5, (0.62, -0.3, 0), graine + 9)
+    else:
+        a.bloc("roche", 0.74, 0.6, 0.95, (-0.3, 0.08, 0), graine + 3, points=14)
+        a.bloc("roche", 0.56, 0.48, 0.66, (0.52, -0.14, 0), graine + 9)
+        a.bloc("roche", 0.28, 0.26, 0.3, (0.0, -0.62, 0), graine + 12)
     return (0, -0.55)
 
 

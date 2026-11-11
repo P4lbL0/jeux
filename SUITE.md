@@ -4771,15 +4771,83 @@ jour dans `dessin/carte.ts` (la cuisson par morceaux ne change pas), les ombres 
 nouvelle réduction des sprites (`reduire.py`, puis `npm run sprites`), le massif, et la
 lumière de nuit en dernier, qui se mesure contre un témoin sous la horde.
 
+**Le verdict sur l'essai 3 : « ok c'est bon ».** Et sur ce qu'il reste à refaire : **les
+murs, les tours et les portes**, les seuls objets du monde encore dessinés à plat par le code
+(une cinquantaine de sprites, 16 raccords par matière) — **après le sol**, avec une maquette
+sur le bois d'abord. Les maisons, l'église et le petit décor gardent leurs modèles ; les
+personnages et les monstres ne changent pas.
+
+### Le chantier 6.45, étape 2 : le sol de jour et les sprites, dans le jeu (11 novembre 2026)
+
+Le premier morceau de code du chantier. **Avant / après** dans `captures/jeu/2026-11-11-sol/`
+(le monde 21 de près et de loin, plus les mondes 7 et 404).
+
+**Le sol** (`dessin/relief.ts`, `dessin/carte.ts`) :
+- **`relief.ts` n'a plus de facettes.** L'altitude se relève sur un treillis de 20 px (23 000
+  points pour la zone ×3), et chaque point du treillis porte une **clarté** (la pente vers le
+  soleil, linéarisée, exagérée ×1,6, bornée de 0,25 à 1,6) et une **bosse** (de combien il
+  domine le carré de 140 px autour de lui). `lumiere(x, y)` et `bosse(x, y)` se lisent entre
+  quatre points. Le relevé coûte **moins** qu'avant : 8 à 19 ms contre 15 à 22.
+- **Le ton d'un pixel de terre** (`peindreDesRangees`) : `2 + (clarté - 1) × 7,5`, plus une
+  **trame** (un grain par pixel, un bruit de 2,4 px) qui casse le bord entre deux tons, plus
+  des **taches** (8 et 22 px) qui ne sont pas éclairées. La roche et l'éboulis ne gardent
+  que 30 % de la pente et 40 % des taches, en attendant leur volume.
+- **Trois herbes** : la sèche (le sol vert tiré vers le sable) et la grasse (vers la bile
+  sombre) s'ajoutent au sol vert, choisies par de grandes plaques (150 et 52 px), la bosse et
+  un tirage. Le jeu ne connaît toujours que « herbe » : `terrains[]` ne change pas.
+- **Les lisières entre deux terres se fondent** (`terrainFondu`) : après le tremblement, un
+  pixel regarde encore à 3 px de lui, au hasard, et prend la terre qu'il y trouve. Jamais avec
+  l'eau — l'écume et le masque de houle veulent un rivage net. Les détails semés hors d'un
+  morceau refont le même calcul (`terrainSeme`), sinon une touffe à cheval serait coupée.
+- **Le sol du village prend le ton du pixel qu'il recouvre** (`peindreLeSolDuVillage`) : la
+  place et les rues avaient leur propre marbrage, tiré d'un autre bruit, et faisaient une tache
+  de camouflage sur un sol qui venait de se calmer. Elles lisent maintenant la clarté du pixel
+  d'origine, la rangent en cinq marches et prennent le ton correspondant de leur terre.
+- ✅ **La marche droite près des lacs est corrigée** : la terre monte désormais sur 120 px
+  depuis un rivage (`RAMPE_DU_RIVAGE`), moins que les 130 px que le noyau connaît autour d'un
+  lac ; le plateau passe de 40 à 22 px pour que la plage ne fasse pas un talus. Un test
+  parcourt trois mondes et refuse tout saut d'altitude de plus de 3 px entre deux pixels.
+
+**Les sprites** (`scripts/blender/`, puis `npm run sprites -- bati- decor-`) :
+- `reduire.py` garde `reduire_tableaux` (les personnages, les flammes, la fumée) et gagne
+  **`reduire_au_grain`** pour tout ce qui est posé sur le sol (`bati-`, `decor-`) : la marche
+  de lumière continue et tramée, un grain par matière (`GRAINS`), et pour ce qui pousse
+  (`NATURE`) un contour au ton de fond de sa matière. ⚠️ Sans scipy : le bruit est relu à la
+  main dans une grille tirée d'une graine fixe, pour qu'une passe ne réécrive pas un PNG
+  identique.
+- `monde.py` : `Atelier.masse` et `Atelier.bloc`, et les quatre fabriques refaites (`chene`,
+  `conifere`, `arbre_mort`, `rocher`). **33 PNG régénérés**, aux mêmes tailles.
+- ⚠️ Deux rochers débordaient de leur cadre de 28 × 20 (2 et 3 px) : `reduire.py` sort alors
+  en échec, et c'est voulu. Rétrécis, pas le cadre.
+
+**Mesuré contre un témoin** (`.tmp/maquette-sol/mesurer-cuisson.ts`, hors navigateur, le
+meilleur de trois, l'ancien code remis par `git stash push -- src/`, les mêmes trois mondes) :
+
+| Monde | Avant | Après |
+|---|---|---|
+| 21 | 17,9 ms par morceau | 22,8 ms |
+| 7 | 21,8 ms | 27,2 ms |
+| 404 | 19,4 ms | 24,9 ms |
+
+La cuisson coûte **un quart de plus** (25 à 28 %), soit 0,35 s de plus sur les 70 morceaux
+d'un monde, étalées dans le budget de 6 ms par image : aucune image n'attend plus qu'avant.
+
+**Vérifié** : types propres, **1 060 tests verts** (dont celui qui exige les mêmes pixels par
+morceaux que d'un bloc), et trois mondes dans le navigateur (un massif, un lac, une mer avec
+sa plage) — ni couture, ni zone noire.
+
+**Ce que ce morceau ne fait pas** : les ombres au pied des objets et l'ombre portée des murs ;
+la roche en volume (elle reste à plat, plus calme) ; la lumière de nuit ; les murs en Blender.
+La vignette (le monde en tout petit sous les morceaux pas encore cuits) reste au ton du corps.
+
 ## Dettes et pièges connus
 
-- **Le relief a une marche droite à ~130 px des lacs** (vu le 11 novembre en maquettant le
-  sol). `distanceATache` rend « très loin » (1e6) dès qu'on sort d'une **boîte** de
+- ✅ **Le relief avait une marche droite à ~130 px des lacs** (vu le 11 novembre en maquettant
+  le sol, **corrigé le même jour** dans `relief.ts` : la rampe du rivage fait 120 px). `distanceATache` rend « très loin » (1e6) dès qu'on sort d'une **boîte** de
   `MARGE_DE_TACHE = 130` px autour d'un lac, mais `relief.ts` fait monter la terre sur
   **240 px** depuis le rivage (`rivage / 240`) : au bord de la boîte, l'altitude saute d'une
   vingtaine de pixels le long d'un trait droit. Les facettes la montrent comme une rangée de
-  triangles sombres (visible sur `loin-aujourdhui-jour.png`). À corriger avec le 6.45 :
-  borner la rampe à la marge, ou prolonger la distance.
+  triangles sombres (visible sur `loin-aujourdhui-jour.png`).
 
 - **Le Serment riposte même quand le coup part dans le vide** (`resoudreFrappe` : la riposte
   passe avant le test de distance). Le texte dit « blesse quiconque le touche ». Vu le 9

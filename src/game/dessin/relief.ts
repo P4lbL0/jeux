@@ -2,47 +2,69 @@ import { distanceALEau, profondeurDeRoche } from "../../core/carte";
 import { bruitLisse } from "./bruit";
 
 /**
- * Le relief du sol, en facettes (bloc 7z, etage 7, 18 septembre 2026).
+ * Le relief du sol (bloc 7z, etage 7, 18 septembre 2026 ; refait lisse le 11
+ * novembre 2026, chantier 6.45).
  *
  * **Pourquoi.** « On dirait que c'est tout plat » : la carte etait un aplat par
  * matiere avec des taches, et a cote des batiments low-poly rendus par Blender
- * elle faisait decor peint. Ici le sol a une **altitude** — des collines douces
+ * elle faisait decor peint. Le sol a donc une **altitude** — des collines douces
  * dans l'herbe, presque rien sur la plage, un eboulis qui monte, puis la
- * montagne — et il est decoupe en **facettes triangulaires**, chacune eclairee
- * par le meme soleil que les sprites Blender (de l'ouest, haut). Un versant
- * tourne vers le soleil prend le ton clair de sa matiere, un versant a
- * contre-jour le ton sombre : on voit la forme sans qu'aucun pixel ne bouge.
+ * montagne — eclairee par le meme soleil que les sprites Blender (de l'ouest,
+ * haut). Un versant tourne vers le soleil s'eclaircit, un versant a contre-jour
+ * s'assombrit : on voit la forme sans qu'aucun pixel ne bouge.
+ *
+ * ⚠️ **Plus de facettes** (Angelos, 9 novembre 2026 : « on dirait juste qu'on
+ * joue sur un tapis de jeu »). Le premier relief decoupait le sol en triangles
+ * de 26 px, un aplat chacun : de pres, on lisait le decoupage et non les
+ * collines. Ici la clarte est **continue** — relevee sur un treillis, lue entre
+ * ses points — et c'est `carte.ts` qui la range en tons, avec une trame qui
+ * casse le bord entre deux tons. Tranche sur maquettes le 11 novembre (§4.30,
+ * la piste A, « le relief doux »).
  *
  * ⚠️ **Ce n'est que de l'ombrage.** Le sol reste plat pour le jeu : personne ne
  * monte ni ne descend, les collisions et `core/carte.ts` ne changent pas. Le
- * relief ne sait rien du terrain qu'il ombre, il ne donne qu'une marche de
- * lumiere ; la matiere, elle, reste choisie par `classer`.
+ * relief ne sait rien du terrain qu'il ombre, il ne donne qu'une clarte ; la
+ * matiere, elle, reste choisie par `classer`.
  *
  * **Pure** : ni Phaser, ni hasard — le meme monde a chaque partie.
  */
 
-/** Le pas des facettes, en pixels : ~44 px a l'ecran au zoom du jeu. */
-export const PAS_FACETTE = 26;
-const RANG = PAS_FACETTE * 0.866;
+/**
+ * Le pas du treillis, en pixels du monde.
+ *
+ * Les collines font 90 a 230 px de large : un point tous les 20 px les suit
+ * sans peine, et la zone x3 entiere tient en 23 000 altitudes — une soixantaine
+ * de millisemes, une fois par monde.
+ */
+export const PAS_DU_RELIEF = 20;
 
 /**
  * Vers le soleil, dans le repere de la carte (x vers l'est, y vers le **sud**,
  * z vers le haut) : de l'ouest, un peu du sud, haut — celui de `rendre.py`.
  */
-const SOLEIL = (() => {
-  const v = [-0.62, 0.38, 1.6];
-  const n = Math.hypot(v[0]!, v[1]!, v[2]!);
-  return [v[0]! / n, v[1]! / n, v[2]! / n] as const;
-})();
+const SOLEIL = [-0.62, 0.38, 1.6] as const;
 
 /**
- * Les seuils des cinq marches, en ecart d'eclairage a un sol plat : sous -0,24
- * le ton sombre, puis sombre-corps, corps, corps-clair, clair au-dessus de 0,24.
- * ⚠️ Plus serres (0,16), chaque facette sautait de ton : on lisait un
- * camouflage de triangles au lieu de collines. Les tons extremes sont pour les
- * vraies pentes.
+ * De combien on exagere les pentes avant de les eclairer.
+ *
+ * Mesure sur maquette : a 1, les collines se devinent a peine ; a 2,9 (la
+ * piste C, « le relief marque », refusee) elles creusent des zones sombres ou
+ * un monstre se voit moins. 1,6 les fait lire sans rien cacher.
  */
-const SEUILS = [-0.24, -0.07, 0.07, 0.24];
+const EXAGERATION = 1.6;
+
+/**
+ * Sur combien de pixels la terre monte depuis un rivage.
+ *
+ * ⚠️ **120, et pas plus que la marge des lacs.** `distanceATache` (le noyau) ne
+ * calcule la distance a un lac que dans une boite de 130 px autour de lui, et
+ * rend « tres loin » au-dela. Tant que cette rampe en demandait 240, l'altitude
+ * sautait d'une vingtaine de pixels le long du bord de la boite : un trait
+ * droit dans la prairie, que les facettes montraient comme une rangee de
+ * triangles sombres et qu'un relief lisse aurait montre net (trouve sur
+ * maquette le 11 novembre 2026).
+ */
+const RAMPE_DU_RIVAGE = 120;
 
 /**
  * L'altitude en un point, en pixels.
@@ -58,10 +80,12 @@ export function altitude(x: number, y: number): number {
   // La distance a l'eau la plus proche, quel que soit le monde : la mer sur
   // n'importe quel bord, un lac au milieu — la terre monte depuis chaque rive.
   const rivage = distanceALEau(x, y);
-  const terre = Math.min(1, Math.max(0, rivage / 240));
+  const terre = Math.min(1, Math.max(0, rivage / RAMPE_DU_RIVAGE));
   const douce = terre * terre * (3 - 2 * terre);
 
-  let h = douce * 40;
+  // ⚠️ Le plateau fait 22 px, plus 40 : la rampe est deux fois plus courte
+  // qu'avant, et a 40 la plage aurait fait un talus.
+  let h = douce * 22;
   h += douce * ((bruitLisse(x, y, 230, 61) - 0.5) * 2 * 60 + (bruitLisse(x, y, 90, 62) - 0.5) * 2 * 10);
 
   // De combien on est dans la roche : une chaine sur un bord ou un massif au
@@ -81,86 +105,77 @@ export function altitude(x: number, y: number): number {
   return h;
 }
 
-/** La marche de lumiere d'une facette, de -2 (sombre) a 2 (clair). */
-function marcheDe(ax: number, ay: number, ah: number, bx: number, by: number, bh: number, cx: number, cy: number, ch: number): number {
-  const ux = bx - ax;
-  const uy = by - ay;
-  const uh = bh - ah;
-  const vx = cx - ax;
-  const vy = cy - ay;
-  const vh = ch - ah;
-  let nx = uy * vh - uh * vy;
-  let ny = uh * vx - ux * vh;
-  let nz = ux * vy - uy * vx;
-  if (nz < 0) {
-    nx = -nx;
-    ny = -ny;
-    nz = -nz;
-  }
-  const n = Math.hypot(nx, ny, nz) || 1;
-  const ecart = (nx * SOLEIL[0] + ny * SOLEIL[1] + nz * SOLEIL[2]) / n - SOLEIL[2];
-  let marche = -2;
-  for (const s of SEUILS) if (ecart > s) marche += 1;
-  return marche;
+/** Ce que le relief dit d'un point du monde. */
+export interface Relief {
+  /**
+   * La clarte du sol au point (x, y) : 1 a plat, plus si la pente regarde le
+   * soleil, moins a contre-jour. Bornee de 0,25 a 1,6.
+   */
+  lumiere(x: number, y: number): number;
+  /**
+   * De combien le point domine ce qui l'entoure, de -1 (un creux) a 1 (une
+   * butte). C'est ce qui seche l'herbe des hauteurs et engraisse celle des fonds.
+   */
+  bosse(x: number, y: number): number;
 }
 
 /**
- * Les facettes d'une carte : un reseau de triangles dont chaque rangee est
- * decalee d'un demi-pas, et la marche de lumiere de chacun, calculee une fois.
+ * Releve le relief d'une carte : l'altitude sur un treillis, puis la clarte et
+ * la bosse de chaque point du treillis, calculees une fois.
+ *
+ * ⚠️ **Eclairage linearise, et c'est une mesure.** Le produit exact entre la
+ * normale et le soleil fait perdre sa clarte a toute surface bosselee (sur la
+ * maquette, l'eboulis sortait noir, clarte mediane 0,42). Ici une pente vers le
+ * soleil s'eclaircit d'autant que l'autre s'assombrit : le sol garde en moyenne
+ * le ton de sa matiere.
  */
-export interface Relief {
-  /** La marche de lumiere du pixel (x, y), de -2 a 2. */
-  marche(x: number, y: number): number;
-}
-
 export function releverLeRelief(largeur: number, hauteur: number): Relief {
-  const colonnes = Math.ceil(largeur / PAS_FACETTE) + 3;
-  const rangees = Math.ceil(hauteur / RANG) + 2;
-  // Les sommets : la rangee j est decalee d'un demi-pas si j est impair. La
-  // colonne 0 est un pas a gauche de la carte, pour couvrir le bord.
-  const hauteurs = new Float32Array(colonnes * rangees);
-  const sx = (i: number, j: number) => (i - 1 + (j % 2) * 0.5) * PAS_FACETTE;
-  const sy = (j: number) => j * RANG;
-  for (let j = 0; j < rangees; j += 1) {
-    for (let i = 0; i < colonnes; i += 1) hauteurs[j * colonnes + i] = altitude(sx(i, j), sy(j));
+  const pas = PAS_DU_RELIEF;
+  // Le point (0, 0) du treillis est deux pas avant la carte : la pente d'un
+  // point se lit sur ses deux voisins, et la bosse sur un carre autour de lui.
+  const colonnes = Math.ceil(largeur / pas) + 5;
+  const lignes = Math.ceil(hauteur / pas) + 5;
+  const altitudes = new Float32Array(colonnes * lignes);
+  for (let j = 0; j < lignes; j += 1) {
+    for (let i = 0; i < colonnes; i += 1) altitudes[j * colonnes + i] = altitude((i - 2) * pas, (j - 2) * pas);
   }
-  const h = (i: number, j: number) => hauteurs[j * colonnes + i] ?? 0;
+  const a = (i: number, j: number) =>
+    altitudes[Math.min(lignes - 1, Math.max(0, j)) * colonnes + Math.min(colonnes - 1, Math.max(0, i))]!;
 
-  // Trois triangles possibles par case de la rangee du haut (voir `marche`) :
-  // [0] celui de gauche pointe en bas, [1] celui du milieu pointe en haut,
-  // [2] celui de droite pointe en bas. On les calcule tous d'avance.
-  const facettes = new Int8Array(colonnes * rangees * 3);
-  for (let j = 0; j + 1 < rangees; j += 1) {
-    // Le decalage de la rangee du bas par rapport a celle du haut, en indices :
-    // si le haut est pair (decale de 0), le bas (decale de 0,5) a le meme i a
-    // sa droite ; si le haut est impair, le bas est decale de -0,5, donc son
-    // sommet « sous-droite » est i + 1.
-    const d = j % 2;
-    for (let i = 0; i + 1 < colonnes; i += 1) {
-      const bi = i + d;
-      const T0 = [sx(i, j), sy(j), h(i, j)] as const;
-      const T1 = [sx(i + 1, j), sy(j), h(i + 1, j)] as const;
-      const B0 = [sx(bi - 1, j + 1), sy(j + 1), h(bi - 1, j + 1)] as const;
-      const B1 = [sx(bi, j + 1), sy(j + 1), h(bi, j + 1)] as const;
-      const B2 = [sx(bi + 1, j + 1), sy(j + 1), h(bi + 1, j + 1)] as const;
-      const k = (j * colonnes + i) * 3;
-      facettes[k] = marcheDe(...B0, ...B1, ...T0);
-      facettes[k + 1] = marcheDe(...T0, ...T1, ...B1);
-      facettes[k + 2] = marcheDe(...B1, ...B2, ...T1);
+  const clartes = new Float32Array(colonnes * lignes);
+  const bosses = new Float32Array(colonnes * lignes);
+  // Le carre sur lequel on moyenne le terrain d'alentour : trois pas de chaque cote.
+  const R = 3;
+  for (let j = 0; j < lignes; j += 1) {
+    for (let i = 0; i < colonnes; i += 1) {
+      const gx = ((a(i + 1, j) - a(i - 1, j)) / (2 * pas)) * EXAGERATION;
+      const gy = ((a(i, j + 1) - a(i, j - 1)) / (2 * pas)) * EXAGERATION;
+      const clarte = 1 + (gx * -SOLEIL[0] - gy * SOLEIL[1]) / SOLEIL[2];
+      clartes[j * colonnes + i] = Math.min(1.6, Math.max(0.25, clarte));
+
+      let somme = 0;
+      for (let dj = -R; dj <= R; dj += 1) for (let di = -R; di <= R; di += 1) somme += a(i + di, j + dj);
+      const autour = somme / ((2 * R + 1) * (2 * R + 1));
+      bosses[j * colonnes + i] = Math.min(1, Math.max(-1, (a(i, j) - autour) / 40));
     }
   }
 
+  /** Lit un champ du treillis entre ses quatre points les plus proches. */
+  const lire = (champ: Float32Array, x: number, y: number): number => {
+    const fx = Math.min(colonnes - 1.001, Math.max(0, x / pas + 2));
+    const fy = Math.min(lignes - 1.001, Math.max(0, y / pas + 2));
+    const i = Math.floor(fx);
+    const j = Math.floor(fy);
+    const tx = fx - i;
+    const ty = fy - j;
+    const k = j * colonnes + i;
+    const haut = champ[k]! + (champ[k + 1]! - champ[k]!) * tx;
+    const bas = champ[k + colonnes]! + (champ[k + colonnes + 1]! - champ[k + colonnes]!) * tx;
+    return haut + (bas - haut) * ty;
+  };
+
   return {
-    marche(x: number, y: number): number {
-      const j = Math.floor(y / RANG);
-      const v = y / RANG - j;
-      const u = x / PAS_FACETTE + 1 - (j % 2) * 0.5;
-      const i = Math.floor(u);
-      const f = u - i;
-      const k = (j * colonnes + i) * 3;
-      if (f < 0.5 * v) return facettes[k] ?? 0;
-      if (f < 1 - 0.5 * v) return facettes[k + 1] ?? 0;
-      return facettes[k + 2] ?? 0;
-    },
+    lumiere: (x, y) => lire(clartes, x, y),
+    bosse: (x, y) => lire(bosses, x, y),
   };
 }

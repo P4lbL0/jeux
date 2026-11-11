@@ -63,13 +63,18 @@ import {
  *
  * Trois couches, de la plus grande a la plus petite :
  *
- * 1. **Le sol** : la matiere, dans le ton de sa **facette de relief**
- *    (`relief.ts`, depuis le 18 septembre 2026) — des collines et une montagne
- *    eclairees par le soleil des sprites Blender. Les larges taches d'avant ne
- *    restent que sur l'eau, qui est plate.
+ * 1. **Le sol** : la matiere, dans le ton que lui donne le **relief**
+ *    (`relief.ts`) — des collines et une montagne eclairees par le soleil des
+ *    sprites Blender. Depuis le 11 novembre 2026 (chantier 6.45, la piste A
+ *    tranchee sur maquettes), ce ton n'est plus l'aplat d'une facette : la
+ *    clarte est continue, une trame et des taches cassent le bord entre deux
+ *    tons, et la prairie a **trois herbes**. Les larges taches d'avant ne
+ *    restent seules que sur l'eau, qui est plate.
  * 2. **Les lisieres** : le rivage tremble d'un pixel ou deux au lieu de suivre
  *    un escalier de tuiles ; l'ecume se pose ou le haut-fond touche le sable ;
- *    une crete claire souligne le haut de la roche.
+ *    une crete claire souligne le haut de la roche. Entre deux **terres**
+ *    (l'herbe et le sable, le sous-bois, l'eboulis), la lisiere se **fond** :
+ *    les deux matieres s'y melangent pixel a pixel sur quelques pixels.
  * 3. **Les details, rares** : une touffe, un caillou, un os, une fissure — une
  *    case sur six, jamais toutes. C'est l'irregularite qui casse l'oeil, pas
  *    la quantite (§4.30).
@@ -126,7 +131,7 @@ const INDEX: Record<Terrain, number> = Object.fromEntries(
 
 /**
  * Les cinq tons d'une matiere, du plus sombre au plus clair : c'est ce que le
- * relief choisit pour chaque facette. Les memes marches que `reduire.py` pour
+ * relief choisit pour chaque pixel. Les memes marches que `reduire.py` pour
  * les sprites Blender, pour que le sol et ce qui est pose dessus s'eclairent
  * pareil.
  */
@@ -134,6 +139,36 @@ function cinqTons(m: Matiere): readonly number[] {
   return [m.sombre, melanger(m.sombre, m.corps, 0.5), m.corps, melanger(m.corps, m.clair, 0.5), m.clair];
 }
 const TONS: readonly (readonly number[])[] = TERRAINS.map((t) => cinqTons(MATIERES[t]));
+
+/**
+ * Trois herbes pour une prairie (chantier 6.45, 11 novembre 2026).
+ *
+ * « On dirait juste qu'on joue sur un tapis de jeu » : un seul vert sur des
+ * milliers de pixels fait un tapis, quel que soit son relief. La prairie a
+ * donc une herbe **seche** — sur les buttes et par grandes plaques — et une
+ * herbe **grasse** dans les creux. Ce ne sont pas des terrains : le jeu ne
+ * connait que « herbe », et c'est la peinture seule qui choisit, par la
+ * position. Les deux descendent du sol vert, donc des neuf couleurs — la seche
+ * tiree vers le sable, la grasse vers la bile sombre.
+ */
+const HERBE_SECHE = matiere(melanger(SOL_VERT.corps, SABLE.corps, 0.3));
+const HERBE_GRASSE = matiere(melanger(SOL_VERT.corps, melanger(C.bile, C.fer, 0.62), 0.6));
+const TONS_SECHE = cinqTons(HERBE_SECHE);
+const TONS_GRASSE = cinqTons(HERBE_GRASSE);
+/** Au-dessus, l'herbe est seche ; au-dessous du second, elle est grasse. */
+const SEUIL_SECHE = 0.74;
+const SEUIL_GRASSE = 0.47;
+
+/** Les trois corps de l'herbe, pour les tests : un pixel de prairie est l'un d'eux, a un ton pres. */
+export const HERBES: readonly Matiere[] = [SOL_VERT, HERBE_SECHE, HERBE_GRASSE];
+
+/**
+ * De combien une lisiere entre deux terres se fond, en pixels : chaque pixel
+ * regarde jusqu'a trois pixels a cote de lui, au hasard, et prend la terre
+ * qu'il y trouve. Le rivage, lui, ne se fond pas — l'eau a une ecume et un
+ * masque de houle qui veulent un bord net.
+ */
+const FONDU = 3;
 
 /** L'ecume du rivage : de l'eau claire poussee vers l'os. */
 const ECUME = melanger(HAUT_FOND.clair, C.os, 0.55);
@@ -201,13 +236,38 @@ function echantillonner(x0: number, y0: number, largeur: number, hauteur: number
  * plus proche. Hors du treillis, le bord le plus proche.
  */
 export function classer(champ: Champ, x: number, y: number): Terrain {
+  return TERRAINS[indexEn(champ, x, y)]!;
+}
+
+/** La meme lecture, en index de `TERRAINS` : c'est ce que la peinture range. */
+function indexEn(champ: Champ, x: number, y: number): number {
   let i = Math.round((x - champ.ox) / champ.pas);
   let j = Math.round((y - champ.oy) / champ.pas);
   if (i < 0) i = 0;
   else if (i >= champ.colonnes) i = champ.colonnes - 1;
   if (j < 0) j = 0;
   else if (j >= champ.lignes) j = champ.lignes - 1;
-  return TERRAINS[champ.terrains[j * champ.colonnes + i]!]!;
+  return champ.terrains[j * champ.colonnes + i]!;
+}
+
+/**
+ * La nature du sol d'un pixel du monde, **lisiere fondue comprise**.
+ *
+ * `(jx, jy)` est le point deja tremble (le tremblement dessine la lisiere,
+ * `classerUneRangee`). Si c'est une terre, le pixel regarde encore a `FONDU`
+ * pixels de la, au hasard : pres d'une lisiere il tombe une fois sur deux de
+ * l'autre cote, et les deux terres se melangent. ⚠️ Jamais avec de l'eau : un
+ * pixel d'eau reste de l'eau, et une terre ne devient pas de l'eau.
+ */
+function terrainFondu(champ: Champ, x: number, y: number, jx: number, jy: number): number {
+  const net = indexEn(champ, jx, jy);
+  if (net < INDEX.sable) return net;
+  const fondu = indexEn(
+    champ,
+    jx + Math.round((bruit(x, y, 73) - 0.5) * 2 * FONDU),
+    jy + Math.round((bruit(x, y, 74) - 0.5) * 2 * FONDU),
+  );
+  return fondu < INDEX.sable ? net : fondu;
 }
 
 /** Le champ du monde courant, pour les tests. */
@@ -279,6 +339,10 @@ interface Tampons {
   regions: Float32Array;
   taches: Float32Array;
   tachesFines: Float32Array;
+  /** La trame qui casse le bord entre deux tons */
+  trame: Float32Array;
+  /** Les grandes plaques d'herbe seche */
+  secheresse: Float32Array;
   rangee: Uint8Array;
   rangeeDuDessus: Uint8Array;
 }
@@ -291,6 +355,8 @@ function tamponsPour(largeur: number): Tampons {
     regions: new Float32Array(l),
     taches: new Float32Array(l),
     tachesFines: new Float32Array(l),
+    trame: new Float32Array(l),
+    secheresse: new Float32Array(l),
     rangee: new Uint8Array(l),
     rangeeDuDessus: new Uint8Array(l),
   };
@@ -330,7 +396,7 @@ function classerUneRangee(
     const x = morceau.x0 + i;
     const jx = x + Math.round((tremblementX[i]! - 0.5) * 2 * TREMBLEMENT);
     const jy = y + Math.round((tremblementY[i]! - 0.5) * 2 * TREMBLEMENT);
-    sortie[i] = INDEX[classer(champ, jx, jy)];
+    sortie[i] = terrainFondu(champ, x, y, jx, jy);
   }
 }
 
@@ -345,13 +411,15 @@ export function peindreDesRangees(morceau: CartePeinte, atelier: Atelier, j0: nu
   const { champ, relief, tampons } = atelier;
   const { largeur, pixels, terrains } = morceau;
   const large = largeur + DEBORD_A_DROITE;
-  const { regions, taches, tachesFines, rangee, rangeeDuDessus } = tampons;
+  const { regions, taches, tachesFines, trame, secheresse, rangee, rangeeDuDessus } = tampons;
 
   for (let j = j0; j < j1; j += 1) {
     const y = morceau.y0 + j;
     ligneDeBruit(y, 52, 5, large, regions, morceau.x0);
     ligneDeBruit(y, 22, 3, large, taches, morceau.x0);
     ligneDeBruit(y, 8, 4, large, tachesFines, morceau.x0);
+    ligneDeBruit(y, 2.4, 6, large, trame, morceau.x0);
+    ligneDeBruit(y, 150, 7, large, secheresse, morceau.x0);
 
     // 1. La nature du sol, avec la lisiere qui tremble.
     classerUneRangee(morceau, champ, tampons, y, rangee);
@@ -376,8 +444,46 @@ export function peindreDesRangees(morceau: CartePeinte, atelier: Atelier, j0: nu
         if (v < 0.3) couleur = melanger(m.corps, m.sombre, 0.35);
         else if (v > 0.74) couleur = melanger(m.corps, m.clair, 0.22);
       } else {
-        // La terre prend le ton de sa facette : c'est le relief (`relief.ts`).
-        couleur = TONS[rangee[i]!]![relief.marche(x, y) + 2]!;
+        // La terre prend le ton que lui donne le relief (`relief.ts`) : le corps
+        // a plat, plus clair vers le soleil, plus sombre a contre-jour.
+        const k = rangee[i]!;
+        let clarte = relief.lumiere(x, y);
+        // La roche et son eboulis montent raide dans l'altitude : on en garde
+        // le sens, pas la force — sinon tout un versant sort noir.
+        if (k >= INDEX.eboulis) clarte = 1 + (clarte - 1) * 0.3;
+        // ⚠️ **Sept tons et demi par unite de clarte, puis du bruit.** La trame
+        // (un grain par pixel, un bruit de deux pixels) casse le bord entre deux
+        // tons, qui sinon dessinerait des courbes de niveau ; les taches (huit
+        // et vingt-deux pixels) font varier la prairie sans rien eclairer. ⚠️
+        // Essaye et refuse sur maquette : eclairer de petites bosses — de cote,
+        // elles font des stries partout, de la moquette.
+        const grain = bruit(x, y, 71);
+        // (La pierre se tache moins que la prairie : a pleine force, la roche
+        // faisait un nuage d'encre.)
+        const tache = k >= INDEX.eboulis ? 0.4 : 1;
+        const ton =
+          2 +
+          (clarte - 1) * 7.5 +
+          (grain - 0.5) * 0.45 +
+          (trame[i]! - 0.5) * 0.5 +
+          ((tachesFines[i]! - 0.5) * 0.7 + (taches[i]! - 0.5)) * tache;
+        const marche = ton < 0.5 ? 0 : ton >= 3.5 ? 4 : Math.round(ton);
+
+        let tons = TONS[k]!;
+        if (k === INDEX.herbe) {
+          // Laquelle des trois herbes : de grandes plaques, les buttes plus
+          // seches que les creux, et un tirage qui effrange les bords.
+          const bosse = relief.bosse(x, y);
+          const seche =
+            secheresse[i]! * 0.6 +
+            regions[i]! * 0.4 +
+            (bosse < -0.3 ? -0.3 : bosse > 0.3 ? 0.3 : bosse) * 0.5 +
+            bruit(x, y, 72) * 0.16 +
+            tachesFines[i]! * 0.14;
+          if (seche > SEUIL_SECHE) tons = TONS_SECHE;
+          else if (seche < SEUIL_GRASSE) tons = TONS_GRASSE;
+        }
+        couleur = tons[marche]!;
       }
 
       // La crete de la montagne : la roche accroche la lumiere la ou elle
@@ -527,7 +633,7 @@ function terrainSeme(carte: CartePeinte, champ: Champ, x: number, y: number): Te
   if (i >= 0) return TERRAINS[carte.terrains[i]!]!;
   const jx = x + Math.round((bruitLisse(x, y, 11, 1) - 0.5) * 2 * TREMBLEMENT);
   const jy = y + Math.round((bruitLisse(x, y, 11, 2) - 0.5) * 2 * TREMBLEMENT);
-  return classer(champ, jx, jy);
+  return TERRAINS[terrainFondu(champ, x, y, jx, jy)]!;
 }
 
 /**
@@ -772,10 +878,12 @@ export function peindreDegat(
  * fois par partie, comme un degat (§4.30 : « la place et les chemins
  * reviennent comme etats de case ») — aucun objet, aucun cout par image.
  *
- * Les bords tremblent au bruit et la terre est marbree comme un degat ; le
- * relief reste visible dessous, parce que la terre prend la clarte du pixel
- * qu'elle recouvre. On ne peint que sur l'herbe, le sable et le sous-bois :
- * jamais sur l'eau ni la roche.
+ * Les bords tremblent au bruit ; le relief reste visible dessous, parce que
+ * la terre prend **le ton du pixel qu'elle recouvre** — sombre sur un pixel
+ * sombre, claire sur un clair (11 novembre 2026 : avant, elle avait son propre
+ * marbrage, tire d'un autre bruit, et la place faisait une tache de camouflage
+ * posee sur un sol qui, lui, venait de se calmer). On ne peint que sur
+ * l'herbe, le sable et le sous-bois : jamais sur l'eau ni la roche.
  */
 
 /** Les terrains sur lesquels un village foule son sol. */
@@ -838,7 +946,7 @@ function luminanceDe(couleur: number): number {
  *
  * Trois couches, dans l'ordre : la place, les rues, le parvis. Chacune se
  * fond dans le pixel qu'elle recouvre avec sa part, et prend sa clarte — la
- * facette de relief se voit encore a travers la terre.
+ * relief se voit encore a travers la terre.
  *
  * @param sel une graine : deux villages n'ont pas les memes bords
  */
@@ -908,16 +1016,25 @@ export function peindreLeSolDuVillage(carte: CartePeinte, sol: SolDuVillage, sel
   y1 = Math.min(carte.y0 + hauteur, Math.ceil(y1));
   if (x1 <= x0 || y1 <= y0) return;
 
-  const teinte = (m: Matiere, x: number, y: number, decalage: number): number => {
-    const v = bruitLisse(x + (sel + decalage) * 3, y + (sel + decalage) * 5, 5, 13);
-    return v < 0.38 ? m.sombre : v > 0.76 ? m.clair : m.corps;
-  };
+  const tonsPlace = cinqTons(PLACE);
+  const tonsRue = cinqTons(RUE);
 
   for (let y = y0; y < y1; y += 1) {
     for (let x = x0; x < x1; x += 1) {
       const i = (y - carte.y0) * largeur + (x - carte.x0);
       const terrain = TERRAINS[terrains[i]!];
       if (!terrain || !TERRAINS_FOULES.has(terrain)) continue;
+
+      // Le ton du pixel d'origine, lu a sa clarte : c'est lui que la terre
+      // reprend, pour que le relief et les taches du sol passent a travers.
+      const o = i * 4;
+      const r = pixels[o]!;
+      const g = pixels[o + 1]!;
+      const b = pixels[o + 2]!;
+      const base = luminanceDe(MATIERES[terrain].corps);
+      const rapport = base > 0 ? luminance(r, g, b) / base : 1;
+      const marche = rapport < 0.77 ? 0 : rapport < 0.92 ? 1 : rapport < 1.1 ? 2 : rapport < 1.32 ? 3 : 4;
+      const facteur = Math.max(0.78, Math.min(1.22, rapport));
 
       // 1. La place : une terre battue au bord irregulier, usee par endroits.
       let partPlace = 0;
@@ -949,13 +1066,13 @@ export function peindreLeSolDuVillage(carte: CartePeinte, sol: SolDuVillage, sel
             const u = ((xx % PAVE) + PAVE) % PAVE;
             const v = ((y % PAVE) + PAVE) % PAVE;
             const n = bruit(Math.floor(xx / PAVE), rangee, sel + 13);
-            if (n < 0.22) couleurRue = teinte(RUE, x, y, 1); // un pave parti
+            if (n < 0.22) couleurRue = tonsRue[marche]!; // un pave parti
             else if (u === 0 || v === 0) couleurRue = PAVES.sombre;
             else if (n < 0.66) couleurRue = PAVES.corps;
             else if (n < 0.9) couleurRue = PAVES.clair;
             else couleurRue = PAVES.sombre;
           } else {
-            couleurRue = teinte(RUE, x, y, 1);
+            couleurRue = tonsRue[marche]!;
           }
         }
       }
@@ -975,7 +1092,7 @@ export function peindreLeSolDuVillage(carte: CartePeinte, sol: SolDuVillage, sel
           const v = ((y % PAVE) + PAVE) % PAVE;
           const n = bruit(Math.floor(xx / PAVE), rangee, sel + 5);
           const usure = 0.1 + 0.55 * (dp / sol.parvis.rayon) ** 2;
-          if (n < usure) couleurParvis = teinte(PLACE, x, y, 2); // un pave parti
+          if (n < usure) couleurParvis = tonsPlace[marche]!; // un pave parti
           else if (u === 0 || v === 0) couleurParvis = PAVES.sombre;
           else if (n < 0.62) couleurParvis = PAVES.corps;
           else if (n < 0.88) couleurParvis = PAVES.clair;
@@ -985,29 +1102,24 @@ export function peindreLeSolDuVillage(carte: CartePeinte, sol: SolDuVillage, sel
 
       if (partPlace <= 0 && partRue <= 0 && partParvis <= 0) continue;
 
-      // La clarte du pixel d'origine, pour que le relief se voie encore.
-      const o = i * 4;
-      const r = pixels[o]!;
-      const g = pixels[o + 1]!;
-      const b = pixels[o + 2]!;
-      const base = luminanceDe(MATIERES[terrain].corps);
-      const facteur = base > 0 ? Math.max(0.78, Math.min(1.22, luminance(r, g, b) / base)) : 1;
-
       let cr = r;
       let cg = g;
       let cb = b;
-      const poser = (couleur: number, part: number) => {
+      // ⚠️ La terre est deja au ton du pixel (`marche`) : seule la pierre des
+      // paves, qui a ses propres valeurs, se module encore a sa clarte.
+      const poser = (couleur: number, part: number, f: number) => {
         if (part <= 0) return;
-        const rr = Math.min(255, ((couleur >> 16) & 0xff) * facteur);
-        const gg = Math.min(255, ((couleur >> 8) & 0xff) * facteur);
-        const bb = Math.min(255, (couleur & 0xff) * facteur);
+        const rr = Math.min(255, ((couleur >> 16) & 0xff) * f);
+        const gg = Math.min(255, ((couleur >> 8) & 0xff) * f);
+        const bb = Math.min(255, (couleur & 0xff) * f);
         cr += (rr - cr) * part;
         cg += (gg - cg) * part;
         cb += (bb - cb) * part;
       };
-      poser(teinte(PLACE, x, y, 0), partPlace);
-      poser(couleurRue, partRue);
-      poser(couleurParvis, partParvis);
+      const pave = (couleur: number) => couleur !== tonsRue[marche] && couleur !== tonsPlace[marche];
+      poser(tonsPlace[marche]!, partPlace, 1);
+      poser(couleurRue, partRue, pave(couleurRue) ? facteur : 1);
+      poser(couleurParvis, partParvis, pave(couleurParvis) ? facteur : 1);
 
       pixels[o] = Math.round(cr);
       pixels[o + 1] = Math.round(cg);

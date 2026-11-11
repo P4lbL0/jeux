@@ -3,6 +3,7 @@ import { MONDE, terrainEn } from "../../core/carte";
 import {
   classer,
   champDuMonde,
+  HERBES,
   PAS_DU_CHAMP,
   peindreDegat,
   peindreLaCarte,
@@ -79,7 +80,9 @@ describe("La carte peinte", () => {
     expect(terrainDIndex(carte.terrains[200 * carte.largeur + 180]!)).toBe("mer");
     expect(ecart(lire(180, 200), EAU.corps)).toBeLessThan(60);
     expect(terrainDIndex(carte.terrains[200 * carte.largeur + 1200]!)).toBe("herbe");
-    expect(ecart(lire(1200, 200), SOL_VERT.corps)).toBeLessThan(60);
+    // La prairie a trois herbes depuis le 11 novembre 2026 (§4.30) : un pixel
+    // d'herbe est l'une d'elles, a ses tons pres — jamais la couleur d'un autre sol.
+    expect(Math.min(...HERBES.map((h) => ecart(lire(1200, 200), h.corps)))).toBeLessThan(60);
     // Et le sable est bien plus clair que l'herbe, pour que le rivage se lise.
     expect(ecart(SABLE.corps, SOL_VERT.corps)).toBeGreaterThan(80);
   });

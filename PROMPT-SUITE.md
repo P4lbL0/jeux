@@ -193,7 +193,14 @@ ciel, et le ciel est fini.
 > esprit**, les torches **toutes seules** sur les tours et les portes ; la roche en gradins
 > **refusée**, avec une demande plus large — que tout ce qui est posé (arbres, rochers,
 > maisons) fasse écho au nouveau sol. **L'essai 2** y répond (les sprites réduits autrement,
-> la roche en volume low-poly : `village-essai-2-*.png`) ; réponse : **« oui, mais refaire les arbres »**. **L'essai 3** (arbres et rochers remodelés dans Blender : `village-essai-3-*.png`) **attend son œil**. Ensuite : le
+> la roche en volume low-poly : `village-essai-2-*.png`) ; réponse : **« oui, mais refaire les arbres »**. **L'essai 3** (arbres et rochers remodelés dans Blender : `village-essai-3-*.png`) : **« ok c'est bon »**. Et **les murs, les tours et les portes se refont dans Blender après le sol** (maquette sur le bois d'abord).
+>
+> ✅ **Étape 2, dans le jeu** (11 novembre) : le sol de jour (`relief.ts` sans facettes, trois
+> herbes, lisières fondues, sol du village au ton du sol) et les 33 sprites de bâtiments et de
+> décor régénérés avec le grain (`reduire_au_grain`, arbres et rochers remodelés). La cuisson
+> coûte un quart de plus, mesuré contre un témoin. **La suite, dans l'ordre** : les ombres au
+> pied des objets et l'ombre portée des murs ; la roche en volume (`massif` de la maquette) ;
+> la maquette des murs en Blender ; la lumière de nuit en dernier, mesurée sous la horde. Ensuite : le
 > sol de jour dans `dessin/carte.ts`, les ombres des murs, la nouvelle réduction des sprites,
 > le massif, et la lumière de nuit en dernier, mesurée contre un témoin (`SUITE.md`, « Le
 > chantier 6.45, étape 1 » ; §4.30, « Tranché le 11 novembre 2026 »).
