@@ -189,10 +189,14 @@ ciel, et le ciel est fini.
 > sans attendre la partie vérifiée de bout en bout) : le même village sur un sol repeint, de
 > jour et de nuit, trois pistes de sol, dans `captures/planches/2026-11-11-maquettes-sol-lumiere/`
 > et sur https://claude.ai/artifact/WGn4YQJ5iVvsvvS4Pe5S3n. **Rien n'est codé dans `src/`.**
-> **La suite : son verdict** (la piste du sol, la nuit et ses torches, la roche qui se
-> dresse), puis le sol de jour dans `dessin/carte.ts`, les ombres des murs, et la lumière de
-> nuit en dernier, mesurée contre un témoin (`SUITE.md`, « Le chantier 6.45, étape 1 » ;
-> §4.30, « Les maquettes »).
+> **Son verdict, le même jour** : le sol en **piste A (relief doux)**, la nuit **dans cet
+> esprit**, les torches **toutes seules** sur les tours et les portes ; la roche en gradins
+> **refusée**, avec une demande plus large — que tout ce qui est posé (arbres, rochers,
+> maisons) fasse écho au nouveau sol. **L'essai 2** y répond (les sprites réduits autrement,
+> la roche en volume low-poly : `village-essai-2-*.png`) et **attend son œil**. Ensuite : le
+> sol de jour dans `dessin/carte.ts`, les ombres des murs, la nouvelle réduction des sprites,
+> le massif, et la lumière de nuit en dernier, mesurée contre un témoin (`SUITE.md`, « Le
+> chantier 6.45, étape 1 » ; §4.30, « Tranché le 11 novembre 2026 »).
 > Ce qui suit reste vrai pour **la reprise des builds, après le 6.4**.
 
 **La suite du jalon 6.2, la horde.** Le profilage est fait, le §4.33 est réécrit avec ses

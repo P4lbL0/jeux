@@ -4712,11 +4712,40 @@ arêtes marquées), **C, le relief marqué** (pentes ×1,8, versants à l'ombre,
 - ⚠️ **L'altitude du jeu a une marche droite**, et le relief lisse la montre comme un trait :
   voir « Dettes et pièges connus ».
 
-**Ce qui attend le verdict d'Angelos**, avant de coder : la piste du sol ; la nuit, et d'où
-viennent les torches (elles n'existent pas dans le jeu) ; la roche qui se dresse. Puis, dans
-l'ordre le moins risqué : le sol de jour dans `dessin/carte.ts` (la cuisson par morceaux ne
-change pas), les ombres des murs, et seulement ensuite la lumière de nuit, qui se mesure
-contre un témoin sous la horde.
+**Le verdict d'Angelos, le même jour** (quatre questions à choix) :
+- le sol : **la piste A, le relief doux** ;
+- la nuit : **oui, dans cet esprit** (lune, feux, fenêtres) ;
+- les torches : **elles viennent toutes seules**, sur chaque tour et chaque porte debout ;
+- la roche en gradins peints : **refusée** — « j'aime pas comment ça rend, et pareil pour les
+  arbres et rochers, je pense qu'il faut tout revoir, maisons etc., pour que ça fasse écho
+  avec la refonte du sol ».
+
+**L'essai 2, en réponse** (même dossier : `village-essai-2-*.png`, `loin-essai-2-*.png`,
+`planche-4-essai-2.png`, `sprites-avant-apres.png`) — tout dans le même langage, **sans
+remodeler un seul objet** :
+- **les sprites Blender repassés dans le langage du sol** (`.tmp/maquette-sol/reduire2.py`) :
+  mêmes rendus bruts que `reduire.py` (`.tmp/blender/*_id.png`, `*_lumiere.png`), mais la
+  marche de lumière devient **continue** et une trame casse le bord entre deux tons, chaque
+  matière a son **grain** (le feuillage par touffes, le bois en fil, la pierre piquée), et le
+  contour de ce qui pousse (arbres, rochers, souches) prend le **ton de fond de sa matière** au
+  lieu du fer pur. Ce qui est bâti garde son trait de fer ;
+- **les murs, les tours et les portes** ne sortent pas de Blender : un grain posé sur leurs
+  textures (`grain_murs.py`), que `murs.ts` devra dessiner lui-même ;
+- **la roche en vrai volume** (`sol.py`, `massif`) : un maillage low-poly du massif (des points
+  sur une grille secouée de 13 px, triangulés, une hauteur tirée de `profondeurDeRoche`), vu
+  comme les sprites — la hauteur monte dans l'image de 0,82 px par pixel — et peint **du fond
+  vers le devant**, chaque facette à plat dans le ton que lui donne le soleil. Pas de Blender :
+  c'est ce que la cuisson de la carte saura faire pour n'importe quel monde tiré ;
+- pour les poser dans le jeu sans toucher à `src/`, `capturer.mjs` **remplace les textures à
+  chaud** (`textures.remove` puis `addImage`, puis `setTexture` sur chaque porteur) avant la
+  prise de vue. Deux pièges : une journée sur trois **tire la pluie**, qui tombe dans le calque
+  des bâtiments et fait échouer le calage (0 % au lieu de 77) — forcer `meteo.temps = "sec"` ;
+  et un long script collé dans le shell plante avant de tourner (l'écrire dans un fichier).
+
+**Ce qui attend encore son œil** : l'essai 2. Puis, dans l'ordre le moins risqué : le sol de
+jour dans `dessin/carte.ts` (la cuisson par morceaux ne change pas), les ombres des murs, la
+nouvelle réduction des sprites (`reduire.py`, puis `npm run sprites`), le massif, et la
+lumière de nuit en dernier, qui se mesure contre un témoin sous la horde.
 
 ## Dettes et pièges connus
 
