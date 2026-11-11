@@ -193,7 +193,7 @@ ciel, et le ciel est fini.
 > esprit**, les torches **toutes seules** sur les tours et les portes ; la roche en gradins
 > **refusée**, avec une demande plus large — que tout ce qui est posé (arbres, rochers,
 > maisons) fasse écho au nouveau sol. **L'essai 2** y répond (les sprites réduits autrement,
-> la roche en volume low-poly : `village-essai-2-*.png`) et **attend son œil**. Ensuite : le
+> la roche en volume low-poly : `village-essai-2-*.png`) ; réponse : **« oui, mais refaire les arbres »**. **L'essai 3** (arbres et rochers remodelés dans Blender : `village-essai-3-*.png`) **attend son œil**. Ensuite : le
 > sol de jour dans `dessin/carte.ts`, les ombres des murs, la nouvelle réduction des sprites,
 > le massif, et la lumière de nuit en dernier, mesurée contre un témoin (`SUITE.md`, « Le
 > chantier 6.45, étape 1 » ; §4.30, « Tranché le 11 novembre 2026 »).

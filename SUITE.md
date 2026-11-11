@@ -4742,7 +4742,31 @@ remodeler un seul objet** :
   des bâtiments et fait échouer le calage (0 % au lieu de 77) — forcer `meteo.temps = "sec"` ;
   et un long script collé dans le shell plante avant de tourner (l'écrire dans un fichier).
 
-**Ce qui attend encore son œil** : l'essai 2. Puis, dans l'ordre le moins risqué : le sol de
+**Sa réponse à l'essai 2** : « oui, mais refaire les arbres » — le grain va, les formes des
+arbres et des rochers restent trop simples.
+
+**L'essai 3** (`village-essai-3-*.png`, `loin-essai-3-*.png`, `planche-5-essai-3.png`,
+`sprites-remodeles.png`) : les douze sprites d'arbres et de rochers **remodelés dans
+Blender**, par la chaîne du jeu. `.tmp/maquette-sol/blender/rendre2.py` importe
+`scripts/blender/rendre.py` tel quel (mêmes cadres, même caméra, même soleil), remplace
+quatre fabriques de `monde.py` et écrit ses rendus bruts à part (`rendre.TMP`), puis
+`reduire2.py` les réduit :
+- **le feuillu** : un tronc qui s'évase et se divise, puis **huit masses de feuillage** (une
+  couronne, une ceinture de cinq, deux retombées) en icosphères à 80 faces, au lieu de trois
+  boules à 20 ; la troisième variante est déséquilibrée ;
+- **le sapin** : quatre ou cinq jupes à huit pans, **espacées** de 0,52 à 0,62 pour que
+  chaque bord dépasse de la jupe du dessus ;
+- **l'arbre mort** : un fût coudé, un rameau au bout de chaque branche ;
+- **le rocher** : une caisse dont on rentre les coins du haut, puis son **enveloppe convexe**
+  — une dalle, un bloc dressé, un amas.
+Trois pièges : des jupes de sapin trop serrées se fondent en un cône lisse une fois le grain
+posé (le grain du feuillage est redescendu de 1,15 à 0,8 pour laisser parler le volume) ;
+des points tirés dans un ellipsoïde donnent un caillou pointu, pas un bloc ; et
+`convex_hull` rend le même sommet dans deux de ses listes — les dédoublonner avant
+`bmesh.ops.delete`. ⚠️ Les tailles des sprites n'ont pas bougé (`decor.ts`) : c'est ce qui
+permet de les poser dans le jeu par simple remplacement.
+
+**Ce qui attend encore son œil** : l'essai 3. Puis, dans l'ordre le moins risqué : le sol de
 jour dans `dessin/carte.ts` (la cuisson par morceaux ne change pas), les ombres des murs, la
 nouvelle réduction des sprites (`reduire.py`, puis `npm run sprites`), le massif, et la
 lumière de nuit en dernier, qui se mesure contre un témoin sous la horde.
