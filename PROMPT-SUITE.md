@@ -184,6 +184,15 @@ ciel, et le ciel est fini.
 > tapis de jeu ») ; la refonte du sol (relief, textures, ombres) se fait **avec** la lumière
 > de nuit, sur les mêmes cartes de relief rendues par Blender. **Commencer par des maquettes
 > en image** et attendre sa validation.
+>
+> ✅ **Les maquettes sont faites** (11 novembre 2026 — Angelos a choisi d'attaquer le 6.45
+> sans attendre la partie vérifiée de bout en bout) : le même village sur un sol repeint, de
+> jour et de nuit, trois pistes de sol, dans `captures/planches/2026-11-11-maquettes-sol-lumiere/`
+> et sur https://claude.ai/artifact/WGn4YQJ5iVvsvvS4Pe5S3n. **Rien n'est codé dans `src/`.**
+> **La suite : son verdict** (la piste du sol, la nuit et ses torches, la roche qui se
+> dresse), puis le sol de jour dans `dessin/carte.ts`, les ombres des murs, et la lumière de
+> nuit en dernier, mesurée contre un témoin (`SUITE.md`, « Le chantier 6.45, étape 1 » ;
+> §4.30, « Les maquettes »).
 > Ce qui suit reste vrai pour **la reprise des builds, après le 6.4**.
 
 **La suite du jalon 6.2, la horde.** Le profilage est fait, le §4.33 est réécrit avec ses

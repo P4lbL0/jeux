@@ -4645,7 +4645,88 @@ parties à six de front, ~40 min, quand la machine est libre), décider si le ch
 l'assassin restent juste sous la cible, puis la partie de 30 à 45 min vérifiée de bout en
 bout. Et pour le Nécromancien, sa **boule de neige** n'existe pas encore (§4.14).
 
+### Le chantier 6.45, étape 1 : les maquettes du sol et de la lumière (11 novembre 2026)
+
+Angelos a choisi d'attaquer le 6.45 sans attendre la partie vérifiée de bout en bout. Le
+§4.30 demande **des maquettes en image avant la première ligne de code** : elles sont
+faites, **rien n'a bougé dans `src/`**, et elles attendent son verdict.
+
+**Où les voir** : `captures/planches/2026-11-11-maquettes-sol-lumiere/` (trois planches
+d'ensemble et douze images en taille réelle), et la page de comparaison, avec une barre à
+glisser entre aujourd'hui et la maquette : https://claude.ai/artifact/WGn4YQJ5iVvsvvS4Pe5S3n.
+
+**Comment elles sont faites** — ce n'est pas un dessin à côté du jeu, c'est le jeu avec un
+autre sol. Trois scripts jetables dans `.tmp/maquette-sol/` (non commités) :
+- `capturer.mjs` lance une vraie partie (monde 21, village 21), fige la scène, **retire le
+  sol** (tout ce qui est à une profondeur ≤ -990 : la vignette, les morceaux, les chemins, la
+  houle) et photographie ce qui reste **sur noir puis sur blanc** — les deux captures rendent
+  la couleur et la transparence de chaque pixel, ombres des sprites comprises. Même chose pour
+  l'interface seule. Il sort aussi, par pixel du monde, le terrain (`carte.terrains` des
+  morceaux), l'altitude (`relief.altitude`, importée dans la page par `import("/src/…")`),
+  la distance à l'eau et à la roche, le plan du sol du village et la liste de ce qui est
+  affiché (clé, cadre, position, origine) ;
+- `sol.py` (numpy, scipy) repeint le sol **à la résolution du monde**, dans la palette du jeu
+  (les matières de `palette.ts`, six tons chacune) ;
+- `composer.py` repose les bâtiments et l'interface dessus, à l'écran, au plus proche voisin.
+  Il **cale** le coin de l'écran en cherchant où le sol d'aujourd'hui retombe sur la capture
+  (au dixième de pixel : 77 à 83 % de pixels identiques au bon endroit).
+
+**Ce que la maquette change, de jour** :
+- **plus de facettes** : l'altitude de `relief.ts`, lissée, éclairée par le soleil des
+  sprites, plus un grain par matière ; le ton tombe sur les cinq marches du jeu, avec une
+  trame de bruit qui casse les bords de marche ;
+- **des herbes** : sèche sur les hauteurs et autour du village, grasse dans les creux, rase
+  au bord de la terre battue — trois matières de plus, toutes descendues des neuf ;
+- **des bords qui se mélangent** entre terrains (un score par terrain, flouté, plus un bruit) ;
+- **la roche se dresse** : des gradins selon `profondeurDeRoche`, un **front de falaise au
+  sud** de chaque gradin (les pixels à moins de la hauteur du gradin de son bord sud), un
+  dessus en plaques, une lèvre claire. La roche est infranchissable : le dessin peut tricher
+  sur la hauteur sans toucher au jeu, qui reste plat ;
+- **des ombres au pied de tout** : le contact (la bande du bas de chaque silhouette, floutée),
+  un halo, une mare sous les arbres, et **l'ombre portée des murs, des tours et des portes** —
+  le code les dessine sans ombre, alors que les sprites Blender ont la leur.
+
+**Et de nuit** : la lune (un bleu sale, 0,36 / 0,43 / 0,56) à la place du voile, qui ne garde
+qu'un reste du relief ; quinze lumières sur le cadrage (les tours, les portes, les fenêtres,
+l'église), chacune rallumant le relief **du côté où elle est** ; les fenêtres allumées et de
+petites flammes (la flamme d'incendie à moitié). ⚠️ Les bâtiments sont éclairés **à plat** :
+pas de carte de relief par sprite dans la maquette.
+
+**Trois pistes de jour**, sur le même cadrage : **A, le relief doux** (ma recommandation :
+la plus calme derrière un combat), **B, le low-poly** (le relief taillé en plaques de 12 px,
+arêtes marquées), **C, le relief marqué** (pentes ×1,8, versants à l'ombre, crêtes sèches).
+
+**Les pièges payés** :
+- **Un sol rugueux noircit.** Le produit exact normale × soleil fait perdre en moyenne sa
+  clarté à toute surface bosselée (l'éboulis sortait noir, lum médiane 0,42). L'éclairage est
+  **linéarisé** : `1 + (pente vers le soleil) / 1,6`, qui garde le ton moyen de la matière.
+- **Le grain éclairé fait de la moquette.** Des bosses de 3 à 8 px éclairées de côté donnent
+  des stries partout ; il a fallu diviser leur hauteur par quatre et rendre la variété par des
+  **taches** (non éclairées) et par les trois herbes.
+- **Un seuil qui passe sous zéro** peint toute la carte : « herbe rase si la part de place
+  dépasse le seuil moins 0,42 » était vrai partout où le seuil tombait sous 0,42.
+- **L'ombre d'un mur n'est pas sa silhouette couchée** : la moitié haute du sprite est le
+  **dessus** du mur, pas sa face. Une boîte (un front jusqu'à 0,82 × hauteur, puis un dessus)
+  donne une ombre juste ; la silhouette couchée donnait des fanions.
+- **Les talus en courbes de niveau** (première piste C) se lisaient comme des fissures : retirés.
+- ⚠️ **L'altitude du jeu a une marche droite**, et le relief lisse la montre comme un trait :
+  voir « Dettes et pièges connus ».
+
+**Ce qui attend le verdict d'Angelos**, avant de coder : la piste du sol ; la nuit, et d'où
+viennent les torches (elles n'existent pas dans le jeu) ; la roche qui se dresse. Puis, dans
+l'ordre le moins risqué : le sol de jour dans `dessin/carte.ts` (la cuisson par morceaux ne
+change pas), les ombres des murs, et seulement ensuite la lumière de nuit, qui se mesure
+contre un témoin sous la horde.
+
 ## Dettes et pièges connus
+
+- **Le relief a une marche droite à ~130 px des lacs** (vu le 11 novembre en maquettant le
+  sol). `distanceATache` rend « très loin » (1e6) dès qu'on sort d'une **boîte** de
+  `MARGE_DE_TACHE = 130` px autour d'un lac, mais `relief.ts` fait monter la terre sur
+  **240 px** depuis le rivage (`rivage / 240`) : au bord de la boîte, l'altitude saute d'une
+  vingtaine de pixels le long d'un trait droit. Les facettes la montrent comme une rangée de
+  triangles sombres (visible sur `loin-aujourdhui-jour.png`). À corriger avec le 6.45 :
+  borner la rampe à la marge, ou prolonger la distance.
 
 - **Le Serment riposte même quand le coup part dans le vide** (`resoudreFrappe` : la riposte
   passe avant le test de distance). Le texte dit « blesse quiconque le touche ». Vu le 9
