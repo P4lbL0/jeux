@@ -554,7 +554,8 @@ reecrire les regles.
 
 **Tout ce qui se voit est dessine par le code**, dans la palette de neuf couleurs
 du jeu, et cuit en textures au demarrage (`src/game/dessin/`, DESIGN.md §4.30).
-Il n'y a aucun PNG : la carte est peinte pixel par pixel (`carte.ts`), le decor,
+Il n'y a aucun PNG : la carte est peinte pixel par pixel (`carte.ts`, et sa roche dressee en
+maillage low-poly par `massif.ts`), le decor,
 les batiments, l'enceinte, les monstres, les villageois et les heros sont des
 fonctions a parametres (`decor.ts`, `batiments.ts`, `murs.ts`, `monstres.ts`,
 `villageois.ts`, `heros.ts`), et `monde.ts` cuit le tout d'un seul appel.

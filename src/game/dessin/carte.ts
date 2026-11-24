@@ -2,6 +2,7 @@ import { MONDE, terrainEn as terrainDuMonde, type Terrain } from "../../core/car
 import { C } from "../ui/couleurs";
 import { bruit, bruitLisse, ligneDeBruit } from "./bruit";
 import { releverLeRelief, type Relief } from "./relief";
+import { MassifDUnMorceau, TONS_DU_MASSIF } from "./massif";
 import { BRULE, CRATERE, TERRE } from "./sol";
 import { cleCase, type Segment } from "../../core/village";
 import {
@@ -300,6 +301,11 @@ export interface CartePeinte {
   pixels: Uint8ClampedArray<ArrayBuffer>;
   /** L'index dans `TERRAINS` de chaque pixel — pour les tests et les details. */
   terrains: Uint8Array;
+  /**
+   * Ou le massif se dessine (1), le temps de la cuisson : les details du sol ne
+   * s'y posent pas (§4.30, la roche en volume).
+   */
+  massif?: Uint8Array;
 }
 
 /** L'index d'un point du monde dans un morceau, ou -1 s'il tombe dehors. */
@@ -331,6 +337,8 @@ export interface Atelier {
   relief: Relief;
   /** Les tampons d'une rangee, alloues une fois pour tout le morceau. */
   tampons: Tampons;
+  /** La roche en volume de ce morceau (`massif.ts`), ou `null` s'il n'y a pas de roche autour. */
+  massif: MassifDUnMorceau | null;
 }
 
 interface Tampons {
@@ -377,7 +385,9 @@ export function ouvrirLAtelier(morceau: CartePeinte, relief: Relief): Atelier {
   // crete de roche et l'ombre au pied de l'eboulis se lisent d'une rangee a
   // l'autre : sans elle, chaque morceau aurait un trait plat en haut.
   classerUneRangee(morceau, champ, tampons, morceau.y0 - 1, tampons.rangeeDuDessus);
-  return { champ, relief, tampons };
+  const massif = MassifDUnMorceau.preparer(morceau.x0, morceau.y0, morceau.largeur, morceau.hauteur);
+  if (massif) morceau.massif = new Uint8Array(morceau.largeur * morceau.hauteur);
+  return { champ, relief, tampons, massif };
 }
 
 /** Classe la nature du sol d'une rangee entiere, tremblement compris. */
@@ -408,7 +418,7 @@ function classerUneRangee(
  * budget d'une image, et pas une de plus (§4.17 regle 3).
  */
 export function peindreDesRangees(morceau: CartePeinte, atelier: Atelier, j0: number, j1: number): void {
-  const { champ, relief, tampons } = atelier;
+  const { champ, relief, tampons, massif } = atelier;
   const { largeur, pixels, terrains } = morceau;
   const large = largeur + DEBORD_A_DROITE;
   const { regions, taches, tachesFines, trame, secheresse, rangee, rangeeDuDessus } = tampons;
@@ -421,14 +431,29 @@ export function peindreDesRangees(morceau: CartePeinte, atelier: Atelier, j0: nu
     ligneDeBruit(y, 2.4, 6, large, trame, morceau.x0);
     ligneDeBruit(y, 150, 7, large, secheresse, morceau.x0);
 
-    // 1. La nature du sol, avec la lisiere qui tremble.
+    // 1. La nature du sol, avec la lisiere qui tremble — et le massif qui se
+    // dresse par-dessus (§4.30, `massif.ts`).
     classerUneRangee(morceau, champ, tampons, y, rangee);
+    massif?.rangee(y);
 
     // 2. Le sol, puis les lisieres qui ont besoin de leurs voisins.
     for (let i = 0; i < largeur; i += 1) {
       const x = morceau.x0 + i;
       const terrain = TERRAINS[rangee[i]!]!;
       const m = MATIERES[terrain];
+
+      // La roche en volume : une facette a plat, dans le ton du soleil.
+      if (massif && massif.couvert[i]) {
+        const couleur = TONS_DU_MASSIF[massif.matiere[i]!]![massif.ton[i]!]!;
+        const o = (j * largeur + i) * 4;
+        pixels[o] = (couleur >> 16) & 0xff;
+        pixels[o + 1] = (couleur >> 8) & 0xff;
+        pixels[o + 2] = couleur & 0xff;
+        pixels[o + 3] = 255;
+        terrains[j * largeur + i] = rangee[i]!;
+        morceau.massif![j * largeur + i] = 1;
+        continue;
+      }
       // Trois echelles : les regions, les taches, le grain. Les grandes
       // dessinent des zones, les petites cassent leurs bords.
       const v = regions[i]! * 0.45 + taches[i]! * 0.35 + tachesFines[i]! * 0.2;
@@ -461,15 +486,21 @@ export function peindreDesRangees(morceau: CartePeinte, atelier: Atelier, j0: nu
         // (La pierre se tache moins que la prairie : a pleine force, la roche
         // faisait un nuage d'encre.)
         const tache = k >= INDEX.eboulis ? 0.4 : 1;
+        // L'ombre que jette le massif, avant l'arrondi ; son pied, apres.
         const ton =
           2 +
           (clarte - 1) * 7.5 +
           (grain - 0.5) * 0.45 +
           (trame[i]! - 0.5) * 0.5 +
-          ((tachesFines[i]! - 0.5) * 0.7 + (taches[i]! - 0.5)) * tache;
-        const marche = ton < 0.5 ? 0 : ton >= 3.5 ? 4 : Math.round(ton);
+          ((tachesFines[i]! - 0.5) * 0.7 + (taches[i]! - 0.5)) * tache -
+          (massif ? massif.ombre[i]! : 0);
+        let marche = ton < 0.5 ? 0 : ton >= 3.5 ? 4 : Math.round(ton);
+        if (massif && massif.pied[i]) marche = Math.max(0, marche - massif.pied[i]!);
 
-        let tons = TONS[k]!;
+        // ⚠️ La roche a plat est un eboulis : ce qui se dresse, c'est le massif.
+        // La maquette du 11 novembre le faisait ainsi, et les gradins peints
+        // (une crete claire au bord de la roche) sont refuses.
+        let tons = k === INDEX.roche ? TONS[INDEX.eboulis]! : TONS[k]!;
         if (k === INDEX.herbe) {
           // Laquelle des trois herbes : de grandes plaques, les buttes plus
           // seches que les creux, et un tirage qui effrange les bords.
@@ -486,11 +517,7 @@ export function peindreDesRangees(morceau: CartePeinte, atelier: Atelier, j0: nu
         couleur = tons[marche]!;
       }
 
-      // La crete de la montagne : la roche accroche la lumiere la ou elle
-      // sort de l'eboulis. C'est ce qui fait lire une falaise et non une bande.
-      if (terrain === "roche" && rangeeDuDessus[i] === INDEX.eboulis) {
-        couleur = ROCHE.clair;
-      } else if (terrain === "eboulis" && rangeeDuDessus[i]! >= INDEX.sable && rangeeDuDessus[i]! <= INDEX["sous-bois"]) {
+      if (terrain === "eboulis" && rangeeDuDessus[i]! >= INDEX.sable && rangeeDuDessus[i]! <= INDEX["sous-bois"]) {
         // L'ombre de l'herbe sur l'eboulis : un pied de pente.
         couleur = EBOULIS.sombre;
       }
@@ -644,7 +671,7 @@ function terrainSeme(carte: CartePeinte, champ: Champ, x: number, y: number): Te
  */
 function point(carte: CartePeinte, x: number, y: number, couleur: number, terrain: Terrain): void {
   const j = index(carte, x, y);
-  if (j < 0 || TERRAINS[carte.terrains[j]!] !== terrain) return;
+  if (j < 0 || TERRAINS[carte.terrains[j]!] !== terrain || carte.massif?.[j]) return;
   const i = j * 4;
   carte.pixels[i] = (couleur >> 16) & 0xff;
   carte.pixels[i + 1] = (couleur >> 8) & 0xff;
@@ -711,10 +738,10 @@ function semerLesDetails(carte: CartePeinte, champ: Champ, cx: number, cy: numbe
       break;
     }
     case "roche": {
-      // ⚠️ Rares : une fissure par case faisait un semis de glyphes, c'est-a-dire
-      // des objets poses sur la roche et non une roche fissuree.
-      if (de < 0.12) fissure(carte, x, y, terrain);
-      else if (de < 0.24) arete(carte, x, y, terrain);
+      // La roche a plat est un eboulis depuis qu'elle a un volume (§4.30) : ses
+      // details sont ceux de l'eboulis, et ne se posent pas sur le massif.
+      if (de < 0.36) caillou(carte, x, y, terrain);
+      else if (de < 0.44) caillou(carte, x + 6, y + 3, terrain);
       break;
     }
     default:
@@ -777,18 +804,6 @@ function coquille(carte: CartePeinte, x: number, y: number, t: Terrain): void {
   point(carte, x, y, OS, t);
   point(carte, x + 1, y, OS, t);
   point(carte, x, y + 1, melanger(OS, C.fer, 0.3), t);
-}
-
-function fissure(carte: CartePeinte, x: number, y: number, t: Terrain): void {
-  const c = melanger(ROCHE.sombre, C.fer, 0.5);
-  trait(carte, x, y, x + 3, y + 3, c, t);
-  trait(carte, x + 3, y + 3, x + 4, y + 7, c, t);
-  trait(carte, x + 3, y + 3, x + 6, y + 4, c, t);
-}
-
-function arete(carte: CartePeinte, x: number, y: number, t: Terrain): void {
-  trait(carte, x, y, x + 5, y, ROCHE.clair, t);
-  trait(carte, x, y + 1, x + 5, y + 1, ROCHE.sombre, t);
 }
 
 /** Le nom du terrain d'un index, pour les tests. */

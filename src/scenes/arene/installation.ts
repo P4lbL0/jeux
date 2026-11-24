@@ -16,6 +16,7 @@ import {
 } from "../../game/dessin/decor";
 import { CLE_MASQUE_EAU, ECHELLE_DU_MASQUE } from "../../game/dessin/morceaux";
 import type { OmbreAuSol } from "../../game/dessin/ombres";
+import { massifEn } from "../../game/dessin/massif";
 import { ombreAuSolDe, suivreLOmbre } from "../../game/ombres";
 import { Cour } from "../../game/cour";
 import {
@@ -244,7 +245,15 @@ export class ArenaInstallation {
     // Les rochers, sur l'eboulis et au pied de la montagne.
     semer(tirages(470), ["eboulis", "roche"], (x, y) => {
       if (rng.next() > 0.3) return;
-      poser(x, y, rng.pick(ROCHERS));
+      const cle = rng.pick(ROCHERS);
+      // ⚠️ Pas sur le massif (§4.30, la roche en volume) : il est peint dans le
+      // sol, et un rocher pose dessus flotterait sur sa pente. Le tirage du
+      // miroir est quand meme consomme : le reste du decor ne bouge pas.
+      if (massifEn(x, y)) {
+        rng.next();
+        return;
+      }
+      poser(x, y, cle);
     });
 
     this.carte?.semerLesOmbres(ombres);

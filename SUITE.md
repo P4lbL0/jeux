@@ -4933,6 +4933,74 @@ celle qui garde la variété : **le modèle retourné dans Blender, sous le mêm
   dans le navigateur, sur les trois mondes, **la moitié des ~1 000 décors** prend sa version
   miroir et **aucun** n'est plus retourné par l'image.
 
+### Le chantier 6.45, étape 4 : la roche en volume (24 novembre 2026)
+
+La suite du sol, demandée par Angelos dans la foulée des ombres. **Avant / après** :
+`captures/jeu/2026-11-24-massif/` (le massif du monde 21 près du village, la grande roche du
+monde 404, la chaîne du sud du monde 7 visée en pleine roche, et `planche-avant-apres.png`).
+
+**Ce que la maquette faisait, et ce que fait le jeu** (`dessin/massif.ts`, 5 tests) : l'essai 2
+du 11 novembre (`.tmp/maquette-sol/sol.py`, `massif`) dressait la roche en **maillage
+low-poly** — des points sur une grille secouée de 13 px, une hauteur tirée de la profondeur
+dans la roche (`hauteurDeRoche` : rien avant 24 px, une marche raide au pied, une pente de fond,
+des crêtes et des bosses), des triangles vus comme les sprites (la hauteur monte de 0,82 px par
+pixel), peints du fond vers le devant, **chaque facette à plat** dans le ton du soleil des
+sprites ; autour, la roche à plat devient de l'éboulis ; le pied du massif assombrit le sol
+devant lui, et le massif jette son ombre (une marche de 21 pas vers le soleil, sur une grille de
+hauteurs de 8 px). Tout cela tourne à la cuisson de chaque morceau, **rangée par rangée** avec
+le reste du sol (`MassifDUnMorceau`, branché dans `peindreDesRangees`).
+
+**Ce qui change par rapport à la maquette** :
+- **la grille fait le maillage**, pas une triangulation de Delaunay : chaque case se coupe selon
+  sa diagonale la plus courte. Un morceau trouve exactement les facettes de son voisin sans rien
+  savoir de lui — le test « mêmes pixels par morceaux que d'un bloc » est refait **en pleine
+  montagne**, et passe ;
+- **le pied est un talus d'éboulis** : toute facette qui touche le sol (la maquette ne le faisait
+  que sous 5,5 px de haut) ;
+- **la hauteur plafonne** au-delà de 120 px de profondeur : une chaîne épaisse reste hérissée
+  mais ne monte plus ;
+- les détails du sol de la roche (fissures, arêtes) deviennent ceux de l'éboulis et **ne se
+  posent pas sur le massif** (`CartePeinte.massif`, le temps de la cuisson) ; la crête claire
+  au bord de la roche (les gradins refusés) disparaît ;
+- **un rocher de décor ne se pose plus sur le massif** (`massifEn`) : il flotterait sur sa
+  pente. Le tirage du miroir est quand même consommé, le reste du décor ne bouge pas.
+
+⚠️ **Le dessin ne sort jamais de la roche.** Un point à la profondeur `p` monte d'environ
+`0,41 p + 15` px, toujours moins que sa distance au bord : ce qu'on voit de la montagne couvre
+la roche, jamais le terrain où l'on marche. Un test le vérifie pixel par pixel. La bande
+d'éboulis du bord (24 px) est de la roche, donc infranchissable — comme dans la maquette
+validée, et dans la précision des cases de 32 px qui arrêtent les corps.
+
+**Mesuré contre un témoin** (`.tmp/massif/mesurer.ts`, hors navigateur, le meilleur de trois,
+l'ancien code remis par `git stash push -- src/`, les mêmes quatre mondes, 70 morceaux chacun) :
+
+| Monde | Moyenne par morceau, avant / après | Pire morceau | Pire tranche de 24 rangées |
+|---|---|---|---|
+| 21 | 20,6 / 20,8 ms | 29,4 / 32,7 ms | 1,4 / 1,6 ms |
+| 7 | 24,6 / 24,8 ms | 33,6 / 34,4 ms | 1,8 / 2,7 ms |
+| 404 | 22,1 / 21,7 ms | 30,8 / 35,8 ms | 1,8 / 2,1 ms |
+| 1 | 23,8 / 24,8 ms | 34,8 / 34,1 ms | 1,7 / 2,8 ms |
+
+En moyenne, rien qui se mesure ; un morceau de montagne coûte jusqu'à un sixième de plus, et
+une tranche de 24 rangées une milliseconde de plus, toujours dans le budget de 6 ms par image.
+⚠️ **L'ouverture d'un morceau coûtait déjà 15 à 19 ms d'un bloc avant le massif**
+(l'échantillonnage du terrain, `echantillonner`), sur l'image qui la fait : c'est le plus gros
+à-coup de la cuisson, et il n'est pas de ce chantier. Le massif n'y ajoute presque rien.
+
+**Les pièges payés** :
+- **Une diagonale tirée au hasard fait des dents de scie.** Le pied du massif sortait en
+  triangles alternés, un clair (éboulis) pointe en haut, un sombre (roche) pointe en bas. Deux
+  corrections, jugées sur capture : la diagonale la plus courte (des triangles moins effilés),
+  et le talus d'éboulis pour toute facette qui touche le sol — la paroi commence alors à la
+  première rangée de points hauts, qui fait une ligne.
+- **Le flanc d'une facette étroite devient noir** : la règle de la maquette (un pixel couvert
+  dont un voisin ne l'est pas prend le ton de fond) noircissait les dents entières. Elle ne
+  s'applique plus au talus.
+
+**Vérifié** : types propres, **1 079 tests verts**, la construction passe, trois parties dans le navigateur sans erreur.
+**Ce que ce morceau ne fait pas** : la lumière de nuit sur le massif (elle viendra avec la nuit),
+et la vignette (le monde en tout petit, avant cuisson) garde sa roche grise à plat.
+
 ## Dettes et pièges connus
 
 - ✅ **Un arbre sur deux avait le soleil à l'envers** (vu le 24 novembre en posant les ombres,

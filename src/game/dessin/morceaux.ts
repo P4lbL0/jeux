@@ -500,6 +500,7 @@ export class CarteDuMonde {
     // ⚠️ Les pixels vivent desormais dans le canevas : les garder ici doublerait
     // la memoire de la carte. On garde le `terrains`, que toute ecriture lit.
     m.carte.pixels = new Uint8ClampedArray(new ArrayBuffer(0));
+    m.carte.massif = undefined;
     for (const ecriture of this.enAttente) {
       if (this.touche(m, ecriture.x0, ecriture.y0, ecriture.x1, ecriture.y1)) this.appliquer(m, ecriture);
     }

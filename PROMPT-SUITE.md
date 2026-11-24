@@ -203,9 +203,12 @@ ciel, et le ciel est fini.
 > ✅ **Étape 3, les ombres au pied** (24 novembre, choisie par Angelos à la reprise) : le
 > contact, le halo, la mare sous les arbres et l'ombre portée des palissades, des tours et des
 > portes ; celles des arbres peintes dans le sol, celles du bâti qui suivent leur objet
-> (`SUITE.md`, « Le chantier 6.45, étape 3 »). **La suite, dans l'ordre** : la roche en volume
-> (`massif` de la maquette) ; la maquette des murs en Blender ; la lumière de nuit en dernier,
-> mesurée sous la horde (§4.30, « Tranché le 11 novembre 2026 »).
+> (`SUITE.md`, « Le chantier 6.45, étape 3 »).
+>
+> ✅ **Étape 4, la roche en volume** (24 novembre) : le massif low-poly de l'essai 2, peint à la
+> cuisson de chaque morceau (`dessin/massif.ts`, `SUITE.md`, « étape 4 »). **La suite, dans
+> l'ordre** : la maquette des murs en Blender ; la lumière de nuit en dernier, mesurée sous la
+> horde (§4.30, « Tranché le 11 novembre 2026 »).
 > Ce qui suit reste vrai pour **la reprise des builds, après le 6.4**.
 
 **La suite du jalon 6.2, la horde.** Le profilage est fait, le §4.33 est réécrit avec ses
