@@ -120,6 +120,7 @@ import { ArenaMemoire } from "./arene/memoireDuVillage";
 import { ArenaEffetsVisuels } from "./arene/effetsVisuels";
 import { greffer } from "./arene/greffer";
 import { Robot, type ReglagesRobot } from "../game/robot";
+import { OmbresDuBati } from "../game/ombres";
 import {
   VolDEpee,
   ZoneFracturee,
@@ -505,6 +506,8 @@ export class ArenaScene extends Phaser.Scene {
    * par elle et attend son morceau si celui-ci n'est pas encore peint.
    */
   carte: CarteDuMonde | null = null;
+  /** Les ombres de ce qui est bati, qui suivent chacune son objet (§4.30, `game/ombres.ts`). */
+  ombres: OmbresDuBati | null = null;
   /** La graine du village de cette partie : elle traverse la sauvegarde (§4.24) */
   graineVillage = 0;
   /** La graine du monde (§4.29) : la mer, le relief, l'endroit ou l'on tombe */
@@ -1047,6 +1050,9 @@ export class ArenaScene extends Phaser.Scene {
       { x: PORT.x, y: PORT.y },
     ]);
     dessinerLeSolDuVillage(this.carte, this.planVillage, this.ruesDuVillage);
+    // Les ombres de ce qui est bati (§4.30) : avant le decor, que chaque objet
+    // pose s'y declare. Elles meurent avec la scene.
+    this.ombres = new OmbresDuBati(this);
     this.construireDecor();
     // Les chemins qui s'usent (§4.24) : une couche transparente juste au-dessus
     // de la carte, et un compte de passages par case. La place ne se marque
@@ -1536,6 +1542,8 @@ export class ArenaScene extends Phaser.Scene {
     // offert : c'est exactement quand il faut peindre. Le budget est de six
     // millisemes, il ne mange donc jamais une image.
     this.avancerLaCarte();
+    // Les ombres suivent leur objet meme en pause : on bâtit en pause (§4.24).
+    this.ombres?.mettreAJour();
     // Le mode d'amenagement est une pause, mais il n'est pas mort : l'apercu
     // doit suivre la souris, sinon on poserait a l'aveugle (§4.24).
     if (this.amenagement) {

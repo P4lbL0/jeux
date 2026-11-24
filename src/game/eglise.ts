@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { EGLISE } from "../core/carte";
 import { Eglise, type NiveauEglise } from "../core/eglise";
 import { CHANTIERS, cleEglise } from "./dessin/batiments";
+import { suivreLOmbre } from "./ombres";
 
 /**
  * L'eglise a l'ecran (DESIGN.md §4.22).
@@ -58,6 +59,7 @@ export class BatimentEglise {
       .setDepth(EGLISE.y + 5)
       .setVisible(false);
     this.redessiner();
+    suivreLOmbre(this.sprite);
   }
 
   get niveau(): NiveauEglise {

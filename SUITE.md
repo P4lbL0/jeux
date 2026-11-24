@@ -4840,7 +4840,83 @@ sa plage) — ni couture, ni zone noire.
 la roche en volume (elle reste à plat, plus calme) ; la lumière de nuit ; les murs en Blender.
 La vignette (le monde en tout petit sous les morceaux pas encore cuits) reste au ton du corps.
 
+### Le chantier 6.45, étape 3 : les ombres au pied (24 novembre 2026)
+
+La suite prévue du sol, choisie par Angelos à la reprise. **Avant / après** :
+`captures/jeu/2026-11-24-ombres/` (les mondes 21, 7 et 404, de près et de loin, et
+`planche-avant-apres.png`, cinq détails au zoom). Le témoin est la série `apres-*` du 11
+novembre, faite sur le même code que le départ de ce morceau (mêmes mondes, mêmes villages,
+même cadrage : les pixels hors ombre retombent identiques).
+
+**Ce que chaque objet jette au sol** (`dessin/ombres.ts`, pur, 13 tests) — tout part de la
+**silhouette du sprite** (ses pixels à plus de 200 d'opacité, jamais l'ombre à 30 % que
+Blender met déjà dedans) :
+- **le contact** : les trois dernières rangées de la silhouette, floutées (σ 1,5), 26 % de fer ;
+- **le halo** : son dernier tiers, flouté large (σ 5), 11 % ;
+- **la mare** sous un arbre : une ellipse un peu à l'est du pied (11 × 5 px, 18 % ; un arbre
+  mort 6 × 3 et 60 % de la force) ;
+- **l'ombre portée**, pour ce que le code dessine encore (palissades, tours, portes, ponts-levis,
+  ruines de mur) : chaque pixel est un point d'une face ou du dessus d'une boîte de la hauteur
+  du mur, projeté par le soleil des sprites (de l'ouest, un peu du sud : `0,47 t` à l'est et
+  `0,29 t` au nord pour une face, les nombres de la maquette). **30 %, exactement l'ombre d'une
+  maison Blender** : un mur et une maison côte à côte ont le même soleil.
+- la force tombe sur des **marches de 10 %**, cassées par un grain fixe : une force pile sur une
+  marche (l'ombre portée) reste un aplat uni, un dégradé (le halo) devient un semis de points.
+
+**Deux chemins, selon que l'objet bouge** (`game/ombres.ts`) :
+- **les arbres et les rochers** (~1 000 par monde) : leur ombre est **peinte dans le sol** quand
+  son morceau cuit (`CarteDuMonde.semerLesOmbres`, appelé par `semerLeDecor`). Deux ombres qui
+  se chevauchent gardent **la plus forte**, sans s'additionner : la forêt dense ne noircit pas
+  (vérifié de loin). Le grain est celui du monde, pas de l'ombre. Les ombres font partie du sol
+  d'origine : `redevenirVierge` les garde ;
+- **le bâti et le petit décor du village** (maisons, église, port, palissades, tours, portes,
+  chantiers, ruines, puits, tonneaux, caches, tombes, météorite : 49 à 103 objets) : **une image
+  d'ombre par objet**, à la profondeur -590 (sous les personnages, au-dessus des cadavres, des
+  douves, des champs et du sol). `OmbresDuBati` compare à chaque image, **même en pause**, la
+  texture, la place, l'origine, le miroir, l'échelle et la visibilité de chaque objet, et
+  détruit l'ombre de ce qui a disparu. Un objet s'y déclare par `suivreLOmbre(objet)` à sa
+  création. Les détails de vie passent par là et non par le sol : la place du village s'écrit
+  dans la carte **après** eux, et effacerait une ombre peinte dedans.
+
+**Mesuré** (`.tmp/ombres/mesurer.mjs`, sur la vraie carte graphique, le meilleur de trois) :
+
+| Monde | Ombres peintes | Pire morceau : le sol / ses ombres | Suivi, par image |
+|---|---|---|---|
+| 21 | 1 092 sur 63 morceaux | 17,2 ms / 2,3 ms | 2,8 µs (47 objets) |
+| 7 | 982 sur 67 | 18,0 ms / 1,1 ms | 4,3 µs (51) |
+| 404 | 975 sur 69 | 16,1 ms / 1,8 ms | 5,8 µs (102) |
+
+Les ombres ajoutent **6 à 14 %** à la cuisson d'un morceau de forêt, et **comptent dans son
+budget** de 6 ms par image (elles passent avec les détails du morceau, avant `terminer`).
+
+**Vérifié** : types propres, **1 073 tests verts** ; dans le navigateur
+(`.tmp/ombres/verifier.mjs`, trois mondes, sept contrôles chacun, tout passe) : chaque ombre
+est à la place de son objet, aucune n'est orpheline, un mur détruit emporte la sienne et ses
+voisines prennent celle de leur nouveau raccord, une maison déplacée est suivie, les portes
+qui se ferment changent d'ombre, aucune erreur de page.
+
+**Les pièges payés** :
+- **Le pied d'un mur n'est pas la dernière rangée de son sprite.** En vue de trois quarts, le
+  pan est-ouest a sa face deux rangées plus haut que le poteau : projeter toute la face depuis
+  le bas du sprite (ce que faisait la maquette) mettait un trait d'ombre **au sud** du mur. Le
+  pied se prend **colonne par colonne**.
+- **Deux images d'ombre qui se recouvrent s'additionnent** (30 % + 30 % = 51 %). Dans une
+  colonne de palissade, la face sud d'une case est cachée par le dessus de la suivante, mais
+  son ombre tombait sur celle de la voisine : une bande plus noire à chaque raccord. Une case
+  qui a une voisine au sud (`voisinSud`, lu dans la clé) arrête la sienne `0,24 h` avant le
+  bord. Le long d'une colonne, les ombres des dessus sont une simple translation et se jouxtent
+  sans se recouvrir.
+- **Une palissade est-ouest ne montre presque pas d'ombre, et c'est juste** : un soleil haut
+  du sud-ouest la jette derrière elle, au nord, sous sa propre hauteur. On ne la voit qu'au
+  bout est d'un pan et contre les tours.
+
 ## Dettes et pièges connus
+
+- **Un arbre sur deux a le soleil à l'envers** (vu le 24 novembre en posant les ombres, existe
+  depuis les sprites Blender) : `semerLeDecor` pose chaque arbre en miroir une fois sur deux
+  (`setFlipX`), et le miroir retourne aussi l'ombre portée que Blender a mise dans le sprite.
+  Ces arbres-là jettent leur ombre vers l'ouest quand tout le reste la jette vers l'est. Les
+  ombres au pied suivent le miroir de leur arbre, donc ne l'aggravent pas. À trancher.
 
 - ✅ **Le relief avait une marche droite à ~130 px des lacs** (vu le 11 novembre en maquettant
   le sol, **corrigé le même jour** dans `relief.ts` : la rampe du rivage fait 120 px). `distanceATache` rend « très loin » (1e6) dès qu'on sort d'une **boîte** de

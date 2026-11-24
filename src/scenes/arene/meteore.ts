@@ -5,6 +5,7 @@ import { secousse } from "../../game/effets";
 import { EGLISE } from "../../core/carte";
 import { REGLAGES_METEORE } from "../../core/meteore";
 import type { ArenaScene } from "../ArenaScene";
+import { suivreLOmbre } from "../../game/ombres";
 import { cleDuFeu } from "./reglages";
 
 /**
@@ -170,5 +171,6 @@ export class ArenaMeteore {
       .image(point.x, point.y, CLE_METEORITE)
       .setOrigin(0.5, decorParCle(CLE_METEORITE).origineY)
       .setDepth(point.y);
+    suivreLOmbre(this.pierreDuCiel);
   }
 }

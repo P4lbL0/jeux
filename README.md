@@ -469,6 +469,9 @@ src/
                        de profondeur : l'orc teinte au dessin (§4.33)
     village.ts         les habitants a l'ecran : postes, travail, fuite, mort
     constructions.ts   ce qu'on batit : pose, degats, occupation, chute
+    ombres.ts          les ombres au pied (§4.30) : celles des arbres et des
+                       rochers peintes dans le sol, une image qui suit chaque
+                       objet bati ; le calcul est dans dessin/ombres.ts (teste)
     champs.ts          semis, maturation, moisson et pietinement
     panneauVillage.ts  le compteur permanent, et le tableau a la demande
     commandement.ts    selection et distribution des ordres

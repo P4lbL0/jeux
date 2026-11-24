@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { REGLAGES_CACHES, phraseDeFouille, type Cache } from "../core/caches";
 import { CLES_DE_CACHE, decorParCle } from "./dessin/decor";
+import { suivreLOmbre } from "./ombres";
 import { C } from "./ui/couleurs";
 
 /**
@@ -110,6 +111,7 @@ export class Caches {
         .image(regles.point.x, regles.point.y, cle)
         .setOrigin(0.5, decorParCle(cle).origineY)
         .setDepth(regles.point.y);
+      suivreLOmbre(image);
       this.posees.push({ regles, image, videe: false });
     }
   }

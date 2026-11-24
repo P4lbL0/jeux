@@ -4,6 +4,7 @@ import type { Stocks } from "../core/habitants";
 import type { MaisonPlan } from "../core/village";
 import { cleMaison, CLE_FERME, CLE_MAISON_RUINE, EMPRISE_MAISON, VARIANTES_MAISON } from "./dessin/batiments";
 import { melanger } from "./dessin/palette";
+import { suivreLOmbre } from "./ombres";
 
 /**
  * Les maisons du village (DESIGN.md §4.24).
@@ -79,6 +80,7 @@ export class Maison extends Phaser.Physics.Arcade.Image {
     scene.add.existing(this);
     scene.physics.add.existing(this, true);
     this.habiller();
+    suivreLOmbre(this);
   }
 
   get nom(): string {

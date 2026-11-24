@@ -16,6 +16,7 @@ import {
   type DegatDuSol,
 } from "./carte";
 import { releverLeRelief, type Relief } from "./relief";
+import { peindreDesOmbresDansLeSol, type OmbreAuSol } from "./ombres";
 
 /**
  * La carte du monde, **peinte par morceaux** (DESIGN.md §4.29, 20 septembre 2026, dans la nuit).
@@ -140,6 +141,10 @@ interface Morceau {
   vierge: Uint8ClampedArray<ArrayBuffer> | null;
   /** Vrai quand sa texture attend d'etre renvoyee au moteur. */
   aRenvoyer: boolean;
+  /** Les ombres des decors fixes qui tombent sur lui, peintes a sa cuisson. */
+  ombres: OmbreAuSol[];
+  /** Vrai quand ses details et ses ombres sont peints dans ses pixels. */
+  acheve: boolean;
 }
 
 /**
@@ -241,6 +246,8 @@ export class CarteDuMonde {
           image: null,
           vierge: null,
           aRenvoyer: false,
+          ombres: [],
+          acheve: false,
         });
       }
     }
@@ -335,6 +342,41 @@ export class CarteDuMonde {
   }
 
   /**
+   * Les ombres des decors fixes — les arbres et les rochers (§4.30, 24 novembre
+   * 2026) : chaque morceau peint celles qui tombent sur lui **en cuisant**, dans
+   * ses pixels encore en memoire. Rien a relire, rien a garder en double, et
+   * rien a payer ensuite a chaque image.
+   *
+   * ⚠️ **A semer avant que la carte cuise.** Un morceau deja cuit est repeint
+   * par une relecture de sa texture, ce qui marche mais coute ; l'installation
+   * seme le decor avant la premiere image, donc ce chemin ne sert qu'en secours.
+   * Les ombres font partie du sol d'origine : une carte qui redevient vierge
+   * les garde.
+   */
+  semerLesOmbres(ombres: readonly OmbreAuSol[]): void {
+    for (const m of this.morceaux) m.ombres = [];
+    for (const o of ombres) {
+      const x1 = o.x0 + o.ombre.largeur;
+      const y1 = o.y0 + o.ombre.hauteur;
+      for (const m of this.morceaux) {
+        if (this.touche(m, o.x0, o.y0, x1, y1)) m.ombres.push(o);
+      }
+    }
+    for (const m of this.morceaux) {
+      if (!m.cuit || !m.texture || m.ombres.length === 0) continue;
+      const ctx = m.texture.getContext();
+      const image = ctx.getImageData(0, 0, m.carte.largeur, m.carte.hauteur);
+      peindreDesOmbresDansLeSol(image.data, m.carte.largeur, m.carte.hauteur, m.carte.x0, m.carte.y0, m.ombres);
+      if (m.vierge) {
+        peindreDesOmbresDansLeSol(m.vierge, m.carte.largeur, m.carte.hauteur, m.carte.x0, m.carte.y0, m.ombres);
+      }
+      ctx.putImageData(image, 0, 0);
+      m.aRenvoyer = true;
+    }
+    this.renvoyerLesTextures();
+  }
+
+  /**
    * La carte redevient vierge : ce que la partie d'avant y avait ecrit s'en va.
    *
    * ⚠️ **Seuls les morceaux salis sont concernes**, et on garde leurs pixels
@@ -365,6 +407,7 @@ export class CarteDuMonde {
       m.image = null;
       m.atelier = null;
       m.vierge = null;
+      m.ombres = [];
       if (m.texture && this.scene.textures.exists(m.cle)) this.scene.textures.remove(m.cle);
       m.texture = null;
     }
@@ -398,7 +441,25 @@ export class CarteDuMonde {
       peindreDesRangees(m.carte, m.atelier, m.rangees, jusqua);
       m.rangees = jusqua;
     }
-    if (m.rangees >= m.carte.hauteur) this.terminer(m);
+    // ⚠️ **Les ombres comptent dans le budget**, comme une passe de rangees :
+    // jusqu'a 2,3 ms pour un morceau de foret, mesure. Peintes dans
+    // `terminer`, elles tombaient sur l'image qui envoie deja le morceau au
+    // moteur, la plus chere de toutes.
+    if (m.rangees < m.carte.hauteur || performance.now() >= fin) return;
+    this.achever(m);
+    if (performance.now() < fin) this.terminer(m);
+  }
+
+  /**
+   * Seme les details du morceau, puis peint par-dessus les ombres des decors
+   * fixes qui tombent sur lui — une touffe a l'ombre d'un arbre est a l'ombre.
+   * Une seule fois.
+   */
+  private achever(m: Morceau): void {
+    if (m.acheve) return;
+    m.acheve = true;
+    if (m.atelier) semerLesDetailsDuMorceau(m.carte, m.atelier);
+    peindreDesOmbresDansLeSol(m.carte.pixels, m.carte.largeur, m.carte.hauteur, m.carte.x0, m.carte.y0, m.ombres);
   }
 
   private finir(m: Morceau): void {
@@ -416,7 +477,7 @@ export class CarteDuMonde {
    * on **rend ses pixels** et on lui applique ce qui l'attendait.
    */
   private terminer(m: Morceau): void {
-    if (m.atelier) semerLesDetailsDuMorceau(m.carte, m.atelier);
+    this.achever(m);
     // ⚠️ Une cle deja prise fait rendre `null` a Phaser, et le morceau ne
     // serait jamais declare cuit : la file tournerait a vide pour toujours.
     if (this.scene.textures.exists(m.cle)) this.scene.textures.remove(m.cle);

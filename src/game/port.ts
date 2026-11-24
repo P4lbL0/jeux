@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { PORT } from "../core/carte";
 import { Port, REGLAGES_PORT } from "../core/port";
 import { CHANTIERS, CLES_PORT } from "./dessin/batiments";
+import { suivreLOmbre } from "./ombres";
 
 /**
  * Le port a l'ecran (DESIGN.md §4.18).
@@ -46,6 +47,7 @@ export class BatimentPort {
     // Comme tout le decor : la profondeur suit le pied du sprite, pour qu'un
     // personnage qui passe devant passe bien devant.
     this.sprite.setOrigin(0.5, 0.85).setDepth(PORT.y);
+    suivreLOmbre(this.sprite);
 
     // Le chantier se voit : des perches et des planches par-dessus la ruine,
     // le temps qu'il dure. Meme origine que le port, pour tomber au meme pied.

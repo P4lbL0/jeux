@@ -198,12 +198,14 @@ ciel, et le ciel est fini.
 > ✅ **Étape 2, dans le jeu** (11 novembre) : le sol de jour (`relief.ts` sans facettes, trois
 > herbes, lisières fondues, sol du village au ton du sol) et les 33 sprites de bâtiments et de
 > décor régénérés avec le grain (`reduire_au_grain`, arbres et rochers remodelés). La cuisson
-> coûte un quart de plus, mesuré contre un témoin. **La suite, dans l'ordre** : les ombres au
-> pied des objets et l'ombre portée des murs ; la roche en volume (`massif` de la maquette) ;
-> la maquette des murs en Blender ; la lumière de nuit en dernier, mesurée sous la horde. Ensuite : le
-> sol de jour dans `dessin/carte.ts`, les ombres des murs, la nouvelle réduction des sprites,
-> le massif, et la lumière de nuit en dernier, mesurée contre un témoin (`SUITE.md`, « Le
-> chantier 6.45, étape 1 » ; §4.30, « Tranché le 11 novembre 2026 »).
+> coûte un quart de plus, mesuré contre un témoin.
+>
+> ✅ **Étape 3, les ombres au pied** (24 novembre, choisie par Angelos à la reprise) : le
+> contact, le halo, la mare sous les arbres et l'ombre portée des palissades, des tours et des
+> portes ; celles des arbres peintes dans le sol, celles du bâti qui suivent leur objet
+> (`SUITE.md`, « Le chantier 6.45, étape 3 »). **La suite, dans l'ordre** : la roche en volume
+> (`massif` de la maquette) ; la maquette des murs en Blender ; la lumière de nuit en dernier,
+> mesurée sous la horde (§4.30, « Tranché le 11 novembre 2026 »).
 > Ce qui suit reste vrai pour **la reprise des builds, après le 6.4**.
 
 **La suite du jalon 6.2, la horde.** Le profilage est fait, le §4.33 est réécrit avec ses

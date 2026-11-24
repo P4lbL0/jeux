@@ -14,6 +14,7 @@ import { estPositive, NOMS_RELATION, RESUMES_RELATION } from "../../core/relatio
 import { raconter, titreDe, type Evenement } from "../../core/memoire";
 import type { VieSociale } from "../../game/fichePersonne";
 import type { ArenaScene } from "../ArenaScene";
+import { suivreLOmbre } from "../../game/ombres";
 import {
   TOMBES_MAX,
   ARCHIVES_MONTREES,
@@ -104,6 +105,7 @@ export class ArenaMemoire {
       // Du fer, pas de la pierre neuve : une tombe n'est pas un monument.
       .setTint(0x6b6478)
       .setScale(0.72);
+    suivreLOmbre(tombe);
     this.tombes.push(tombe);
     while (this.tombes.length > TOMBES_MAX) this.tombes.shift()?.destroy();
   }

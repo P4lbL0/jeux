@@ -14,6 +14,8 @@ import {
   CLE_TONNEAU,
 } from "../../game/dessin/decor";
 import { CLE_MASQUE_EAU, ECHELLE_DU_MASQUE } from "../../game/dessin/morceaux";
+import type { OmbreAuSol } from "../../game/dessin/ombres";
+import { ombreAuSolDe, suivreLOmbre } from "../../game/ombres";
 import { Cour } from "../../game/cour";
 import {
   distanceALEau,
@@ -195,12 +197,17 @@ export class ArenaInstallation {
      * horizontal, qui ne coutent aucun flou. L'origine est celle du decor : c'est
      * le pied qui decide de la profondeur, pas le milieu de l'image.
      */
+    // Leur ombre est peinte dans le sol, a la cuisson de son morceau (§4.30) :
+    // rien ne les deplace, et ils sont des milliers.
+    const ombres: OmbreAuSol[] = [];
     const poser = (x: number, y: number, cle: string) => {
-      this.add
+      const image = this.add
         .image(x, y, cle)
         .setOrigin(0.5, decorParCle(cle).origineY)
         .setDepth(y)
         .setFlipX(rng.next() < 0.5);
+      const ombre = ombreAuSolDe(image);
+      if (ombre) ombres.push(ombre);
     };
 
     /**
@@ -233,6 +240,8 @@ export class ArenaInstallation {
       if (rng.next() > 0.3) return;
       poser(x, y, rng.pick(ROCHERS));
     });
+
+    this.carte?.semerLesOmbres(ombres);
   }
 
   /**
@@ -275,7 +284,9 @@ export class ArenaInstallation {
       poses.every((p) => Math.hypot(p.x - x, p.y - y) >= p.rayon + (RAYONS[cle] ?? 12));
     const poser = (x: number, y: number, cle: string, miroir = rng.next() < 0.5) => {
       if (!this.textures.exists(cle)) return;
-      this.add.image(x, y, cle).setOrigin(0.5, decorParCle(cle).origineY).setDepth(y).setFlipX(miroir);
+      // Une ombre qui suit : la place du village s'ecrit dans le sol apres eux,
+      // et effacerait une ombre peinte dedans.
+      suivreLOmbre(this.add.image(x, y, cle).setOrigin(0.5, decorParCle(cle).origineY).setDepth(y).setFlipX(miroir));
       poses.push({ x, y, rayon: RAYONS[cle] ?? 12 });
     };
 
@@ -436,10 +447,12 @@ export class ArenaInstallation {
       if (piece.piece === "ruine") {
         if (!this.grille.constructible(centre.x, centre.y, true)) continue;
         this.grille.poser(centre.x, centre.y, "ruine");
-        this.add
-          .image(centre.x, centre.y, CLE_MUR_RUINE)
-          .setOrigin(0.5, ORIGINE_MUR_Y)
-          .setDepth(centre.y + CASE / 2);
+        suivreLOmbre(
+          this.add
+            .image(centre.x, centre.y, CLE_MUR_RUINE)
+            .setOrigin(0.5, ORIGINE_MUR_Y)
+            .setDepth(centre.y + CASE / 2),
+        );
         continue;
       }
       if (seulementLesRuines) continue;

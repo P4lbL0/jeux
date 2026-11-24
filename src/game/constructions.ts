@@ -22,6 +22,7 @@ import { CASE, Grille, IMPOSENT_UNE_DISTANCE, RACCORDABLES, type Occupation } fr
 import type { Ressource, Stocks } from "../core/habitants";
 import { Battant, REGLAGES_PORTE, aPortee, consigneDeNuit, enfermeraitSansPorte, noieraitSansPassage, type PositionPorte } from "../core/portes";
 import { CHANTIERS } from "./dessin/batiments";
+import { suivreLOmbre } from "./ombres";
 import {
   CLE_TOUR,
   ORIGINE_MUR_Y,
@@ -210,6 +211,7 @@ export class Construction extends Phaser.Physics.Arcade.Image {
     // arreter ce qui passe derriere elle.
     this.caler();
     this.habiller();
+    suivreLOmbre(this);
   }
 
   /** Le corps physique, sur sa case. */
