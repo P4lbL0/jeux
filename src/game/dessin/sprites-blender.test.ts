@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { cleEglise, cleMaison, CLE_FERME, CLE_MAISON_RUINE, VARIANTES_MAISON } from "./batiments";
-import { DECORS } from "./decor";
+import { DECORS, cleEnMiroir } from "./decor";
 import { CLES_FLAMME, CLES_FUMEE, HAUTEUR_FUMEE, LARGEUR_FUMEE } from "./feu";
 import { CLE_ORC, TAILLE_ORC } from "./orc";
 import { CLES_RACINES, HAUTEUR_RACINES, LARGEUR_RACINES } from "./elements";
@@ -103,6 +103,17 @@ describe("Sprites Blender — src/assets", () => {
         largeur: decor.largeur,
         hauteur: decor.hauteur,
       });
+    }
+  });
+
+  it("un decor rendu par Blender et pose en miroir a sa version retournee, a la meme taille", () => {
+    // ⚠️ Sans elle, le jeu retourne l'image, et l'ombre portee du sprite part a
+    // l'ouest (24 novembre 2026) : le test le dit avant qu'une capture le montre.
+    for (const decor of DECORS) {
+      const reflet = cleEnMiroir(decor.cle);
+      if (!reflet || !pngs.includes(`${decor.cle}.png`)) continue;
+      expect(pngs, reflet).toContain(`${reflet}.png`);
+      expect(taillePng(resolve(DOSSIER, `${reflet}.png`))).toEqual(taillePng(resolve(DOSSIER, `${decor.cle}.png`)));
     }
   });
 });

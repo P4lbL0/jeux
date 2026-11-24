@@ -219,6 +219,19 @@ export class Toile {
     return new ImageData(this.pixels, this.largeur, this.hauteur);
   }
 
+  /** Une toile neuve, retournee d'est en ouest : le dessin au code d'un decor `-miroir`. */
+  miroir(): Toile {
+    const retournee = new Toile(this.largeur, this.hauteur);
+    for (let y = 0; y < this.hauteur; y += 1) {
+      for (let x = 0; x < this.largeur; x += 1) {
+        const de = (y * this.largeur + x) * 4;
+        const vers = (y * this.largeur + this.largeur - 1 - x) * 4;
+        for (let c = 0; c < 4; c += 1) retournee.pixels[vers + c] = this.pixels[de + c]!;
+      }
+    }
+    return retournee;
+  }
+
   /** Les pixels bruts, RVBA, ligne par ligne. Pour les planches hors navigateur. */
   donnees(): Uint8ClampedArray {
     return this.pixels;

@@ -4844,7 +4844,7 @@ La vignette (le monde en tout petit sous les morceaux pas encore cuits) reste au
 
 La suite prévue du sol, choisie par Angelos à la reprise. **Avant / après** :
 `captures/jeu/2026-11-24-ombres/` (les mondes 21, 7 et 404, de près et de loin, et
-`planche-avant-apres.png`, cinq détails au zoom). Le témoin est la série `apres-*` du 11
+`planche-avant-apres.png`, six détails au zoom). Le témoin est la série `apres-*` du 11
 novembre, faite sur le même code que le départ de ce morceau (mêmes mondes, mêmes villages,
 même cadrage : les pixels hors ombre retombent identiques).
 
@@ -4890,7 +4890,7 @@ Les ombres ajoutent **6 à 14 %** à la cuisson d'un morceau de forêt, et **com
 budget** de 6 ms par image (elles passent avec les détails du morceau, avant `terminer`).
 
 **Vérifié** : types propres, **1 073 tests verts** ; dans le navigateur
-(`.tmp/ombres/verifier.mjs`, trois mondes, sept contrôles chacun, tout passe) : chaque ombre
+(`.tmp/ombres/verifier.mjs`, trois mondes, huit contrôles chacun, tout passe) : chaque ombre
 est à la place de son objet, aucune n'est orpheline, un mur détruit emporte la sienne et ses
 voisines prennent celle de leur nouveau raccord, une maison déplacée est suivie, les portes
 qui se ferment changent d'ombre, aucune erreur de page.
@@ -4910,13 +4910,35 @@ qui se ferment changent d'ombre, aucune erreur de page.
   du sud-ouest la jette derrière elle, au nord, sous sa propre hauteur. On ne la voit qu'au
   bout est d'un pan et contre les tours.
 
+**Puis les miroirs, rendus dans Blender** (même jour). En posant les ombres, un défaut ancien
+s'est vu : le jeu pose un arbre sur deux **en retournant son image**, et l'ombre portée que
+Blender a mise dans le sprite part alors **vers l'ouest**, à côté de maisons et de murs dont
+l'ombre part à l'est. Les rochers et le petit décor du village (tonneau, tas de bois,
+charrette, corde à linge, filets) avaient le même défaut. Angelos a choisi, entre trois voies,
+celle qui garde la variété : **le modèle retourné dans Blender, sous le même soleil**.
+- `monde.mirer(a, x0)` retourne toutes les pièces d'un modèle autour de la verticale de son pied
+  (par `matrix_basis` : `matrix_world` n'est pas recalculée après `agrandir`) ; Blender rend
+  juste un objet d'échelle négative. `rendre.py` ajoute à la liste une clé `<clé>-miroir` pour
+  chaque objet de `EN_MIROIR`, avec son ancre retournée (`W - ancre`) : l'image est le reflet
+  exact de l'originale, éclairée du bon côté.
+- ⚠️ **Deux objets ne sont pas symétriques autour de leur pied** : retournés, le rocher 2
+  (deux colonnes) et la charrette (une) sortaient de leur cadre, et `reduire.py` refuse. Leur
+  pied recule d'autant (`RECUL_DU_MIROIR`) : posés un ou deux pixels à côté du reflet exact.
+- **17 PNG neufs** (`npm run sprites -- <les 17 clés>`), aucun ancien réécrit. `decor.ts` les
+  déclare (`SUFFIXE_MIROIR`, `cleEnMiroir`), le dessin au code d'un miroir est son original
+  retourné (`Toile.miroir`), et `installation.ts` pose la version miroir là où il retournait
+  l'image (`versionPosee`) — **avec le même tirage** : la graine zéro garde ses arbres, aux
+  mêmes places.
+- Un test exige qu'un décor Blender posé en miroir ait sa version retournée, à la même taille ;
+  dans le navigateur, sur les trois mondes, **la moitié des ~1 000 décors** prend sa version
+  miroir et **aucun** n'est plus retourné par l'image.
+
 ## Dettes et pièges connus
 
-- **Un arbre sur deux a le soleil à l'envers** (vu le 24 novembre en posant les ombres, existe
-  depuis les sprites Blender) : `semerLeDecor` pose chaque arbre en miroir une fois sur deux
-  (`setFlipX`), et le miroir retourne aussi l'ombre portée que Blender a mise dans le sprite.
-  Ces arbres-là jettent leur ombre vers l'ouest quand tout le reste la jette vers l'est. Les
-  ombres au pied suivent le miroir de leur arbre, donc ne l'aggravent pas. À trancher.
+- ✅ **Un arbre sur deux avait le soleil à l'envers** (vu le 24 novembre en posant les ombres,
+  **corrigé le même jour** sur décision d'Angelos) : le jeu retournait l'image (`setFlipX`), et
+  avec elle l'ombre portée que Blender met dans le sprite. Voir « Le chantier 6.45, étape 3 »,
+  les miroirs rendus dans Blender.
 
 - ✅ **Le relief avait une marche droite à ~130 px des lacs** (vu le 11 novembre en maquettant
   le sol, **corrigé le même jour** dans `relief.ts` : la rampe du rivage fait 120 px). `distanceATache` rend « très loin » (1e6) dès qu'on sort d'une **boîte** de

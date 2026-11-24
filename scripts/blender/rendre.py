@@ -45,6 +45,41 @@ def agrandi(fabrique, facteur):
     return f
 
 
+def mire(fabrique):
+    """Le même objet retourné d'est en ouest autour de son pied, sous le même soleil."""
+    def f(a):
+        pied = fabrique(a)
+        monde.mirer(a, pied[0])
+        return pied
+    return f
+
+
+# Ce que le jeu pose en miroir une fois sur deux (`installation.ts`) : ces objets
+# ont aussi leur version retournée **dans Blender**, `<cle>-miroir`, dont l'ombre
+# part du bon côté (24 novembre 2026). L'ancre d'un objet décentré se retourne
+# avec lui, pour que l'image soit le reflet exact de l'originale.
+EN_MIROIR = ("decor-arbre", "decor-conifere", "decor-rocher", "decor-tonneau",
+             "decor-tas-de-bois", "decor-charrette", "decor-corde-a-linge", "decor-filets")
+
+
+# ⚠️ Deux objets ne sont pas symétriques autour de leur pied : retournés, ils
+# sortaient de leur cadre (le rocher 2 de deux colonnes, la charrette d'une),
+# et `reduire.py` refuse. Leur pied recule d'autant vers l'ouest, ce qui les
+# pose un ou deux pixels à côté du reflet exact : rien qui se voie sur un décor
+# tiré au hasard.
+RECUL_DU_MIROIR = {"decor-rocher-2": 2, "decor-charrette": 1}
+
+
+def avec_les_miroirs(s):
+    for cle, (fab, W, H, pied, *reste) in list(s.items()):
+        if not cle.startswith(EN_MIROIR):
+            continue
+        ancre = reste[0] if reste else W / 2
+        recul = RECUL_DU_MIROIR.get(cle, 0)
+        s[f"{cle}-miroir"] = (mire(fab), W, H, pied, W - ancre - recul, *reste[1:])
+    return s
+
+
 # La texture du jeu (largeur, hauteur), la ligne du pied, et la colonne du pied
 # (au milieu si rien n'est dit).
 # ⚠️ Ces tailles sont aussi dans `batiments.ts` (MAISON, FERME, EGLISE) et
@@ -99,7 +134,7 @@ def sprites():
     # `dessin/elements.ts` (LARGEUR_RACINES, HAUTEUR_RACINES, PIED_RACINES).
     for v in range(3):
         s[f"element-racines-{v}"] = (lambda a, v=v: monde.racines(a, v), 24, 20, 16)
-    return s
+    return avec_les_miroirs(s)
 
 
 def lin(c):

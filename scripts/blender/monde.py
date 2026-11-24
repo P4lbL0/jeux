@@ -185,6 +185,25 @@ def agrandir(a, facteur):
         o.scale = o.scale * facteur
 
 
+def mirer(a, x0=0.0):
+    """Retourne tout ce qui a été fabriqué d'est en ouest, autour de la verticale x = x0.
+
+    C'est le **modèle** qu'on retourne, pas l'image : le soleil, lui, ne bouge pas.
+    Un sprite retourné dans le jeu (`setFlipX`) retournait aussi son ombre portée,
+    qui partait alors vers l'ouest quand tout le reste la jette vers l'est
+    (24 novembre 2026). Blender rend juste un objet d'échelle négative : il
+    retourne lui-même l'ordre de ses faces.
+    """
+    from mathutils import Matrix
+    miroir = Matrix.Translation((x0, 0, 0)) @ Matrix.Scale(-1, 4, (1, 0, 0)) @ Matrix.Translation((-x0, 0, 0))
+    # ⚠️ `matrix_basis`, pas `matrix_world` : celle-ci n'est recalculée qu'à la
+    # prochaine évaluation de la scène, et `agrandir` vient de changer les
+    # positions sans la déclencher.
+    for o in a.pieces:
+        if o.parent is None:
+            o.matrix_basis = miroir @ o.matrix_basis
+
+
 # ------------------------------------------------------------------ objets
 # Chaque fabrique renvoie le point du sol qui doit tomber sur le « pied » du
 # sprite dans le jeu : le milieu du bord sud de l'emprise.

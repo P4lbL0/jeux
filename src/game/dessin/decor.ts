@@ -300,8 +300,36 @@ function decor(cle: string, forme: { largeur: number; hauteur: number; pied: num
   return { cle, largeur: forme.largeur, hauteur: forme.hauteur, origineY: (forme.pied + 2) / forme.hauteur };
 }
 
-/** Les decors, dans leur ordre de cuisson, avec leur taille. */
-export const DECORS: readonly Decor[] = [
+/**
+ * Ce que le jeu pose en miroir une fois sur deux (les arbres, les rochers, le
+ * petit decor du village) a aussi sa **version retournee dans Blender**,
+ * `<cle>-miroir` (24 novembre 2026).
+ *
+ * ⚠️ **Retourner l'image retournait aussi le soleil.** Un sprite Blender porte
+ * son ombre portee, a l'est ; `setFlipX` la jetait a l'ouest, sur un objet sur
+ * deux, a cote de maisons et de murs dont l'ombre part a l'est. La version
+ * miroir est le meme modele retourne, rendu sous le meme soleil.
+ */
+export const SUFFIXE_MIROIR = "-miroir";
+
+const AVEC_MIROIR: readonly string[] = [
+  ...ARBRES_MORTS,
+  ...ARBRES_VIVANTS,
+  ...CONIFERES,
+  ...ROCHERS,
+  CLE_TONNEAU,
+  CLE_TAS_DE_BOIS,
+  CLE_CHARRETTE,
+  CLE_CORDE_A_LINGE,
+  CLE_FILETS,
+];
+
+/** La cle de la version retournee d'un decor, ou `null` s'il n'en a pas. */
+export function cleEnMiroir(cle: string): string | null {
+  return AVEC_MIROIR.includes(cle) ? cle + SUFFIXE_MIROIR : null;
+}
+
+const DECORS_DE_BASE: readonly Decor[] = [
   ...ARBRES_MORTS.map((cle) => decor(cle, ARBRE)),
   ...ARBRES_VIVANTS.map((cle) => decor(cle, ARBRE)),
   ...CONIFERES.map((cle) => decor(cle, ARBRE)),
@@ -320,12 +348,21 @@ export const DECORS: readonly Decor[] = [
   decor(CLE_METEORITE, METEORITE),
 ];
 
+/** Les decors, dans leur ordre de cuisson, avec leur taille : ceux de base, puis leurs miroirs. */
+export const DECORS: readonly Decor[] = [
+  ...DECORS_DE_BASE,
+  ...DECORS_DE_BASE.filter((d) => AVEC_MIROIR.includes(d.cle)).map((d) => ({ ...d, cle: d.cle + SUFFIXE_MIROIR })),
+];
+
 export function decorParCle(cle: string): Decor {
   return DECORS.find((d) => d.cle === cle) ?? DECORS[0]!;
 }
 
 /** Peint un decor dans une toile neuve. Exporte pour la planche et les tests. */
 export function peindreDecor(cle: string): Toile {
+  // Sans son PNG, un miroir est le dessin au code retourne : celui-la n'a pas
+  // d'ombre portee, juste une ombre ronde au pied, que le miroir ne trahit pas.
+  if (cle.endsWith(SUFFIXE_MIROIR)) return peindreDecor(cle.slice(0, -SUFFIXE_MIROIR.length)).miroir();
   const forme = decorParCle(cle);
   const toile = new Toile(forme.largeur, forme.hauteur);
   const index = Number(cle.slice(cle.lastIndexOf("-") + 1)) || 0;

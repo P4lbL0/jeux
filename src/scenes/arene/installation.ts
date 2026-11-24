@@ -5,6 +5,7 @@ import {
   ARBRES_VIVANTS,
   CONIFERES,
   ROCHERS,
+  cleEnMiroir,
   decorParCle,
   CLE_CHARRETTE,
   CLE_CORDE_A_LINGE,
@@ -201,11 +202,16 @@ export class ArenaInstallation {
     // rien ne les deplace, et ils sont des milliers.
     const ombres: OmbreAuSol[] = [];
     const poser = (x: number, y: number, cle: string) => {
+      // Un sur deux en miroir, comme avant — mais par sa version retournee dans
+      // Blender, dont l'ombre part du bon cote (24 novembre 2026). Le tirage
+      // reste le meme : la graine zero garde ses arbres.
+      const miroir = rng.next() < 0.5;
+      const vue = this.versionPosee(cle, miroir);
       const image = this.add
-        .image(x, y, cle)
-        .setOrigin(0.5, decorParCle(cle).origineY)
+        .image(x, y, vue.cle)
+        .setOrigin(0.5, decorParCle(vue.cle).origineY)
         .setDepth(y)
-        .setFlipX(rng.next() < 0.5);
+        .setFlipX(vue.retourne);
       const ombre = ombreAuSolDe(image);
       if (ombre) ombres.push(ombre);
     };
@@ -242,6 +248,18 @@ export class ArenaInstallation {
     });
 
     this.carte?.semerLesOmbres(ombres);
+  }
+
+  /**
+   * La version d'un decor a poser, en miroir ou non : sa version retournee
+   * dans Blender si elle existe, sinon l'image retournee (le dessin au code n'a
+   * pas d'ombre portee a trahir).
+   */
+  versionPosee(this: ArenaScene, cle: string, miroir: boolean): { cle: string; retourne: boolean } {
+    if (!miroir) return { cle, retourne: false };
+    const reflet = cleEnMiroir(cle);
+    if (reflet && this.textures.exists(reflet)) return { cle: reflet, retourne: false };
+    return { cle, retourne: true };
   }
 
   /**
@@ -286,7 +304,10 @@ export class ArenaInstallation {
       if (!this.textures.exists(cle)) return;
       // Une ombre qui suit : la place du village s'ecrit dans le sol apres eux,
       // et effacerait une ombre peinte dedans.
-      suivreLOmbre(this.add.image(x, y, cle).setOrigin(0.5, decorParCle(cle).origineY).setDepth(y).setFlipX(miroir));
+      const vue = this.versionPosee(cle, miroir);
+      suivreLOmbre(
+        this.add.image(x, y, vue.cle).setOrigin(0.5, decorParCle(vue.cle).origineY).setDepth(y).setFlipX(vue.retourne),
+      );
       poses.push({ x, y, rayon: RAYONS[cle] ?? 12 });
     };
 
